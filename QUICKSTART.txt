@@ -1,0 +1,100 @@
+========================================
+  SNAIL RACE FUNDRAISER - QUICK START
+  Newcomb & District Cricket Club
+========================================
+
+HOW TO RUN THE GAME (3 SIMPLE STEPS):
+======================================
+
+1. DOWNLOAD
+   - Download all files from this folder/repository
+   - Keep them all together in the same folder
+
+2. OPEN
+   - Double-click on "index.html"
+   - OR right-click → Open with → Your web browser
+   - Works with Chrome, Firefox, Safari, Edge
+
+3. USE
+   - Scroll down to see the moderator controls
+   - Customize snail names
+   - Add sponsorships as people donate
+   - Click "Start Race" and watch the fun!
+
+
+FOR YOUR EVENT:
+===============
+
+BEST SETUP:
+-----------
+- Display on a big screen/projector (press F11 for fullscreen)
+- Have a moderator with a laptop/tablet to control the races
+- Let people pick and sponsor their favorite snail
+- Run multiple races throughout the event!
+
+BEFORE THE EVENT:
+-----------------
+1. Test it by opening index.html on your computer
+2. Customize the snail names (use player names, sponsors, etc.)
+3. Practice starting and resetting races
+4. Decide on minimum sponsorship amount ($5, $10, etc.)
+
+DURING THE EVENT:
+-----------------
+1. People choose which snail to sponsor (donate for)
+2. Enter their donation in the moderator panel
+3. Start the race when ready
+4. Celebrate the winner!
+5. Reset and repeat with new names/sponsors
+
+KEYBOARD SHORTCUTS:
+-------------------
+- SPACEBAR = Start Race
+- R = Reset Race
+
+
+TROUBLESHOOTING:
+================
+
+Q: The game won't open?
+A: Make sure all files (index.html, style.css, script.js) are in the same folder
+
+Q: Snails aren't moving?
+A: Refresh the page (F5) and try again
+
+Q: Display looks weird?
+A: Try F11 for fullscreen, or adjust browser zoom (Ctrl + or Ctrl -)
+
+Q: Need to run on multiple devices?
+A: See the README.md file for instructions on hosting on local network
+
+
+CUSTOMIZATION:
+==============
+- Want different colors? Edit style.css
+- Want different number of snails? Edit index.html and script.js
+- Want to add your club logo? See README.md for instructions
+
+
+FEATURES:
+=========
+✓ 6 animated racing snails
+✓ Customizable snail names
+✓ Live sponsorship tracking
+✓ Total raised counter
+✓ Race history
+✓ Variable race speeds
+✓ Winner celebrations
+✓ Mobile friendly
+✓ No internet required
+✓ No installation needed
+
+
+NEED HELP?
+==========
+Full documentation available in README.md
+
+
+Have fun and raise lots of money for the club!
+
+Made with ❤️ for Newcomb & District Cricket Club
