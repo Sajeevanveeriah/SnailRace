@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newcomb & District Cricket Club - Snail Race Fundraiser</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🏏 Newcomb & District Cricket Club</h1>
+            <h2>Snail Racing Fundraiser 🐌</h2>
+            <div class="total-raised">
+                Total Raised: $<span id="totalRaised">0</span>
+            </div>
+        </header>
+
+        <!-- Race Track -->
+        <div class="race-container" id="raceContainer">
+            <div class="race-track">
+                <div class="finish-line"></div>
+
+                <!-- Snail 1 -->
+                <div class="lane" data-lane="1">
+                    <div class="lane-number">1</div>
+                    <div class="snail" id="snail1" data-snail="1">
+                        <div class="snail-emoji">🐌</div>
+                        <div class="snail-name">Speedy</div>
+                        <div class="snail-sponsors">Sponsors: <span class="sponsor-count">0</span></div>
+                    </div>
+                </div>
+
+                <!-- Snail 2 -->
+                <div class="lane" data-lane="2">
+                    <div class="lane-number">2</div>
+                    <div class="snail" id="snail2" data-snail="2">
+                        <div class="snail-emoji">🐌</div>
+                        <div class="snail-name">Turbo</div>
+                        <div class="snail-sponsors">Sponsors: <span class="sponsor-count">0</span></div>
+                    </div>
+                </div>
+
+                <!-- Snail 3 -->
+                <div class="lane" data-lane="3">
+                    <div class="lane-number">3</div>
+                    <div class="snail" id="snail3" data-snail="3">
+                        <div class="snail-emoji">🐌</div>
+                        <div class="snail-name">Lightning</div>
+                        <div class="snail-sponsors">Sponsors: <span class="sponsor-count">0</span></div>
+                    </div>
+                </div>
+
+                <!-- Snail 4 -->
+                <div class="lane" data-lane="4">
+                    <div class="lane-number">4</div>
+                    <div class="snail" id="snail4" data-snail="4">
+                        <div class="snail-emoji">🐌</div>
+                        <div class="snail-name">Flash</div>
+                        <div class="snail-sponsors">Sponsors: <span class="sponsor-count">0</span></div>
+                    </div>
+                </div>
+
+                <!-- Snail 5 -->
+                <div class="lane" data-lane="5">
+                    <div class="lane-number">5</div>
+                    <div class="snail" id="snail5" data-snail="5">
+                        <div class="snail-emoji">🐌</div>
+                        <div class="snail-name">Rocket</div>
+                        <div class="snail-sponsors">Sponsors: <span class="sponsor-count">0</span></div>
+                    </div>
+                </div>
+
+                <!-- Snail 6 -->
+                <div class="lane" data-lane="6">
+                    <div class="lane-number">6</div>
+                    <div class="snail" id="snail6" data-snail="6">
+                        <div class="snail-emoji">🐌</div>
+                        <div class="snail-name">Bolt</div>
+                        <div class="snail-sponsors">Sponsors: <span class="sponsor-count">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Display -->
+        <div class="status-display">
+            <div class="race-status" id="raceStatus">Ready to Race!</div>
+            <div class="winner-announcement" id="winnerAnnouncement"></div>
+        </div>
+
+        <!-- Moderator Controls -->
+        <div class="moderator-panel">
+            <h3>🎮 Moderator Controls</h3>
+
+            <div class="control-section">
+                <h4>Race Controls</h4>
+                <button id="startRace" class="btn btn-start">🏁 Start Race</button>
+                <button id="resetRace" class="btn btn-reset">🔄 Reset Race</button>
+                <button id="newRound" class="btn btn-new">✨ New Round</button>
+            </div>
+
+            <div class="control-section">
+                <h4>Race Settings</h4>
+                <label>
+                    Race Speed:
+                    <select id="raceSpeed">
+                        <option value="slow">Slow (15s)</option>
+                        <option value="medium" selected>Medium (10s)</option>
+                        <option value="fast">Fast (7s)</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="control-section">
+                <h4>Snail Names</h4>
+                <div class="snail-name-inputs">
+                    <input type="text" id="name1" placeholder="Snail 1 Name" value="Speedy">
+                    <input type="text" id="name2" placeholder="Snail 2 Name" value="Turbo">
+                    <input type="text" id="name3" placeholder="Snail 3 Name" value="Lightning">
+                    <input type="text" id="name4" placeholder="Snail 4 Name" value="Flash">
+                    <input type="text" id="name5" placeholder="Snail 5 Name" value="Rocket">
+                    <input type="text" id="name6" placeholder="Snail 6 Name" value="Bolt">
+                </div>
+                <button id="updateNames" class="btn btn-update">Update Names</button>
+            </div>
+
+            <div class="control-section">
+                <h4>Sponsorship Tracker</h4>
+                <div class="sponsor-controls">
+                    <label>Select Snail:
+                        <select id="sponsorSnail">
+                            <option value="1">Snail 1</option>
+                            <option value="2">Snail 2</option>
+                            <option value="3">Snail 3</option>
+                            <option value="4">Snail 4</option>
+                            <option value="5">Snail 5</option>
+                            <option value="6">Snail 6</option>
+                        </select>
+                    </label>
+                    <label>Amount: $
+                        <input type="number" id="sponsorAmount" placeholder="10" min="1" value="10">
+                    </label>
+                    <button id="addSponsor" class="btn btn-sponsor">➕ Add Sponsor</button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h4>Race History</h4>
+                <div id="raceHistory" class="race-history">
+                    <p class="no-history">No races yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
