@@ -64,8 +64,14 @@ This game runs entirely in your web browser. No apps to install, no accounts to 
 ## System Requirements
 
 - Any computer, tablet, or smartphone
-- Any modern web browser (Chrome, Firefox, Safari, Edge)
+- A reasonably current browser — Chrome/Edge 105+, Firefox 121+, or Safari 15.4+
+  (anything from 2022 onwards)
 - That's it!
+
+## First time you open it
+
+Press **`F`** for full screen, **`M`** for the moderator controls, **`Space`** to race.
+Everything else is in `QUICKSTART.txt`.
 
 ## Need Help?
 
