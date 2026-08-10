@@ -3,98 +3,158 @@
   Newcomb & District Cricket Club
 ========================================
 
-HOW TO RUN THE GAME (3 SIMPLE STEPS):
-======================================
+RUN IT (30 SECONDS)
+===================
 
-1. DOWNLOAD
-   - Download all files from this folder/repository
-   - Keep them all together in the same folder
+1. Keep index.html, style.css and script.js together in one folder.
+2. Double-click "index.html".
+3. Press F for full screen. Press M for the controls. Press SPACE to race.
 
-2. OPEN
-   - Double-click on "index.html"
-   - OR right-click → Open with → Your web browser
-   - Works with Chrome, Firefox, Safari, Edge
-
-3. USE
-   - Scroll down to see the moderator controls
-   - Customize snail names
-   - Add sponsorships as people donate
-   - Click "Start Race" and watch the fun!
+No installation. No internet. No accounts.
 
 
-FOR YOUR EVENT:
-===============
+THE FIVE KEYS THAT MATTER
+=========================
 
-BEST SETUP:
------------
-- Display on a big screen/projector (press F11 for fullscreen)
-- Have a moderator with a laptop/tablet to control the races
-- Let people pick and sponsor their favorite snail
-- Run multiple races throughout the event!
+  SPACE ....... Start the race (also dismisses the winner card)
+  M ........... Show / hide the moderator controls
+  ESC ......... Reset the race, or close the winner card
+  F ........... Full screen
+  CTRL+Z ...... Undo the last donation
 
-BEFORE THE EVENT:
------------------
-1. Test it by opening index.html on your computer
-2. Customize the snail names (use player names, sponsors, etc.)
-3. Practice starting and resetting races
-4. Decide on minimum sponsorship amount ($5, $10, etc.)
+Shortcuts are ignored while you're typing, so you can name a snail
+"Shell Warne" without accidentally starting a race.
 
-DURING THE EVENT:
------------------
-1. People choose which snail to sponsor (donate for)
-2. Enter their donation in the moderator panel
-3. Start the race when ready
-4. Celebrate the winner!
-5. Reset and repeat with new names/sponsors
-
-KEYBOARD SHORTCUTS:
--------------------
-- SPACEBAR = Start Race
-- R = Reset Race
+  Also: N = day/night stage, C = calm mode, S = sound on/off
 
 
-TROUBLESHOOTING:
+BEFORE THE EVENT
 ================
 
-Q: The game won't open?
-A: Make sure all files (index.html, style.css, script.js) are in the same folder
+Press M to open the controls, then:
 
-Q: Snails aren't moving?
-A: Refresh the page (F5) and try again
+  RACERS ...... Choose 4-8 snails and name them. Player names, sponsor
+                businesses, in-jokes. "Suggest names" fills them with
+                cricket puns if you're stuck.
+  TARGET ...... Set tonight's goal so the bar on screen means something.
+  RACE ........ Pick a race length. 10 seconds is the sweet spot.
 
-Q: Display looks weird?
-A: Try F11 for fullscreen, or adjust browser zoom (Ctrl + or Ctrl -)
-
-Q: Need to run on multiple devices?
-A: See the README.md file for instructions on hosting on local network
+Run one practice race and check it looks right on the projector.
 
 
-CUSTOMIZATION:
-==============
-- Want different colors? Edit style.css
-- Want different number of snails? Edit index.html and script.js
-- Want to add your club logo? See README.md for instructions
+DURING THE EVENT
+================
+
+TAKING A DONATION
+  Pick the snail -> type the backer's name (optional) -> enter the
+  amount, or tap $5 / $10 / $20 / $50 / $100 -> Add donation.
+
+  Capturing the backer's name is optional, so never hold up a queue
+  for it. But if you do, the winner's card names them on the big
+  screen, and the club goes home with a list of people to thank.
+
+MADE A MISTAKE?
+  CTRL+Z undoes the last donation.
+  "void" next to any ledger row reverses that one.
+  Voided entries stay on the books marked VOID, so the numbers balance.
+
+RACING
+  Press SPACE. Countdown, race, winner card with the podium and the
+  backers' names. It clears itself after ~15 seconds, or press ESC.
+  The tote board resets for the next race. The night total keeps going.
 
 
-FEATURES:
-=========
-✓ 6 animated racing snails
-✓ Customizable snail names
-✓ Live sponsorship tracking
-✓ Total raised counter
-✓ Race history
-✓ Variable race speeds
-✓ Winner celebrations
-✓ Mobile friendly
-✓ No internet required
-✓ No installation needed
+AT THE END OF THE NIGHT
+=======================
+
+In the "End of night" panel:
+
+  OPEN REPORT ... Night total, every race with its podium and pot,
+                  per-snail totals, the full donor list, and a sign-off
+                  line for whoever counts the cash.
+                  "Print / Save as PDF" prints just the report.
+  EXPORT CSV .... The same data as a spreadsheet.
+  SAVE BACKUP ... A .json file you can restore on any machine.
+
+Take a backup or a CSV before you close the laptop.
 
 
-NEED HELP?
+"IS IT RIGGED?"
+===============
+
+No, and you can prove it standing there.
+
+The finishing order is drawn the instant you press Start, before any
+snail moves, and the seed it was drawn from is printed on screen. The
+draw never looks at the donations. Every snail wins exactly 1 race in N.
+
+If someone grumbles, copy the seed from the results list into
+"Verify draw" in the End of night panel. It re-runs the draw and prints
+the order - which will match what everyone just watched.
+
+Announce it as a bit of fun and a raffle-style draw, not a contest of
+snail ability.
+
+
+BIG SCREEN SETUP
+================
+
+One laptop, mirrored to the TV or projector over HDMI. Press F for full
+screen and keep the controls closed with M. Open them when you need to
+take a donation, then close them again.
+
+Dark hall? Press N. The track goes dark so a big white rectangle isn't
+blinding the room.
+
+DON'T try to run a second copy on a tablet as a "remote control" - each
+copy keeps its own separate books. Mirror one screen instead.
+
+
+TROUBLESHOOTING
+===============
+
+Q: The race won't start?
+A: If the controls are closed, press SPACE. If they're open, click
+   Start. Make sure you're not in a text field.
+
+Q: A donation went in wrong?
+A: CTRL+Z, or hit "void" on that row in the ledger.
+
+Q: The screen is blinding in a dark room?
+A: Press N for the night stage.
+
+Q: The animation is making someone unwell?
+A: Press C for calm mode. The races still run, the decoration stops.
+
+Q: It says NOT SAVING?
+A: Some browsers block storage for files opened directly. Use
+   "Save backup" regularly, or serve the folder over http://localhost.
+
+Q: Do we need internet?
+A: No. Nothing is fetched, nothing is sent, everything stays on the
+   device.
+
+
+WHAT'S ON SCREEN
+================
+
+  ✓ 4-8 racing snails, each with its own colour, slime trail, live
+    position and its name travelling alongside it
+  ✓ Tote board: dollars and backers on each snail, for the room to see
+  ✓ Running night total with a goal bar and celebrations at 25/50/75/100%
+  ✓ Countdown, live commentary, photo finishes in slow motion
+  ✓ Winner card with podium, 2nd and 3rd, and the backers named
+  ✓ Full donation ledger with undo and void
+  ✓ Printable treasurer's report and CSV export
+  ✓ Backup and restore
+  ✓ Day and night stage themes, calm mode, screen-reader support
+  ✓ Survives a refresh - your night's takings are saved as you go
+
+
+NEED MORE?
 ==========
-Full documentation available in README.md
+Full documentation is in README.md.
 
+Good luck on the night.
 
-Have fun and raise lots of money for the club!
-
-Made with ❤️ for Newcomb & District Cricket Club
+Made with love for Newcomb & District Cricket Club

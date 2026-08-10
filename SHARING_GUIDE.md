@@ -70,31 +70,36 @@ See you at the fundraiser!
 
 ### Setup Options:
 
-**Option A: Single Device Display**
-- Tablet or laptop at a table
-- People gather around
-- Moderator controls races
+**Option A: Big Screen Display (Recommended!)**
+- One laptop, mirrored to a projector or TV over HDMI
+- Press `F` for full screen, and `M` to hide the controls from the crowd
+- Open the controls with `M` when you take a donation, then close them again
+- Press `N` if the hall is dark — it flips the track to a dark theme so a
+  two-metre white rectangle isn't blinding the room
 
-**Option B: Big Screen Display (Recommended!)**
-- Laptop connected to projector/TV
-- Display for everyone to watch
-- Separate device (tablet/phone) for moderator controls
-- Much more engaging for crowds!
+**Option B: Single Device**
+- Tablet or laptop at a table, people gather around
+- Same controls, just smaller
 
-**Option C: Multiple Devices**
-- Copy game to multiple devices
-- Run multiple simultaneous races
-- Creates more engagement
+**⚠️ What does NOT work: a second device as a "remote control".**
+Each copy of the game keeps its own separate books in its own browser. A
+tablet running a second copy is a *different, empty* event — donations you
+enter on it will not appear on the projector, and you will end the night
+with two half-complete sets of numbers. Take donations on the same machine
+that's driving the screen, and mirror the display over HDMI.
+
+Running genuinely separate races on separate devices is fine — just export
+a CSV from each and add them up.
 
 ### What to Bring to the Event:
 
-- ✅ Laptop/tablet with game loaded
-- ✅ Extension cord/power cable
-- ✅ HDMI cable (if using projector/TV)
-- ✅ Backup device with game installed
+- ✅ Laptop with the game loaded (and a charger)
+- ✅ HDMI cable and an adaptor that actually fits that laptop
+- ✅ A second device with the game on it as a backup
 - ✅ Printed QUICKSTART.txt guide
 - ✅ Donation collection box/method
-- ✅ Paper and pen for tracking if needed
+- ✅ Paper and pen as a fallback
+- ✅ A USB stick — for saving the backup/CSV at the end of the night
 
 ---
 
@@ -151,15 +156,27 @@ See you at the fundraiser!
    - Try a different browser
 
 2. **"The display is too small"**
-   - Press F11 for fullscreen
-   - Use Ctrl/Cmd + to zoom in
+   - Press `F` for full screen, and `M` to hide the controls
 
 3. **"Can we use it on an iPad?"**
    - Yes! Just open index.html in Safari
    - Works on all tablets and phones
 
 4. **"Do we need internet?"**
-   - No! Works completely offline
+   - No! Works completely offline. Nothing is fetched or sent.
+
+5. **"Someone entered a donation wrong"**
+   - `Ctrl+Z` undoes the last one, or hit "void" on that row in the ledger
+   - Voided entries stay on the books marked VOID so the numbers still balance
+
+6. **"Is the race rigged towards the snail with the most money on it?"**
+   - No. The finishing order is drawn before any snail moves and the seed is
+     printed on screen. Paste that seed into "Verify draw" in the End of night
+     panel and it will reproduce the same result in front of them.
+
+7. **"We closed the laptop / the browser refreshed"**
+   - The night's takings are saved as you go and will come back when you
+     reopen the file. Still take a backup before you go home.
 
 ---
 

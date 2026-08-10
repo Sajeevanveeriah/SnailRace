@@ -41,7 +41,7 @@ These files must be kept together in the same folder:
 
 1. **Unzip** this package (if you haven't already)
 2. **Open** `index.html` in any web browser
-3. **Play!** Scroll down for moderator controls
+3. Press **`F`** for full screen, **`M`** for the moderator controls, **`Space`** to race
 
 That's it! No installation, no account, no internet needed!
 
@@ -82,14 +82,26 @@ That's it! No installation, no account, no internet needed!
 
 ## ✅ What You Get
 
-- ✅ 6 animated racing snails
-- ✅ Live donation tracking
-- ✅ Customizable snail names
-- ✅ Moderator control panel
-- ✅ Race history and statistics
-- ✅ Winner celebrations
-- ✅ Mobile-friendly design
-- ✅ Cricket club themed
+**On the big screen**
+- ✅ 4–8 racing snails, each with its own colour, slime trail, live position
+      and its name travelling alongside it
+- ✅ Tote board showing dollars and backers on every snail
+- ✅ Running night total with a goal bar and celebrations at 25/50/75/100%
+- ✅ Countdown, live commentary, and photo finishes in slow motion
+- ✅ Winner card with the podium, 2nd and 3rd, and the backers named
+
+**For the person running it**
+- ✅ Moderator controls in a drawer you hide from the crowd (`M`)
+- ✅ Donation ledger with backer names, undo (`Ctrl+Z`) and void
+- ✅ Everything saved as you go — a refresh doesn't cost you the night
+- ✅ Printable treasurer's report, CSV export, and backup/restore
+- ✅ A published seed for every race, so you can prove the draw was fair
+
+**Everywhere**
+- ✅ Day and night stage themes for bright or dark halls
+- ✅ Calm mode and reduced-motion support
+- ✅ Screen-reader announcements and WCAG AA contrast
+- ✅ Works on phones, tablets, laptops and projectors
 - ✅ NO installation needed
 - ✅ NO internet needed
 - ✅ NO technical skills needed
@@ -125,8 +137,7 @@ That's it! No installation, no account, no internet needed!
 - ✅ Any device with a web browser!
 
 **Browsers:**
-- Chrome, Firefox, Safari, Edge, Opera
-- Any modern browser from the last 2 years
+- Chrome/Edge 105+, Firefox 121+, Safari 15.4+ — anything from 2022 onwards
 
 ---
 
@@ -136,15 +147,15 @@ Everything you need is in this package. Just open `index.html` and you're ready 
 
 **For your first time:**
 1. Open `index.html`
-2. Scroll to moderator controls
-3. Click "Start Race" to test it
+2. Press `M` for the moderator controls
+3. Press `Space` to run a race
 4. Read `QUICKSTART.txt` to learn more
 
 **For the actual event:**
 1. Follow tips in `SHARING_GUIDE.md`
-2. Customize snail names
-3. Project on a big screen
-4. Have fun and raise money!
+2. Name the snails and set tonight's goal
+3. Mirror the laptop to a big screen, press `F`, close the controls with `M`
+4. Have fun and raise money — and export the CSV before you go home!
 
 ---
 
@@ -154,6 +165,5 @@ Everything you need is in this package. Just open `index.html` and you're ready 
 
 ---
 
-*Package Version: 1.0*
-*Created: October 2025*
+*Package Version: 2.0*
 *No rights reserved - Use freely for fundraising!*
