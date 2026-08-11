@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, drawNames, laneColour } from '@/lib/palette';
+import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
 import { verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import { sfx } from '@/lib/sound';
@@ -267,6 +267,48 @@ export function ControlDrawer({
                 <p className="text-[11px] text-white/45">
                   Cash is recorded on this device. Card donations arrive from Stripe on their own.
                 </p>
+              </div>
+            </section>
+
+            {/* ── Event identity and stage look ────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Event</h3>
+              <div className="grid gap-3">
+                <label className="fld">
+                  <span>Club name</span>
+                  <input
+                    type="text"
+                    value={event.clubName}
+                    maxLength={60}
+                    onChange={(e) => setState({ clubName: e.target.value })}
+                  />
+                </label>
+                <label className="fld">
+                  <span>Event name</span>
+                  <input
+                    type="text"
+                    value={event.eventName}
+                    maxLength={60}
+                    onChange={(e) => setState({ eventName: e.target.value })}
+                  />
+                </label>
+                <div>
+                  <p className="fld mb-2"><span>Stage look</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {STAGE_THEMES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className="swatch"
+                        aria-pressed={event.stageTheme === t.id}
+                        onClick={() => setState({ stageTheme: t.id })}
+                      >
+                        <i style={{ background: `linear-gradient(180deg, ${t.a}, ${t.b})` }} />
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </section>
 

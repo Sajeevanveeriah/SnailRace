@@ -221,58 +221,45 @@ export function Stage() {
 
       <div className="stage-shell mx-auto flex min-h-dvh max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <header className="reveal flex flex-wrap items-center justify-between gap-5">
+        <header className="reveal flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/45">
-              {event.clubName}
-            </p>
-            <h1 className="display mt-1 text-4xl sm:text-5xl lg:text-6xl">{event.eventName}</h1>
+            <p className="eyebrow">{event.clubName}</p>
+            <h1 className="display mt-1.5 text-4xl sm:text-5xl lg:text-[3.4rem]">
+              {event.eventName}
+            </h1>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-6">
             <div className="text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">
-                Raised tonight
-              </p>
+              <p className="eyebrow">Raised tonight</p>
               <CountUp
                 value={nightCents}
                 format={moneyShort}
-                className="display text-4xl sm:text-5xl text-(--color-lime)"
+                className="display money-ink mt-1 text-4xl sm:text-[3.2rem]"
               />
-              <p className="num mt-0.5 text-[11px] text-white/40">
-                target {moneyShort(event.goalCents)}
-              </p>
             </div>
             {event.goalShow ? (
               <GoalRing raisedCents={nightCents} goalCents={event.goalCents} />
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="glass px-4 py-2 text-sm font-semibold">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="chip-toggle pointer-events-none">
               {event.raceType} {nextRaceNo}
             </span>
-            {race.seedHex ? (
-              <span
-                className="num glass px-3 py-2 text-[11px] text-white/55"
-                title="The seed the finishing order was drawn from, printed before the snails moved."
-              >
-                seed {race.seedHex}
-              </span>
-            ) : null}
             <FeedPill status={feed.status} lastOk={feed.lastOk} />
             <button
               type="button"
-              className="btn btn-ghost px-4 py-2 text-sm"
+              className="chip-toggle"
               aria-pressed={event.calm}
               onClick={() => setState({ calm: !event.calm })}
               title="Calm mode stops decorative motion (C)"
             >
-              {event.calm ? 'Calm on' : 'Calm'}
+              Calm
             </button>
             <button
               type="button"
-              className="btn btn-ghost px-4 py-2 text-sm"
+              className="chip-toggle"
               aria-pressed={event.sound}
               onClick={() => {
                 primeAudio();
@@ -288,11 +275,21 @@ export function Stage() {
         {/* ── Stage body ─────────────────────────────────────────────── */}
         <main className="grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-4">
-            <RaceTrack names={names} race={race} clubName={event.clubName} />
+            <RaceTrack names={names} race={race} surface={event.stageTheme} />
 
             <div className="glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
-                <p className="text-lg font-semibold">{race.status}</p>
+                <div className="flex items-baseline gap-3">
+                  <p className="text-lg font-semibold">{race.status}</p>
+                  {race.seedHex ? (
+                    <span
+                      className="num text-[11px] text-white/35"
+                      title="The seed the finishing order was drawn from, printed before the snails moved."
+                    >
+                      seed {race.seedHex}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="h-5 truncate text-sm text-white/55">{race.commentary}</p>
               </div>
 
@@ -332,11 +329,9 @@ export function Stage() {
               showOdds
             />
 
-            {donateUrl ? (
+            {donateUrl && feed.status !== 'unconfigured' ? (
               <section className="glass glass-strong flex flex-col items-center gap-3 p-6">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/60">
-                  Back a snail
-                </h2>
+                <h2 className="eyebrow">Back a snail</h2>
                 <DonateQr url={donateUrl} />
                 <p className="text-center text-xs text-white/50">
                   Card donations by Stripe. Every dollar goes to the club.
@@ -403,14 +398,14 @@ function FeedPill({ status, lastOk }: { status: string; lastOk: number }) {
 
   const tone =
     status === 'live'
-      ? 'text-[#7ce85f]'
+      ? '!text-[#6ee7a0]'
       : status === 'offline'
-        ? 'text-[#ff8b80]'
-        : 'text-white/55';
+        ? '!text-[#ff9d94]'
+        : '';
 
   return (
     <span
-      className={`glass flex items-center gap-2 px-3 py-2 text-[11px] font-semibold ${tone}`}
+      className={`chip-toggle pointer-events-auto cursor-default ${tone}`}
       title={
         status === 'live'
           ? `Last successful read ${new Date(lastOk).toLocaleTimeString('en-AU')}`

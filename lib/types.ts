@@ -83,7 +83,8 @@ export interface EventState {
   history: RaceHistoryEntry[];
   bets: Bet[];
   chipBank: Record<string, number>;
-  theme: 'day' | 'night';
+  /** Which lighting the track runs under. Information design never changes. */
+  stageTheme: 'midnight' | 'turf' | 'dusk';
   calm: boolean;
   sound: boolean;
   bettingOpen: boolean;

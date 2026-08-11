@@ -56,7 +56,7 @@ export function WinnerOverlay({
         role="dialog"
         aria-modal="true"
         aria-labelledby="winner-name"
-        className="winner-card glass glass-strong relative w-full max-w-lg p-8 text-center"
+        className="winner-card glass glass-strong relative w-full max-w-lg p-9 text-center"
         style={
           {
             '--shell': c.shell,
@@ -66,11 +66,9 @@ export function WinnerOverlay({
           } as React.CSSProperties
         }
       >
-        <div className="rays" aria-hidden="true" />
+        <div className="winner-glow" aria-hidden="true" />
 
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/55">
-          Race {raceNo} winner
-        </p>
+        <p className="eyebrow">Race {raceNo} winner</p>
 
         <div className="mx-auto my-4 w-40">
           <Snail />

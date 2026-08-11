@@ -37,6 +37,17 @@ export function useDonations(eventId: string, intervalMs = 4000) {
       const res = await fetch(`/api/donations?eventId=${encodeURIComponent(eventId)}`, {
         cache: 'no-store',
       });
+
+      /*
+       * 404 means there is no API at all - a static host such as GitHub
+       * Pages. That is cash-only mode, not an outage, and the stage should
+       * say so rather than cry offline all night.
+       */
+      if (res.status === 404) {
+        setStatus('unconfigured');
+        return;
+      }
+
       const body = (await res.json()) as DonationsResponse;
 
       if (!body.configured) {

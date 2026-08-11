@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   }
 
   const lane = Math.round(Number(body.lane));
-  if (!Number.isInteger(lane) || lane < 0 || lane > 7) {
+  if (!Number.isInteger(lane) || lane < 0 || lane > 11) {
     return NextResponse.json({ ok: false, error: 'Pick a snail to back.' }, { status: 400 });
   }
 
