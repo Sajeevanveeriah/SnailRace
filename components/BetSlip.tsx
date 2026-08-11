@@ -90,9 +90,7 @@ export function BetSlip({
   return (
     <section className="glass glass-strong p-5 sm:p-6 flex flex-col gap-4" aria-label="Fun bets">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/60">
-          Fun bets
-        </h2>
+        <h2 className="eyebrow">Fun bets</h2>
         <span className="num rounded-full bg-(--color-gold)/15 px-3 py-1 text-xs font-bold text-(--color-gold)">
           {bank.toLocaleString('en-AU')} chips
         </span>

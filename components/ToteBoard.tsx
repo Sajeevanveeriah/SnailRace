@@ -32,10 +32,8 @@ export function ToteBoard({
   return (
     <aside className="glass glass-strong p-5 sm:p-6 flex flex-col gap-4" aria-label="Tote board">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/60">
-          Race {raceNo} tote
-        </h2>
-        <span className="num text-xl font-bold">{moneyShort(potCents)}</span>
+        <h2 className="eyebrow">Race {raceNo} tote</h2>
+        <span className="num money-ink text-2xl font-bold">{moneyShort(potCents)}</span>
       </div>
 
       <ol className="flex flex-col gap-2.5">

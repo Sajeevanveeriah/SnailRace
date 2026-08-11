@@ -2,22 +2,22 @@
 
 import { useCallback } from 'react';
 import { Snail } from './Snail';
-import { laneColour } from '@/lib/palette';
+import { laneColour, type StageThemeId } from '@/lib/palette';
 import type { LaneNodes, RaceController } from '@/lib/use-race';
 
 interface Props {
   names: string[];
   race: RaceController;
-  clubName: string;
+  surface: StageThemeId;
 }
 
-export function RaceTrack({ names, race, clubName }: Props) {
+export function RaceTrack({ names, race, surface }: Props) {
   const { registerLane, trackRef, flashRef } = race;
 
   /*
-   * One callback ref per lane, holding the five nodes the animation loop
-   * writes to. Collecting them here means the loop never queries the DOM
-   * mid-frame, and React still owns creation and teardown.
+   * One callback ref per lane, holding the nodes the animation loop writes
+   * to. Collecting them here means the loop never queries the DOM mid-frame,
+   * and React still owns creation and teardown.
    */
   const laneRef = useCallback(
     (index: number) => (root: HTMLDivElement | null) => {
@@ -41,15 +41,13 @@ export function RaceTrack({ names, race, clubName }: Props) {
   );
 
   return (
-    <div ref={trackRef} className="track-wrap">
-      <div className="scenery" aria-hidden="true">
-        <div className="bunting" />
-        <div className="sun" />
-        <div className="hills" />
-        <div className="crowd" />
-      </div>
-
-      <div className="lanes" role="list" aria-label="Racing lanes">
+    <div ref={trackRef} className="track-wrap" data-surface={surface}>
+      <div
+        className="lanes"
+        role="list"
+        aria-label="Racing lanes"
+        style={{ '--n': names.length } as React.CSSProperties}
+      >
         {names.map((name, i) => {
           const c = laneColour(i);
           return (
@@ -93,10 +91,8 @@ export function RaceTrack({ names, race, clubName }: Props) {
       </div>
 
       <div className="finish" aria-hidden="true">
-        <div className="finish-banner">
-          <span>FINISH</span>
-        </div>
         <div className="finish-chequer" />
+        <div className="finish-banner">FINISH</div>
       </div>
 
       <div ref={flashRef} className="flash" aria-hidden="true" />
@@ -110,10 +106,6 @@ export function RaceTrack({ names, race, clubName }: Props) {
       {race.photoFinish && race.phase === 'running' ? (
         <p className="photo-banner">PHOTO FINISH</p>
       ) : null}
-
-      <p className="absolute bottom-2 right-4 text-[10px] uppercase tracking-[0.28em] text-white/35 z-2 no-print">
-        {clubName}
-      </p>
     </div>
   );
 }

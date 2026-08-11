@@ -1,7 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { DEFAULT_NAMES } from './palette';
+import { DEFAULT_NAMES, MAX_FIELD, MIN_FIELD } from './palette';
 import type { EventState } from './types';
 
 /**
@@ -42,7 +42,7 @@ export function freshState(): EventState {
     history: [],
     bets: [],
     chipBank: {},
-    theme: 'night',
+    stageTheme: 'midnight',
     calm: false,
     sound: true,
     bettingOpen: true,
@@ -77,14 +77,14 @@ function merge(raw: string | null): EventState {
   if (!raw) return base;
   try {
     const parsed = JSON.parse(raw) as Partial<EventState>;
-    const names = Array.isArray(parsed.names) ? parsed.names.slice(0, 8) : base.names;
-    while (names.length < 8) names.push(DEFAULT_NAMES[names.length]);
+    const names = Array.isArray(parsed.names) ? parsed.names.slice(0, MAX_FIELD) : base.names;
+    while (names.length < MAX_FIELD) names.push(DEFAULT_NAMES[names.length]);
     return {
       ...base,
       ...parsed,
       version: 3,
       names,
-      fieldSize: Math.min(8, Math.max(4, Number(parsed.fieldSize) || base.fieldSize)),
+      fieldSize: Math.min(MAX_FIELD, Math.max(MIN_FIELD, Number(parsed.fieldSize) || base.fieldSize)),
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],

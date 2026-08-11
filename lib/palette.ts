@@ -2,6 +2,9 @@
  * Lane colours spread across hue AND lightness so they stay distinct through
  * projector gamma and for colour-blind viewers. Lane number and name pill
  * carry the same identity, so colour is never the only cue.
+ *
+ * Twelve entries because the field can now run to twelve lanes; the hues are
+ * ordered so that neighbouring lane numbers are never neighbouring hues.
  */
 export interface LaneColour {
   shell: string;
@@ -11,23 +14,28 @@ export interface LaneColour {
 }
 
 export const PALETTE: LaneColour[] = [
-  { shell: '#ff4d3d', dark: '#a52418', body: '#ffd9c2', glow: '255 77 61' },
-  { shell: '#ffb020', dark: '#a86800', body: '#ffe9c4', glow: '255 176 32' },
-  { shell: '#26c6a6', dark: '#0b6b58', body: '#c8f2e8', glow: '38 198 166' },
-  { shell: '#4c8dff', dark: '#1c4699', body: '#d3e2ff', glow: '76 141 255' },
-  { shell: '#c46bff', dark: '#6f2ba3', body: '#ecd8ff', glow: '196 107 255' },
-  { shell: '#b7e43b', dark: '#5f7d0d', body: '#eef8cf', glow: '183 228 59' },
-  { shell: '#ff7ab8', dark: '#a32f68', body: '#ffdcec', glow: '255 122 184' },
-  { shell: '#00c2d1', dark: '#046b75', body: '#c6f2f6', glow: '0 194 209' },
+  { shell: '#ff5f52', dark: '#8f2119', body: '#ffd7cd', glow: '255 95 82' },
+  { shell: '#3ca5ff', dark: '#14508f', body: '#cfe6ff', glow: '60 165 255' },
+  { shell: '#ffb224', dark: '#8f6100', body: '#ffe7bd', glow: '255 178 36' },
+  { shell: '#34d399', dark: '#0e6b4a', body: '#c9f5e4', glow: '52 211 153' },
+  { shell: '#a86bff', dark: '#54269b', body: '#e6d6ff', glow: '168 107 255' },
+  { shell: '#b7e43b', dark: '#5a740f', body: '#ecf8c8', glow: '183 228 59' },
+  { shell: '#ff7ab8', dark: '#94305f', body: '#ffd9ea', glow: '255 122 184' },
+  { shell: '#00c2d1', dark: '#045f66', body: '#c2f1f5', glow: '0 194 209' },
+  { shell: '#e3b269', dark: '#7d5a24', body: '#f7e6c9', glow: '227 178 105' },
+  { shell: '#7a7bff', dark: '#33349b', body: '#dcdcff', glow: '122 123 255' },
+  { shell: '#e35ad8', dark: '#7d1f75', body: '#f8d3f4', glow: '227 90 216' },
+  { shell: '#dde3ec', dark: '#6f7889', body: '#f4f6fa', glow: '221 227 236' },
 ];
 
 export const laneColour = (lane: number): LaneColour => PALETTE[lane % PALETTE.length];
 
-export const MIN_FIELD = 4;
-export const MAX_FIELD = 8;
+export const MIN_FIELD = 3;
+export const MAX_FIELD = 12;
 
 export const DEFAULT_NAMES = [
-  'Speedy', 'Turbo', 'Lightning', 'Flash', 'Rocket', 'Bolt', 'Comet', 'Dasher',
+  'Speedy', 'Turbo', 'Lightning', 'Flash', 'Rocket', 'Bolt',
+  'Comet', 'Dasher', 'Escar-go', 'Shellby', 'Gary', 'Slugger',
 ];
 
 export const NAME_POOL = [
@@ -40,6 +48,19 @@ export const NAME_POOL = [
 ];
 
 export const QUICK_AMOUNTS_CENTS = [500, 1000, 2000, 5000, 10000];
+
+/**
+ * Stage themes: the surface the race is run on. Each one keeps the same
+ * information design and only re-lights the scene, so a theme change can
+ * never cost readability.
+ */
+export const STAGE_THEMES = [
+  { id: 'midnight', label: 'Midnight', a: '#0b101c', b: '#080c14', line: '255 255 255' },
+  { id: 'turf', label: 'Night turf', a: '#0c1e15', b: '#081510', line: '210 255 220' },
+  { id: 'dusk', label: 'Dusk', a: '#171023', b: '#0e0a18', line: '235 220 255' },
+] as const;
+
+export type StageThemeId = (typeof STAGE_THEMES)[number]['id'];
 
 /**
  * Draw a fresh set of names without repeats. Lives here rather than in the
