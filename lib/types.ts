@@ -17,8 +17,9 @@ export interface Racer {
 
 export interface Donation {
   id: string;
-  /** Race number this donation is attached to. */
+  /** Race number this donation is attached to. 0 for direct donations. */
   raceNo: number;
+  /** Lane index, 0-based. -1 for direct QR donations backing no snail. */
   lane: number;
   snailName: string;
   backerName: string;

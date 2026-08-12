@@ -36,6 +36,19 @@
   --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
+/*
+ * Three modes, one set of names.
+ *
+ * Every piece of interface chrome reads its colour from the semantic tokens
+ * below: `--bg` the room, `--tx` the ink, `--card` an opaque surface, `--well`
+ * a place to type. Dark is the native look and lives on bare `:root`; light
+ * redefines the same tokens. "System" is simply the absence of a choice -
+ * no `data-theme` attribute - at which point the media query decides.
+ *
+ * The race track itself never changes: it is the screen the room watches,
+ * and it stays cinematic-dark in every mode, exactly like a video keeps its
+ * own blacks inside a light page.
+ */
 :root {
   --shell: #3ca5ff;
   --shell-dk: #14508f;
@@ -46,6 +59,11 @@
   --radius-lg: 24px;
   --radius-xl: 32px;
 
+  --bg: #050507;
+  --tx: #f5f5f7;
+  --card: #131318;
+  --well: rgba(0, 0, 0, 0.35);
+
   --hairline: rgba(255, 255, 255, 0.08);
   --hairline-strong: rgba(255, 255, 255, 0.14);
   --glass: rgba(255, 255, 255, 0.035);
@@ -54,7 +72,110 @@
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.1), 0 10px 34px rgba(0, 0, 0, 0.16);
   --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.22), 0 30px 80px rgba(0, 0, 0, 0.42);
 
+  --money-a: #d9f99d;
+  --money-b: #6ee7b7;
+  --money-c: #86efac;
+
+  --aurora-glow: rgba(41, 151, 255, 0.11);
+  --ring-rail: rgba(255, 255, 255, 0.12);
+
+  --btn-sheet-a: #2a2a2e;
+  --btn-sheet-b: #0a0a0c;
+  --btn-sheet-fg: #fff;
+
+  --ok: #6ee7a0;
+  --bad: #ff9d94;
+  --gold: #e8b55e;
+
   color-scheme: dark;
+}
+
+/*
+ * The light palette, written once as a mixin-by-duplication: the first block
+ * serves an explicit choice, the second serves "system" when the OS is light.
+ * Keep the two blocks identical.
+ */
+:root[data-theme='light'] {
+  --bg: #f5f5f7;
+  --tx: #1d1d1f;
+  --card: #ffffff;
+  --well: #ffffff;
+
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-strong: rgba(0, 0, 0, 0.15);
+  --glass: rgba(255, 255, 255, 0.6);
+  --glass-deep: rgba(255, 255, 255, 0.8);
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 34px rgba(0, 0, 0, 0.08);
+  --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.08), 0 30px 80px rgba(0, 0, 0, 0.16);
+
+  --money-a: #4d7c0f;
+  --money-b: #059669;
+  --money-c: #16a34a;
+
+  --aurora-glow: rgba(0, 113, 227, 0.07);
+  --ring-rail: rgba(0, 0, 0, 0.1);
+
+  --btn-sheet-a: #2a2a2e;
+  --btn-sheet-b: #0a0a0c;
+  --btn-sheet-fg: #fff;
+
+  --ok: #157a44;
+  --bad: #c22b1d;
+  --gold: #8f6100;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #f5f5f7;
+    --tx: #1d1d1f;
+    --card: #ffffff;
+    --well: #ffffff;
+
+    --hairline: rgba(0, 0, 0, 0.08);
+    --hairline-strong: rgba(0, 0, 0, 0.15);
+    --glass: rgba(255, 255, 255, 0.6);
+    --glass-deep: rgba(255, 255, 255, 0.8);
+
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 34px rgba(0, 0, 0, 0.08);
+    --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.08), 0 30px 80px rgba(0, 0, 0, 0.16);
+
+    --money-a: #4d7c0f;
+    --money-b: #059669;
+    --money-c: #16a34a;
+
+    --aurora-glow: rgba(0, 113, 227, 0.07);
+    --ring-rail: rgba(0, 0, 0, 0.1);
+
+    --btn-sheet-a: #2a2a2e;
+    --btn-sheet-b: #0a0a0c;
+    --btn-sheet-fg: #fff;
+
+    --ok: #157a44;
+    --bad: #c22b1d;
+    --gold: #8f6100;
+
+    color-scheme: light;
+  }
+}
+
+/* One soft cross-fade when the person flips the switch, added by the toggle
+   for the duration of the change and removed after, so it never slows
+   anything else down. */
+html.theme-anim,
+html.theme-anim body,
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition:
+    background-color 0.45s ease,
+    color 0.45s ease,
+    border-color 0.45s ease,
+    fill 0.45s ease,
+    stroke 0.45s ease,
+    box-shadow 0.45s ease !important;
 }
 
 * {
@@ -70,8 +191,8 @@ body {
 
 body {
   font-family: var(--font-display);
-  background: var(--color-ink);
-  color: #f5f5f7;
+  background: var(--bg);
+  color: var(--tx);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
@@ -93,12 +214,12 @@ body {
   font-weight: 600;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: rgba(245, 245, 247, 0.44);
+  color: color-mix(in srgb, var(--tx) 44%, transparent);
 }
 
 /* The one permitted flourish: money glows. */
 .money-ink {
-  background: linear-gradient(120deg, #d9f99d 0%, var(--color-mint) 60%, #86efac 100%);
+  background: linear-gradient(120deg, var(--money-a) 0%, var(--money-b) 60%, var(--money-c) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -158,7 +279,7 @@ body {
   left: 50%;
   translate: -50% 0;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(41, 151, 255, 0.11), transparent 60%);
+  background: radial-gradient(circle, var(--aurora-glow), transparent 60%);
   filter: blur(80px);
   animation: breathe 22s var(--ease-in-out-soft) infinite alternate;
   will-change: transform;
@@ -190,8 +311,8 @@ body {
 /* ──────────────────────────────── Buttons ─────────────────────────────── */
 
 .btn {
-  --btn-bg: rgba(255, 255, 255, 0.07);
-  --btn-fg: #f5f5f7;
+  --btn-bg: color-mix(in srgb, var(--tx) 8%, transparent);
+  --btn-fg: var(--tx);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -241,7 +362,7 @@ body {
 }
 
 .btn-ghost {
-  --btn-bg: rgba(255, 255, 255, 0.055);
+  --btn-bg: color-mix(in srgb, var(--tx) 6%, transparent);
   border: 1px solid var(--hairline-strong);
 }
 
@@ -250,8 +371,8 @@ body {
 }
 
 .btn-sheet {
-  --btn-bg: linear-gradient(180deg, #2a2a2e, #0a0a0c);
-  --btn-fg: #fff;
+  --btn-bg: linear-gradient(180deg, var(--btn-sheet-a), var(--btn-sheet-b));
+  --btn-fg: var(--btn-sheet-fg);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
 }
 
@@ -287,22 +408,79 @@ body {
   padding: 0.5em 1em;
   border-radius: 999px;
   border: 1px solid var(--hairline-strong);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(245, 245, 247, 0.78);
+  background: color-mix(in srgb, var(--tx) 4%, transparent);
+  color: color-mix(in srgb, var(--tx) 78%, transparent);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.25s var(--ease-out-expo);
 }
 .chip-toggle:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: color-mix(in srgb, var(--tx) 9%, transparent);
   transform: translateY(-1px);
 }
 .chip-toggle[aria-pressed='true'] {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.26);
+  background: color-mix(in srgb, var(--tx) 14%, transparent);
+  color: var(--tx);
+  border-color: color-mix(in srgb, var(--tx) 26%, transparent);
 }
+
+/* ─────────────────────── Theme mode segmented control ──────────────────── */
+
+/*
+ * Light / System / Dark as one Apple-style segmented control: a pill rail,
+ * a thumb that slides on the same spring as everything else, and three
+ * equal-width targets so the thumb geometry is pure arithmetic.
+ */
+.seg {
+  --seg-n: 3;
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  background: color-mix(in srgb, var(--tx) 5%, transparent);
+  isolation: isolate;
+}
+
+.seg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--seg-n));
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-soft);
+  translate: calc(var(--seg-i, 0) * 100%) 0;
+  transition: translate 0.45s var(--ease-spring);
+  z-index: -1;
+}
+
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  padding: 0.42em 0.9em;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--tx) 55%, transparent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+.seg button:hover { color: var(--tx); }
+.seg button[aria-pressed='true'] { color: var(--tx); }
+.seg svg { flex: none; }
 
 /* ───────────────────────────────── Track ──────────────────────────────── */
 
@@ -799,13 +977,13 @@ body {
 /* ──────────────────────────────── Sheet UI ────────────────────────────── */
 
 .sheet {
-  background: var(--color-haze);
-  color: var(--color-ink-soft);
-  color-scheme: light;
+  background: var(--bg);
+  color: var(--tx);
 }
 
 .sheet .card {
-  background: #fff;
+  background: var(--card);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
 }
@@ -818,8 +996,8 @@ body {
   width: 100%;
   padding: 13px 16px;
   border-radius: var(--radius-md);
-  border: 1.5px solid transparent;
-  background: #fff;
+  border: 1.5px solid var(--hairline);
+  background: var(--card);
   text-align: left;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -844,17 +1022,18 @@ body {
 .chip-amount {
   padding: 0.65em 1.05em;
   border-radius: 999px;
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
+  border: 1.5px solid var(--hairline-strong);
+  background: var(--card);
+  color: var(--tx);
   font-weight: 650;
   cursor: pointer;
   transition: transform 0.25s var(--ease-spring), background 0.2s, color 0.2s, border-color 0.2s;
 }
 .chip-amount:hover { transform: translateY(-2px); }
 .chip-amount[aria-pressed='true'] {
-  background: var(--color-ink-soft);
-  border-color: var(--color-ink-soft);
-  color: #fff;
+  background: var(--tx);
+  border-color: var(--tx);
+  color: var(--bg);
 }
 
 /* ───────────────────────────── Drawer console ─────────────────────────── */
@@ -874,7 +1053,7 @@ body {
 
 .panel {
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.035);
+  background: color-mix(in srgb, var(--tx) 4%, transparent);
   border: 1px solid var(--hairline);
   padding: 18px;
 }
@@ -884,7 +1063,7 @@ body {
   gap: 6px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(245, 245, 247, 0.6);
+  color: color-mix(in srgb, var(--tx) 60%, transparent);
 }
 
 .fld input,
@@ -892,8 +1071,8 @@ body {
   padding: 0.68em 0.85em;
   border-radius: 11px;
   border: 1px solid var(--hairline-strong);
-  background: rgba(0, 0, 0, 0.35);
-  color: #f5f5f7;
+  background: var(--well);
+  color: var(--tx);
   font: inherit;
   font-weight: 500;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -905,14 +1084,6 @@ body {
   outline: none;
 }
 
-.sheet .fld { color: #6e6e73; }
-.sheet .fld input,
-.sheet .fld select {
-  background: #fff;
-  color: #1d1d1f;
-  border-color: rgba(0, 0, 0, 0.13);
-}
-
 /* Theme swatch buttons in the console */
 .swatch {
   display: grid;
@@ -922,16 +1093,16 @@ body {
   border-radius: 14px;
   border: 1.5px solid var(--hairline-strong);
   background: transparent;
-  color: rgba(245, 245, 247, 0.75);
+  color: color-mix(in srgb, var(--tx) 75%, transparent);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.25s var(--ease-out-expo);
 }
-.swatch:hover { transform: translateY(-1px); border-color: rgba(255, 255, 255, 0.3); }
+.swatch:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--tx) 30%, transparent); }
 .swatch[aria-pressed='true'] {
   border-color: var(--color-accent-bright);
-  color: #fff;
+  color: var(--tx);
   box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.18);
 }
 .swatch i {
@@ -947,9 +1118,9 @@ kbd {
   font-size: 0.7em;
   padding: 0.14em 0.45em;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--tx) 10%, transparent);
   border: 1px solid var(--hairline-strong);
-  color: rgba(245, 245, 247, 0.7);
+  color: color-mix(in srgb, var(--tx) 70%, transparent);
 }
 
 /* ───────────────────────────── Overlay + toast ────────────────────────── */

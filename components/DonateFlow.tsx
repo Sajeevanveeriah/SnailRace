@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Snail } from './Snail';
+import { ThemeToggle } from './ThemeToggle';
 import { decodeLineup } from '@/lib/lineup';
 import { laneColour } from '@/lib/palette';
 import { money, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
@@ -105,12 +106,15 @@ export function DonateFlow() {
   if (!lineup) {
     return (
       <main className="sheet grid min-h-dvh place-items-center p-6">
+        <div className="fixed right-4 top-4 z-30">
+          <ThemeToggle />
+        </div>
         <div className="card reveal max-w-sm p-8 text-center">
           <div className="mx-auto w-24">
             <Snail />
           </div>
           <h1 className="display mt-4 text-3xl">Scan the code</h1>
-          <p className="mt-3 text-sm text-black/60">
+          <p className="mt-3 text-sm text-(--tx)/60">
             This page needs the QR code on the big screen, which tells it which snails are in the
             next race. Point your camera at the screen and try again.
           </p>
@@ -123,11 +127,14 @@ export function DonateFlow() {
     <main className="sheet min-h-dvh pb-40">
       <div className="mx-auto max-w-md px-5 pt-10">
         <header className="reveal">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
-            {lineup.c}
-          </p>
-          <h1 className="display mt-2 text-[2.6rem] text-black">Back a snail.</h1>
-          <p className="mt-3 text-[15px] leading-relaxed text-black/60">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-(--tx)/45">
+              {lineup.c}
+            </p>
+            <ThemeToggle />
+          </div>
+          <h1 className="display mt-2 text-[2.6rem] text-(--tx)">Back a snail.</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-(--tx)/60">
             Race {raceNo}. Every dollar goes to the club. Your snail has exactly the same
             1-in-{names.length} chance as every other, and the finishing order is drawn before the
             race starts.
@@ -141,7 +148,7 @@ export function DonateFlow() {
         ) : null}
 
         <section className="reveal mt-8" style={{ '--d': '90ms' } as React.CSSProperties}>
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-black/45">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-(--tx)/45">
             1. Choose your snail
           </h2>
           <div className="flex flex-col gap-2.5">
@@ -169,8 +176,8 @@ export function DonateFlow() {
                     <Snail />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold text-black">{n}</span>
-                    <span className="block text-xs text-black/50">
+                    <span className="block truncate font-semibold text-(--tx)">{n}</span>
+                    <span className="block text-xs text-(--tx)/50">
                       Lane {i + 1}
                       {pool && pool.cents > 0
                         ? ` - ${money(pool.cents)} backed by ${pool.backers}`
@@ -193,7 +200,7 @@ export function DonateFlow() {
         </section>
 
         <section className="reveal mt-8" style={{ '--d': '160ms' } as React.CSSProperties}>
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-black/45">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-(--tx)/45">
             2. Choose an amount
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -227,7 +234,7 @@ export function DonateFlow() {
         </section>
 
         <section className="reveal mt-8" style={{ '--d': '230ms' } as React.CSSProperties}>
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-black/45">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-(--tx)/45">
             3. Your name (optional)
           </h2>
           <label className="fld">
@@ -242,7 +249,7 @@ export function DonateFlow() {
           </label>
         </section>
 
-        <p className="mt-8 text-[11px] leading-relaxed text-black/45">
+        <p className="mt-8 text-[11px] leading-relaxed text-(--tx)/45">
           This is a donation to {lineup.c}, not a wager. There is no cash prize and no return -
           backing a snail simply puts your name on the board. Payments are handled by Stripe; card
           details never touch this page.
@@ -250,7 +257,7 @@ export function DonateFlow() {
       </div>
 
       {/* Thumb-reachable action bar, the one control that never scrolls away. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/85 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-(--tx)/10 bg-(--card)/85 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
         <div className="mx-auto max-w-md">
           {error ? (
             <p role="alert" className="mb-2 text-sm font-medium text-red-600">
@@ -269,7 +276,7 @@ export function DonateFlow() {
                 ? 'Pick a snail to continue'
                 : `Donate ${cents ? money(cents) : ''} to ${names[lane]}`}
           </button>
-          <p className="mt-2 text-center text-[11px] text-black/40">
+          <p className="mt-2 text-center text-[11px] text-(--tx)/40">
             Secure payment by Stripe - Apple Pay and Google Pay supported
           </p>
         </div>

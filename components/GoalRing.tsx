@@ -39,7 +39,7 @@ export function GoalRing({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.12)"
+          stroke="var(--ring-rail)"
           strokeWidth="7"
         />
         <circle
@@ -61,7 +61,7 @@ export function GoalRing({
       <div className="absolute inset-0 grid place-items-center text-center leading-none">
         <div>
           <p className="num text-base font-bold">{Math.round(pct * 100)}%</p>
-          <p className="text-[9px] uppercase tracking-[0.16em] text-white/45">of goal</p>
+          <p className="text-[9px] uppercase tracking-[0.16em] text-(--tx)/45">of goal</p>
         </div>
       </div>
     </div>

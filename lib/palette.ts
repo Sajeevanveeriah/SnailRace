@@ -28,7 +28,16 @@ export const PALETTE: LaneColour[] = [
   { shell: '#dde3ec', dark: '#6f7889', body: '#f4f6fa', glow: '221 227 236' },
 ];
 
-export const laneColour = (lane: number): LaneColour => PALETTE[lane % PALETTE.length];
+/** Quiet grey for entries that belong to no lane, e.g. direct QR donations. */
+const NEUTRAL: LaneColour = {
+  shell: '#8e8e93',
+  dark: '#48484a',
+  body: '#e5e5ea',
+  glow: '142 142 147',
+};
+
+export const laneColour = (lane: number): LaneColour =>
+  lane < 0 ? NEUTRAL : PALETTE[lane % PALETTE.length];
 
 export const MIN_FIELD = 3;
 export const MAX_FIELD = 12;

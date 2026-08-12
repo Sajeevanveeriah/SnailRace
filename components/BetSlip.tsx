@@ -91,12 +91,12 @@ export function BetSlip({
     <section className="glass glass-strong p-5 sm:p-6 flex flex-col gap-4" aria-label="Fun bets">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="eyebrow">Fun bets</h2>
-        <span className="num rounded-full bg-(--color-gold)/15 px-3 py-1 text-xs font-bold text-(--color-gold)">
+        <span className="num rounded-full bg-(--gold)/15 px-3 py-1 text-xs font-bold text-(--gold)">
           {bank.toLocaleString('en-AU')} chips
         </span>
       </div>
 
-      <p className="text-[11px] leading-snug text-white/45">
+      <p className="text-[11px] leading-snug text-(--tx)/45">
         Play chips only. Free to enter, nothing to buy, no cash payout - the leaderboard is the
         prize.
       </p>
@@ -124,8 +124,8 @@ export function BetSlip({
               onClick={() => setLane(picked ? null : l.lane)}
               className="flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-transform duration-300 hover:-translate-y-0.5"
               style={{
-                borderColor: picked ? c.shell : 'rgba(255,255,255,0.12)',
-                background: picked ? `${c.shell}22` : 'rgba(255,255,255,0.04)',
+                borderColor: picked ? c.shell : 'var(--hairline-strong)',
+                background: picked ? `${c.shell}22` : 'color-mix(in srgb, var(--tx) 4%, transparent)',
               }}
             >
               <span
@@ -134,7 +134,7 @@ export function BetSlip({
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1 truncate text-xs font-semibold">{l.name}</span>
-              <span className="num text-[11px] text-(--color-gold)">{l.odds.toFixed(2)}</span>
+              <span className="num text-[11px] text-(--gold)">{l.odds.toFixed(2)}</span>
             </button>
           );
         })}
@@ -148,7 +148,7 @@ export function BetSlip({
             aria-pressed={stake === s}
             onClick={() => setStake(s)}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition-transform duration-300 hover:-translate-y-0.5 ${
-              stake === s ? 'bg-white text-black' : 'bg-white/10 text-white/80'
+              stake === s ? 'bg-(--tx) text-(--bg)' : 'bg-(--tx)/10 text-(--tx)/80'
             }`}
           >
             {s}
@@ -161,7 +161,7 @@ export function BetSlip({
       </button>
 
       {error ? (
-        <p role="alert" className="text-xs font-medium text-[#ff8b80]">
+        <p role="alert" className="text-xs font-medium text-(--bad)">
           {error}
         </p>
       ) : null}
@@ -171,11 +171,11 @@ export function BetSlip({
           {myOpen.slice(-4).map((b) => (
             <li
               key={b.id}
-              className="slide-in flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs"
+              className="slide-in flex items-center gap-2 rounded-lg bg-(--tx)/5 px-3 py-1.5 text-xs"
             >
               <span className="truncate font-semibold">{b.punter}</span>
-              <span className="truncate text-white/55">on {b.snailName}</span>
-              <span className="num ml-auto text-(--color-gold)">
+              <span className="truncate text-(--tx)/55">on {b.snailName}</span>
+              <span className="num ml-auto text-(--gold)">
                 {b.chips} @ {b.odds.toFixed(2)}
               </span>
             </li>
@@ -184,12 +184,12 @@ export function BetSlip({
       ) : null}
 
       {leaderboard.length > 0 ? (
-        <div className="border-t border-white/10 pt-3">
-          <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-white/45">Chip leaders</p>
+        <div className="border-t border-(--tx)/10 pt-3">
+          <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-(--tx)/45">Chip leaders</p>
           <ol className="flex flex-col gap-1">
             {leaderboard.map((row, i) => (
               <li key={row.key} className="flex items-center gap-2 text-xs">
-                <span className="num w-4 text-white/40">{i + 1}</span>
+                <span className="num w-4 text-(--tx)/40">{i + 1}</span>
                 <span className="truncate capitalize">{row.key}</span>
                 <span className="num ml-auto font-semibold">
                   {row.chips.toLocaleString('en-AU')}

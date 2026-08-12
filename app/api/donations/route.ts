@@ -21,15 +21,17 @@ function toDonation(session: Stripe.Checkout.Session): Donation | null {
   const cents = session.amount_total ?? 0;
   if (cents <= 0) return null;
 
+  /* Lane -1 is a direct QR donation: it belongs to no snail and no race, so
+     it counts in the night's total but never in a race pot. */
   const lane = Number(meta[META.lane]);
-  if (!Number.isInteger(lane) || lane < 0) return null;
+  if (!Number.isInteger(lane) || lane < -1) return null;
 
   return {
     id: session.id,
     sessionId: session.id,
-    raceNo: Math.max(1, Number(meta[META.raceNo]) || 1),
+    raceNo: lane < 0 ? 0 : Math.max(1, Number(meta[META.raceNo]) || 1),
     lane,
-    snailName: meta[META.snailName] || `Lane ${lane + 1}`,
+    snailName: meta[META.snailName] || (lane < 0 ? 'Direct donation' : `Lane ${lane + 1}`),
     backerName: meta[META.backerName] || '',
     cents,
     source: 'stripe',
