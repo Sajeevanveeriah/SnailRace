@@ -40,11 +40,14 @@ export const laneColour = (lane: number): LaneColour =>
   lane < 0 ? NEUTRAL : PALETTE[lane % PALETTE.length];
 
 export const MIN_FIELD = 3;
-export const MAX_FIELD = 12;
+export const MAX_FIELD = 20;
 
+/** One default name per possible lane, so padding a saved night is total. */
 export const DEFAULT_NAMES = [
   'Speedy', 'Turbo', 'Lightning', 'Flash', 'Rocket', 'Bolt',
   'Comet', 'Dasher', 'Escar-go', 'Shellby', 'Gary', 'Slugger',
+  'Sheldon', 'Trundler', 'Slime Shady', 'Nightwatchman',
+  'Golden Duck', 'Shell Warne', 'Slow Burn', 'The Yorker',
 ];
 
 export const NAME_POOL = [

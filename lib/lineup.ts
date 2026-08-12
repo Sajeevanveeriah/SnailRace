@@ -1,3 +1,4 @@
+import { MAX_FIELD } from './palette';
 import type { LineupToken } from './types';
 
 /**
@@ -45,7 +46,7 @@ export function decodeLineup(raw: string | null | undefined): LineupToken | null
       e: String(parsed.e || '').slice(0, 40),
       r: Number(parsed.r) || 1,
       c: String(parsed.c || '').slice(0, 80),
-      n: parsed.n.slice(0, 12).map((x) => String(x).slice(0, 40)),
+      n: parsed.n.slice(0, MAX_FIELD).map((x) => String(x).slice(0, 40)),
     };
   } catch {
     return null;

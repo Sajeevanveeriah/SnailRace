@@ -78,7 +78,7 @@ function merge(raw: string | null): EventState {
   try {
     const parsed = JSON.parse(raw) as Partial<EventState>;
     const names = Array.isArray(parsed.names) ? parsed.names.slice(0, MAX_FIELD) : base.names;
-    while (names.length < MAX_FIELD) names.push(DEFAULT_NAMES[names.length]);
+    while (names.length < MAX_FIELD) names.push(DEFAULT_NAMES[names.length % DEFAULT_NAMES.length]);
     return {
       ...base,
       ...parsed,

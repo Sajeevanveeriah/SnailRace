@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStripe, META, APP_TAG } from '@/lib/stripe';
 import { MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
+import { MAX_FIELD } from '@/lib/palette';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   }
 
   const lane = Math.round(Number(body.lane));
-  if (!Number.isInteger(lane) || lane < 0 || lane > 11) {
+  if (!Number.isInteger(lane) || lane < 0 || lane >= MAX_FIELD) {
     return NextResponse.json({ ok: false, error: 'Pick a snail to back.' }, { status: 400 });
   }
 
