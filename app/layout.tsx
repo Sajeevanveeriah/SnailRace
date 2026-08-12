@@ -18,16 +18,29 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0b0b0f',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f5f5f7' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0b0f' },
+  ],
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
 };
 
+/**
+ * Runs before first paint so a saved Light/Dark choice never flashes the
+ * other theme. "System" is stored as the absence of a choice: no attribute
+ * is set and the prefers-color-scheme media query decides.
+ */
+const themeInit = `(function(){try{var t=localStorage.getItem('ndcc-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}})()`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-AU">
-      <body>{children}</body>
+    <html lang="en-AU" suppressHydrationWarning>
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        {children}
+      </body>
     </html>
   );
 }

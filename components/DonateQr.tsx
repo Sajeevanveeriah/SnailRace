@@ -13,7 +13,15 @@ import { useEffect, useRef, useState } from 'react';
  * keeping it out of the first paint matters more on the projector laptop than
  * anywhere else in the app.
  */
-export function DonateQr({ url, size = 190 }: { url: string; size?: number }) {
+export function DonateQr({
+  url,
+  size = 190,
+  caption = 'Scan to back a snail',
+}: {
+  url: string;
+  size?: number;
+  caption?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -53,10 +61,10 @@ export function DonateQr({ url, size = 190 }: { url: string; size?: number }) {
         />
       </div>
       {failed ? (
-        <p className="max-w-[220px] break-all text-center text-[11px] text-white/60">{url}</p>
+        <p className="max-w-[220px] break-all text-center text-[11px] text-(--tx)/60">{url}</p>
       ) : (
-        <p className="text-center text-[11px] uppercase tracking-[0.22em] text-white/45">
-          Scan to back a snail
+        <p className="text-center text-[11px] uppercase tracking-[0.22em] text-(--tx)/45">
+          {caption}
         </p>
       )}
     </div>

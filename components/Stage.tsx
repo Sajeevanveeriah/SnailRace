@@ -10,6 +10,7 @@ import { CountUp } from './CountUp';
 import { Confetti } from './Confetti';
 import { WinnerOverlay } from './WinnerOverlay';
 import { ControlDrawer } from './ControlDrawer';
+import { ThemeToggle } from './ThemeToggle';
 import { hydrate, useEvent, setState } from '@/lib/event-store';
 import { useOrigin } from '@/lib/use-origin';
 import { newId, nowMs } from '@/lib/ids';
@@ -195,6 +196,39 @@ export function Stage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, event.calm, event.sound]);
 
+  /* ── Direct-pay link ─────────────────────────────────────────────────── */
+
+  /*
+   * A reusable Stripe Payment Link for the event: scanning its QR lands the
+   * phone straight in Stripe checkout with a choose-your-amount field. It is
+   * fetched once per event; if Stripe is not configured the request fails
+   * quietly and the panel simply never offers the second QR.
+   */
+  const [directUrl, setDirectUrl] = useState('');
+  const [qrMode, setQrMode] = useState<'lineup' | 'direct'>('lineup');
+
+  useEffect(() => {
+    if (!event.eventId) return;
+    let cancel = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId: event.eventId }),
+        });
+        const body = (await res.json()) as { ok: boolean; url?: string };
+        if (!cancel) setDirectUrl(body.ok && body.url ? body.url : '');
+      } catch {
+        /* Direct pay is an extra. The lineup QR still works without it. */
+        if (!cancel) setDirectUrl('');
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [event.eventId]);
+
   /* ── Donor link ──────────────────────────────────────────────────────── */
 
   const donateUrl = useMemo(() => {
@@ -269,6 +303,7 @@ export function Stage() {
             >
               {event.sound ? 'Sound on' : 'Muted'}
             </button>
+            <ThemeToggle />
           </div>
         </header>
 
@@ -283,14 +318,14 @@ export function Stage() {
                   <p className="text-lg font-semibold">{race.status}</p>
                   {race.seedHex ? (
                     <span
-                      className="num text-[11px] text-white/35"
+                      className="num text-[11px] text-(--tx)/35"
                       title="The seed the finishing order was drawn from, printed before the snails moved."
                     >
                       seed {race.seedHex}
                     </span>
                   ) : null}
                 </div>
-                <p className="h-5 truncate text-sm text-white/55">{race.commentary}</p>
+                <p className="h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -331,10 +366,44 @@ export function Stage() {
 
             {donateUrl && feed.status !== 'unconfigured' ? (
               <section className="glass glass-strong flex flex-col items-center gap-3 p-6">
-                <h2 className="eyebrow">Back a snail</h2>
-                <DonateQr url={donateUrl} />
-                <p className="text-center text-xs text-white/50">
-                  Card donations by Stripe. Every dollar goes to the club.
+                <h2 className="eyebrow">
+                  {qrMode === 'direct' ? 'Give in one scan' : 'Back a snail'}
+                </h2>
+
+                {directUrl ? (
+                  <span className="seg" style={{ '--seg-n': 2 } as React.CSSProperties} role="group" aria-label="Donation QR mode">
+                    <span
+                      className="seg-thumb"
+                      style={{ '--seg-i': qrMode === 'lineup' ? 0 : 1 } as React.CSSProperties}
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      aria-pressed={qrMode === 'lineup'}
+                      onClick={() => setQrMode('lineup')}
+                    >
+                      Back a snail
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={qrMode === 'direct'}
+                      onClick={() => setQrMode('direct')}
+                    >
+                      Scan &amp; pay
+                    </button>
+                  </span>
+                ) : null}
+
+                <DonateQr
+                  url={qrMode === 'direct' && directUrl ? directUrl : donateUrl}
+                  caption={
+                    qrMode === 'direct' ? 'Scan to pay by card now' : 'Scan to back a snail'
+                  }
+                />
+                <p className="text-center text-xs text-(--tx)/50">
+                  {qrMode === 'direct'
+                    ? 'Straight into Stripe checkout: pick an amount, pay by card, Apple Pay or Google Pay.'
+                    : 'Card donations by Stripe. Every dollar goes to the club.'}
                 </p>
               </section>
             ) : null}
@@ -353,11 +422,12 @@ export function Stage() {
 
       {toast ? (
         <div className="toast glass glass-strong fixed right-5 top-5 z-[95] max-w-xs px-5 py-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Donation in</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-(--tx)/50">Donation in</p>
           <p className="mt-1 font-semibold">
-            {toast.backerName || 'Anonymous'} backed {toast.snailName}
+            {toast.backerName || 'Anonymous'}{' '}
+            {toast.lane < 0 ? 'gave straight to the club' : `backed ${toast.snailName}`}
           </p>
-          <p className="num text-2xl font-bold text-(--color-lime)">{money(toast.cents)}</p>
+          <p className="num text-2xl font-bold text-(--money-b)">{money(toast.cents)}</p>
         </div>
       ) : null}
 
@@ -398,9 +468,9 @@ function FeedPill({ status, lastOk }: { status: string; lastOk: number }) {
 
   const tone =
     status === 'live'
-      ? '!text-[#6ee7a0]'
+      ? '!text-(--ok)'
       : status === 'offline'
-        ? '!text-[#ff9d94]'
+        ? '!text-(--bad)'
         : '';
 
   return (
@@ -425,7 +495,7 @@ function RecentDonations({ donations }: { donations: Donation[] }) {
 
   if (recent.length === 0) {
     return (
-      <div className="glass px-5 py-4 text-sm text-white/45">
+      <div className="glass px-5 py-4 text-sm text-(--tx)/45">
         No donations yet tonight. Scan the code to be the first.
       </div>
     );
@@ -446,10 +516,12 @@ function RecentDonations({ donations }: { donations: Donation[] }) {
           style={{ background: laneColour(d.lane).shell }}
         />
         <span className="font-medium">{d.backerName || 'Anonymous'}</span>
-        <span className="text-white/45">on {d.snailName}</span>
-        <span className="num font-semibold text-(--color-lime)">{money(d.cents)}</span>
+        <span className="text-(--tx)/45">
+          {d.lane < 0 ? 'straight to the club' : `on ${d.snailName}`}
+        </span>
+        <span className="num font-semibold text-(--money-b)">{money(d.cents)}</span>
         {d.source === 'cash' ? (
-          <span className="rounded-full bg-white/10 px-2 text-[10px]">cash</span>
+          <span className="rounded-full bg-(--tx)/10 px-2 text-[10px]">cash</span>
         ) : null}
       </span>
     ));
@@ -457,7 +529,7 @@ function RecentDonations({ donations }: { donations: Donation[] }) {
   return (
     <div className="glass overflow-hidden px-5 py-3.5">
       <div className="flex items-center gap-3">
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.22em] text-(--tx)/40">
           Latest
         </span>
         <div className="min-w-0 flex-1 overflow-hidden">

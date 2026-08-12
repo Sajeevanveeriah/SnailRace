@@ -56,7 +56,7 @@ export function ToteBoard({
 
               <div className="min-w-0">
                 <p className="truncate font-semibold leading-tight">{lane.name}</p>
-                <p className="text-[11px] text-white/50">
+                <p className="text-[11px] text-(--tx)/50">
                   {lane.backers === 0
                     ? 'no backers yet'
                     : `${lane.backers} ${lane.backers === 1 ? 'backer' : 'backers'}`}
@@ -66,14 +66,14 @@ export function ToteBoard({
               <div className="text-right">
                 <p className="num font-semibold leading-tight">{money(lane.cents)}</p>
                 {showOdds ? (
-                  <p key={lane.odds} className="odds-flip num text-[11px] text-(--color-gold)">
+                  <p key={lane.odds} className="odds-flip num text-[11px] text-(--gold)">
                     {lane.odds.toFixed(2)} for 1
                   </p>
                 ) : null}
               </div>
 
               <span
-                className="tote-bar col-span-3 h-1.5 rounded-full bg-white/8 overflow-hidden"
+                className="tote-bar col-span-3 h-1.5 rounded-full bg-(--tx)/8 overflow-hidden"
                 aria-hidden="true"
               >
                 <i style={{ '--w': (lane.cents / leader) * 100 } as React.CSSProperties} />
@@ -83,7 +83,7 @@ export function ToteBoard({
         })}
       </ol>
 
-      <p className="text-[11px] leading-snug text-white/45">
+      <p className="text-[11px] leading-snug text-(--tx)/45">
         Every snail has the same 1-in-{fieldSize} chance. Prices show what the room has backed, not
         form, and donations never influence the result.
       </p>

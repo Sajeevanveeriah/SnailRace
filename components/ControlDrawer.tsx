@@ -194,7 +194,7 @@ export function ControlDrawer({
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Moderator controls</h2>
-              <p className="num text-xs text-white/50">
+              <p className="num text-xs text-(--tx)/50">
                 {moneyShort(cardCents)} on card, {moneyShort(cashCents)} cash,{' '}
                 {stripeDonations.length} card {stripeDonations.length === 1 ? 'entry' : 'entries'}
               </p>
@@ -205,7 +205,7 @@ export function ControlDrawer({
           </div>
 
           {notice ? (
-            <p role="status" className="mb-4 rounded-xl bg-white/10 px-4 py-2.5 text-sm">
+            <p role="status" className="mb-4 rounded-xl bg-(--tx)/10 px-4 py-2.5 text-sm">
               {notice}
             </p>
           ) : null}
@@ -264,7 +264,7 @@ export function ControlDrawer({
                 <button type="button" className="btn btn-primary" onClick={addCash}>
                   Record cash donation
                 </button>
-                <p className="text-[11px] text-white/45">
+                <p className="text-[11px] text-(--tx)/45">
                   Cash is recorded on this device. Card donations arrive from Stripe on their own.
                 </p>
               </div>
@@ -393,7 +393,7 @@ export function ControlDrawer({
                       value={n}
                       maxLength={24}
                       onChange={(e) => setName(i, e.target.value)}
-                      className="w-full rounded-lg border border-white/15 bg-black/35 px-3 py-1.5 text-sm"
+                      className="w-full rounded-lg border border-(--tx)/15 bg-(--well) px-3 py-1.5 text-sm"
                     />
                   </label>
                 ))}
@@ -407,16 +407,16 @@ export function ControlDrawer({
             <section className="panel lg:col-span-2">
               <h3 className="mb-3 font-semibold">
                 Donation ledger{' '}
-                <span className="num text-xs font-normal text-white/45">
+                <span className="num text-xs font-normal text-(--tx)/45">
                   {donations.length} {donations.length === 1 ? 'entry' : 'entries'}
                 </span>
               </h3>
-              <div className="max-h-64 overflow-y-auto rounded-xl border border-white/10">
+              <div className="max-h-64 overflow-y-auto rounded-xl border border-(--tx)/10">
                 {donations.length === 0 ? (
-                  <p className="p-4 text-sm text-white/45">Nothing recorded yet.</p>
+                  <p className="p-4 text-sm text-(--tx)/45">Nothing recorded yet.</p>
                 ) : (
                   <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-black/70 text-[11px] uppercase tracking-wider text-white/45">
+                    <thead className="sticky top-0 bg-(--card) text-[11px] uppercase tracking-wider text-(--tx)/45">
                       <tr>
                         <th className="p-2">Race</th>
                         <th className="p-2">Snail</th>
@@ -433,25 +433,25 @@ export function ControlDrawer({
                         .map((d) => (
                           <tr
                             key={d.id}
-                            className={`border-t border-white/8 ${d.void ? 'opacity-40 line-through' : ''}`}
+                            className={`border-t border-(--tx)/8 ${d.void ? 'opacity-40 line-through' : ''}`}
                           >
                             <td className="num p-2">{d.raceNo}</td>
                             <td className="p-2">{d.snailName}</td>
                             <td className="p-2">{d.backerName || 'Anonymous'}</td>
                             <td className="num p-2 text-right">{money(d.cents)}</td>
-                            <td className="p-2 text-white/50">{d.source}</td>
+                            <td className="p-2 text-(--tx)/50">{d.source}</td>
                             <td className="p-2 text-right">
                               {d.source === 'cash' ? (
                                 <button
                                   type="button"
-                                  className="text-xs text-white/50 underline hover:text-white"
+                                  className="text-xs text-(--tx)/50 underline hover:text-(--tx)"
                                   onClick={() => voidEntry(d.id)}
                                 >
                                   {d.void ? 'restore' : 'void'}
                                 </button>
                               ) : (
                                 <span
-                                  className="text-[11px] text-white/30"
+                                  className="text-[11px] text-(--tx)/30"
                                   title="Card donations are held by Stripe. Refund it in the Stripe dashboard and it leaves this board on the next read."
                                 >
                                   Stripe
@@ -470,18 +470,18 @@ export function ControlDrawer({
             <section className="panel">
               <h3 className="mb-3 font-semibold">Results</h3>
               {event.history.length === 0 ? (
-                <p className="text-sm text-white/45">No races run yet.</p>
+                <p className="text-sm text-(--tx)/45">No races run yet.</p>
               ) : (
                 <ol className="max-h-64 overflow-y-auto text-sm">
                   {event.history.map((h) => (
-                    <li key={h.raceNo} className="border-b border-white/8 py-2 last:border-0">
+                    <li key={h.raceNo} className="border-b border-(--tx)/8 py-2 last:border-0">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="font-semibold">
                           {h.raceType} {h.raceNo}: {h.results[0]?.name}
                         </span>
-                        <span className="num text-xs text-white/45">{moneyShort(h.potCents)}</span>
+                        <span className="num text-xs text-(--tx)/45">{moneyShort(h.potCents)}</span>
                       </div>
-                      <p className="num text-[11px] text-white/40">
+                      <p className="num text-[11px] text-(--tx)/40">
                         seed {h.seedHex}
                         {h.photoFinish ? ' - photo finish' : ''}
                       </p>
@@ -546,12 +546,12 @@ export function ControlDrawer({
                   Verify draw
                 </button>
               </div>
-              <p className="mt-2 text-[11px] leading-snug text-white/50">
+              <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 {verifyOut ||
                   'The seed is shown on the stage before each race. Re-running it reproduces the same finishing order, which is the proof the draw was made before the snails moved.'}
               </p>
 
-              <div className="mt-5 border-t border-white/10 pt-4">
+              <div className="mt-5 border-t border-(--tx)/10 pt-4">
                 <button
                   type="button"
                   className="btn btn-danger"

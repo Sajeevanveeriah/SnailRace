@@ -36,6 +36,8 @@ export async function GET(request: Request) {
       snailName: session.metadata?.[META.snailName] ?? '',
       raceNo: Number(session.metadata?.[META.raceNo]) || 1,
       backerName: session.metadata?.[META.backerName] ?? '',
+      /* Direct QR donations back the club, not a snail in a race. */
+      direct: session.metadata?.[META.lane] === '-1',
     });
   } catch {
     return NextResponse.json({ ok: false, error: 'Unknown session.' }, { status: 404 });

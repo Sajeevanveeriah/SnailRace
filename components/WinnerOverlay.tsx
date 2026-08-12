@@ -80,7 +80,7 @@ export function WinnerOverlay({
 
         <p
           className={`num mt-3 text-lg font-semibold ${
-            raised > 0 ? 'text-(--color-lime)' : 'text-white/45'
+            raised > 0 ? 'text-(--money-b)' : 'text-(--tx)/45'
           }`}
         >
           {raised > 0
@@ -93,7 +93,7 @@ export function WinnerOverlay({
             {backers.slice(0, 12).map((b) => (
               <li
                 key={b.id}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/85"
+                className="rounded-full bg-(--tx)/10 px-3 py-1 text-xs font-medium text-(--tx)/85"
               >
                 {b.backerName || 'Anonymous'} {money(b.cents)}
               </li>
@@ -102,10 +102,10 @@ export function WinnerOverlay({
         ) : null}
 
         {winningBets.length > 0 ? (
-          <p className="mt-4 text-sm text-white/70">
+          <p className="mt-4 text-sm text-(--tx)/70">
             {winningBets.length} winning play {winningBets.length === 1 ? 'bet' : 'bets'} on the
             fun board, paying{' '}
-            <span className="num font-semibold text-(--color-gold)">
+            <span className="num font-semibold text-(--gold)">
               {winningBets.reduce((s, b) => s + (b.returned ?? 0), 0).toLocaleString('en-AU')}
             </span>{' '}
             chips.
@@ -116,16 +116,16 @@ export function WinnerOverlay({
           {results.slice(0, 4).map((r) => (
             <li
               key={r.lane}
-              className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2 text-sm"
+              className="flex items-center gap-3 rounded-xl bg-(--tx)/5 px-3 py-2 text-sm"
             >
-              <span className="num w-8 shrink-0 font-bold text-white/60">{ordinal(r.place)}</span>
+              <span className="num w-8 shrink-0 font-bold text-(--tx)/60">{ordinal(r.place)}</span>
               <span
                 className="h-3 w-3 shrink-0 rounded-full"
                 style={{ background: laneColour(r.lane).shell }}
                 aria-hidden="true"
               />
               <span className="truncate font-medium">{r.name}</span>
-              <span className="num ml-auto text-white/45">
+              <span className="num ml-auto text-(--tx)/45">
                 {(r.finishMs / 1000).toFixed(2)}s
               </span>
             </li>
