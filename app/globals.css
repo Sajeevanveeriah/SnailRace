@@ -104,7 +104,7 @@
   --hairline: rgba(0, 0, 0, 0.08);
   --hairline-strong: rgba(0, 0, 0, 0.15);
   --glass: rgba(255, 255, 255, 0.6);
-  --glass-deep: rgba(255, 255, 255, 0.8);
+  --glass-deep: rgba(255, 255, 255, 0.92);
 
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 34px rgba(0, 0, 0, 0.08);
   --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.08), 0 30px 80px rgba(0, 0, 0, 0.16);
@@ -137,7 +137,7 @@
     --hairline: rgba(0, 0, 0, 0.08);
     --hairline-strong: rgba(0, 0, 0, 0.15);
     --glass: rgba(255, 255, 255, 0.6);
-    --glass-deep: rgba(255, 255, 255, 0.8);
+    --glass-deep: rgba(255, 255, 255, 0.92);
 
     --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 34px rgba(0, 0, 0, 0.08);
     --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.08), 0 30px 80px rgba(0, 0, 0, 0.16);
@@ -1039,6 +1039,9 @@ body {
 /* ───────────────────────────── Drawer console ─────────────────────────── */
 
 .drawer {
+  /* The console sits over a busy stage; translucency there is noise, not
+     depth. Near-solid card, in both themes - the blur handles the last 4%. */
+  background: color-mix(in srgb, var(--card) 96%, transparent);
   position: fixed;
   inset: auto 0 0 0;
   z-index: 60;
