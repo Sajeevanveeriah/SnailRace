@@ -1218,6 +1218,22 @@ body {
   outline: none;
 }
 
+/*
+ * Volume sliders. The default control keeps the input padding above, which
+ * on a range makes the thumb sit inside a box and lose most of its travel.
+ */
+.fld input[type='range'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--color-accent-bright);
+  cursor: pointer;
+}
+.fld input[type='range']:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Theme swatch buttons in the console */
 .swatch {
   display: grid;

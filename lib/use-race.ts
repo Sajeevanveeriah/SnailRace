@@ -15,7 +15,7 @@ import {
   type RaceEvent,
   type SnailRun,
 } from './race-engine';
-import { sfx } from './sound';
+import { setIntensity, sfx, startTrack } from './sound';
 import type { RaceHighlight, RaceResult } from './types';
 
 /**
@@ -99,6 +99,8 @@ interface LiveRace extends DrawnRace {
   sector: number;
   /** Lane currently in front, for spotting a change of leader. */
   leadLane: number;
+  /** The run-home cue fires once, not on every frame past the threshold. */
+  finalCalled: boolean;
   results: RaceResult[];
   highlights: RaceHighlight[];
 }
@@ -300,6 +302,7 @@ export function useRace(
     setResults(ordered);
     setPhase('done');
     setStatus(ordered[0] ? `${ordered[0].name} wins!` : 'Race over');
+    startTrack('winner');
     sfx.fanfare();
     finishRef.current(race, ordered, race.highlights);
   }, [paint, stop]);
@@ -422,10 +425,23 @@ export function useRace(
         trackRef.current?.classList.remove('photo');
       }
 
-      if (byPosition[0].p > 0.8) trackRef.current?.classList.add('final-straight');
+      if (byPosition[0].p > 0.8) {
+        trackRef.current?.classList.add('final-straight');
+        if (!race.finalCalled) {
+          race.finalCalled = true;
+          sfx.finalStraight();
+        }
+      }
 
       /* Drives the race-progress bar. A long race needs a sense of how far is left. */
       trackRef.current?.style.setProperty('--race-p', byPosition[0].p.toFixed(4));
+
+      /*
+       * The soundtrack follows the race rather than running beside it: the
+       * arrangement thickens as the leader comes home, so the room hears how
+       * far in it is without looking up.
+       */
+      setIntensity(leadP);
 
       /* Effort cue for anyone moving well above the field average. */
       let mean = 0;
@@ -489,6 +505,7 @@ export function useRace(
         commentaryAt: -2000,
         sector: 0,
         leadLane: -1,
+        finalCalled: false,
         results: [],
         highlights: [],
       };
@@ -498,12 +515,22 @@ export function useRace(
       setStatus('On your marks');
 
       const steps = ['3', '2', '1', 'GO!'];
+
+      /* One roll under the whole countdown, tightening into the off. */
+      sfx.drumroll((steps.length * 900) / 1000);
+
       steps.forEach((label, i) => {
         timersRef.current.push(
           window.setTimeout(() => {
             setCountdown(label);
-            if (label === 'GO!') sfx.go();
-            else sfx.beep();
+            if (label === 'GO!') {
+              sfx.go();
+              sfx.gate();
+              /* The race track starts at the off, already at gate intensity. */
+              startTrack('race', { intensity: 0 });
+            } else {
+              sfx.beep();
+            }
           }, i * 900),
         );
       });

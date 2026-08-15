@@ -52,6 +52,36 @@ to keep giving them reasons to look back.
 
 Surprises can be switched off entirely in **Controls** if a room wants the plain race.
 
+## Sound
+
+There are **no audio files in this repo**, and that is deliberate. A club projector laptop
+is exactly the machine that will fail to load three MP3s from a venue's wifi five minutes
+before the first race, and music nobody recorded needs no licence - which matters when the
+night is being projected in public and possibly streamed. So the whole soundtrack is
+synthesised by WebAudio at the moment it plays.
+
+- **A crowd bed** under everything, so the gaps between cues are a room rather than silence.
+- **A lobby groove** between races, written low and sparse to sit under a moderator talking.
+- **A race track that follows the race.** The arrangement thickens as the field comes home:
+  bass from the gate, backbeat at the quarter, arpeggio at halfway, top octave and
+  tambourine only in the run home. The room hears how far in it is without looking up.
+- **The crowd answers the track.** Cheers on a boost, a groan on a nap, a roar into the
+  final straight and at the line. Anything good rises in pitch and anything bad falls, so a
+  punter at the bar with their back to the screen still knows what happened.
+- **The music ducks** under the big moments so the commentary stays readable.
+
+Levels live in **Controls → Sound**: overall volume, music under the commentary, and a
+**Sound check** button that plays every cue in order so you can set the room level cold,
+before anyone arrives. **S** mutes everything, **B** drops just the music and crowd.
+
+### Using your own music
+
+Drop files into `public/audio/` and rebuild; each one found replaces its synthesised cue,
+and anything missing falls back. The console lists what it found. See
+[`public/audio/README.md`](public/audio/README.md) for the filenames, the licensing notes
+and where to find CC0 tracks - and for the one trade-off, which is that a supplied
+`race.mp3` is a fixed loop and cannot follow the race the way the built-in track does.
+
 ## How money flows
 
 - **Cards**: the phone page creates a Stripe Checkout Session tagged with the event,
@@ -92,7 +122,7 @@ Set the environment (see `.env.example`):
    dashboard plus the cash tin. Save a backup JSON if the night continues next week.
 
 Keyboard: **Space** start, **Esc** reset/close, **M** controls, **C** calm mode
-(stops decorative motion), **S** sound, **F** full screen.
+(stops decorative motion), **S** sound, **B** music and crowd, **F** full screen.
 
 ## Architecture notes
 

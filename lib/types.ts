@@ -110,6 +110,12 @@ export interface EventState {
   stageTheme: 'midnight' | 'turf' | 'dusk';
   calm: boolean;
   sound: boolean;
+  /** Music and crowd ambience. Independent of `sound`, which gates everything. */
+  music: boolean;
+  /** Master level, 0 to 1. */
+  volume: number;
+  /** Music bus level, 0 to 1. Sits under the effects by default. */
+  musicVolume: number;
   bettingOpen: boolean;
   startedAt: number;
 }
