@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
+import { COURSES } from '@/lib/course';
 import { eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import { primeAudio, sampleReport, samplesSettled, sfx, soundCheck } from '@/lib/sound';
@@ -69,21 +70,33 @@ export function ControlDrawer({
   }, [open]);
 
   /*
-   * A night saved under an earlier build can carry a duration that is no
+   * On a circuit the stored duration is the whole race, and the moderator
+   * thinks in laps: "twenty seconds a lap, five laps". So the control edits
+   * lap length and lap count, and the product is what gets stored - which
+   * keeps `raceDurationMs` meaning the same thing it always has for the
+   * engine, the history and the straight track.
+   */
+  const laps = event.trackShape === 'circuit' ? Math.max(1, event.laps) : 1;
+  const lapMs = Math.round(event.raceDurationMs / laps);
+
+  const setLength = (nextLapMs: number, nextLaps: number) => {
+    const l = event.trackShape === 'circuit' ? Math.max(1, nextLaps) : 1;
+    setState({ laps: l, raceDurationMs: nextLapMs * l });
+  };
+
+  /*
+   * A night saved under an earlier build can carry a lap length that is no
    * longer offered. Dropping it would leave the select showing nothing and
    * silently change the race length on the next save, so it is listed too.
    */
   const lengthOptions = useMemo(() => {
     const list = RACE_LENGTHS.map((l) => ({ ms: l.ms as number, label: l.label as string }));
-    if (!list.some((l) => l.ms === event.raceDurationMs)) {
-      list.push({
-        ms: event.raceDurationMs,
-        label: `Custom, ${(event.raceDurationMs / 1000).toFixed(0)}s`,
-      });
+    if (!list.some((l) => l.ms === lapMs)) {
+      list.push({ ms: lapMs, label: `Custom, ${(lapMs / 1000).toFixed(0)}s` });
       list.sort((a, b) => b.ms - a.ms);
     }
     return list;
-  }, [event.raceDurationMs]);
+  }, [lapMs]);
   const cashCents = useMemo(
     () => event.cashLedger.filter((d) => !d.void).reduce((s, d) => s + d.cents, 0),
     [event.cashLedger],
@@ -349,10 +362,10 @@ export function ControlDrawer({
               <h3 className="mb-3 font-semibold">Race setup</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="fld">
-                  <span>Race length</span>
+                  <span>{event.trackShape === 'circuit' ? 'Lap length' : 'Race length'}</span>
                   <select
-                    value={event.raceDurationMs}
-                    onChange={(e) => setState({ raceDurationMs: Number(e.target.value) })}
+                    value={lapMs}
+                    onChange={(e) => setLength(Number(e.target.value), event.laps)}
                   >
                     {lengthOptions.map((o) => (
                       <option key={o.ms} value={o.ms}>
@@ -361,6 +374,41 @@ export function ControlDrawer({
                     ))}
                   </select>
                 </label>
+
+                <label className="fld">
+                  <span>Track</span>
+                  <select
+                    value={event.trackShape === 'circuit' ? event.courseId : 'lanes'}
+                    onChange={(e) =>
+                      e.target.value === 'lanes'
+                        ? setState({ trackShape: 'lanes' })
+                        : setState({ trackShape: 'circuit', courseId: e.target.value })
+                    }
+                  >
+                    {COURSES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                    <option value="lanes">Straight lanes</option>
+                  </select>
+                </label>
+
+                {event.trackShape === 'circuit' ? (
+                  <label className="fld">
+                    <span>Laps</span>
+                    <select
+                      value={event.laps}
+                      onChange={(e) => setLength(lapMs, Number(e.target.value))}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                        <option key={n} value={n}>
+                          {n} {n === 1 ? 'lap' : 'laps'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="fld">
                   <span>Race type</span>
                   <select
@@ -408,6 +456,16 @@ export function ControlDrawer({
                 />
                 Show the goal ring on the stage
               </label>
+              {event.trackShape === 'circuit' ? (
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={event.chaseCam}
+                    onChange={(e) => setState({ chaseCam: e.target.checked })}
+                  />
+                  Camera director (cuts between shots)
+                </label>
+              ) : null}
               <label className="mt-2 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"

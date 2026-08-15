@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RaceTrack } from './RaceTrack';
+import { Circuit } from './Circuit';
+import { PitBoard } from './PitBoard';
 import { ToteBoard } from './ToteBoard';
 import { BetSlip } from './BetSlip';
 import { DonateQr } from './DonateQr';
@@ -201,8 +203,13 @@ export function Stage() {
     primeAudio();
     setOverlayOpen(false);
     setState({ bettingOpen: false });
-    race.start(names, event.raceDurationMs, event.surprises);
-  }, [names, event.raceDurationMs, event.surprises, race]);
+    race.start(
+      names,
+      event.raceDurationMs,
+      event.surprises,
+      event.trackShape === 'circuit' ? event.laps : 1,
+    );
+  }, [names, event.raceDurationMs, event.surprises, event.trackShape, event.laps, race]);
 
   const resetRace = useCallback(() => {
     race.reset();
@@ -416,7 +423,19 @@ export function Stage() {
         {/* ── Stage body ─────────────────────────────────────────────── */}
         <main className="grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-4">
-            <RaceTrack names={names} race={race} surface={event.stageTheme} />
+            {event.trackShape === 'circuit' ? (
+              <Circuit
+                names={names}
+                race={race}
+                surface={event.stageTheme}
+                courseId={event.courseId}
+                laps={event.laps}
+                chase={event.chaseCam}
+                calm={event.calm}
+              />
+            ) : (
+              <RaceTrack names={names} race={race} surface={event.stageTheme} />
+            )}
 
             <div className="glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
@@ -457,6 +476,10 @@ export function Stage() {
                 </button>
               </div>
             </div>
+
+            {event.trackShape === 'circuit' ? (
+              <PitBoard names={names} race={race} laps={event.laps} />
+            ) : null}
 
             <RecentDonations donations={liveDonations} />
           </div>

@@ -893,6 +893,160 @@ body {
   to { transform: scale(1.06); box-shadow: 0 0 34px rgba(220, 38, 38, 0.6); }
 }
 
+/* ──────────────────────────── The circuit ─────────────────────────────── */
+
+.circuit-wrap {
+  aspect-ratio: 1000 / 620;
+  width: 100%;
+}
+
+.circuit {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The road: a soft verge, a dark bed and a dashed racing line. */
+.c-verge {
+  fill: none;
+  stroke: rgba(var(--track-line) / 0.05);
+  stroke-linecap: round;
+}
+.c-bed {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.42);
+  stroke-linecap: round;
+}
+.c-centre {
+  fill: none;
+  stroke: rgba(var(--track-line) / 0.28);
+  stroke-dasharray: 14 20;
+  stroke-linecap: round;
+}
+
+.c-scenery { opacity: 0.65; }
+.c-stand { fill: rgba(255, 255, 255, 0.07); stroke: rgba(255, 255, 255, 0.12); }
+.c-fan { fill: rgba(255, 255, 255, 0.3); }
+.c-lettuce circle { fill: rgba(126, 200, 80, 0.5); }
+.c-mud { fill: rgba(120, 84, 52, 0.5); }
+.c-tree circle { fill: rgba(64, 148, 96, 0.5); }
+.c-trunk { fill: rgba(90, 66, 44, 0.7); }
+
+/* Runners. Small, flat and top-down, because the course turns them through
+   a full circle and a side-on snail would spend half the lap upside down. */
+.c-runner { transition: opacity 0.4s ease; }
+.c-foot { fill: var(--body); }
+.c-shell { fill: var(--shell); }
+.c-shell-in { fill: var(--shell-dk); }
+.c-eye { fill: #14161c; }
+
+.c-runner .c-body {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
+  transform-box: view-box;
+}
+
+.circuit.racing .c-runner .c-body { animation: c-crawl 0.6s var(--ease-in-out-soft) infinite; }
+.c-runner.surging .c-body { animation-duration: 0.32s; }
+.c-runner.fx-up .c-body { animation-duration: 0.22s; }
+.c-runner.fx-down .c-body { animation-duration: 1.4s; }
+
+@keyframes c-crawl {
+  0%, 100% { scale: 1 1; }
+  40% { scale: 1.09 0.93; }
+  70% { scale: 0.95 1.05; }
+}
+
+.c-runner.fx-up .c-shell { filter: brightness(1.5); }
+.c-runner.fx-down .c-foot,
+.c-runner.fx-down .c-shell { filter: grayscale(0.6) brightness(0.7); }
+.c-runner.finished { opacity: 0.55; }
+
+/* Text on a busy course: a painted stroke rather than a backing plate, which
+   would cost a getBBox measurement per snail per frame. */
+.c-name,
+.c-chip,
+.c-fx {
+  font-family: var(--font-display);
+  font-weight: 800;
+  fill: #fff;
+  stroke: rgba(0, 0, 0, 0.85);
+  stroke-width: 3.5px;
+  paint-order: stroke fill;
+}
+.circuit { --cam-k: 1; }
+
+/* Counter-scaled against the lens, so a close-up does not print a name across
+   the whole projector. Clamped so a wide shot keeps them legible too. */
+.c-name { font-size: calc(clamp(0.55, var(--cam-k), 1.15) * 15px); }
+.c-chip { font-size: calc(clamp(0.55, var(--cam-k), 1.15) * 13px); fill: var(--shell); }
+.c-fx {
+  font-size: calc(clamp(0.55, var(--cam-k), 1.15) * 11px);
+  letter-spacing: 0.08em;
+}
+.c-name, .c-chip, .c-fx { stroke-width: calc(clamp(0.55, var(--cam-k), 1.15) * 3.5px); }
+.c-runner.fx-up .c-fx { fill: #6ee7b7; }
+.c-runner.fx-down .c-fx { fill: #fca5a5; }
+
+/* Broadcast furniture. */
+.cam-pill,
+.lap-pill {
+  position: absolute;
+  top: 14px;
+  z-index: 6;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  backdrop-filter: blur(8px);
+}
+.cam-pill {
+  left: 14px;
+  background: rgba(220, 38, 38, 0.85);
+  color: #fff;
+}
+.cam-pill:empty { display: none; }
+.cam-pill::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #fff;
+  vertical-align: middle;
+  animation: ping 1.6s ease-in-out infinite;
+}
+.lap-pill {
+  right: 14px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--hairline-strong);
+  color: var(--tx);
+}
+.lap-pill:empty { display: none; }
+
+/* One frame of white on a cut, the way a hard switch reads on broadcast. */
+.circuit-wrap.cut::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: #fff;
+  animation: cut-flash 0.16s ease-out forwards;
+}
+
+@keyframes cut-flash {
+  from { opacity: 0.24; }
+  to { opacity: 0; }
+}
+
+.calm .cam-pill::before,
+.calm .circuit-wrap.cut::after,
+.calm .circuit.racing .c-runner .c-body {
+  animation: none !important;
+}
+
 /* ───────────────────────── Surprises on the track ─────────────────────── */
 
 /*
@@ -1350,3 +1504,90 @@ kbd {
   .no-print { display: none !important; }
   .print-only { display: block; }
 }
+
+/* ─────────────────────────── The timing tower ─────────────────────────── */
+
+/*
+ * A five-minute race needs something to read between the big moments, and
+ * "second, half a length down" is what a punter with money on second wants.
+ * Rows keep their document order and move by transform, so reordering never
+ * touches layout.
+ */
+.pit-board { overflow: hidden; }
+
+.pb-list {
+  position: relative;
+  display: grid;
+  gap: 2px;
+}
+
+.pb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--tx) 4%, transparent);
+  font-size: 12px;
+  transition: transform 0.45s var(--ease-out-expo), background 0.3s ease;
+  will-change: transform;
+}
+
+.pb-pos {
+  width: 26px;
+  flex: none;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--tx) 50%, transparent);
+}
+.pb-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+.pb-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.pb-gap {
+  flex: none;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--tx) 55%, transparent);
+}
+
+.calm .pb-row { transition: none; }
+
+/* ───────────────────────────── Weather ────────────────────────────────── */
+
+/*
+ * Scenery only: nothing here touches a position, so weather needs no place in
+ * the fairness argument. It exists to give a long race a variable the room
+ * can read in the first second.
+ */
+.circuit-wrap { position: relative; }
+
+.c-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    102deg,
+    rgba(190, 215, 255, 0.22) 0 1px,
+    transparent 1px 9px
+  );
+  animation: rain 0.42s linear infinite;
+}
+
+.circuit-wrap[data-weather='drizzle'] .c-rain { opacity: 0.3; }
+.circuit-wrap[data-weather='downpour'] .c-rain { opacity: 0.62; animation-duration: 0.26s; }
+
+/* Wet track: the surface darkens and the lights bloom on it. */
+.circuit-wrap[data-weather='drizzle'] { filter: saturate(0.9) brightness(0.94); }
+.circuit-wrap[data-weather='downpour'] { filter: saturate(0.78) brightness(0.86); }
+
+@keyframes rain {
+  to { background-position: 40px 120px; }
+}
+
+.calm .c-rain { animation: none; opacity: 0.16; }
