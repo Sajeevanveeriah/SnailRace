@@ -21,8 +21,11 @@ import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour } from '@/lib/palette';
 import { primeAudio, setSoundEnabled, sfx } from '@/lib/sound';
-import type { Bet, Donation, RaceHistoryEntry } from '@/lib/types';
+import type { Bet, Donation, RaceHighlight, RaceHistoryEntry, RaceResult } from '@/lib/types';
 import type { DrawnRace } from '@/lib/race-engine';
+
+/** Bonus chips per race for a punter on a run, so a hot streak is worth chasing. */
+const STREAK_BONUS = 25;
 
 export function Stage() {
   const event = useEvent();
@@ -67,8 +70,10 @@ export function Stage() {
 
   /* ── Race lifecycle ──────────────────────────────────────────────────── */
 
+  const [highlights, setHighlights] = useState<RaceHighlight[]>([]);
+
   const onFinish = useCallback(
-    (drawn: DrawnRace, results: { lane: number; name: string; place: number; finishMs: number }[]) => {
+    (drawn: DrawnRace, results: RaceResult[], reel: RaceHighlight[]) => {
       const raceNo = nextRaceNo;
       const winner = results[0];
 
@@ -82,6 +87,7 @@ export function Stage() {
         results,
         potCents,
         photoFinish: drawn.photoFinish,
+        highlights: reel,
       };
 
       const settled = settleBets(event.bets, raceNo, winner?.lane ?? -1);
@@ -92,18 +98,39 @@ export function Stage() {
         bank[k] = (bank[k] ?? CHIP_START) + b.returned;
       }
 
+      /*
+       * Streaks. Anyone who had a bet on this race either extended a run or
+       * ended one, and a run pays a bonus on top of the odds - which is the
+       * reason to come back for the next race rather than sit the rest out.
+       * Punters who sat this one out keep the streak they had.
+       */
+      const streaks = { ...event.streaks };
+      const played = new Map<string, boolean>();
+      for (const b of settled) {
+        if (b.raceNo !== raceNo) continue;
+        const k = b.punter.trim().toLowerCase();
+        played.set(k, (played.get(k) ?? false) || Boolean(b.won));
+      }
+      for (const [k, won] of played) {
+        const run = won ? (streaks[k] ?? 0) + 1 : 0;
+        streaks[k] = run;
+        if (run >= 2) bank[k] = (bank[k] ?? CHIP_START) + STREAK_BONUS * run;
+      }
+
       setState({
         raceNumber: raceNo,
         history: [entry, ...event.history],
         bets: settled,
         chipBank: bank,
+        streaks,
         bettingOpen: true,
       });
 
+      setHighlights(reel);
       setOverlayOpen(true);
       setConfettiKey((k) => k + 1);
     },
-    [event.bets, event.chipBank, event.history, event.raceDurationMs, event.raceType, names.length, nextRaceNo, potCents],
+    [event.bets, event.chipBank, event.history, event.raceDurationMs, event.raceType, event.streaks, names.length, nextRaceNo, potCents],
   );
 
   const race = useRace(onFinish);
@@ -112,8 +139,8 @@ export function Stage() {
     primeAudio();
     setOverlayOpen(false);
     setState({ bettingOpen: false });
-    race.start(names, event.raceDurationMs);
-  }, [names, event.raceDurationMs, race]);
+    race.start(names, event.raceDurationMs, event.surprises);
+  }, [names, event.raceDurationMs, event.surprises, race]);
 
   const resetRace = useCallback(() => {
     race.reset();
@@ -413,6 +440,7 @@ export function Stage() {
               raceNo={nextRaceNo}
               bets={event.bets}
               chipBank={event.chipBank}
+              streaks={event.streaks}
               open={event.bettingOpen && !racing}
               onPlace={placeBet}
             />
@@ -437,6 +465,8 @@ export function Stage() {
         results={race.results}
         donations={allDonations}
         bets={event.bets}
+        highlights={highlights}
+        nextRaceNo={event.raceNumber + 1}
         onClose={() => setOverlayOpen(false)}
       />
 

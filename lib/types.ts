@@ -39,6 +39,22 @@ export interface RaceResult {
   finishMs: number;
 }
 
+/**
+ * A surprise that landed during a race: a turbo boost, a shell slip, a nap.
+ *
+ * Theatre only. Every one of these is drawn from the race seed after the
+ * finishing order has already been settled, so the highlight reel explains
+ * what the room saw without any of it having changed who won.
+ */
+export interface RaceHighlight {
+  /** Race-time the surprise landed, in milliseconds. */
+  atMs: number;
+  lane: number;
+  name: string;
+  kind: string;
+  label: string;
+}
+
 export interface RaceHistoryEntry {
   raceNo: number;
   raceType: string;
@@ -50,6 +66,8 @@ export interface RaceHistoryEntry {
   /** Total cents backed on this race, all lanes, all sources. */
   potCents: number;
   photoFinish: boolean;
+  /** Surprises that landed, oldest first. Absent on nights from an older build. */
+  highlights?: RaceHighlight[];
 }
 
 /** A free-to-play wager. No real money, no cash payout. */
@@ -78,12 +96,16 @@ export interface EventState {
   goalCents: number;
   goalShow: boolean;
   raceDurationMs: number;
+  /** Whether in-race surprises are dealt. Never affects the finishing order. */
+  surprises: boolean;
   raceType: string;
   raceNumber: number;
   cashLedger: Donation[];
   history: RaceHistoryEntry[];
   bets: Bet[];
   chipBank: Record<string, number>;
+  /** Consecutive winning races per punter, keyed the same way as chipBank. */
+  streaks: Record<string, number>;
   /** Which lighting the track runs under. Information design never changes. */
   stageTheme: 'midnight' | 'turf' | 'dusk';
   calm: boolean;

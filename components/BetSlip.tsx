@@ -26,6 +26,7 @@ export function BetSlip({
   raceNo,
   bets,
   chipBank,
+  streaks,
   open,
   onPlace,
 }: {
@@ -33,6 +34,7 @@ export function BetSlip({
   raceNo: number;
   bets: Bet[];
   chipBank: Record<string, number>;
+  streaks: Record<string, number>;
   open: boolean;
   onPlace: (bet: Omit<Bet, 'id' | 'settled'>) => void;
 }) {
@@ -49,11 +51,17 @@ export function BetSlip({
     [bets, raceNo],
   );
 
+  const streak = key ? (streaks[key] ?? 0) : 0;
+
   const leaderboard = useMemo(() => {
-    const rows = Object.entries(chipBank).map(([k, chips]) => ({ key: k, chips }));
+    const rows = Object.entries(chipBank).map(([k, chips]) => ({
+      key: k,
+      chips,
+      streak: streaks[k] ?? 0,
+    }));
     rows.sort((a, b) => b.chips - a.chips);
     return rows.slice(0, 5);
-  }, [chipBank]);
+  }, [chipBank, streaks]);
 
   const place = () => {
     if (!open) {
@@ -91,14 +99,21 @@ export function BetSlip({
     <section className="glass glass-strong p-5 sm:p-6 flex flex-col gap-4" aria-label="Fun bets">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="eyebrow">Fun bets</h2>
-        <span className="num rounded-full bg-(--gold)/15 px-3 py-1 text-xs font-bold text-(--gold)">
-          {bank.toLocaleString('en-AU')} chips
+        <span className="flex items-center gap-2">
+          {streak >= 2 ? (
+            <span className="rounded-full bg-(--bad)/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-(--bad)">
+              {streak} in a row
+            </span>
+          ) : null}
+          <span className="num rounded-full bg-(--gold)/15 px-3 py-1 text-xs font-bold text-(--gold)">
+            {bank.toLocaleString('en-AU')} chips
+          </span>
         </span>
       </div>
 
       <p className="text-[11px] leading-snug text-(--tx)/45">
         Play chips only. Free to enter, nothing to buy, no cash payout - the leaderboard is the
-        prize.
+        prize. Win two races running and every extra win pays a streak bonus.
       </p>
 
       <label className="fld">
@@ -191,6 +206,14 @@ export function BetSlip({
               <li key={row.key} className="flex items-center gap-2 text-xs">
                 <span className="num w-4 text-(--tx)/40">{i + 1}</span>
                 <span className="truncate capitalize">{row.key}</span>
+                {row.streak >= 2 ? (
+                  <span
+                    className="num shrink-0 text-[10px] font-bold text-(--bad)"
+                    title={`${row.streak} winning races in a row`}
+                  >
+                    x{row.streak}
+                  </span>
+                ) : null}
                 <span className="num ml-auto font-semibold">
                   {row.chips.toLocaleString('en-AU')}
                 </span>

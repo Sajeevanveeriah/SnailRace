@@ -74,4 +74,22 @@ export const sfx = {
     tone(180, 0, 0.5, 'sawtooth', 0.09);
     tone(240, 0.12, 0.45, 'sawtooth', 0.07);
   },
+  /* A surprise that helped: a rising whoop. */
+  boost: () => {
+    [523.25, 698.46, 1046.5].forEach((f, i) => tone(f, i * 0.055, 0.2, 'triangle', 0.13));
+  },
+  /* A surprise that hurt: the same shape, falling and duller. */
+  stumble: () => {
+    [392, 294, 208].forEach((f, i) => tone(f, i * 0.07, 0.24, 'sine', 0.11));
+  },
+  /* The lead changes hands. Two stabs, so it cuts through a noisy room. */
+  leadChange: () => {
+    tone(880, 0, 0.12, 'square', 0.13);
+    tone(1174.66, 0.1, 0.22, 'square', 0.12);
+  },
+  /* Halfway. One clang of the lap bell. */
+  bell: () => {
+    tone(1568, 0, 0.55, 'sine', 0.12);
+    tone(2093, 0.02, 0.4, 'sine', 0.06);
+  },
 };

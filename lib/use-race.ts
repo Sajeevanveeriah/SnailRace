@@ -4,15 +4,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   callLine,
   drawRace,
+  eventLine,
   freshSeed,
+  leadChangeLine,
   ordinal,
   rankSnails,
+  sectorLine,
   stepRace,
   type DrawnRace,
+  type RaceEvent,
   type SnailRun,
 } from './race-engine';
 import { sfx } from './sound';
-import type { RaceResult } from './types';
+import type { RaceHighlight, RaceResult } from './types';
 
 /**
  * Where the snail's nose sits inside its token, as a fraction of token width
@@ -24,7 +28,35 @@ const NOSE = 0.924;
 /** How much race-time the photo-finish slow-motion covers, at 0.3x speed. */
 const SLOWMO_RACE_MS = 620;
 
+/** How long a surprise banner stays up, in real milliseconds. */
+const MOMENT_MS = 1800;
+
+/**
+ * Past this point the banner is muted.
+ *
+ * It sits across the middle of the track, and a card covering the leaders as
+ * they come to the line would cost the room the one moment it came for. The
+ * commentary rail still carries every call.
+ */
+const MOMENT_UNTIL = 0.82;
+
+/**
+ * A lead change before this point is just the field sorting itself out at the
+ * gate, and calling every one of them cheapens the ones that matter.
+ */
+const LEAD_CHANGE_FROM = 0.12;
+
 export type RacePhase = 'idle' | 'countdown' | 'running' | 'done';
+
+export type MomentTone = 'good' | 'bad' | 'hot';
+
+/** A shout for the middle of the track: a surprise, or a change of leader. */
+export interface RaceMoment {
+  /** Bumped on every moment so the banner replays its keyframe. */
+  id: number;
+  text: string;
+  tone: MomentTone;
+}
 
 export interface LaneNodes {
   root: HTMLElement;
@@ -33,6 +65,7 @@ export interface LaneNodes {
   trail: HTMLElement;
   chip: HTMLElement;
   label: HTMLElement;
+  fx: HTMLElement;
 }
 
 export interface RaceController {
@@ -43,10 +76,13 @@ export interface RaceController {
   seedHex: string;
   photoFinish: boolean;
   results: RaceResult[];
+  /** Every surprise drawn for the race in progress, for the track markers. */
+  events: RaceEvent[];
+  moment: RaceMoment | null;
   registerLane: (index: number, nodes: LaneNodes | null) => void;
   trackRef: React.RefObject<HTMLDivElement | null>;
   flashRef: React.RefObject<HTMLDivElement | null>;
-  start: (names: string[], durationMs: number) => void;
+  start: (names: string[], durationMs: number, surprises?: boolean) => void;
   reset: () => void;
 }
 
@@ -59,7 +95,12 @@ interface LiveRace extends DrawnRace {
   /** Race-time at which slow-motion hands back to normal speed. */
   slowUntil: number;
   commentaryAt: number;
+  /** Which quarter-mark call has already been made. */
+  sector: number;
+  /** Lane currently in front, for spotting a change of leader. */
+  leadLane: number;
   results: RaceResult[];
+  highlights: RaceHighlight[];
 }
 
 /**
@@ -72,7 +113,9 @@ interface LiveRace extends DrawnRace {
  * React still drives everything a human reads: phase, status, commentary and
  * the finishing order.
  */
-export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => void): RaceController {
+export function useRace(
+  onFinish: (race: DrawnRace, results: RaceResult[], highlights: RaceHighlight[]) => void,
+): RaceController {
   const [phase, setPhase] = useState<RacePhase>('idle');
   const [countdown, setCountdown] = useState('');
   const [status, setStatus] = useState('Ready to race');
@@ -80,6 +123,8 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
   const [seedHex, setSeedHex] = useState('');
   const [photoFinish, setPhotoFinish] = useState(false);
   const [results, setResults] = useState<RaceResult[]>([]);
+  const [events, setEvents] = useState<RaceEvent[]>([]);
+  const [moment, setMoment] = useState<RaceMoment | null>(null);
 
   const lanesRef = useRef<Map<number, LaneNodes>>(new Map());
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -93,6 +138,8 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
   const timersRef = useRef<number[]>([]);
   const geomRef = useRef({ travelPx: 0, tokenW: 0, fieldW: 0, labelW: [] as number[] });
   const finishRef = useRef(onFinish);
+  const momentIdRef = useRef(0);
+  const momentTimerRef = useRef(0);
 
   /*
    * The caller re-creates `onFinish` whenever the ledger changes, which is
@@ -165,6 +212,33 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((t) => window.clearTimeout(t));
     timersRef.current = [];
+    window.clearTimeout(momentTimerRef.current);
+    momentTimerRef.current = 0;
+  }, []);
+
+  /**
+   * Shout something across the middle of the track.
+   *
+   * One banner at a time: a nap and a lead change landing together used to
+   * stack two cards on top of each other, and the newer moment is always the
+   * one the room is looking at.
+   */
+  const announce = useCallback((text: string, tone: MomentTone) => {
+    momentIdRef.current += 1;
+    setMoment({ id: momentIdRef.current, text, tone });
+    window.clearTimeout(momentTimerRef.current);
+    momentTimerRef.current = window.setTimeout(() => {
+      momentTimerRef.current = 0;
+      setMoment(null);
+    }, MOMENT_MS);
+  }, []);
+
+  /** Pull a banner down early, e.g. because the leaders have reached the run home. */
+  const hushMoment = useCallback(() => {
+    if (!momentTimerRef.current) return;
+    window.clearTimeout(momentTimerRef.current);
+    momentTimerRef.current = 0;
+    setMoment(null);
   }, []);
 
   const stop = useCallback(() => {
@@ -181,13 +255,19 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
     setCommentary('');
     setPhotoFinish(false);
     setResults([]);
+    setEvents([]);
+    setMoment(null);
     setStatus('Ready to race');
     trackRef.current?.classList.remove('final-straight', 'photo');
+    trackRef.current?.style.setProperty('--race-p', '0');
     lanesRef.current.forEach((nodes) => {
-      nodes.root.classList.remove('racing', 'finished', 'surging', 'pos-1', 'pos-2', 'pos-3');
+      nodes.root.classList.remove(
+        'racing', 'finished', 'surging', 'pos-1', 'pos-2', 'pos-3', 'fx-up', 'fx-down',
+      );
       nodes.field.style.setProperty('--x', '0px');
       nodes.trail.style.setProperty('--tp', '0');
       nodes.chip.textContent = '';
+      nodes.fx.textContent = '';
     });
   }, [clearTimers, stop]);
 
@@ -221,7 +301,7 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
     setPhase('done');
     setStatus(ordered[0] ? `${ordered[0].name} wins!` : 'Race over');
     sfx.fanfare();
-    finishRef.current(race, ordered);
+    finishRef.current(race, ordered, race.highlights);
   }, [paint, stop]);
 
   const frame = useCallback(
@@ -235,7 +315,31 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
       if (dt > 100) dt = 100; // survive GC pauses and tab returns
       race.raceT += dt * race.slow;
 
-      const crossed = stepRace(race.snails, race.raceT, dt, race.placed);
+      const { crossed, fired } = stepRace(race.snails, race.raceT, dt, race.placed);
+      const leadP = race.snails.reduce((m, s) => (s.done ? 1 : Math.max(m, s.p)), 0);
+      const quiet = leadP > MOMENT_UNTIL;
+      if (quiet) hushMoment();
+
+      /*
+       * Surprises. Only the last one on a frame gets the banner, but every
+       * one is kept for the result card so the room can relive the race that
+       * just cost them their chips.
+       */
+      for (const { event, snail } of fired) {
+        race.highlights.push({
+          atMs: Math.round(race.raceT),
+          lane: snail.lane,
+          name: snail.name,
+          kind: event.kind,
+          label: event.label,
+        });
+        setCommentary(eventLine(event, snail.name));
+        race.commentaryAt = race.raceT;
+        if (!quiet) announce(`${snail.name}: ${event.label}`, event.tone);
+        if (event.tone === 'good') sfx.boost();
+        else sfx.stumble();
+      }
+
       for (const s of crossed) {
         race.placed = s.place;
         race.results.push({ lane: s.lane, name: s.name, place: s.place, finishMs: s.finishMs });
@@ -253,6 +357,44 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
       }
 
       const { byPosition, ranked } = rankSnails(race.snails);
+      const lead = byPosition[0];
+      const chaser = byPosition[1] ?? lead;
+
+      /*
+       * A change of leader is the single loudest thing that happens in a
+       * race, and before this it went past unremarked. Guarded on the
+       * leader still being on the track: the moment the first snail is home
+       * every other lane "takes the lead" in turn as it finishes.
+       */
+      if (
+        lead &&
+        !lead.done &&
+        race.placed === 0 &&
+        lead.p > LEAD_CHANGE_FROM &&
+        race.leadLane !== -1 &&
+        lead.lane !== race.leadLane
+      ) {
+        const deposed = race.snails.find((s) => s.lane === race.leadLane);
+        setCommentary(leadChangeLine(lead.name, deposed?.name ?? chaser.name));
+        race.commentaryAt = race.raceT;
+        if (!quiet) announce(`${lead.name} HITS THE FRONT`, 'hot');
+        sfx.leadChange();
+      }
+      if (lead && !lead.done) race.leadLane = lead.lane;
+
+      /* Quarter-mark calls keep a thirty-second race from sagging in the middle. */
+      if (lead && !lead.done) {
+        const sector = Math.floor(lead.p * 4);
+        if (sector > race.sector && sector <= 3) {
+          race.sector = sector;
+          const line = sectorLine(sector, lead.name, chaser.name);
+          if (line) {
+            setCommentary(line);
+            race.commentaryAt = race.raceT;
+            if (sector === 2) sfx.bell();
+          }
+        }
+      }
 
       if (
         !race.slowmoUsed &&
@@ -282,14 +424,25 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
 
       if (byPosition[0].p > 0.8) trackRef.current?.classList.add('final-straight');
 
+      /* Drives the race-progress bar. A long race needs a sense of how far is left. */
+      trackRef.current?.style.setProperty('--race-p', byPosition[0].p.toFixed(4));
+
       /* Effort cue for anyone moving well above the field average. */
       let mean = 0;
       for (const s of race.snails) mean += s.rate;
       mean /= race.snails.length || 1;
       for (const s of race.snails) {
-        lanesRef.current
-          .get(s.lane)
-          ?.root.classList.toggle('surging', !s.done && mean > 0 && s.rate > mean * 1.15);
+        const nodes = lanesRef.current.get(s.lane);
+        if (!nodes) continue;
+        nodes.root.classList.toggle('surging', !s.done && mean > 0 && s.rate > mean * 1.15);
+
+        /* Dress the lane for whichever surprise is currently acting on it. */
+        const up = s.effect === 'boost' || s.effect === 'surge';
+        const down = s.effect !== null && !up;
+        nodes.root.classList.toggle('fx-up', up);
+        nodes.root.classList.toggle('fx-down', down);
+        const tag = s.effect ? (s.events.find((e) => e.kind === s.effect)?.label ?? '') : '';
+        if (nodes.fx.textContent !== tag) nodes.fx.textContent = tag;
       }
 
       ranked.forEach((s, i) => {
@@ -302,8 +455,7 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
 
       if (race.raceT - race.commentaryAt > 1600) {
         race.commentaryAt = race.raceT;
-        const lead = byPosition[0];
-        if (lead) setCommentary(callLine(lead.p, lead.name, byPosition[1]?.name ?? lead.name));
+        if (lead) setCommentary(callLine(lead.p, lead.name, chaser.name));
       }
 
       if (race.placed < race.snails.length && race.raceT < race.tMax) {
@@ -312,7 +464,7 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
         finish();
       }
     },
-    [finish, paint],
+    [announce, finish, hushMoment, paint],
   );
 
   useEffect(() => {
@@ -320,12 +472,12 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
   }, [frame]);
 
   const start = useCallback(
-    (names: string[], durationMs: number) => {
+    (names: string[], durationMs: number, surprises = true) => {
       if (phase === 'countdown' || phase === 'running') return;
       reset();
       measure();
 
-      const drawn = drawRace(freshSeed(), names, durationMs);
+      const drawn = drawRace(freshSeed(), names, durationMs, surprises);
       raceRef.current = {
         ...drawn,
         raceT: 0,
@@ -335,9 +487,13 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
         slowmoUsed: false,
         slowUntil: 0,
         commentaryAt: -2000,
+        sector: 0,
+        leadLane: -1,
         results: [],
+        highlights: [],
       };
       setSeedHex(drawn.seedHex);
+      setEvents(drawn.events);
       setPhase('countdown');
       setStatus('On your marks');
 
@@ -381,6 +537,8 @@ export function useRace(onFinish: (race: DrawnRace, results: RaceResult[]) => vo
     seedHex,
     photoFinish,
     results,
+    events,
+    moment,
     registerLane,
     trackRef,
     flashRef,

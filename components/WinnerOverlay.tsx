@@ -5,7 +5,7 @@ import { Snail } from './Snail';
 import { laneColour } from '@/lib/palette';
 import { money } from '@/lib/money';
 import { ordinal } from '@/lib/race-engine';
-import type { Bet, Donation, RaceResult } from '@/lib/types';
+import type { Bet, Donation, RaceHighlight, RaceResult } from '@/lib/types';
 
 export function WinnerOverlay({
   open,
@@ -13,6 +13,8 @@ export function WinnerOverlay({
   results,
   donations,
   bets,
+  highlights,
+  nextRaceNo,
   onClose,
 }: {
   open: boolean;
@@ -20,6 +22,8 @@ export function WinnerOverlay({
   results: RaceResult[];
   donations: Donation[];
   bets: Bet[];
+  highlights: RaceHighlight[];
+  nextRaceNo: number;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -132,7 +136,39 @@ export function WinnerOverlay({
           ))}
         </ol>
 
-        <button ref={closeRef} type="button" className="btn btn-ghost mt-7" onClick={onClose}>
+        {highlights.length > 0 ? (
+          <div className="mt-6 text-left">
+            <p className="eyebrow mb-2">What happened out there</p>
+            {/* A marathon deals a dozen surprises; the card scrolls rather than grows. */}
+            <ul className="flex max-h-44 flex-col gap-1 overflow-y-auto pr-1">
+              {highlights.map((h, i) => (
+                <li
+                  key={`${h.atMs}-${h.lane}-${i}`}
+                  className="flex items-center gap-2.5 rounded-lg bg-(--tx)/5 px-3 py-1.5 text-xs"
+                >
+                  <span className="num w-11 shrink-0 text-(--tx)/40">
+                    {(h.atMs / 1000).toFixed(1)}s
+                  </span>
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: laneColour(h.lane).shell }}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate font-medium">{h.name}</span>
+                  <span className="ml-auto shrink-0 text-[10px] font-bold tracking-[0.16em] text-(--tx)/55">
+                    {h.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <p className="mt-6 text-sm font-medium text-(--tx)/70">
+          Betting is open for race {nextRaceNo}. Scan the code and back one.
+        </p>
+
+        <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>
           Close <kbd>Esc</kbd>
         </button>
       </div>
