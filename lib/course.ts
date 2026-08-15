@@ -223,7 +223,7 @@ export function laneOffset(lane: number, fieldSize: number, spacing = 15): numbe
 
 /** Lane spacing that keeps a big field on the track. */
 export const spacingFor = (fieldSize: number): number =>
-  fieldSize <= 6 ? 17 : fieldSize <= 12 ? 13 : 9.5;
+  fieldSize <= 6 ? 30 : fieldSize <= 12 ? 20 : 13;
 
 /** Which named stretch `u` (a fraction of one lap) falls in. */
 export function sectorAt(def: CourseDef, u: number): string {

@@ -39,9 +39,15 @@ named stretches and a chequered start/finish line. Straight lanes are still ther
 **Track** option in **Controls**, and read better on a poor projector.
 
 Laps are what make a race long without making it dull: a lap length times a lap count,
-set separately, so **20 seconds a lap over 5 laps** is a hundred-second feature and
+set separately, so the default **45 seconds a lap over 3 laps** is a 2m 15s race and
 60 x 9 is a nine-minute epic. Each time the leader crosses the line there is a lap call,
 and the last lap gets **the bell**.
+
+**Pace matters more than it looks.** The oval is about 2,200 course units round and a
+snail is 48 long, so a 12-second lap has them covering five body-lengths a second, which
+reads as a sprinting animal rather than a snail. 45 seconds is about one length a second.
+The console prints the resulting race length and pace next to the setting, so it is never
+a surprise on the night.
 
 ### The camera
 
@@ -113,6 +119,15 @@ synthesised by WebAudio at the moment it plays.
 Levels live in **Controls → Sound**: overall volume, music under the commentary, and a
 **Sound check** button that plays every cue in order so you can set the room level cold,
 before anyone arrives. **S** mutes everything, **B** drops just the music and crowd.
+
+### If you cannot hear anything
+
+Browsers will not start audio until someone interacts with the page, and they fail
+**silently**, which is indistinguishable from an app that has no sound. So the stage says
+which it is: if the browser is refusing, a red **"Sound is blocked - click here to turn it
+on"** bar appears along the bottom, and clicking it is itself the gesture the browser was
+waiting for. Failing that, press **Space** or click anywhere once, then use **Sound check**
+in the console to confirm.
 
 ### Using your own music
 

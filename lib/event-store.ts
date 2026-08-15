@@ -19,6 +19,13 @@ import type { EventState } from './types';
 
 const KEY = 'ndcc-snailrace-v3';
 
+/*
+ * The shipped mix. A night saved under an older revision has its levels reset
+ * to the current defaults on load: the first mix was set far too conservative
+ * and a club that had already run a night would otherwise keep it forever.
+ */
+const AUDIO_REV = 2;
+
 function newEventId(): string {
   const buf = new Uint32Array(2);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(buf);
@@ -35,7 +42,14 @@ export function freshState(): EventState {
     names: DEFAULT_NAMES.slice(),
     goalCents: 100_000,
     goalShow: true,
-    raceDurationMs: 36_000,
+    /*
+     * 45 seconds a lap, three laps. Pace matters more than it looks: the
+     * oval is about 2,200 course units round and a snail is 48 long, so a
+     * 12-second lap has them covering five body-lengths a second, which
+     * reads as a sprinting animal rather than a snail. 45 seconds is about
+     * one length a second, which is brisk for a snail and still a race.
+     */
+    raceDurationMs: 135_000,
     trackShape: 'circuit',
     courseId: 'oval',
     laps: 3,
@@ -52,8 +66,9 @@ export function freshState(): EventState {
     calm: false,
     sound: true,
     music: true,
-    volume: 0.85,
-    musicVolume: 0.4,
+    audioRev: AUDIO_REV,
+    volume: 1,
+    musicVolume: 0.62,
     bettingOpen: true,
     startedAt: Date.now(),
   };
@@ -105,8 +120,12 @@ function merge(raw: string | null): EventState {
       /* Levels are clamped on the way in: a hand-edited backup with a volume
          of 40 would hit the limiter hard enough to sound broken. */
       laps: Math.min(9, Math.max(1, Number(parsed.laps) || base.laps)),
-      volume: clamp01(parsed.volume, base.volume),
-      musicVolume: clamp01(parsed.musicVolume, base.musicVolume),
+      ...(Number(parsed.audioRev) === AUDIO_REV
+        ? {
+            volume: clamp01(parsed.volume, base.volume),
+            musicVolume: clamp01(parsed.musicVolume, base.musicVolume),
+          }
+        : { audioRev: AUDIO_REV, volume: base.volume, musicVolume: base.musicVolume }),
     };
   } catch {
     return base;

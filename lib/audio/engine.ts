@@ -38,11 +38,18 @@ export interface AudioLevels {
   crowd: number;
 }
 
+/*
+ * Loud by default.
+ *
+ * These started conservative and the result was a stage nobody could hear
+ * over a function room. The limiter below the master is what makes this safe:
+ * it is doing the job that timid gain staging was doing badly.
+ */
 export const DEFAULT_LEVELS: AudioLevels = {
-  master: 0.85,
-  music: 0.4,
-  sfx: 0.85,
-  crowd: 0.5,
+  master: 1,
+  music: 0.62,
+  sfx: 1,
+  crowd: 0.7,
 };
 
 /**
@@ -79,6 +86,32 @@ let levels: AudioLevels = { ...DEFAULT_LEVELS };
 /** Decoded drop-in files, by slot. `null` means "checked, not present". */
 const samples = new Map<SampleSlot, AudioBuffer | null>();
 let samplesProbed = false;
+
+export type AudioState = 'idle' | 'blocked' | 'running' | 'off';
+
+/**
+ * What the speakers are actually doing.
+ *
+ * Worth surfacing rather than assuming. A browser can refuse to start the
+ * context, or suspend a running one when the machine changes output device or
+ * the tab is backgrounded, and the failure is completely silent - which on the
+ * night looks like an app with no sound rather than a browser asking for a
+ * click.
+ */
+export function audioState(): AudioState {
+  if (!enabled) return 'off';
+  if (!ctx) return 'idle';
+  return ctx.state === 'running' ? 'running' : 'blocked';
+}
+
+/**
+ * Nudge a suspended context back to life. Safe to call on every gesture, and
+ * that is exactly how it is used: a context can be suspended long after the
+ * first click that created it.
+ */
+export function resumeAudio(): void {
+  if (ctx && ctx.state !== 'running') void ctx.resume();
+}
 
 export const audioReady = (): boolean => ctx !== null;
 export const isEnabled = (): boolean => enabled;
@@ -140,11 +173,11 @@ export function primeAudio(): AudioContext | null {
   }
 
   limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = -6;
-  limiter.knee.value = 12;
-  limiter.ratio.value = 12;
-  limiter.attack.value = 0.004;
-  limiter.release.value = 0.18;
+  limiter.threshold.value = -3;
+  limiter.knee.value = 6;
+  limiter.ratio.value = 16;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.16;
   limiter.connect(ctx.destination);
 
   master = ctx.createGain();
