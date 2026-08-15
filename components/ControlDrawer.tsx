@@ -3,8 +3,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
-import { verifyDraw } from '@/lib/race-engine';
+import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
+import { eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import { sfx } from '@/lib/sound';
 import type { Donation } from '@/lib/types';
@@ -52,6 +52,23 @@ export function ControlDrawer({
   const [printedAt, setPrintedAt] = useState('');
 
   const names = event.names.slice(0, event.fieldSize);
+
+  /*
+   * A night saved under an earlier build can carry a duration that is no
+   * longer offered. Dropping it would leave the select showing nothing and
+   * silently change the race length on the next save, so it is listed too.
+   */
+  const lengthOptions = useMemo(() => {
+    const list = RACE_LENGTHS.map((l) => ({ ms: l.ms as number, label: l.label as string }));
+    if (!list.some((l) => l.ms === event.raceDurationMs)) {
+      list.push({
+        ms: event.raceDurationMs,
+        label: `Custom, ${(event.raceDurationMs / 1000).toFixed(0)}s`,
+      });
+      list.sort((a, b) => b.ms - a.ms);
+    }
+    return list;
+  }, [event.raceDurationMs]);
   const cashCents = useMemo(
     () => event.cashLedger.filter((d) => !d.void).reduce((s, d) => s + d.cents, 0),
     [event.cashLedger],
@@ -322,9 +339,11 @@ export function ControlDrawer({
                     value={event.raceDurationMs}
                     onChange={(e) => setState({ raceDurationMs: Number(e.target.value) })}
                   >
-                    <option value={15000}>Long, 15s</option>
-                    <option value={10000}>Standard, 10s</option>
-                    <option value={7000}>Short, 7s</option>
+                    {lengthOptions.map((o) => (
+                      <option key={o.ms} value={o.ms}>
+                        {o.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="fld">
@@ -374,6 +393,19 @@ export function ControlDrawer({
                 />
                 Show the goal ring on the stage
               </label>
+              <label className="mt-2 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={event.surprises}
+                  onChange={(e) => setState({ surprises: e.target.checked })}
+                />
+                In-race surprises
+              </label>
+              <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
+                {event.surprises
+                  ? `About ${eventBudget(event.raceDurationMs, event.fieldSize)} turbo boosts, shell slips and naps per race, marked on the track before they land. They are drawn from the race seed after the finishing order is settled, so they change the drama and never the result.`
+                  : 'Surprises are off. The field runs on wobble alone.'}
+              </p>
             </section>
 
             {/* ── Racers ───────────────────────────────────────────── */}
@@ -484,6 +516,9 @@ export function ControlDrawer({
                       <p className="num text-[11px] text-(--tx)/40">
                         seed {h.seedHex}
                         {h.photoFinish ? ' - photo finish' : ''}
+                        {h.highlights?.length
+                          ? ` - ${h.highlights.length} ${h.highlights.length === 1 ? 'surprise' : 'surprises'}`
+                          : ''}
                       </p>
                     </li>
                   ))}

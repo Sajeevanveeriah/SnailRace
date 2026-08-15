@@ -893,6 +893,137 @@ body {
   to { transform: scale(1.06); box-shadow: 0 0 34px rgba(220, 38, 38, 0.6); }
 }
 
+/* ───────────────────────── Surprises on the track ─────────────────────── */
+
+/*
+ * Pads mark where a surprise is waiting, so the room can see it coming and
+ * shout at a snail before anything has happened. They are drawn from the same
+ * seed as the race and are pure theatre - see lib/race-engine.ts.
+ */
+.pads i {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  left: calc((var(--at) + var(--span) / 2) * 100%);
+  display: grid;
+  place-items: center;
+  width: clamp(15px, 1.5vw, 22px);
+  aspect-ratio: 1;
+  margin-left: calc(clamp(15px, 1.5vw, 22px) / -2);
+  border-radius: 7px;
+  border: 1px solid currentColor;
+  font-size: clamp(9px, 0.85vw, 13px);
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.pad-good {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.16);
+}
+.pad-bad {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.16);
+}
+
+/* The pad the snail is standing on lights up for the lane that hit it. */
+.fx-up .pad-good,
+.fx-down .pad-bad {
+  opacity: 1;
+  animation: pad-hit 0.5s var(--ease-out-expo);
+}
+
+@keyframes pad-hit {
+  from { transform: scale(1.9); filter: brightness(2); }
+}
+
+/* A boosted snail leans into it and drags a hotter trail. */
+.fx-up .token {
+  filter: drop-shadow(0 0 20px rgba(var(--glow) / 0.9)) saturate(1.25);
+}
+.fx-up .token .sn { animation-duration: 0.24s; }
+.fx-up .trail { opacity: 1; filter: none; }
+
+/* A stalled one dulls out and sags. */
+.fx-down .token {
+  filter: grayscale(0.45) brightness(0.72);
+}
+.fx-down .token .sn { animation-duration: 1.5s; }
+
+.fx-pill:empty { display: none; }
+
+.fx-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: clamp(7px, 0.62vw, 10px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  animation: pop-in 0.3s var(--ease-spring) both;
+}
+.fx-up .fx-pill {
+  background: rgba(16, 185, 129, 0.9);
+  color: #041e14;
+}
+.fx-down .fx-pill {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+
+/* The shout across the middle of the track. */
+.moment {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 7;
+  translate: -50% -50%;
+  padding: 10px 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(10px);
+  font-size: clamp(0.95rem, 2vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: moment-in 1.8s var(--ease-out-expo) both;
+}
+
+.moment-good { background: rgba(16, 185, 129, 0.9); color: #04231a; }
+.moment-bad { background: rgba(220, 38, 38, 0.9); color: #fff; }
+.moment-hot { background: rgba(245, 158, 11, 0.94); color: #1c1206; }
+
+@keyframes moment-in {
+  0% { opacity: 0; transform: scale(0.6) rotate(-2deg); }
+  12% { opacity: 1; transform: scale(1.06) rotate(1deg); }
+  20% { transform: scale(1) rotate(0deg); }
+  70% { opacity: 1; transform: scale(1) translateY(0); }
+  /* Drifts up as it goes, so the lanes underneath come back sooner. */
+  100% { opacity: 0; transform: scale(1.1) translateY(-26px); }
+}
+
+/* How far the leader has left to run. Reads at the back of a hall. */
+.race-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  height: 3px;
+  background: rgba(var(--track-line) / 0.08);
+}
+.race-progress i {
+  display: block;
+  height: 100%;
+  width: calc(var(--race-p, 0) * 100%);
+  background: linear-gradient(90deg, rgba(60, 165, 255, 0.7), rgba(255, 178, 36, 0.95));
+  box-shadow: 0 0 12px rgba(255, 178, 36, 0.5);
+}
+
 /* ─────────────────────────── Entrances and lists ───────────────────────── */
 
 .reveal {
@@ -1184,8 +1315,18 @@ kbd {
 .calm .sn-head,
 .calm .sn-pupil,
 .calm .token .sn,
-.calm .trail::after {
+.calm .trail::after,
+.calm .pad,
+.calm .fx-pill {
   animation: none !important;
+}
+
+/*
+ * Calm mode keeps the surprise banner - it is information, not decoration -
+ * and only takes the movement out of it.
+ */
+.calm .moment {
+  animation: fade 0.3s ease both;
 }
 
 @media print {

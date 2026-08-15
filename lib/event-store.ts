@@ -35,13 +35,15 @@ export function freshState(): EventState {
     names: DEFAULT_NAMES.slice(),
     goalCents: 100_000,
     goalShow: true,
-    raceDurationMs: 10_000,
+    raceDurationMs: 20_000,
+    surprises: true,
     raceType: 'Heat',
     raceNumber: 0,
     cashLedger: [],
     history: [],
     bets: [],
     chipBank: {},
+    streaks: {},
     stageTheme: 'midnight',
     calm: false,
     sound: true,
@@ -89,6 +91,7 @@ function merge(raw: string | null): EventState {
       history: Array.isArray(parsed.history) ? parsed.history : [],
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],
       chipBank: parsed.chipBank && typeof parsed.chipBank === 'object' ? parsed.chipBank : {},
+      streaks: parsed.streaks && typeof parsed.streaks === 'object' ? parsed.streaks : {},
     };
   } catch {
     return base;

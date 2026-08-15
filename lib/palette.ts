@@ -62,6 +62,21 @@ export const NAME_POOL = [
 export const QUICK_AMOUNTS_CENTS = [500, 1000, 2000, 5000, 10000];
 
 /**
+ * How long the field takes to get home.
+ *
+ * Longer races are the point: the surprises in `lib/race-engine.ts` are dealt
+ * in proportion to the duration, so a 45-second marathon carries a dozen
+ * things going wrong rather than the two a sprint has room for.
+ */
+export const RACE_LENGTHS = [
+  { ms: 45_000, label: 'Marathon, 45s' },
+  { ms: 30_000, label: 'Long, 30s' },
+  { ms: 20_000, label: 'Feature, 20s' },
+  { ms: 12_000, label: 'Standard, 12s' },
+  { ms: 7_000, label: 'Sprint, 7s' },
+] as const;
+
+/**
  * Stage themes: the surface the race is run on. Each one keeps the same
  * information design and only re-lights the scene, so a theme change can
  * never cost readability.
