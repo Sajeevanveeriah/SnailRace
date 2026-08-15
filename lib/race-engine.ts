@@ -162,10 +162,17 @@ export interface RaceEvent {
   fired: boolean;
 }
 
-/** How many surprises a race of this length carries. */
+/**
+ * How many surprises a race of this length carries.
+ *
+ * A rate rather than a cap. A five-minute race with a dozen surprises in it
+ * has four minutes of nothing happening, which is exactly how a long race
+ * loses a room, so the budget scales the whole way up - roughly one every
+ * three seconds. The ceiling is a runaway guard, not a design choice.
+ */
 export function eventBudget(durationMs: number, fieldSize: number): number {
   const byLength = Math.round((durationMs / 1000) * 0.34);
-  return Math.max(2, Math.min(12, byLength, fieldSize * 2));
+  return Math.max(2, Math.min(120, byLength, fieldSize * 8));
 }
 
 /**
@@ -277,6 +284,22 @@ export interface SnailRun {
   effect: RaceEventKind | null;
 }
 
+/**
+ * Conditions for the race.
+ *
+ * Weather is scenery and commentary only - it never touches a position, so it
+ * needs no place in the fairness argument. It exists because a five-minute
+ * race wants a variable the room can see from the first second, and "they are
+ * running in a downpour tonight" is one every punter already understands.
+ */
+export type Weather = 'clear' | 'drizzle' | 'downpour';
+
+export const WEATHER_CALL: Record<Weather, string> = {
+  clear: 'Perfect conditions over the course tonight.',
+  drizzle: 'A bit of drizzle about - the track is greasy out there.',
+  downpour: 'They are racing in a downpour! Slime everywhere!',
+};
+
 export interface DrawnRace {
   seed: number;
   seedHex: string;
@@ -285,6 +308,7 @@ export interface DrawnRace {
   photoFinish: boolean;
   /** Every surprise in the race, all lanes, ordered by where it lands. */
   events: RaceEvent[];
+  weather: Weather;
   durationMs: number;
   /** Hard stop for the animation loop. */
   tMax: number;
@@ -324,6 +348,10 @@ export function drawRace(
 
   const events = surprises ? drawEvents(rnd, n, durationMs) : [];
 
+  /* Drawn last, so adding it cannot shift the order or the surprises. */
+  const roll = rnd();
+  const weather: Weather = roll < 0.6 ? 'clear' : roll < 0.85 ? 'drizzle' : 'downpour';
+
   const snails: SnailRun[] = [];
   for (let i = 0; i < n; i++) {
     snails.push({
@@ -362,6 +390,7 @@ export function drawRace(
     order,
     photoFinish,
     events,
+    weather,
     durationMs,
     tMax: Math.max(...T) + 1500,
   };
@@ -524,6 +553,20 @@ export const COMMENTARY = {
   ],
 } as const;
 
+/** Lap calls. A long race needs a rhythm, and laps are the natural one. */
+export const LAP_LINES = [
+  '{a} leads them across the line to start lap {n}!',
+  'Lap {n} begins and it is {a} in front from {b}.',
+  'Onto lap {n} - {a} by a whisker from {b}.',
+  '{a} starts lap {n} with {b} all over the back of it.',
+] as const;
+
+export const BELL_LAP_LINES = [
+  'THE BELL! Last lap, and {a} leads!',
+  'Bell lap! {a} in front, {b} coming for it!',
+  'One lap to run and {a} has it by a nose!',
+] as const;
+
 /** Called when the leader changes hands. The loudest line in the book. */
 export const LEAD_CHANGE_LINES = [
   'LEAD CHANGE! {a} snatches it from {b}!',
@@ -557,6 +600,15 @@ export function leadChangeLine(newLeader: string, deposed: string): string {
 export function sectorLine(sector: number, leadName: string, chaserName: string): string | null {
   const line = SECTOR_LINES[sector];
   return line ? fill(line, leadName, chaserName) : null;
+}
+
+/**
+ * The call as the leader crosses to start a new lap. `lap` is the one being
+ * started, so the bell goes with the last one.
+ */
+export function lapLine(lap: number, laps: number, a: string, b: string): string {
+  const pool = lap === laps ? BELL_LAP_LINES : LAP_LINES;
+  return fill(pick(pool), a, b).replace('{n}', String(lap));
 }
 
 /** The call for a surprise, e.g. "Gary hits the turbo slime and LUNGES!". */

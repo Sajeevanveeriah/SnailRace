@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
+import { COURSES } from '@/lib/course';
 import { eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
-import { sfx } from '@/lib/sound';
+import { primeAudio, sampleReport, samplesSettled, sfx, soundCheck } from '@/lib/sound';
 import type { Donation } from '@/lib/types';
 
 /**
@@ -54,21 +55,48 @@ export function ControlDrawer({
   const names = event.names.slice(0, event.fieldSize);
 
   /*
-   * A night saved under an earlier build can carry a duration that is no
+   * Which drop-in audio files were found. The probe runs once the audio
+   * context exists and resolves asynchronously, so this is re-read while the
+   * console is open rather than being captured once at mount.
+   */
+  const [samples, setSamples] = useState(() => sampleReport());
+  useEffect(() => {
+    if (!open || samplesSettled()) return;
+    const id = window.setInterval(() => {
+      setSamples(sampleReport());
+      if (samplesSettled()) window.clearInterval(id);
+    }, 600);
+    return () => window.clearInterval(id);
+  }, [open]);
+
+  /*
+   * On a circuit the stored duration is the whole race, and the moderator
+   * thinks in laps: "twenty seconds a lap, five laps". So the control edits
+   * lap length and lap count, and the product is what gets stored - which
+   * keeps `raceDurationMs` meaning the same thing it always has for the
+   * engine, the history and the straight track.
+   */
+  const laps = event.trackShape === 'circuit' ? Math.max(1, event.laps) : 1;
+  const lapMs = Math.round(event.raceDurationMs / laps);
+
+  const setLength = (nextLapMs: number, nextLaps: number) => {
+    const l = event.trackShape === 'circuit' ? Math.max(1, nextLaps) : 1;
+    setState({ laps: l, raceDurationMs: nextLapMs * l });
+  };
+
+  /*
+   * A night saved under an earlier build can carry a lap length that is no
    * longer offered. Dropping it would leave the select showing nothing and
    * silently change the race length on the next save, so it is listed too.
    */
   const lengthOptions = useMemo(() => {
     const list = RACE_LENGTHS.map((l) => ({ ms: l.ms as number, label: l.label as string }));
-    if (!list.some((l) => l.ms === event.raceDurationMs)) {
-      list.push({
-        ms: event.raceDurationMs,
-        label: `Custom, ${(event.raceDurationMs / 1000).toFixed(0)}s`,
-      });
+    if (!list.some((l) => l.ms === lapMs)) {
+      list.push({ ms: lapMs, label: `Custom, ${(lapMs / 1000).toFixed(0)}s` });
       list.sort((a, b) => b.ms - a.ms);
     }
     return list;
-  }, [event.raceDurationMs]);
+  }, [lapMs]);
   const cashCents = useMemo(
     () => event.cashLedger.filter((d) => !d.void).reduce((s, d) => s + d.cents, 0),
     [event.cashLedger],
@@ -334,10 +362,10 @@ export function ControlDrawer({
               <h3 className="mb-3 font-semibold">Race setup</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="fld">
-                  <span>Race length</span>
+                  <span>{event.trackShape === 'circuit' ? 'Lap length' : 'Race length'}</span>
                   <select
-                    value={event.raceDurationMs}
-                    onChange={(e) => setState({ raceDurationMs: Number(e.target.value) })}
+                    value={lapMs}
+                    onChange={(e) => setLength(Number(e.target.value), event.laps)}
                   >
                     {lengthOptions.map((o) => (
                       <option key={o.ms} value={o.ms}>
@@ -346,6 +374,41 @@ export function ControlDrawer({
                     ))}
                   </select>
                 </label>
+
+                <label className="fld">
+                  <span>Track</span>
+                  <select
+                    value={event.trackShape === 'circuit' ? event.courseId : 'lanes'}
+                    onChange={(e) =>
+                      e.target.value === 'lanes'
+                        ? setState({ trackShape: 'lanes' })
+                        : setState({ trackShape: 'circuit', courseId: e.target.value })
+                    }
+                  >
+                    {COURSES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                    <option value="lanes">Straight lanes</option>
+                  </select>
+                </label>
+
+                {event.trackShape === 'circuit' ? (
+                  <label className="fld">
+                    <span>Laps</span>
+                    <select
+                      value={event.laps}
+                      onChange={(e) => setLength(lapMs, Number(e.target.value))}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                        <option key={n} value={n}>
+                          {n} {n === 1 ? 'lap' : 'laps'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="fld">
                   <span>Race type</span>
                   <select
@@ -393,6 +456,16 @@ export function ControlDrawer({
                 />
                 Show the goal ring on the stage
               </label>
+              {event.trackShape === 'circuit' ? (
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={event.chaseCam}
+                    onChange={(e) => setState({ chaseCam: e.target.checked })}
+                  />
+                  Camera director (cuts between shots)
+                </label>
+              ) : null}
               <label className="mt-2 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -406,6 +479,101 @@ export function ControlDrawer({
                   ? `About ${eventBudget(event.raceDurationMs, event.fieldSize)} turbo boosts, shell slips and naps per race, marked on the track before they land. They are drawn from the race seed after the finishing order is settled, so they change the drama and never the result.`
                   : 'Surprises are off. The field runs on wobble alone.'}
               </p>
+            </section>
+
+            {/* ── Sound ────────────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Sound</h3>
+              <div className="grid gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={event.sound}
+                    onChange={(e) => {
+                      primeAudio();
+                      setState({ sound: e.target.checked });
+                    }}
+                  />
+                  Sound on <kbd>S</kbd>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={event.music}
+                    disabled={!event.sound}
+                    onChange={(e) => {
+                      primeAudio();
+                      setState({ music: e.target.checked });
+                    }}
+                  />
+                  Music and crowd <kbd>B</kbd>
+                </label>
+
+                <label className="fld">
+                  <span>Overall volume</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={event.volume}
+                    disabled={!event.sound}
+                    onChange={(e) => setState({ volume: Number(e.target.value) })}
+                  />
+                </label>
+                <label className="fld">
+                  <span>Music under the commentary</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={event.musicVolume}
+                    disabled={!event.sound || !event.music}
+                    onChange={(e) => setState({ musicVolume: Number(e.target.value) })}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    primeAudio();
+                    soundCheck();
+                    say('Playing every cue in order. Set the room level against this.');
+                  }}
+                >
+                  Sound check
+                </button>
+
+                <div className="rounded-xl border border-(--tx)/10 p-3">
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-(--tx)/45">
+                    Your own audio
+                  </p>
+                  <p className="text-[11px] leading-snug text-(--tx)/50">
+                    Everything is synthesised in the browser, so it needs no files, no
+                    licence and no connection. To use real recordings instead, drop them
+                    into <span className="num">public/audio/</span> and rebuild - each one
+                    found replaces its synthesised cue.
+                  </p>
+                  <ul className="mt-2 grid gap-1">
+                    {samples.map((s) => (
+                      <li key={s.slot} className="flex items-center gap-2 text-[11px]">
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                            s.loaded ? 'bg-(--ok)' : 'bg-(--tx)/20'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span className="num truncate text-(--tx)/60">{s.file}</span>
+                        <span className="ml-auto shrink-0 text-(--tx)/40">
+                          {s.loaded ? 'in use' : 'synthesised'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </section>
 
             {/* ── Racers ───────────────────────────────────────────── */}

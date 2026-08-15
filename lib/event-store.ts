@@ -35,7 +35,11 @@ export function freshState(): EventState {
     names: DEFAULT_NAMES.slice(),
     goalCents: 100_000,
     goalShow: true,
-    raceDurationMs: 20_000,
+    raceDurationMs: 36_000,
+    trackShape: 'circuit',
+    courseId: 'oval',
+    laps: 3,
+    chaseCam: true,
     surprises: true,
     raceType: 'Heat',
     raceNumber: 0,
@@ -47,6 +51,9 @@ export function freshState(): EventState {
     stageTheme: 'midnight',
     calm: false,
     sound: true,
+    music: true,
+    volume: 0.85,
+    musicVolume: 0.4,
     bettingOpen: true,
     startedAt: Date.now(),
   };
@@ -74,6 +81,9 @@ function persist() {
  * newer keys, and a half-populated state object crashes the stage far away
  * from the line that caused it.
  */
+const clamp01 = (v: unknown, fallback: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
+
 function merge(raw: string | null): EventState {
   const base = freshState();
   if (!raw) return base;
@@ -92,6 +102,11 @@ function merge(raw: string | null): EventState {
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],
       chipBank: parsed.chipBank && typeof parsed.chipBank === 'object' ? parsed.chipBank : {},
       streaks: parsed.streaks && typeof parsed.streaks === 'object' ? parsed.streaks : {},
+      /* Levels are clamped on the way in: a hand-edited backup with a volume
+         of 40 would hit the limiter hard enough to sound broken. */
+      laps: Math.min(9, Math.max(1, Number(parsed.laps) || base.laps)),
+      volume: clamp01(parsed.volume, base.volume),
+      musicVolume: clamp01(parsed.musicVolume, base.musicVolume),
     };
   } catch {
     return base;

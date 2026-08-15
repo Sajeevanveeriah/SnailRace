@@ -1,16 +1,33 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Snail } from './Snail';
 import { laneColour, type StageThemeId } from '@/lib/palette';
-import type { RaceEvent } from '@/lib/race-engine';
-import type { LaneNodes, RaceController } from '@/lib/use-race';
+import { ordinal, type RaceEvent, type SnailRun } from '@/lib/race-engine';
+import type { PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
+
+/**
+ * The straight track: one lane per snail, left to right.
+ *
+ * This is the renderer that reads best on a bad projector and to a screen
+ * reader, so it stays the option a nervous moderator can fall back to. The
+ * circuit in `Circuit.tsx` is the other implementation of the same
+ * `RacePainter` seam - both are handed the same `p` per snail and only differ
+ * in where they put it.
+ */
 
 interface Props {
   names: string[];
   race: RaceController;
   surface: StageThemeId;
 }
+
+/**
+ * Where the snail's nose sits inside its token, as a fraction of token width
+ * (the SVG nose is at x=122 of a 132-wide viewBox). The lane geometry hangs
+ * off this one number.
+ */
+const NOSE = 0.924;
 
 /** Marker glyphs. The shape says "help" or "trouble" before the colour does. */
 const PAD_MARK: Record<string, string> = {
@@ -21,8 +38,22 @@ const PAD_MARK: Record<string, string> = {
   wander: '?',
 };
 
+interface LaneNodes {
+  root: HTMLElement;
+  field: HTMLElement;
+  token: HTMLElement;
+  trail: HTMLElement;
+  chip: HTMLElement;
+  label: HTMLElement;
+  fx: HTMLElement;
+}
+
 export function RaceTrack({ names, race, surface }: Props) {
-  const { registerLane, trackRef, flashRef } = race;
+  const { setPainter } = race;
+  const lanesRef = useRef<Map<number, LaneNodes>>(new Map());
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const flashRef = useRef<HTMLDivElement | null>(null);
+  const geomRef = useRef({ travelPx: 0, tokenW: 0, fieldW: 0, labelW: [] as number[] });
 
   /*
    * The pads are drawn per lane, so group once rather than filtering the whole
@@ -46,7 +77,7 @@ export function RaceTrack({ names, race, surface }: Props) {
   const laneRef = useCallback(
     (index: number) => (root: HTMLDivElement | null) => {
       if (!root) {
-        registerLane(index, null);
+        lanesRef.current.delete(index);
         return;
       }
       const nodes: LaneNodes = {
@@ -58,14 +89,132 @@ export function RaceTrack({ names, race, surface }: Props) {
         label: root.querySelector('.label') as HTMLElement,
         fx: root.querySelector('.fx-pill') as HTMLElement,
       };
-      if (
-        nodes.field && nodes.token && nodes.trail && nodes.chip && nodes.label && nodes.fx
-      ) {
-        registerLane(index, nodes);
+      if (nodes.field && nodes.token && nodes.trail && nodes.chip && nodes.label && nodes.fx) {
+        lanesRef.current.set(index, nodes);
       }
     },
-    [registerLane],
+    [],
   );
+
+  const painter = useMemo<RacePainter>(() => {
+    /** Re-read the box model. Called on mount, on resize and before every race. */
+    const measure = () => {
+      const first = lanesRef.current.get(0);
+      if (!first) return;
+      const fieldW = first.field.clientWidth;
+      const tokenW = first.token.offsetWidth;
+      geomRef.current.fieldW = fieldW;
+      geomRef.current.tokenW = tokenW;
+      geomRef.current.travelPx = Math.max(10, fieldW - NOSE * tokenW);
+      geomRef.current.labelW = [...lanesRef.current.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, n]) => n.label.offsetWidth);
+    };
+
+    const place = (snails: SnailRun[]) => {
+      const { travelPx, tokenW, fieldW, labelW } = geomRef.current;
+      for (const s of snails) {
+        const nodes = lanesRef.current.get(s.lane);
+        if (!nodes) continue;
+
+        const x = s.p * travelPx;
+        /*
+         * `--x` lives on the lane field, not the token, so the snail and its
+         * name pill can read the same position while being laid out
+         * independently. The pill sits at the top of the lane instead of
+         * hanging off the token, which is what stops a tall snail pushing its
+         * own name out through the top of the track.
+         */
+        nodes.field.style.setProperty('--x', `${x.toFixed(2)}px`);
+        nodes.trail.style.setProperty('--tp', s.p.toFixed(4));
+
+        /*
+         * Keep the name pill inside its lane. Without this a long name is
+         * sliced in half by the finish line at the exact moment it matters.
+         */
+        const centre = x + tokenW / 2;
+        const half = (labelW[s.lane] ?? 0) / 2;
+        let lx = 0;
+        if (half * 2 < fieldW) {
+          if (centre - half < 0) lx = half - centre;
+          if (centre + half + lx > fieldW) lx = fieldW - centre - half;
+        }
+        nodes.label.style.setProperty('--lx', `${lx.toFixed(1)}px`);
+      }
+    };
+
+    return {
+      measure,
+
+      start: () => {
+        lanesRef.current.forEach((nodes) => nodes.root.classList.add('racing'));
+      },
+
+      reset: () => {
+        trackRef.current?.classList.remove('final-straight', 'photo');
+        trackRef.current?.style.setProperty('--race-p', '0');
+        lanesRef.current.forEach((nodes) => {
+          nodes.root.classList.remove(
+            'racing', 'finished', 'surging', 'pos-1', 'pos-2', 'pos-3', 'fx-up', 'fx-down',
+          );
+          nodes.field.style.setProperty('--x', '0px');
+          nodes.trail.style.setProperty('--tp', '0');
+          nodes.chip.textContent = '';
+          nodes.fx.textContent = '';
+        });
+      },
+
+      paint: (snails: SnailRun[], info: PaintInfo) => {
+        for (const s of info.justFinished) {
+          const nodes = lanesRef.current.get(s.lane);
+          if (nodes) {
+            nodes.root.classList.add('finished');
+            nodes.root.classList.remove('surging');
+            if (s.place <= 3) nodes.root.classList.add(`pos-${s.place}`);
+          }
+          if (s.place === 1 && flashRef.current) {
+            flashRef.current.classList.remove('fire');
+            void flashRef.current.offsetWidth; // restart the keyframe
+            flashRef.current.classList.add('fire');
+          }
+        }
+
+        trackRef.current?.classList.toggle('photo', info.photoFinish);
+        if (info.finalStraight) trackRef.current?.classList.add('final-straight');
+        trackRef.current?.style.setProperty('--race-p', info.leadP.toFixed(4));
+
+        for (const s of snails) {
+          const nodes = lanesRef.current.get(s.lane);
+          if (!nodes) continue;
+          nodes.root.classList.toggle(
+            'surging',
+            !s.done && info.meanRate > 0 && s.rate > info.meanRate * 1.15,
+          );
+
+          /* Dress the lane for whichever surprise is currently acting on it. */
+          const up = s.effect === 'boost' || s.effect === 'surge';
+          const down = s.effect !== null && !up;
+          nodes.root.classList.toggle('fx-up', up);
+          nodes.root.classList.toggle('fx-down', down);
+          const tag = s.effect ? (s.events.find((e) => e.kind === s.effect)?.label ?? '') : '';
+          if (nodes.fx.textContent !== tag) nodes.fx.textContent = tag;
+        }
+
+        info.ranked.forEach((s, i) => {
+          const chip = lanesRef.current.get(s.lane)?.chip;
+          const label = ordinal(i + 1);
+          if (chip && chip.textContent !== label) chip.textContent = label;
+        });
+
+        place(snails);
+      },
+    };
+  }, []);
+
+  useEffect(() => {
+    setPainter(painter);
+    return () => setPainter(null);
+  }, [painter, setPainter]);
 
   return (
     <div ref={trackRef} className="track-wrap" data-surface={surface}>

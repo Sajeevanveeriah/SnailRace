@@ -96,6 +96,14 @@ export interface EventState {
   goalCents: number;
   goalShow: boolean;
   raceDurationMs: number;
+  /** Which renderer the stage uses: straight lanes, or laps of a circuit. */
+  trackShape: 'lanes' | 'circuit';
+  /** Which circuit, when trackShape is 'circuit'. */
+  courseId: string;
+  /** Laps of the circuit. Total race time is lap length times laps. */
+  laps: number;
+  /** Let the camera director cut between shots, or hold the whole course. */
+  chaseCam: boolean;
   /** Whether in-race surprises are dealt. Never affects the finishing order. */
   surprises: boolean;
   raceType: string;
@@ -110,6 +118,12 @@ export interface EventState {
   stageTheme: 'midnight' | 'turf' | 'dusk';
   calm: boolean;
   sound: boolean;
+  /** Music and crowd ambience. Independent of `sound`, which gates everything. */
+  music: boolean;
+  /** Master level, 0 to 1. */
+  volume: number;
+  /** Music bus level, 0 to 1. Sits under the effects by default. */
+  musicVolume: number;
   bettingOpen: boolean;
   startedAt: number;
 }

@@ -4,7 +4,9 @@
   "private": true,
   "description": "Snail Racing Fundraiser for the Newcomb & District Cricket Club - live race stage, Stripe donations and moderator console.",
   "scripts": {
+    "predev": "node scripts/audio-manifest.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/audio-manifest.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

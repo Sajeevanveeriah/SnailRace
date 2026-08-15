@@ -14,13 +14,21 @@ import type { NextConfig } from 'next';
  */
 const isPages = process.env.GITHUB_PAGES === 'true';
 
+/*
+ * The audio engine fetches its optional drop-in files at runtime rather than
+ * importing them, so it cannot rely on the bundler to rewrite the URL. It
+ * reads the prefix from here instead.
+ */
+const basePath = isPages ? '/SnailRace' : '';
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
   ...(isPages
     ? {
         output: 'export' as const,
-        basePath: '/SnailRace',
+        basePath,
         trailingSlash: true,
       }
     : {

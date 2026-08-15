@@ -62,13 +62,16 @@ export const NAME_POOL = [
 export const QUICK_AMOUNTS_CENTS = [500, 1000, 2000, 5000, 10000];
 
 /**
- * How long the field takes to get home.
+ * How long the field takes to get round.
  *
- * Longer races are the point: the surprises in `lib/race-engine.ts` are dealt
- * in proportion to the duration, so a 45-second marathon carries a dozen
- * things going wrong rather than the two a sprint has room for.
+ * On a circuit this is one lap and the total is this times the lap count, so
+ * nine laps of sixty seconds is a nine-minute feature. Longer is the point:
+ * the surprises in `lib/race-engine.ts` are dealt in proportion to the
+ * duration, so a long race carries a steady drip of things going wrong
+ * rather than the two a sprint has room for.
  */
 export const RACE_LENGTHS = [
+  { ms: 60_000, label: 'Epic, 60s' },
   { ms: 45_000, label: 'Marathon, 45s' },
   { ms: 30_000, label: 'Long, 30s' },
   { ms: 20_000, label: 'Feature, 20s' },

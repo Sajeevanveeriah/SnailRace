@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RaceTrack } from './RaceTrack';
+import { Circuit } from './Circuit';
+import { PitBoard } from './PitBoard';
 import { ToteBoard } from './ToteBoard';
 import { BetSlip } from './BetSlip';
 import { DonateQr } from './DonateQr';
@@ -20,7 +22,17 @@ import { poolsFor, settleBets } from '@/lib/tote';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour } from '@/lib/palette';
-import { primeAudio, setSoundEnabled, sfx } from '@/lib/sound';
+import {
+  primeAudio,
+  setLevels,
+  setMusicOn,
+  setSoundEnabled,
+  sfx,
+  startAmbience,
+  startTrack,
+  stopAmbience,
+  stopTrack,
+} from '@/lib/sound';
 import type { Bet, Donation, RaceHighlight, RaceHistoryEntry, RaceResult } from '@/lib/types';
 import type { DrawnRace } from '@/lib/race-engine';
 
@@ -43,6 +55,19 @@ export function Stage() {
   useEffect(() => {
     setSoundEnabled(event.sound);
   }, [event.sound]);
+
+  useEffect(() => {
+    setMusicOn(event.music);
+  }, [event.music]);
+
+  useEffect(() => {
+    setLevels({ master: event.volume, music: event.musicVolume });
+  }, [event.volume, event.musicVolume]);
+
+  useEffect(() => () => {
+    stopTrack(0.2);
+    stopAmbience();
+  }, []);
 
   const feed = useDonations(event.eventId);
   const names = useMemo(
@@ -135,12 +160,56 @@ export function Stage() {
 
   const race = useRace(onFinish);
 
+  /*
+   * Audio waits for the room to touch something.
+   *
+   * A browser will not start an AudioContext without a user gesture, and
+   * building one anyway just to have it sit suspended earns a console warning
+   * on every load. So the first pointer or key press arms the soundtrack, and
+   * nothing before it creates a context at all.
+   */
+  const [primed, setPrimed] = useState(false);
+  useEffect(() => {
+    if (primed) return;
+    const arm = () => {
+      primeAudio();
+      setPrimed(true);
+    };
+    window.addEventListener('pointerdown', arm, { once: true });
+    window.addEventListener('keydown', arm, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', arm);
+      window.removeEventListener('keydown', arm);
+    };
+  }, [primed]);
+
+  /*
+   * The soundtrack is idle-driven: whenever no race is running, the lobby
+   * groove and the crowd bed come back up. The race lifecycle in `use-race`
+   * owns everything from the countdown to the winner fanfare, so this only
+   * has to cover the gaps between races.
+   */
+  useEffect(() => {
+    if (!primed) return;
+    if (!event.sound || !event.music) {
+      stopAmbience();
+      return;
+    }
+    startAmbience();
+    if (race.phase === 'idle') startTrack('lobby');
+  }, [primed, event.sound, event.music, race.phase]);
+
   const startRace = useCallback(() => {
     primeAudio();
     setOverlayOpen(false);
     setState({ bettingOpen: false });
-    race.start(names, event.raceDurationMs, event.surprises);
-  }, [names, event.raceDurationMs, event.surprises, race]);
+    race.start(
+      names,
+      event.raceDurationMs,
+      event.surprises,
+      event.trackShape === 'circuit' ? event.laps : 1,
+    );
+  }, [names, event.raceDurationMs, event.surprises, event.trackShape, event.laps, race]);
 
   const resetRace = useCallback(() => {
     race.reset();
@@ -213,6 +282,10 @@ export function Stage() {
       if (k === 'm') setDrawerOpen((o) => !o);
       if (k === 'c') setState({ calm: !event.calm });
       if (k === 's') setState({ sound: !event.sound });
+      if (k === 'b') {
+        primeAudio();
+        setState({ music: !event.music });
+      }
       if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
         else void document.documentElement.requestFullscreen().catch(() => {});
@@ -221,7 +294,7 @@ export function Stage() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, event.calm, event.sound]);
+  }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, event.calm, event.sound, event.music]);
 
   /* ── Direct-pay link ─────────────────────────────────────────────────── */
 
@@ -330,6 +403,19 @@ export function Stage() {
             >
               {event.sound ? 'Sound on' : 'Muted'}
             </button>
+            <button
+              type="button"
+              className="chip-toggle"
+              aria-pressed={event.music}
+              disabled={!event.sound}
+              onClick={() => {
+                primeAudio();
+                setState({ music: !event.music });
+              }}
+              title="Music and crowd (B)"
+            >
+              {event.music ? 'Music on' : 'Music off'}
+            </button>
             <ThemeToggle />
           </div>
         </header>
@@ -337,7 +423,19 @@ export function Stage() {
         {/* ── Stage body ─────────────────────────────────────────────── */}
         <main className="grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-4">
-            <RaceTrack names={names} race={race} surface={event.stageTheme} />
+            {event.trackShape === 'circuit' ? (
+              <Circuit
+                names={names}
+                race={race}
+                surface={event.stageTheme}
+                courseId={event.courseId}
+                laps={event.laps}
+                chase={event.chaseCam}
+                calm={event.calm}
+              />
+            ) : (
+              <RaceTrack names={names} race={race} surface={event.stageTheme} />
+            )}
 
             <div className="glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
@@ -378,6 +476,10 @@ export function Stage() {
                 </button>
               </div>
             </div>
+
+            {event.trackShape === 'circuit' ? (
+              <PitBoard names={names} race={race} laps={event.laps} />
+            ) : null}
 
             <RecentDonations donations={liveDonations} />
           </div>
