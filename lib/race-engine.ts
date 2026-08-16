@@ -70,9 +70,38 @@ export function drawOrder(seed: number, n: number): { order: number[]; rnd: () =
 
 /* ── In-race surprises ─────────────────────────────────────────────────── */
 
-export type RaceEventKind = 'boost' | 'surge' | 'stumble' | 'nap' | 'wander';
+/**
+ * What a surprise IS, mechanically: a shove forward or a hold-up. The kind is
+ * what the stage dresses the lane with and what the sound is chosen from; the
+ * label and the call are what the room gets.
+ */
+export type RaceEventKind =
+  | 'boost'
+  | 'surge'
+  | 'stumble'
+  | 'nap'
+  | 'wander'
+  | 'chaos'
+  | 'swoop'
+  | 'plague';
 
-export type EventTone = 'good' | 'bad';
+/**
+ * `wild` is neither good nor bad: the magnitude is drawn either side of zero,
+ * so nobody - including the caller - knows which way it went until it lands.
+ * It is the tone that keeps a room watching a snail nothing has happened to.
+ */
+export type EventTone = 'good' | 'bad' | 'wild';
+
+/** Which noise the stage makes. Mapped to a synth voice in `sound.ts`. */
+export type EventSound =
+  | 'up'
+  | 'down'
+  | 'nap'
+  | 'wander'
+  | 'weird'
+  | 'swoop'
+  | 'plague'
+  | 'siren';
 
 /**
  * One kind of surprise, and the range it is drawn from.
@@ -80,15 +109,19 @@ export type EventTone = 'good' | 'bad';
  * `mag` is a displacement in progress units at the peak of the event: positive
  * lunges the snail forward, negative holds it up. `from`/`to` bound where in
  * the lane the event may start, which is what stops a nap being drawn two
- * metres from the line where the crowd would read it as a bug.
+ * metres from the line where the crowd would read it as a bug. `weight` is
+ * rarity - the whole point of a plague is that most races do not have one.
  */
 export interface EventSpec {
   kind: RaceEventKind;
   /** Shown on the track as the event lands. */
   label: string;
-  /** Commentary line; {a} is the snail it happened to. */
-  call: string;
+  /** Commentary lines; {a} is the snail it happened to. One is drawn. */
+  calls: string[];
   tone: EventTone;
+  sound: EventSound;
+  /** Relative frequency. Higher is commoner. */
+  weight: number;
   magFrom: number;
   magTo: number;
   spanFrom: number;
@@ -97,53 +130,323 @@ export interface EventSpec {
   to: number;
 }
 
+/**
+ * The book of surprises.
+ *
+ * Twenty-two of them, because five was not enough: a room that has seen
+ * LETTUCE BREAK four times in a race has stopped being surprised, and a room
+ * that has stopped being surprised has stopped betting. They are weighted so
+ * the ordinary ones carry the race and the strange ones are worth waiting
+ * for, and the club's own sport is in there because a cricket club laughs
+ * hardest at itself.
+ *
+ * None of this can move a finishing position - see the module header. Every
+ * bump rides an envelope that is exactly zero at the line.
+ */
 export const EVENT_SPECS: EventSpec[] = [
+  /* ── Good ─────────────────────────────────────────────────────────── */
   {
-    kind: 'boost',
-    label: 'TURBO SLIME',
-    call: '{a} hits the turbo slime and LUNGES!',
-    tone: 'good',
-    magFrom: 0.055, magTo: 0.095,
-    spanFrom: 0.1, spanTo: 0.18,
-    from: 0.1, to: 0.62,
+    kind: 'boost', label: 'TURBO SLIME', tone: 'good', sound: 'up', weight: 10,
+    calls: [
+      '{a} hits the turbo slime and LUNGES!',
+      '{a} has found the quick stuff and gone whoosh!',
+      'Turbo slime for {a} and it is away!',
+    ],
+    magFrom: 0.055, magTo: 0.095, spanFrom: 0.1, spanTo: 0.18, from: 0.1, to: 0.62,
   },
   {
-    kind: 'surge',
-    label: 'SECOND WIND',
-    call: '{a} finds a second wind and is flying home!',
-    tone: 'good',
-    magFrom: 0.07, magTo: 0.125,
-    spanFrom: 0.12, spanTo: 0.22,
-    from: 0.5, to: 0.86,
+    kind: 'surge', label: 'SECOND WIND', tone: 'good', sound: 'up', weight: 9,
+    calls: [
+      '{a} finds a second wind and is flying home!',
+      'Where has {a} found THAT? Second wind!',
+      '{a} has come back to life!',
+    ],
+    magFrom: 0.07, magTo: 0.125, spanFrom: 0.12, spanTo: 0.22, from: 0.5, to: 0.86,
   },
   {
-    kind: 'stumble',
-    label: 'SHELL SLIP',
-    call: '{a} slips on the shell and loses ground!',
-    tone: 'bad',
-    magFrom: -0.085, magTo: -0.045,
-    spanFrom: 0.08, spanTo: 0.14,
-    from: 0.14, to: 0.8,
+    kind: 'boost', label: 'SLIPSTREAM', tone: 'good', sound: 'up', weight: 8,
+    calls: [
+      '{a} tucks in behind and gets a tow!',
+      '{a} is sitting in the slipstream and being carried along!',
+    ],
+    magFrom: 0.04, magTo: 0.075, spanFrom: 0.12, spanTo: 0.2, from: 0.15, to: 0.7,
   },
   {
-    kind: 'nap',
-    label: 'MICRO-NAP',
-    call: '{a} has stopped for a nap - you would not read about it!',
-    tone: 'bad',
-    magFrom: -0.135, magTo: -0.085,
-    spanFrom: 0.14, spanTo: 0.24,
-    from: 0.18, to: 0.7,
+    kind: 'boost', label: 'DOWNHILL RUN', tone: 'good', sound: 'up', weight: 7,
+    calls: [
+      '{a} has found a bit of downhill and is gathering pace!',
+      'Gravity is on the side of {a} here!',
+    ],
+    magFrom: 0.045, magTo: 0.08, spanFrom: 0.1, spanTo: 0.18, from: 0.12, to: 0.72,
   },
   {
-    kind: 'wander',
-    label: 'LETTUCE BREAK',
-    call: '{a} has spotted a lettuce leaf and wandered wide!',
-    tone: 'bad',
-    magFrom: -0.075, magTo: -0.04,
-    spanFrom: 0.1, spanTo: 0.18,
-    from: 0.16, to: 0.75,
+    kind: 'boost', label: 'TRIPLE ESPRESSO', tone: 'good', sound: 'up', weight: 4,
+    calls: [
+      'Somebody has given {a} a coffee and it is ELECTRIC!',
+      '{a} has had a triple shot and is bouncing off the walls!',
+    ],
+    magFrom: 0.09, magTo: 0.145, spanFrom: 0.06, spanTo: 0.11, from: 0.14, to: 0.74,
+  },
+  {
+    kind: 'surge', label: 'CROWD LIFT', tone: 'good', sound: 'up', weight: 6,
+    calls: [
+      'The members bar is chanting for {a} and it has responded!',
+      'Listen to that! The room has picked {a} up and carried it!',
+    ],
+    magFrom: 0.05, magTo: 0.09, spanFrom: 0.12, spanTo: 0.2, from: 0.35, to: 0.8,
+  },
+  {
+    kind: 'boost', label: 'FRESH WAX', tone: 'good', sound: 'up', weight: 5,
+    calls: [
+      'Somebody has waxed the shell of {a} and it is gliding!',
+      '{a} is polished up and slipping through the field!',
+    ],
+    magFrom: 0.04, magTo: 0.07, spanFrom: 0.1, spanTo: 0.17, from: 0.1, to: 0.68,
+  },
+
+  /* ── Bad ──────────────────────────────────────────────────────────── */
+  {
+    kind: 'stumble', label: 'SHELL SLIP', tone: 'bad', sound: 'down', weight: 10,
+    calls: [
+      '{a} slips on the shell and loses ground!',
+      'Oh! {a} has gone sideways there!',
+      '{a} cannot get any grip at all!',
+    ],
+    magFrom: -0.085, magTo: -0.045, spanFrom: 0.08, spanTo: 0.14, from: 0.14, to: 0.8,
+  },
+  {
+    kind: 'nap', label: 'MICRO-NAP', tone: 'bad', sound: 'nap', weight: 8,
+    calls: [
+      '{a} has stopped for a nap. You would not read about it!',
+      '{a} is ASLEEP. Somebody wake it up!',
+      'And {a} has decided this is a good spot for a lie down.',
+    ],
+    magFrom: -0.135, magTo: -0.085, spanFrom: 0.14, spanTo: 0.24, from: 0.18, to: 0.7,
+  },
+  {
+    kind: 'wander', label: 'LETTUCE BREAK', tone: 'bad', sound: 'wander', weight: 8,
+    calls: [
+      '{a} has spotted a lettuce leaf and wandered wide!',
+      'Lunch! {a} has pulled over for a feed!',
+      '{a} is more interested in the salad than the race!',
+    ],
+    magFrom: -0.075, magTo: -0.04, spanFrom: 0.1, spanTo: 0.18, from: 0.16, to: 0.75,
+  },
+  {
+    kind: 'stumble', label: 'GRAVEL PATCH', tone: 'bad', sound: 'down', weight: 7,
+    calls: [
+      '{a} is into the gravel and it is heavy going!',
+      'That is coarse stuff and {a} does not like it one bit!',
+    ],
+    magFrom: -0.07, magTo: -0.04, spanFrom: 0.1, spanTo: 0.16, from: 0.12, to: 0.78,
+  },
+  {
+    kind: 'nap', label: 'CRAMP', tone: 'bad', sound: 'down', weight: 6,
+    calls: [
+      '{a} has grabbed at the foot! Cramp!',
+      '{a} has pulled up sore!',
+    ],
+    magFrom: -0.1, magTo: -0.06, spanFrom: 0.1, spanTo: 0.18, from: 0.25, to: 0.76,
+  },
+  {
+    kind: 'wander', label: 'WRONG WAY', tone: 'bad', sound: 'wander', weight: 5,
+    calls: [
+      '{a} has turned around! Wrong way!',
+      'Somebody point {a} at the finish line!',
+    ],
+    magFrom: -0.11, magTo: -0.07, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.7,
+  },
+  {
+    kind: 'wander', label: 'SNAIL MAIL', tone: 'bad', sound: 'wander', weight: 5,
+    calls: [
+      '{a} has stopped to check the mail. Snail mail, of course.',
+      '{a} is having a chat at the fence!',
+    ],
+    magFrom: -0.08, magTo: -0.045, spanFrom: 0.12, spanTo: 0.2, from: 0.18, to: 0.72,
+  },
+  {
+    kind: 'nap', label: 'STAGE FRIGHT', tone: 'bad', sound: 'down', weight: 4,
+    calls: [
+      '{a} has seen the crowd and frozen solid!',
+      'Stage fright! {a} has gone right into its shell!',
+    ],
+    magFrom: -0.115, magTo: -0.07, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.68,
+  },
+  {
+    kind: 'stumble', label: 'BOGGED', tone: 'bad', sound: 'down', weight: 5,
+    calls: [
+      '{a} is bogged in a soft patch!',
+      '{a} has found the one wet spot on the whole track!',
+    ],
+    magFrom: -0.09, magTo: -0.05, spanFrom: 0.1, spanTo: 0.18, from: 0.15, to: 0.78,
+  },
+
+  /* ── Wild: nobody knows which way this one goes ───────────────────── */
+  {
+    kind: 'chaos', label: 'MYSTERY SLIME', tone: 'wild', sound: 'weird', weight: 7,
+    calls: [
+      '{a} is into the mystery slime and ANYTHING could happen!',
+      'Nobody knows what is in that puddle, and {a} has gone straight through it!',
+    ],
+    magFrom: -0.11, magTo: 0.11, spanFrom: 0.08, spanTo: 0.16, from: 0.14, to: 0.78,
+  },
+  {
+    kind: 'chaos', label: 'BANANA PEEL', tone: 'wild', sound: 'weird', weight: 5,
+    calls: [
+      'There is a banana peel on the track and {a} has hit it!',
+      '{a} is on the banana and it is out of control!',
+    ],
+    magFrom: -0.1, magTo: 0.09, spanFrom: 0.06, spanTo: 0.12, from: 0.16, to: 0.76,
+  },
+  {
+    kind: 'chaos', label: 'SNAIL ROMANCE', tone: 'wild', sound: 'weird', weight: 4,
+    calls: [
+      '{a} has stopped to chat up a passing garden snail!',
+      'Love is in the air and {a} has completely forgotten the race!',
+    ],
+    magFrom: -0.1, magTo: 0.06, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.72,
+  },
+  {
+    kind: 'chaos', label: 'THIRD UMPIRE', tone: 'wild', sound: 'siren', weight: 4,
+    calls: [
+      'They have sent {a} upstairs to the third umpire!',
+      'The umpire has his arm out for {a}. This will take a minute.',
+    ],
+    magFrom: -0.09, magTo: 0.08, spanFrom: 0.08, spanTo: 0.15, from: 0.2, to: 0.74,
+  },
+  {
+    kind: 'chaos', label: 'SLEDGED FROM SLIPS', tone: 'wild', sound: 'weird', weight: 4,
+    calls: [
+      'Something has been said to {a} from the slips cordon!',
+      '{a} has copped an earful and it has fired right up!',
+    ],
+    magFrom: -0.07, magTo: 0.1, spanFrom: 0.08, spanTo: 0.15, from: 0.22, to: 0.78,
+  },
+  {
+    kind: 'chaos', label: 'SHELL SWAP', tone: 'wild', sound: 'weird', weight: 3,
+    calls: [
+      '{a} has swapped shells with somebody and it fits terribly!',
+      'That is not the shell {a} started in!',
+    ],
+    magFrom: -0.1, magTo: 0.1, spanFrom: 0.1, spanTo: 0.18, from: 0.24, to: 0.74,
   },
 ];
+
+/**
+ * A surprise that hits several lanes at once.
+ *
+ * Individual surprises make a race eventful; a field event makes it a story
+ * the room tells afterwards. Mechanically it is nothing new - one ordinary
+ * event per affected lane, sharing a start, a label and a group id - so the
+ * fairness argument does not move an inch. What it buys is one loud call
+ * instead of six small ones, and the sight of half the field stopping at the
+ * same moment.
+ */
+export interface SwarmSpec {
+  kind: RaceEventKind;
+  label: string;
+  /** The one call for the whole thing. No {a}: it is bigger than one snail. */
+  calls: string[];
+  tone: EventTone;
+  sound: EventSound;
+  weight: number;
+  /** How much of the field it takes, as a fraction. */
+  shareFrom: number;
+  shareTo: number;
+  magFrom: number;
+  magTo: number;
+  spanFrom: number;
+  spanTo: number;
+  from: number;
+  to: number;
+}
+
+export const SWARM_SPECS: SwarmSpec[] = [
+  {
+    kind: 'plague', label: 'THE PLAGUE', tone: 'bad', sound: 'plague', weight: 6,
+    calls: [
+      'A SHELL PLAGUE is sweeping through the field! They are dropping everywhere!',
+      'PLAGUE! Half this field has gone down with it!',
+    ],
+    shareFrom: 0.4, shareTo: 0.7,
+    magFrom: -0.1, magTo: -0.05, spanFrom: 0.12, spanTo: 0.2, from: 0.2, to: 0.68,
+  },
+  {
+    kind: 'swoop', label: 'MAGPIE SWOOP', tone: 'bad', sound: 'swoop', weight: 8,
+    calls: [
+      'SWOOP! A magpie has come straight through the middle of them!',
+      'Look out! The magpie is back and it has scattered the field!',
+    ],
+    shareFrom: 0.2, shareTo: 0.45,
+    magFrom: -0.09, magTo: -0.04, spanFrom: 0.06, spanTo: 0.12, from: 0.15, to: 0.78,
+  },
+  {
+    kind: 'chaos', label: 'SPRINKLERS ON', tone: 'wild', sound: 'siren', weight: 6,
+    calls: [
+      'The sprinklers have come on! Nobody told the groundsman there was a race!',
+      'SPRINKLERS! The whole back straight is under water!',
+    ],
+    shareFrom: 0.4, shareTo: 0.8,
+    magFrom: -0.08, magTo: 0.08, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.72,
+  },
+  {
+    kind: 'swoop', label: 'HAIL SHOWER', tone: 'bad', sound: 'plague', weight: 5,
+    calls: [
+      'Hail! Out of nowhere, and they have all pulled up!',
+      'It is hailing on the back straight and this field does not like it!',
+    ],
+    shareFrom: 0.5, shareTo: 0.9,
+    magFrom: -0.075, magTo: -0.035, spanFrom: 0.08, spanTo: 0.14, from: 0.18, to: 0.7,
+  },
+  {
+    kind: 'chaos', label: 'DOG ON THE TRACK', tone: 'wild', sound: 'swoop', weight: 6,
+    calls: [
+      'THE CLUB DOG IS ON THE TRACK! Absolute carnage!',
+      'Somebody grab that dog! It is running the wrong way through the field!',
+    ],
+    shareFrom: 0.3, shareTo: 0.6,
+    magFrom: -0.1, magTo: 0.07, spanFrom: 0.08, spanTo: 0.15, from: 0.2, to: 0.74,
+  },
+  {
+    kind: 'boost', label: 'LETTUCE ON THE TRACK', tone: 'good', sound: 'up', weight: 5,
+    calls: [
+      'Somebody has thrown a lettuce on the track and this field has ACCELERATED!',
+      'Lettuce! The whole field has picked up the pace!',
+    ],
+    shareFrom: 0.4, shareTo: 0.8,
+    magFrom: 0.04, magTo: 0.085, spanFrom: 0.1, spanTo: 0.18, from: 0.15, to: 0.7,
+  },
+  {
+    kind: 'plague', label: 'FALSE START PANIC', tone: 'wild', sound: 'siren', weight: 4,
+    calls: [
+      'Somebody has fired the gun again and half of them have stopped dead!',
+      'They think the race has been called back! Chaos in the middle!',
+    ],
+    shareFrom: 0.3, shareTo: 0.6,
+    magFrom: -0.09, magTo: 0.04, spanFrom: 0.07, spanTo: 0.13, from: 0.16, to: 0.6,
+  },
+  {
+    kind: 'swoop', label: 'STREAKER', tone: 'wild', sound: 'siren', weight: 3,
+    calls: [
+      'There is a streaker on the track and nobody knows where to look!',
+      'Security is on and this field has completely lost the plot!',
+    ],
+    shareFrom: 0.35, shareTo: 0.7,
+    magFrom: -0.085, magTo: 0.06, spanFrom: 0.08, spanTo: 0.14, from: 0.25, to: 0.75,
+  },
+];
+
+/** Weighted draw from a table, using the race's own stream. */
+function pickWeighted<T extends { weight: number }>(rnd: () => number, table: T[]): T {
+  let total = 0;
+  for (const t of table) total += t.weight;
+  let roll = rnd() * total;
+  for (const t of table) {
+    roll -= t.weight;
+    if (roll <= 0) return t;
+  }
+  return table[table.length - 1];
+}
 
 export interface RaceEvent {
   /** Stable within one race, so React can key on it. */
@@ -153,6 +456,7 @@ export interface RaceEvent {
   label: string;
   call: string;
   tone: EventTone;
+  sound: EventSound;
   /** Progress along the lane at which it starts, 0 to 1. */
   at: number;
   /** How much of the lane it covers. */
@@ -160,6 +464,13 @@ export interface RaceEvent {
   /** Peak displacement in progress units. Signed. */
   mag: number;
   fired: boolean;
+  /**
+   * Set on every lane caught by the same field event. The stage announces a
+   * group once rather than shouting the same thing six times in a second.
+   */
+  group?: string;
+  groupLabel?: string;
+  groupCall?: string;
 }
 
 /**
@@ -176,6 +487,18 @@ export function eventBudget(durationMs: number, fieldSize: number): number {
 }
 
 /**
+ * How many field events a race carries.
+ *
+ * One every forty-five seconds or so, and never in a race too short to have
+ * built up a field worth scattering. Rare enough that a plague is still an
+ * event; common enough that a five-minute race gets a few.
+ */
+export function swarmBudget(durationMs: number, fieldSize: number): number {
+  if (fieldSize < 4 || durationMs < 25_000) return 0;
+  return Math.max(1, Math.min(6, Math.round(durationMs / 45_000)));
+}
+
+/**
  * Deal the surprises.
  *
  * Called only after the finishing order and the finish times have been taken
@@ -183,6 +506,11 @@ export function eventBudget(durationMs: number, fieldSize: number): number {
  * header. Two events on one lane are kept clear of each other, because
  * overlapping windows read on the projector as one long shapeless drift
  * rather than as two things happening.
+ *
+ * Field events are dealt first and get the pick of the track. An ordinary
+ * surprise can be shuffled along to the next gap; a magpie coming through the
+ * middle of the field cannot, because the whole point of it is that it lands
+ * on six lanes at the same instant.
  */
 export function drawEvents(
   rnd: () => number,
@@ -193,33 +521,95 @@ export function drawEvents(
   const events: RaceEvent[] = [];
   const perLane = new Map<number, RaceEvent[]>();
 
+  const clashes = (lane: number, at: number, span: number): boolean => {
+    const mine = perLane.get(lane);
+    if (!mine) return false;
+    return mine.some((e) => at < e.at + e.span + 0.06 && e.at < at + span + 0.06);
+  };
+
+  const add = (event: RaceEvent) => {
+    events.push(event);
+    const mine = perLane.get(event.lane) ?? [];
+    mine.push(event);
+    perLane.set(event.lane, mine);
+  };
+
+  /* ── Field events first ─────────────────────────────────────────── */
+
+  const swarms = swarmBudget(durationMs, fieldSize);
+  for (let g = 0; g < swarms; g++) {
+    const spec = pickWeighted(rnd, SWARM_SPECS);
+    const span = spec.spanFrom + rnd() * (spec.spanTo - spec.spanFrom);
+    const room = Math.max(0.01, spec.to - spec.from - span);
+    const at = spec.from + rnd() * room;
+    const call = spec.calls[Math.floor(rnd() * spec.calls.length)];
+
+    const share = spec.shareFrom + rnd() * (spec.shareTo - spec.shareFrom);
+    const wanted = Math.max(2, Math.min(fieldSize, Math.round(fieldSize * share)));
+
+    /* A shuffled lane list, so the same lanes are not always the unlucky
+       ones and the choice is still drawn from the race's own stream. */
+    const lanes: number[] = [];
+    for (let i = 0; i < fieldSize; i++) lanes.push(i);
+    for (let j = fieldSize - 1; j > 0; j--) {
+      const k = Math.floor(rnd() * (j + 1));
+      const t = lanes[j];
+      lanes[j] = lanes[k];
+      lanes[k] = t;
+    }
+
+    const group = `sw${g}`;
+    let taken = 0;
+    for (const lane of lanes) {
+      if (taken >= wanted) break;
+      if (clashes(lane, at, span)) continue;
+      taken += 1;
+      add({
+        id: `${group}-${lane}`,
+        lane,
+        kind: spec.kind,
+        label: spec.label,
+        call,
+        tone: spec.tone,
+        sound: spec.sound,
+        /* Spread by a hair so the field does not move as one block: a magpie
+           reaches the near lanes a moment before the far ones. */
+        at: Math.min(0.94, at + rnd() * 0.015),
+        span,
+        mag: spec.magFrom + rnd() * (spec.magTo - spec.magFrom),
+        fired: false,
+        group,
+        groupLabel: spec.label,
+        groupCall: call,
+      });
+    }
+  }
+
+  /* ── Then the ordinary run of surprises ─────────────────────────── */
+
   /* Bounded: a crowded field can refuse placements, and the race still runs. */
   for (let guard = 0; guard < target * 14 && events.length < target; guard++) {
-    const spec = EVENT_SPECS[Math.floor(rnd() * EVENT_SPECS.length)];
+    const spec = pickWeighted(rnd, EVENT_SPECS);
     const lane = Math.floor(rnd() * fieldSize);
     const span = spec.spanFrom + rnd() * (spec.spanTo - spec.spanFrom);
     const room = Math.max(0.01, spec.to - spec.from - span);
     const at = spec.from + rnd() * room;
 
-    const mine = perLane.get(lane) ?? [];
-    const clash = mine.some((e) => at < e.at + e.span + 0.06 && e.at < at + span + 0.06);
-    if (clash) continue;
+    if (clashes(lane, at, span)) continue;
 
-    const event: RaceEvent = {
+    add({
       id: `fx${events.length}`,
       lane,
       kind: spec.kind,
       label: spec.label,
-      call: spec.call,
+      call: spec.calls[Math.floor(rnd() * spec.calls.length)],
       tone: spec.tone,
+      sound: spec.sound,
       at,
       span,
       mag: spec.magFrom + rnd() * (spec.magTo - spec.magFrom),
       fired: false,
-    };
-    events.push(event);
-    mine.push(event);
-    perLane.set(lane, mine);
+    });
   }
 
   return events.sort((a, b) => a.at - b.at);
@@ -521,12 +911,15 @@ export function freshSeed(): number {
 export const COMMENTARY = {
   early: [
     '{a} out of the gate first!',
-    "They're away - {a} shows early pace.",
+    'They are away, and {a} shows early pace.',
     '{a} leads them out.',
     '{a} slimes into an early lead!',
     '{a} sets the tempo, {b} tucked in behind.',
     'A clean getaway and {a} has the rail.',
     '{b} is already hunting down {a}.',
+    'Plenty of running left, but {a} likes the front.',
+    '{a} has gone out hard. Can it last?',
+    'Settling down now, {a} from {b}.',
   ],
   mid: [
     '{a} hits the front!',
@@ -538,7 +931,11 @@ export const COMMENTARY = {
     '{a} and {b} are trading blows out there.',
     '{b} has come from nowhere!',
     'The gap is opening for {a}.',
-    '{a} looks comfortable - for now.',
+    '{a} looks comfortable. For now.',
+    'This is where a race is won, and {a} knows it.',
+    '{b} has not given up on {a}, not by a long way.',
+    'If you have money on {a}, you are enjoying this.',
+    'Halfway home and the shape of it is {a} and {b}.',
   ],
   late: [
     '{a} into the final straight!',
@@ -550,6 +947,63 @@ export const COMMENTARY = {
     '{b} throws everything at it!',
     'The room is on its feet for {a}!',
     'Two lengths to run and {b} will not give in!',
+    'Somebody in this room is about to be very happy.',
+    '{a} is going to need every bit of that lead!',
+    'Hold your tickets! {b} is flying!',
+  ],
+} as const;
+
+/**
+ * Lines for a situation rather than a stage of the race.
+ *
+ * A caller that only knows how far in it is has nothing to say when the top
+ * two are locked together or when the leader has gone eight lengths clear -
+ * which is exactly when the room most wants to be told what it is looking at.
+ */
+export const TIGHT_LINES = [
+  'You could throw a blanket over {a} and {b}!',
+  'Nothing in it! {a} and {b} are locked together!',
+  '{a} and {b}, side by side, neither giving an inch!',
+  'This pair have been inseparable for a minute now.',
+] as const;
+
+export const CLEAR_LINES = [
+  '{a} has broken the elastic! Daylight second!',
+  '{a} is gone. {b} is running for second now.',
+  'That is a proper lead {a} has built.',
+  '{b} will need a miracle to reel in {a} from here.',
+] as const;
+
+export const BACK_MARKER_LINES = [
+  'Spare a thought for {c} at the back. It is having a lovely time.',
+  '{c} is last and does not appear to care.',
+  '{c} is running its own race back there, and good luck to it.',
+  'Somebody backed {c} tonight, and they are being very quiet about it.',
+] as const;
+
+/**
+ * What the caller says in the beat after a surprise, instead of going
+ * straight back to the run of play. It is the difference between a caller
+ * and a list of events.
+ */
+export const REACTION_LINES = {
+  good: [
+    'What a turn of speed!',
+    'That has changed everything!',
+    'The room has come alive!',
+    'You do not see that every day!',
+  ],
+  bad: [
+    'Oh, that is heartbreaking!',
+    'Disaster! Absolute disaster!',
+    'There goes somebody’s money.',
+    'You have to feel for the backers there.',
+  ],
+  wild: [
+    'What on earth was that?',
+    'Nobody has any idea what just happened!',
+    'The stewards are going to have a look at that one.',
+    'I have called a lot of these and I have never seen that.',
   ],
 } as const;
 
@@ -584,14 +1038,45 @@ export const SECTOR_LINES: Record<number, string> = {
 
 const pick = <T>(pool: readonly T[]): T => pool[Math.floor(Math.random() * pool.length)];
 
-const fill = (line: string, a: string, b: string): string =>
-  line.replace('{a}', a).replace('{b}', b);
+const fill = (line: string, a: string, b: string, c = ''): string =>
+  line.replace('{a}', a).replace('{b}', b).replace('{c}', c);
 
 /** Pick a line for the current phase of the race, with the names filled in. */
-export function callLine(leadP: number, leadName: string, chaserName: string): string {
-  const phase = leadP < 0.3 ? 'early' : leadP < 0.72 ? 'mid' : 'late';
-  return fill(pick(COMMENTARY[phase]), leadName, chaserName);
+/** What the caller can see, so it can talk about that rather than the clock. */
+export interface CallContext {
+  leadP: number;
+  lead: string;
+  chase: string;
+  /** Progress between the leader and second, in lane units. */
+  gap: number;
+  /** Whoever is last. Occasionally the funniest thing on the track. */
+  tail: string;
 }
+
+/**
+ * Pick a line for what is actually happening.
+ *
+ * The situation pools come first and the phase pools are the fallback, so a
+ * caller describing two snails locked together says so instead of reaching
+ * for "halfway home". The back-marker line is rationed hard: it is a joke,
+ * and a joke told every fifteen seconds is not one.
+ */
+export function callLine(ctx: CallContext): string {
+  if (ctx.gap < 0.018 && ctx.leadP > 0.2) {
+    return fill(pick(TIGHT_LINES), ctx.lead, ctx.chase, ctx.tail);
+  }
+  if (ctx.gap > 0.13 && ctx.leadP > 0.3) {
+    return fill(pick(CLEAR_LINES), ctx.lead, ctx.chase, ctx.tail);
+  }
+  if (ctx.tail && ctx.tail !== ctx.lead && ctx.leadP > 0.25 && Math.random() < 0.16) {
+    return fill(pick(BACK_MARKER_LINES), ctx.lead, ctx.chase, ctx.tail);
+  }
+  const phase = ctx.leadP < 0.3 ? 'early' : ctx.leadP < 0.72 ? 'mid' : 'late';
+  return fill(pick(COMMENTARY[phase]), ctx.lead, ctx.chase, ctx.tail);
+}
+
+/** The beat after a surprise. Said only if the caller has room for it. */
+export const reactionLine = (tone: EventTone): string => pick(REACTION_LINES[tone]);
 
 export function leadChangeLine(newLeader: string, deposed: string): string {
   return fill(pick(LEAD_CHANGE_LINES), newLeader, deposed);

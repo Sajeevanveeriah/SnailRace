@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ordinal, type SnailRun } from '@/lib/race-engine';
 import {
+  BLEED,
   Broadcaster,
   clockText,
+  FLOOR_H,
   HOARD_H,
   HOARD_TOP,
   HORIZON,
@@ -97,6 +99,7 @@ export function Telecast({
 }: Props) {
   const { setPainter } = race;
 
+  const wrapRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const nodesRef = useRef<Map<number, RunnerNodes>>(new Map());
   const standRef = useRef<SVGGElement | null>(null);
@@ -107,6 +110,19 @@ export function Telecast({
   const clockRef = useRef<HTMLSpanElement | null>(null);
   const lapRef = useRef<HTMLSpanElement | null>(null);
   const shotRef = useRef<HTMLSpanElement | null>(null);
+
+  /**
+   * The visible slice of the authored frame.
+   *
+   * The frame is authored 16:9, but a projector, a laptop and a phone are
+   * not, and `slice` on a wider screen crops top AND bottom - which is how
+   * the outside lanes and the strap ended up off the bottom of the picture.
+   * So the viewBox is fitted to the container instead: the width is always
+   * the full authored width, the height is whatever the container's shape
+   * allows, and it is anchored to the BOTTOM. Sky is what gets cropped on a
+   * letterbox screen; the track and the graphics band never do.
+   */
+  const vbRef = useRef({ x: 0, y: 0, w: VIEW_W, h: VIEW_H });
 
   const directorRef = useRef(new Broadcaster());
   const camRef = useRef({ x: 0, z: 0.5 });
@@ -126,6 +142,12 @@ export function Telecast({
 
     const write = () => {
       const sx = VIEW_W / 2 - cam.x * cam.z;
+
+      const vb = vbRef.current;
+      svgRef.current?.setAttribute(
+        'viewBox',
+        `${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`,
+      );
 
       if (marksRef.current) {
         marksRef.current.setAttribute(
@@ -172,7 +194,24 @@ export function Telecast({
 
     return {
       measure: () => {
-        /* Authored in view units and scaled by the browser: nothing to read. */
+        /*
+         * Fit the window to the screen rather than the screen to the window.
+         * The height is the smallest that still clears the track and both
+         * graphics bands, the width follows from the container's shape, and
+         * the whole thing is anchored to the bottom - so a letterbox screen
+         * loses sky and never a lane.
+         */
+        const el = wrapRef.current;
+        const vb = vbRef.current;
+        const cw = el?.clientWidth ?? 0;
+        const ch = el?.clientHeight ?? 0;
+        const aspect = cw > 0 && ch > 0 ? cw / ch : VIEW_W / VIEW_H;
+
+        vb.h = Math.min(VIEW_H, Math.max(FLOOR_H, VIEW_W / aspect));
+        vb.w = vb.h * aspect;
+        vb.x = (VIEW_W - vb.w) / 2;
+        vb.y = VIEW_H - vb.h;
+        write();
       },
 
       start: () => {
@@ -228,7 +267,14 @@ export function Telecast({
           n.g.classList.toggle('fx-up', up);
           n.g.classList.toggle('fx-down', down);
 
-          const tag = s.effect ? (s.events.find((e) => e.kind === s.effect)?.label ?? '') : '';
+          /*
+           * A field event already has a card of its own across the bottom of
+           * the screen. Flagging it again on each of the six lanes it hit
+           * printed "LETTUCE ON THE TRACK" six times across the picture, which
+           * is the same stutter the commentary was fixed for.
+           */
+          const live = s.effect ? s.events.find((e) => e.kind === s.effect) : undefined;
+          const tag = live && !live.group ? live.label : '';
           if (n.tag.textContent !== tag) n.tag.textContent = tag;
         }
 
@@ -295,6 +341,36 @@ export function Telecast({
     painter.reset();
     return () => setPainter(null);
   }, [painter, setPainter]);
+
+  /*
+   * A field event knocks the camera. One short jolt, keyed on the moment id so
+   * a second plague replays it, and never in calm mode - it is the one piece
+   * of motion here that a sensitive viewer would notice.
+   */
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || !race.moment?.big || calm) return;
+    svg.classList.add('jolt');
+    const t = window.setTimeout(() => svg.classList.remove('jolt'), 700);
+    return () => {
+      window.clearTimeout(t);
+      svg.classList.remove('jolt');
+    };
+  }, [race.moment?.id, race.moment?.big, calm]);
+
+  /*
+   * Cinema mode changes the height of the stage without the window resizing,
+   * and that is exactly the moment the frame's shape changes most. Watching
+   * the element itself catches it; the window resize handler in the loop
+   * never would.
+   */
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => painter.measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [painter]);
 
   /*
    * Park the effect flag just clear of the name it sits beside. Guessing the
@@ -364,6 +440,7 @@ export function Telecast({
 
   return (
     <div
+      ref={wrapRef}
       className={`track-wrap tv-wrap ${calm ? 'calm' : ''}`}
       data-surface={surface}
       data-weather={race.phase === 'idle' ? 'clear' : race.weather}
@@ -372,7 +449,7 @@ export function Telecast({
         ref={svgRef}
         className={`tv ${compact ? 'compact' : ''}`}
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        preserveAspectRatio="xMidYMid slice"
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={`Trackside coverage of ${names.length} snails over ${laps} ${laps === 1 ? 'lap' : 'laps'}`}
       >
@@ -484,49 +561,63 @@ export function Telecast({
         </defs>
 
         {/* Sky, then the stand, then the boards: three depths of parallax. */}
-        <rect x={0} y={0} width={VIEW_W} height={HORIZON} fill="url(#tv-sky)" />
+        <rect x={-BLEED} y={-200} width={VIEW_W + BLEED * 2} height={HORIZON + 200} fill="url(#tv-sky)" />
 
         <g ref={standRef} className="tv-layer" aria-hidden="true">
-          {Array.from({ length: Math.ceil(VIEW_W / TILE_STAND) + 2 }, (_, i) => (
-            <use key={i} href="#tv-bay" x={i * TILE_STAND} />
-          ))}
+          {Array.from(
+            { length: Math.ceil((VIEW_W + BLEED * 2) / TILE_STAND) + 2 },
+            (_, i) => (
+              <use
+                key={i}
+                href="#tv-bay"
+                x={(i - Math.ceil(BLEED / TILE_STAND) - 1) * TILE_STAND}
+              />
+            ),
+          )}
         </g>
 
         <g ref={hoardRef} className="tv-layer" aria-hidden="true">
-          {Array.from({ length: Math.ceil(VIEW_W / TILE_HOARD) + 2 }, (_, i) => (
-            <use key={i} href="#tv-board" x={i * TILE_HOARD} />
-          ))}
+          {Array.from(
+            { length: Math.ceil((VIEW_W + BLEED * 2) / TILE_HOARD) + 2 },
+            (_, i) => (
+              <use
+                key={i}
+                href="#tv-board"
+                x={(i - Math.ceil(BLEED / TILE_HOARD) - 1) * TILE_HOARD}
+              />
+            ),
+          )}
         </g>
 
         {/* Grass between the boards and the outside lane. */}
-        <rect x={0} y={VERGE_TOP} width={VIEW_W} height={TRACK_TOP - VERGE_TOP} fill="url(#tv-verge)" />
+        <rect x={-BLEED} y={VERGE_TOP} width={VIEW_W + BLEED * 2} height={TRACK_TOP - VERGE_TOP} fill="url(#tv-verge)" />
 
         {/* The racing surface and its lanes. Static: the track does not move,
             the marks painted on it do. */}
-        <rect x={0} y={TRACK_TOP} width={VIEW_W} height={TRACK_BOTTOM - TRACK_TOP} fill="url(#tv-track)" />
+        <rect x={-BLEED} y={TRACK_TOP} width={VIEW_W + BLEED * 2} height={TRACK_BOTTOM - TRACK_TOP} fill="url(#tv-track)" />
 
         <g className="tv-lanes" aria-hidden="true">
           {bands.map((b) => (
             <g key={b.lane}>
               <rect
-                x={0}
+                x={-BLEED}
                 y={b.y - b.h / 2}
-                width={VIEW_W}
+                width={VIEW_W + BLEED * 2}
                 height={b.h}
                 fill="#000"
                 opacity={b.lane % 2 ? 0.07 : 0}
               />
               <line
                 className="tv-lane-line"
-                x1={0}
+                x1={-BLEED}
                 y1={b.y - b.h / 2}
-                x2={VIEW_W}
+                x2={VIEW_W + BLEED}
                 y2={b.y - b.h / 2}
                 strokeWidth={Math.max(1.4, 3 - b.depth * 1.4)}
               />
             </g>
           ))}
-          <line className="tv-lane-line kerb" x1={0} y1={TRACK_BOTTOM} x2={VIEW_W} y2={TRACK_BOTTOM} />
+          <line className="tv-lane-line kerb" x1={-BLEED} y1={TRACK_BOTTOM} x2={VIEW_W + BLEED} y2={TRACK_BOTTOM} />
         </g>
 
         {/* Cross marks painted on the surface. These are the speed. */}
@@ -651,14 +742,21 @@ export function Telecast({
         </g>
 
         {/* Out-of-focus grass across the bottom of frame, the near bank. */}
-        <rect x={0} y={TRACK_BOTTOM} width={VIEW_W} height={VIEW_H - TRACK_BOTTOM} fill="url(#tv-fore)" />
+        <rect x={-BLEED} y={TRACK_BOTTOM} width={VIEW_W + BLEED * 2} height={VIEW_H - TRACK_BOTTOM + 200} fill="url(#tv-fore)" />
         <g ref={foreRef} className="tv-layer" filter="url(#tv-blur)" aria-hidden="true">
-          {Array.from({ length: Math.ceil(VIEW_W / TILE_FORE) + 2 }, (_, i) => (
-            <use key={i} href="#tv-tuft" x={i * TILE_FORE} />
-          ))}
+          {Array.from(
+            { length: Math.ceil((VIEW_W + BLEED * 2) / TILE_FORE) + 2 },
+            (_, i) => (
+              <use
+                key={i}
+                href="#tv-tuft"
+                x={(i - Math.ceil(BLEED / TILE_FORE) - 1) * TILE_FORE}
+              />
+            ),
+          )}
         </g>
 
-        <rect x={0} y={0} width={VIEW_W} height={VIEW_H} fill="url(#tv-vig)" pointerEvents="none" />
+        <rect x={-BLEED} y={-200} width={VIEW_W + BLEED * 2} height={VIEW_H + 400} fill="url(#tv-vig)" pointerEvents="none" />
       </svg>
 
       {race.weather !== 'clear' && race.phase !== 'idle' ? (
@@ -696,7 +794,12 @@ export function Telecast({
 
       {/* A surprise gets a lower third, not a card across the track. */}
       {race.moment && race.phase === 'running' ? (
-        <p key={race.moment.id} className={`tv-flash moment-${race.moment.tone}`} aria-hidden="true">
+        <p
+          key={race.moment.id}
+          className={`tv-flash moment-${race.moment.tone} ${race.moment.big ? 'tv-flash-big' : ''}`}
+          aria-hidden="true"
+        >
+          {race.moment.big ? <b>FIELD EVENT</b> : null}
           {race.moment.text}
         </p>
       ) : null}

@@ -3,6 +3,7 @@
 import { noise, playSample, primeAudio, setEnabled, setMusicEnabled, tone } from './audio/engine';
 import { duck, stopAmbience, stopTrack } from './audio/music';
 import { say, setVoiceEnabled, silence } from './audio/voice';
+import type { EventSound } from './race-engine';
 
 /**
  * Every cue the night makes.
@@ -73,8 +74,9 @@ export const soundCheck = () => {
   primeAudio();
   const order = [
     () => sfx.beep(), () => sfx.go(), () => sfx.coin(), () => sfx.chip(),
-    () => sfx.boost(), () => sfx.stumble(), () => sfx.leadChange(), () => sfx.bell(),
-    () => sfx.photo(), () => sfx.fanfare(),
+    () => sfx.boost(), () => sfx.stumble(), () => sfx.nap(), () => sfx.wander(),
+    () => sfx.weird(), () => sfx.swoop(), () => sfx.plague(), () => sfx.siren(),
+    () => sfx.leadChange(), () => sfx.bell(), () => sfx.photo(), () => sfx.fanfare(),
   ];
   order.forEach((play, i) => window.setTimeout(play, i * 620));
   window.setTimeout(
@@ -188,6 +190,61 @@ export const sfx = {
     crowd.gasp(0.8);
   },
 
+  /**
+   * A snail has nodded off. A descending pair of sighs and the room deflating.
+   * It has to be recognisable with your back to the screen, which is why every
+   * surprise below has its own shape rather than sharing two.
+   */
+  nap: () => {
+    tone({ freq: 330, dur: 0.5, type: 'sine', peak: 0.21, slideTo: 180, attack: 0.08 });
+    tone({ freq: 247, at: 0.34, dur: 0.6, type: 'sine', peak: 0.168, slideTo: 130, attack: 0.1 });
+    crowd.gasp(0.6);
+  },
+
+  /** Wandered off: a wobbly, undecided little tune. */
+  wander: () => {
+    [392, 349, 415, 330].forEach((f, i) =>
+      tone({ freq: f, at: i * 0.09, dur: 0.16, type: 'triangle', peak: 0.19 }),
+    );
+    crowd.gasp(0.5);
+  },
+
+  /** Something strange, and nobody knows which way it went. */
+  weird: () => {
+    tone({ freq: 220, dur: 0.5, type: 'sine', peak: 0.19, slideTo: 880, attack: 0.04 });
+    tone({ freq: 660, at: 0.12, dur: 0.4, type: 'sine', peak: 0.13, slideTo: 300 });
+    noise({ dur: 0.3, peak: 0.06, type: 'bandpass', freq: 1800, sweepTo: 600, q: 3, attack: 0.03 });
+    crowd.gasp(0.7);
+  },
+
+  /** A magpie, or a dog, or whatever else has come through the field. */
+  swoop: () => {
+    noise({ dur: 0.42, peak: 0.24, type: 'bandpass', freq: 3200, sweepTo: 500, q: 1.1, attack: 0.02 });
+    tone({ freq: 1800, dur: 0.16, type: 'square', peak: 0.13, slideTo: 2600, attack: 0.01 });
+    tone({ freq: 2400, at: 0.14, dur: 0.14, type: 'square', peak: 0.11, slideTo: 1500, attack: 0.01 });
+    crowd.gasp(1.1);
+    duck(1.1, 0.5);
+  },
+
+  /** Something has hit the whole field. Low, wide and unpleasant. */
+  plague: () => {
+    tone({ freq: 110, dur: 1.1, type: 'sawtooth', peak: 0.23, slideTo: 62, attack: 0.06 });
+    tone({ freq: 165, at: 0.08, dur: 0.9, type: 'sawtooth', peak: 0.14, slideTo: 90 });
+    noise({ dur: 1, peak: 0.12, type: 'lowpass', freq: 700, sweepTo: 160, attack: 0.1 });
+    crowd.gasp(1.3);
+    duck(1.6, 0.42);
+  },
+
+  /** Officialdom: a two-tone that says somebody has stopped the race. */
+  siren: () => {
+    [0, 0.22, 0.44].forEach((at) => {
+      tone({ freq: 740, at, dur: 0.18, type: 'square', peak: 0.2 });
+      tone({ freq: 560, at: at + 0.11, dur: 0.18, type: 'square', peak: 0.2 });
+    });
+    crowd.gasp(1);
+    duck(1.3, 0.5);
+  },
+
   /** The lead changes hands. Two stabs, so it cuts through a noisy room. */
   leadChange: () => {
     tone({ freq: 880, dur: 0.12, type: 'square', peak: 0.273 });
@@ -229,5 +286,28 @@ export const sfx = {
     crowd.roar(1.1);
   },
 
+  /**
+   * The noise for a surprise, chosen by the surprise itself.
+   *
+   * The event table names a voice rather than a tone, so a nap and a cramp are
+   * both bad news but do not sound the same. A room that can tell what
+   * happened without looking up is a room that keeps watching.
+   */
+  event: (sound: EventSound) => {
+    const play = SFX_BY_EVENT[sound];
+    if (play) play();
+  },
+
   crowd,
+};
+
+const SFX_BY_EVENT: Record<EventSound, () => void> = {
+  up: () => sfx.boost(),
+  down: () => sfx.stumble(),
+  nap: () => sfx.nap(),
+  wander: () => sfx.wander(),
+  weird: () => sfx.weird(),
+  swoop: () => sfx.swoop(),
+  plague: () => sfx.plague(),
+  siren: () => sfx.siren(),
 };
