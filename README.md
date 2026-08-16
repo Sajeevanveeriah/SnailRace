@@ -86,6 +86,16 @@ part of ten seconds, and **every change is eased rather than cut**:
 | `LOW ANGLE` | The field again, closer in |
 | `FINISH LINE` | Taken at the run home and kept, with the line at the right of frame |
 
+**The zoom is held, not tracked.** Re-deriving it every frame from how spread out
+the field was meant the picture breathed in and out for the entire race - the pack
+bunches, the lens creeps in; it strings out, the lens creeps back - which from the
+room reads as the screen continuously compressing and expanding. A camera operator
+sets a focal length and leaves it. So this re-zooms only at a change of shot or
+when the field is genuinely about to leave the frame, the step lands in about a
+third of a second, and the finish camera is locked outright the moment it is
+taken. Measured over a 60-second race: the lens is completely still for 42 of 55
+seconds, and every move is over inside two.
+
 The zoom is always chosen to *contain* the runners rather than to find a dramatic
 close-up, so nobody ever loses their snail off the edge of the screen. Turn the
 director off in **Controls** to hold the whole race in one frame.
@@ -97,6 +107,25 @@ bottom - the visible window is fitted to the container's shape and anchored to t
 bottom, and the ground, sky and lanes are drawn well past the authored edges so a
 wide screen simply sees more track. Checked at 1366x768, 1920x1080 and 2560x720:
 every lane visible, nothing under the graphics.
+
+### Drama at the line
+
+Half of all races now end in a grandstand finish. Inside the last tenth, the snail
+that is going to win gets a wobble and the one behind it gets a late charge; the
+leader is visibly reeled in and often passed, and then comes home - because it was
+always going to. Late lead changes went from 54% of races to **87%**.
+
+It cannot change the result, and that is worth being precise about because it
+looks like it should. Position is monotone, so a held snail plateaus and never
+slides backwards; the bump rides the same envelope as everything else, which is
+exactly zero at the line; and the winner's own curve carries it home at its drawn
+time regardless. What moves is how close the second one gets first.
+
+The **photo finish** used to fire in every single race, which is why it stopped
+meaning anything: progress is a smoothstep, so the top two are always within a
+few hundredths of each other by nine tenths distance - the test was measuring the
+shape of the curve, not the closeness of the finish. It is now gated on the margin
+the seed drew, and fires in 24.8% of races against a designed one in four.
 
 ### The graphics
 
@@ -208,6 +237,13 @@ Surprises can be switched off entirely in **Controls** if a room wants the plain
 
 ## Sound
 
+**The crowd is the venue, not the soundtrack.** A bed of filtered noise runs
+whenever sound is on - including with the music switched off, which used to take
+the room with it - and it is driven by the same number that thickens the music, so
+the hall gets louder, busier and higher-pitched as the leader comes home. Measured
+through a real browser with no autoplay override: the bed alone more than doubles
+in level between the first lap and the run home.
+
 There are **no audio files in this repo**, and that is deliberate. A club projector laptop
 is exactly the machine that will fail to load three MP3s from a venue's wifi five minutes
 before the first race, and music nobody recorded needs no licence - which matters when the
@@ -240,6 +276,15 @@ had time to become a sentence - interrupting the instant a line started
 produced half-words and a caller that sounded like a radio being retuned.
 Everything the room reads is everything the room hears; the two can never
 drift apart because they go through one function.
+
+**It calls what is actually happening.** Every line is driven by a measurement off
+the track: the margin between first and second in lengths, the distance the leader
+has left, who is really third. And it calls **overtakes anywhere in the field**,
+by name and by place - "Flash goes past Comet and into fifth!" - not only the lead
+changing hands, which is what a punter with money on the snail running seventh
+actually wants to hear. Rationed to one every three seconds, because in a
+twenty-lane field several places change every second and calling all of them is a
+list, not a commentary.
 
 The caller also reacts. A beat after a surprise it says something about it -
 "oh, that is heartbreaking", "the stewards are going to have a look at that one" -

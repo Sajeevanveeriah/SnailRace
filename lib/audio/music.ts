@@ -3,6 +3,7 @@
 import {
   busNode,
   fadeOut,
+  isEnabled,
   isMusicEnabled,
   noise,
   now,
@@ -120,8 +121,26 @@ export function stopTrack(fade = 0.6): void {
 
 /** Feed the race's progress in, 0 at the gate and 1 at the line. */
 export function setIntensity(value: number): void {
+  crowdLevel = Math.min(1, Math.max(0, value));
   if (!track) return;
-  track.intensity = Math.min(1, Math.max(0, value));
+  track.intensity = crowdLevel;
+}
+
+/**
+ * How wound up the room is, 0 to 1.
+ *
+ * The bed used to sit at one level for the whole night, and a crowd that
+ * sounds identical at the gate and at the line is a crowd nobody notices -
+ * which is why the room's verdict was that there were no crowd sounds at all.
+ * Driven from the same number that thickens the music, so as the leader comes
+ * home the hall gets louder, busier and higher without anything having to be
+ * cued by hand.
+ */
+let crowdLevel = 0;
+
+/** Set directly for the moments the race clock does not describe. */
+export function setCrowdLevel(value: number): void {
+  crowdLevel = Math.min(1, Math.max(0, value));
 }
 
 /**
@@ -311,23 +330,36 @@ export function startAmbience(): void {
    * clap or whistle is what makes it read as people in a hall.
    */
   const murmur = () => {
-    if (!isMusicEnabled()) return;
+    /*
+     * Gated on sound, not on music. The crowd is not part of the soundtrack -
+     * it is the venue - and switching the music off used to take the room with
+     * it, which is the most likely reason a night reported "no crowd sounds".
+     */
+    if (!isEnabled()) return;
+
+    /*
+     * Everything below scales with how wound up the room is. At the gate it
+     * is a hall of people talking; at the line it is a hall of people
+     * shouting, roughly two and a half times as loud with three times the
+     * claps and voices in it.
+     */
+    const k = 1 + crowdLevel * 1.5;
 
     /* Overlapping swells at three heights: no seam, and no loop to hear. */
-    noise({ dur: 4.6, peak: 0.05, bus: 'crowd', type: 'bandpass', freq: 240, q: 0.6, attack: 0.45 });
-    noise({ dur: 4.2, peak: 0.057, bus: 'crowd', type: 'bandpass', freq: 520, q: 0.7, attack: 0.4 });
-    noise({ dur: 3.4, peak: 0.0304, bus: 'crowd', type: 'bandpass', freq: 1400, q: 0.5, attack: 0.5 });
+    noise({ dur: 4.6, peak: 0.115 * k, bus: 'crowd', type: 'bandpass', freq: 240, q: 0.6, attack: 0.45 });
+    noise({ dur: 4.2, peak: 0.132 * k, bus: 'crowd', type: 'bandpass', freq: 520, q: 0.7, attack: 0.4 });
+    noise({ dur: 3.4, peak: 0.07 * k, bus: 'crowd', type: 'bandpass', freq: 1400, q: 0.5, attack: 0.5 });
 
     /*
      * Individual voices. Narrow bands wandering the speech range at
      * unrepeatable offsets, which is what stops the bed sounding like a
      * machine holding one note.
      */
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 3 + Math.round(crowdLevel * 6); i++) {
       noise({
         at: Math.random() * 2.8,
         dur: 0.5 + Math.random() * 0.9,
-        peak: 0.012 + Math.random() * 0.016,
+        peak: (0.026 + Math.random() * 0.03) * k,
         bus: 'crowd',
         type: 'bandpass',
         freq: 380 + Math.random() * 900,
@@ -336,23 +368,25 @@ export function startAmbience(): void {
       });
     }
 
-    /* An occasional clap, and more rarely somebody whistling. */
-    if (Math.random() < 0.55) {
+    /* Claps and whistles: a handful when the room is idle, a scatter of them
+       when it is on its feet. */
+    for (let i = 0; i < 1 + Math.round(crowdLevel * 7); i++) {
+      if (Math.random() > 0.55 + crowdLevel * 0.4) continue;
       noise({
-        at: Math.random() * 2.8, dur: 0.05, peak: 0.05,
+        at: Math.random() * 2.8, dur: 0.05, peak: 0.09 * k,
         bus: 'crowd', type: 'highpass', freq: 2600, attack: 0.02,
       });
     }
-    if (Math.random() < 0.12) {
+    if (Math.random() < 0.12 + crowdLevel * 0.4) {
       tone({
         freq: 1900 + Math.random() * 500, at: Math.random() * 2.5, dur: 0.32,
-        type: 'sine', peak: 0.026, bus: 'crowd', slideTo: 2500, attack: 0.25,
+        type: 'sine', peak: 0.05 * k, bus: 'crowd', slideTo: 2500, attack: 0.25,
       });
     }
   };
 
   murmur();
-  ambienceTimer = window.setInterval(murmur, 3000);
+  ambienceTimer = window.setInterval(murmur, 2200);
 }
 
 export function stopAmbience(): void {

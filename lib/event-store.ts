@@ -24,7 +24,7 @@ const KEY = 'ndcc-snailrace-v3';
  * to the current defaults on load: the first mix was set far too conservative
  * and a club that had already run a night would otherwise keep it forever.
  */
-const AUDIO_REV = 2;
+const AUDIO_REV = 3;
 
 function newEventId(): string {
   const buf = new Uint32Array(2);
@@ -70,7 +70,7 @@ export function freshState(): EventState {
     caller: true,
     audioRev: AUDIO_REV,
     volume: 1,
-    musicVolume: 0.62,
+    musicVolume: 0.72,
     bettingOpen: true,
     startedAt: Date.now(),
   };

@@ -47,6 +47,7 @@ export {
   setIntensity,
   startAmbience,
   stopAmbience,
+  setCrowdLevel,
   duck,
 } from './audio/music';
 

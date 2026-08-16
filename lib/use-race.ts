@@ -10,6 +10,8 @@ import {
   ordinal,
   rankSnails,
   lapLine,
+  LENGTHS_PER_LAP,
+  overtakeLine,
   reactionLine,
   sectorLine,
   stepRace,
@@ -20,7 +22,7 @@ import {
   type SnailRun,
   type Weather,
 } from './race-engine';
-import { say, setIntensity, sfx, silence, startTrack } from './sound';
+import { say, setCrowdLevel, setIntensity, sfx, silence, startTrack } from './sound';
 import type { RaceHighlight, RaceResult } from './types';
 
 /** How much race-time the photo-finish slow-motion covers, at 0.3x speed. */
@@ -157,6 +159,10 @@ interface LiveRace extends DrawnRace {
   /** Race-time at which the caller may react to the last surprise. */
   reactAt: number;
   reactTone: EventTone | null;
+  /** Place each lane held last time the order was checked, for overtakes. */
+  places: Map<number, number>;
+  /** When the last overtake was called, so the caller is not a list. */
+  overtakeAt: number;
   /** Which quarter-mark call has already been made. */
   sector: number;
   /** How many laps of the circuit the leader has already completed. */
@@ -305,6 +311,8 @@ export function useRace(
     setMoment(null);
     setStatus('Ready to race');
     silence();
+    /* Back to a room between races rather than a room at the line. */
+    setCrowdLevel(0.12);
     painterRef.current?.reset();
   }, [clearTimers, stop]);
 
@@ -355,6 +363,7 @@ export function useRace(
       );
     }
     startTrack('winner');
+    setCrowdLevel(1);
     sfx.fanfare();
     finishRef.current(race, ordered, race.highlights);
   }, [call, stop]);
@@ -450,12 +459,44 @@ export function useRace(
       if (lead && !lead.done) race.leadLane = lead.lane;
 
       /*
+       * Overtakes anywhere in the field.
+       *
+       * Before this the caller only ever noticed the lead changing hands, so
+       * for most of a race it was reduced to reciting stock lines - which is
+       * precisely what "it is just saying random words" means. A punter with
+       * money on the snail running seventh wants to hear that it has just gone
+       * past the one in sixth, by name. Rationed to one every three seconds:
+       * in a twenty-lane field several places change every second, and calling
+       * all of them would be a list, not a commentary.
+       */
+      if (race.placed === 0 && race.raceT - race.overtakeAt > 3000) {
+        for (let i = 1; i < byPosition.length; i++) {
+          const s = byPosition[i];
+          const was = race.places.get(s.lane);
+          /* Second place is the lead-change call's business, not this one. */
+          if (was === undefined || was <= i + 1 || i === 0) continue;
+          if (s.done || s.p < 0.12) continue;
+          const passed = byPosition[i + 1];
+          if (!passed) continue;
+          call(overtakeLine(s.name, passed.name, i + 1), 'big');
+          race.commentaryAt = race.raceT;
+          race.overtakeAt = race.raceT;
+          sfx.crowd.cheer(0.45);
+          break;
+        }
+      }
+      byPosition.forEach((s, i) => race.places.set(s.lane, i + 1));
+
+      /*
        * Rhythm for a long race. On a circuit that is the leader crossing the
        * line - a real event the room can see - and the last one gets the
        * bell. On straight lanes there is nothing to cross, so the quarter
        * marks stand in for it.
        */
       const laps = lapsRef.current;
+      /* Progress is 0..1 over the whole race, so a lane unit is worth a lap's
+         worth of lengths times the number of laps. */
+      const toLengths = (dp: number) => Math.max(0, dp) * laps * LENGTHS_PER_LAP;
       if (lead && !lead.done && laps > 1) {
         const done = Math.floor(lead.p * laps);
         if (done > race.lapsDone && done < laps) {
@@ -484,12 +525,28 @@ export function useRace(
         }
       }
 
+      /*
+       * The photo finish.
+       *
+       * This used to fire in EVERY race. Progress is a smoothstep, so it is
+       * almost flat by nine tenths distance and the top two are inside four
+       * hundredths of each other at that point no matter how the race went -
+       * the test was measuring the shape of the curve, not the closeness of
+       * the finish. A banner the room sees every single time is a banner the
+       * room stops seeing, which is a good part of why the whole thing read as
+       * a simulation going through its motions.
+       *
+       * So it is gated on the margin the SEED drew - one race in four is a
+       * genuine squeaker - and on the two of them actually being locked
+       * together at the time.
+       */
       if (
         !race.slowmoUsed &&
+        race.photoFinish &&
         byPosition.length > 1 &&
         !byPosition[0].done &&
-        byPosition[0].p > 0.88 &&
-        byPosition[0].p - byPosition[1].p < 0.04
+        byPosition[0].p > 0.9 &&
+        byPosition[0].p - byPosition[1].p < 0.018
       ) {
         race.slow = 0.3;
         race.slowmoUsed = true;
@@ -593,8 +650,10 @@ export function useRace(
             leadP: lead.p,
             lead: lead.name,
             chase: chaser.name,
-            gap: lead.p - (byPosition[1]?.p ?? lead.p),
+            third: byPosition[2]?.name ?? '',
             tail: tail?.name ?? '',
+            gapLengths: toLengths(lead.p - (byPosition[1]?.p ?? lead.p)),
+            toGoLengths: toLengths(1 - lead.p),
           }),
         );
       }
@@ -632,6 +691,8 @@ export function useRace(
         swarms: new Set<string>(),
         reactAt: 0,
         reactTone: null,
+        places: new Map<number, number>(),
+        overtakeAt: -4000,
         sector: 0,
         lapsDone: 0,
         leadLane: -1,

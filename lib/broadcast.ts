@@ -195,11 +195,24 @@ export class Broadcaster {
   private shot: ShotId = 'field';
   private shotAt = 0;
   private turn = 0;
+  /**
+   * The zoom is HELD, not tracked.
+   *
+   * Re-deriving it every frame from the field's spread meant the picture
+   * breathed in and out for the whole race - the pack bunches, the lens
+   * creeps in; it strings out, the lens creeps back - and from the room that
+   * reads as the screen compressing and expanding continuously. A real camera
+   * operator sets a focal length and leaves it there until there is a reason.
+   * So this only re-zooms at a change of shot, or when the field is genuinely
+   * about to run out of the frame.
+   */
+  private zoom = 0.42;
 
   reset() {
     this.shot = 'field';
     this.shotAt = 0;
     this.turn = 0;
+    this.zoom = 0.42;
   }
 
   get current(): ShotId {
@@ -208,8 +221,10 @@ export class Broadcaster {
 
   update(input: BroadcastInput): Framing {
     const held = input.tMs - this.shotAt;
+    let changed = false;
 
     if (input.finalStraight || input.photoFinish) {
+      if (this.shot !== 'finish') changed = true;
       this.shot = 'finish';
     } else if (input.tMs < 3000) {
       this.shot = 'field';
@@ -220,16 +235,26 @@ export class Broadcaster {
       this.turn += 1;
       this.shot = this.turn % 3 === 1 ? 'leaders' : this.turn % 3 === 2 ? 'low' : 'field';
       this.shotAt = input.tMs;
+      changed = true;
     }
 
     const all = input.worldByPosition;
     if (!all.length) {
-      return { camX: 0, zoom: ZOOM_MAX, shot: this.shot, label: SHOT_LABEL[this.shot] };
+      return { camX: 0, zoom: this.zoom, shot: this.shot, label: SHOT_LABEL[this.shot] };
     }
 
-    /* Which runners the shot is obliged to contain. */
+    /*
+     * Which runners the shot is obliged to contain.
+     *
+     * The finish shot follows the front of the race, not the whole field. Made
+     * to contain everybody, it had to keep widening as the tail strung out
+     * behind the leader - a slow continuous zoom-out over the last ten seconds,
+     * exactly when the picture most needs to be still.
+     */
     const group =
-      this.shot === 'leaders' ? all.slice(0, Math.min(4, all.length)) : all;
+      this.shot === 'leaders' || this.shot === 'finish'
+        ? all.slice(0, Math.min(4, all.length))
+        : all;
     let lo = Infinity;
     let hi = -Infinity;
     for (const w of group) {
@@ -238,9 +263,31 @@ export class Broadcaster {
     }
 
     const span = hi - lo + PAD_WORLD * 2;
-    let zoom = FIT_PX / span;
-    if (this.shot === 'low') zoom *= 1.22; // a shade tighter, from lower down
-    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+
+    /*
+     * Re-zoom on a cut, or when what is in frame no longer fits - never
+     * merely because the numbers drifted. The generous hysteresis is the
+     * whole point: between these two bounds the lens does not move at all.
+     */
+    const onScreen = span * this.zoom;
+    const mustWiden = onScreen > FIT_PX * 1.2;
+    const wastingFrame = onScreen < FIT_PX * 0.4 && held > 7000;
+
+    /*
+     * The finish camera is locked the moment it is taken. Nothing that happens
+     * in the last ten seconds is a good enough reason to move the lens, and a
+     * zoom over the line is the one move that would actually cost the room the
+     * result.
+     */
+    const locked = this.shot === 'finish' && !changed;
+    if (!locked && (changed || mustWiden || wastingFrame || input.tMs < 3000)) {
+      let want = FIT_PX / span;
+      if (this.shot === 'low') want *= 1.2;
+      /* Quantised, so a re-zoom is a deliberate step rather than a nudge that
+         will need another nudge two seconds later. */
+      want = Math.round(want / 0.03) * 0.03;
+      this.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, want));
+    }
 
     /*
      * Sit the field slightly left of centre so there is track ahead of the
@@ -253,11 +300,10 @@ export class Broadcaster {
     if (this.shot === 'finish') {
       /* Hold the line at the right of frame with the field running into it. */
       const lead = all[0];
-      zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, FIT_PX / (hi - lo + PAD_WORLD * 2.4)));
-      camX = Math.max(lead, input.finishWorld - 300 / zoom);
+      camX = Math.max(lead, input.finishWorld - 300 / this.zoom);
     }
 
-    return { camX, zoom, shot: this.shot, label: SHOT_LABEL[this.shot] };
+    return { camX, zoom: this.zoom, shot: this.shot, label: SHOT_LABEL[this.shot] };
   }
 }
 
