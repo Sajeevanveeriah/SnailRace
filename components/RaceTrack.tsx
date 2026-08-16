@@ -11,7 +11,7 @@ import type { PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
  *
  * This is the renderer that reads best on a bad projector and to a screen
  * reader, so it stays the option a nervous moderator can fall back to. The
- * circuit in `Circuit.tsx` is the other implementation of the same
+ * telecast in `Telecast.tsx` is the other implementation of the same
  * `RacePainter` seam - both are handed the same `p` per snail and only differ
  * in where they put it.
  */

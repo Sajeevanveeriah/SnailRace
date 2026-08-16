@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RaceTrack } from './RaceTrack';
-import { Circuit } from './Circuit';
+import { Telecast } from './Telecast';
 import { PitBoard } from './PitBoard';
 import { Standings } from './Standings';
 import { ToteBoard } from './ToteBoard';
@@ -505,14 +505,15 @@ export function Stage() {
         <main className="stage-main grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="stage-track flex min-w-0 flex-col gap-4">
             {event.trackShape === 'circuit' ? (
-              <Circuit
+              <Telecast
                 names={names}
                 race={race}
                 surface={event.stageTheme}
-                courseId={event.courseId}
                 laps={event.laps}
                 chase={event.chaseCam}
                 calm={event.calm}
+                clubName={event.clubName}
+                raceNo={nextRaceNo}
               />
             ) : (
               <RaceTrack names={names} race={race} surface={event.stageTheme} />
