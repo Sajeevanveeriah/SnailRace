@@ -38,7 +38,19 @@ let speaking = false;
 let lastSpokenAt = 0;
 
 /** Minimum gap between ordinary calls, so the caller is not relentless. */
-const CALL_GAP_MS = 2600;
+const CALL_GAP_MS = 3400;
+
+/**
+ * How long a line must have been running before a big moment may cut it off.
+ *
+ * Interrupting the instant a line starts produced half-words and a caller who
+ * sounded like a radio being retuned, which is the single thing the room
+ * noticed most. Under this, the big line waits its turn instead.
+ */
+const INTERRUPT_AFTER_MS = 900;
+
+/** When the utterance now speaking began. */
+let startedAt = 0;
 
 const synth = (): SpeechSynthesis | null =>
   typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
@@ -109,20 +121,29 @@ export function say(text: string, priority: CallPriority = 'call'): boolean {
   if (priority === 'call') {
     /* Ordinary lines wait their turn and are dropped rather than queued. */
     if (speaking || now - lastSpokenAt < CALL_GAP_MS) return false;
-  } else {
-    silence(); // a big moment talks over whatever was being said
+  } else if (speaking) {
+    /* A big moment may talk over the run of play, but only once the line it
+       is cutting into has had time to be a sentence. */
+    if (now - startedAt < INTERRUPT_AFTER_MS) return false;
+    silence();
   }
 
   try {
     const u = new SpeechSynthesisUtterance(strip(text));
     if (voice) u.voice = voice;
     u.lang = voice?.lang ?? 'en-AU';
-    /* A shade quick and a shade high: a race caller, not a newsreader. */
-    u.rate = priority === 'big' ? 1.22 : 1.1;
-    u.pitch = priority === 'big' ? 1.15 : 1.02;
+    /*
+     * A shade quick on the big ones and level on the rest. The previous
+     * settings ran a synthetic voice at 1.22 and pitched it up a tone on top,
+     * which is where the "weird" came from: past about 1.1 the synthesiser
+     * stops sounding urgent and starts sounding wrong.
+     */
+    u.rate = priority === 'big' ? 1.08 : 0.98;
+    u.pitch = priority === 'big' ? 1.06 : 1;
     u.volume = 1;
 
     speaking = true;
+    startedAt = now;
     lastSpokenAt = now;
     u.onend = () => {
       speaking = false;

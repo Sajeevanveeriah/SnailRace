@@ -35,9 +35,11 @@ a wagering product.
 
 The stage is built for a hall, not a laptop. **The moment a race starts it goes
 full bleed**: the tote board, the bet slip, the donation ticker and the header
-stand down, and the course takes the whole screen with broadcast furniture over
-the top, a big call along the bottom and the camera and lap in the corners. It
-comes back between races, when the moderator needs the console again.
+stand down, and the telecast takes the whole screen with broadcast graphics over
+the top: the clock and the live shot along the top, the running order bottom left
+and the call along the bottom. The moderator's own buttons fade out with them and
+come back on hover or on focus, so nothing sits over the race while the keyboard
+still drives the night from the back of the room.
 
 Measured on a 1080p screen, the race went from **47 percent of it to 100**.
 Checked at 1280x800, 1366x768, 1920x1080 and 3840x2160: fills the screen at
@@ -46,67 +48,91 @@ every one, with no horizontal overflow.
 The type scales with the screen rather than staying at laptop sizes, so the
 commentary, the lap and the surprise banners are readable from the back.
 
-## The circuit
+## The telecast
 
-The default track is a **closed course run over laps**, not a straight line. Three
-courses ship - Club oval, Figure of eight and Country lane - each with its own scenery,
-named stretches and a chequered start/finish line. Straight lanes are still there as a
-**Track** option in **Controls**, and read better on a poor projector.
+The race is drawn the way athletics is shot for television: **one camera on the
+infield, running along the track with the field**. Lanes are horizontal bars,
+every snail holds one for the whole race, and the surface streams past behind
+them - which is what makes a slow race look fast. Straight lanes are still there
+as a **Track** option in **Controls**, and read better on a poor projector.
+
+The view this replaced was top-down. From above, a snail on the far bend is
+upside down, lanes cross the screen at every angle, and a tight shot frames two
+runners and a lot of empty dirt. From the side there is no bend to be on, nothing
+to be upside down, and the camera has one axis to worry about instead of two.
 
 Laps are what make a race long without making it dull: a lap length times a lap count,
 set separately, so the default **45 seconds a lap over 3 laps** is a 2m 15s race and
-60 x 9 is a nine-minute epic. Each time the leader crosses the line there is a lap call,
-and the last lap gets **the bell**.
+60 x 9 is a nine-minute epic. Laps run as one continuous straight with a **LAP 2**
+gantry at each crossing rather than a jump back to the start, so the camera never
+cuts backwards. Each lap gets a call and the last one gets **the bell**.
 
-**Pace matters more than it looks.** The oval is about 2,200 course units round and a
-snail is 48 long, so a 12-second lap has them covering five body-lengths a second, which
-reads as a sprinting animal rather than a snail. 45 seconds is about one length a second.
-The console prints the resulting race length and pace next to the setting, so it is never
-a surprise on the night.
+**Pace matters more than it looks.** A lap is 4,000 world units and a snail is
+roughly 170 of them long, so 45 seconds a lap is about half a body-length a
+second - which is what an actual snail does. A 12-second lap is four times that
+and reads as a sprinting animal. The console prints the resulting race length and
+pace next to the setting, so it is never a surprise on the night.
 
 ### The camera
 
-The frame is not fixed. A **director** cuts between shots the way a race broadcast does:
+Deliberately dull. A director cutting every two seconds between tight close-ups is a
+director nobody can follow, so this one has three framings, each held for the better
+part of ten seconds, and **every change is eased rather than cut**:
 
-| Shot | When |
+| Shot | What it frames |
 |---|---|
-| `WIDE` | The establishing shot, and whenever the field is strung out |
-| `PACK` | The default - frames every runner, so nobody loses their snail |
-| `LEADER` | A close-up on the front |
-| `BATTLE` | Two runners close together |
-| `REACTION` | Cut to whoever a surprise just landed on |
-| `FINISH LINE` | Locked on the line from the run home |
+| `TRACKING` | The whole field, always. The default. |
+| `LEAD GROUP` | The front four, a shade tighter |
+| `LOW ANGLE` | The field again, closer in |
+| `FINISH LINE` | Taken at the run home and kept, with the line at the right of frame |
 
-Shots hold for a few seconds and only a real event - a surprise, a lead change, the run
-home - can break the hold early, so a cut always means something happened. A cut is
-instant, and there is deliberately no flash frame over it: one was tried and reads as a
-flicker on a projector, when a real cut is simply the next frame from a different camera. The sequence
-is drawn from the race seed, so a replayed race is shot the same way. Name labels
-counter-scale against the zoom, so a close-up never prints a name across the whole
-projector. Turn the director off in **Controls** to hold the whole course in frame.
+The zoom is always chosen to *contain* the runners rather than to find a dramatic
+close-up, so nobody ever loses their snail off the edge of the screen. Turn the
+director off in **Controls** to hold the whole race in one frame.
+
+### The graphics
+
+Everything a broadcast puts on screen, and none of it over the runners:
+
+- **Top bar:** a LIVE badge, the club and race number, the lap, the race clock and
+  the shot that is live.
+- **Running order**, bottom left, six deep, with lane colours and gaps in seconds
+  behind the leader. Quoted against the race's own pace, not the leader's rate on the
+  frame, which used to pin every gap to the clamp and read "+99.0s" for the whole field.
+- **The strap** along the bottom carries the call, at a size that reads from the back
+  of a hall.
+- A surprise gets a **lower third** on the right, not a card across the middle of the
+  track.
+
+Name supers sit above each snail. Because the lanes are separated vertically, two
+runners level with each other can never print over one another - which they did
+constantly on the old top-down course. Past a dozen lanes a band is thinner than a
+line of type, so only the runners in contention and anyone a surprise has just
+landed on are named, and the running order carries the rest. The effect flag is
+parked using the name's measured width rather than a guess from its character
+count.
 
 ### How it is drawn
 
-Flat fills at projector scale read as a wireframe, so the course is built up
-the way ground actually is: mown turf underneath, a worn verge, the racing
-surface with grain over it, painted edges and a dashed racing line, then a
-soft vignette so the scene is lit from above rather than evenly. The stand has
-a roof and a crowd with light in it, trees have canopies and shadows, and the
-water has a highlight.
+Three depths of parallax behind the track - a floodlit grandstand with a crowd in
+it, advertising hoardings carrying the club name, and grass - plus an out-of-focus
+bank across the front. Cross-marks painted every hundred units are what carry the
+speed. The near kerb stops well short of the bottom of frame so the graphics never
+sit on a lane.
 
-The snails are drawn in the order light hits them: the wet trail they are
-sitting in, a contact shadow, the soft foot, the shell with its spiral and a
-highlight, then eye stalks that lead into the turns. The trail sits inside the
-rotated group, so it follows the heading instead of always pointing one way.
+The snails are drawn side-on, the way you would actually see one pass: a wet trail
+behind, a contact shadow, the soft foot, the shell with its spiral and a highlight,
+then a head on a neck with two eye stalks. They glide on a wave down the foot and
+cast their stalks about as they go. Runners are drawn far side first, so a snail
+in a near lane passing one on the far side occludes it.
 
-### Also on the circuit
+### Also on the track
 
-- **A timing tower** under the track: live running order with gaps in seconds behind the
-  leader, so there is something to read between the big moments.
-- **Weather**, drawn from the seed: clear, drizzle or a downpour, with the track wet and
-  the commentary calling it. Scenery only - it never touches a position.
-- Fields from 3 to 20 all fit: lane spacing tightens as the field grows, and past twelve
-  runners the field is labelled by number with the tote board carrying the names.
+- **Weather**, drawn from the seed: clear, drizzle or a downpour, with the commentary
+  calling it. Scenery only - it never touches a position.
+- Fields from 3 to 20 all fit. Lane bands taper towards the far side and are
+  normalised to the same width of screen at any field size, and a snail may stand
+  taller than its own band because the draw order makes the overlap read as depth.
 
 ## Running the night
 
@@ -174,9 +200,16 @@ than anyone can say them, so every line carries a priority: the big
 moments - the off, a lead change, the bell lap, the winner - interrupt
 whatever is being said, and the ordinary run of play is spoken only if the
 caller is free and dropped otherwise, exactly as a human commentator drops a
-line they no longer have time for. Everything the room reads is everything
-the room hears; the two can never drift apart because they go through one
-function.
+line they no longer have time for. A big line will only cut into one that has
+had time to become a sentence - interrupting the instant a line started
+produced half-words and a caller that sounded like a radio being retuned.
+Everything the room reads is everything the room hears; the two can never
+drift apart because they go through one function.
+
+It is read at a **level rate and pitch**, a shade quicker on the big moments and
+no more. Past about 1.1 a synthetic voice stops sounding urgent and starts
+sounding wrong, which is exactly what an earlier version at 1.22 and a tone
+higher did.
 
 **V** turns the caller on and off, or use **Controls → Sound**. A browser with
 no speech voices installed simply shows the option greyed out and keeps the
@@ -271,9 +304,9 @@ showing an inactive deployment with nothing behind it.
   card ledger, `localStorage` holds the night's local state (line-up, cash, results,
   chips), and the QR code itself carries the race line-up to donor phones.
 - The race loop owns the physics and hands each frame to a **painter**; `RaceTrack`
-  draws straight lanes and `Circuit` draws laps of a course. Both are given the same `p`
-  per snail and differ only in where they put it, which is why laps and a moving camera
-  could be added without reopening the fairness argument. Positions are written straight
+  draws straight lanes and `Telecast` draws the trackside broadcast. Both are given the
+  same `p` per snail and differ only in where they put it, which is why laps and a moving
+  camera could be added without reopening the fairness argument. Positions are written straight
   to the DOM; React renders everything a human reads (status, commentary, results).
 - All motion respects `prefers-reduced-motion`, and the moderator has a calm toggle.
 - `legacy/` holds the previous zero-dependency single-file build, which still works

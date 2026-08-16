@@ -503,7 +503,14 @@ export function useRace(
       if (race.raceT - boardAtRef.current > 140 && boardRef.current.size) {
         boardAtRef.current = race.raceT;
         const leader = ranked[0];
-        const rate = Math.max(leader?.rate ?? 0, 1e-6);
+        /*
+         * Quoted against the race's own pace rather than the leader's rate on
+         * this frame. The instantaneous rate goes through zero whenever a
+         * snail is in the trough of its noise, and dividing by it pinned every
+         * gap on the board to the 99-second clamp - which is how the timing
+         * tower ended up reading "+99.0s" for the whole field.
+         */
+        const perP = race.durationMs / 1000;
         const rows: BoardRow[] = ranked.map((s, i) => ({
           lane: s.lane,
           place: i + 1,
@@ -511,7 +518,7 @@ export function useRace(
             ? `${(s.finishMs / 1000).toFixed(1)}s`
             : i === 0
               ? 'leader'
-              : `+${Math.min(99, (leader.p - s.p) / rate / 1000).toFixed(1)}s`,
+              : `+${Math.min(99, (leader.p - s.p) * perP).toFixed(1)}s`,
         }));
         boardRef.current.forEach((cb) => cb(rows));
       }

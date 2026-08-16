@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
-import { COURSES } from '@/lib/course';
+import { LAP_LEN } from '@/lib/broadcast';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
 import { eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
@@ -94,17 +94,17 @@ export function ControlDrawer({
    * silently change the race length on the next save, so it is listed too.
    */
   /*
-   * Pace, stated plainly. The oval is about 2,200 course units round and a
-   * snail is 48 long, so a twelve-second lap is five body-lengths a second -
-   * which reads as a sprinting animal. Showing the number stops that being a
-   * surprise on the night.
+   * Pace, stated plainly. A lap is 4,000 world units and a snail is roughly
+   * 170 of them long on screen, so a forty-five second lap is about half a
+   * body-length a second - which is what an actual snail does. Showing the
+   * number stops a twelve-second lap being a surprise on the night.
    */
   const totalMs = event.raceDurationMs;
   const raceLength =
     totalMs >= 60_000
       ? `${Math.floor(totalMs / 60_000)}m ${String(Math.round((totalMs % 60_000) / 1000)).padStart(2, '0')}s`
       : `${Math.round(totalMs / 1000)}s`;
-  const pace = (2194 / (lapMs / 1000) / 48).toFixed(1);
+  const pace = (LAP_LEN / (lapMs / 1000) / 170).toFixed(1);
 
   const lengthOptions = useMemo(() => {
     const list = RACE_LENGTHS.map((l) => ({ ms: l.ms as number, label: l.label as string }));
@@ -447,18 +447,12 @@ export function ControlDrawer({
                 <label className="fld">
                   <span>Track</span>
                   <select
-                    value={event.trackShape === 'circuit' ? event.courseId : 'lanes'}
+                    value={event.trackShape}
                     onChange={(e) =>
-                      e.target.value === 'lanes'
-                        ? setState({ trackShape: 'lanes' })
-                        : setState({ trackShape: 'circuit', courseId: e.target.value })
+                      setState({ trackShape: e.target.value as 'circuit' | 'lanes' })
                     }
                   >
-                    {COURSES.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
+                    <option value="circuit">Trackside telecast</option>
                     <option value="lanes">Straight lanes</option>
                   </select>
                 </label>
