@@ -89,6 +89,19 @@ export function ControlDrawer({
    * longer offered. Dropping it would leave the select showing nothing and
    * silently change the race length on the next save, so it is listed too.
    */
+  /*
+   * Pace, stated plainly. The oval is about 2,200 course units round and a
+   * snail is 48 long, so a twelve-second lap is five body-lengths a second -
+   * which reads as a sprinting animal. Showing the number stops that being a
+   * surprise on the night.
+   */
+  const totalMs = event.raceDurationMs;
+  const raceLength =
+    totalMs >= 60_000
+      ? `${Math.floor(totalMs / 60_000)}m ${String(Math.round((totalMs % 60_000) / 1000)).padStart(2, '0')}s`
+      : `${Math.round(totalMs / 1000)}s`;
+  const pace = (2194 / (lapMs / 1000) / 48).toFixed(1);
+
   const lengthOptions = useMemo(() => {
     const list = RACE_LENGTHS.map((l) => ({ ms: l.ms as number, label: l.label as string }));
     if (!list.some((l) => l.ms === lapMs)) {
@@ -448,6 +461,12 @@ export function ControlDrawer({
                   />
                 </label>
               </div>
+              <p className="mt-3 text-[11px] leading-snug text-(--tx)/50">
+                {event.trackShape === 'circuit'
+                  ? `${event.laps} ${event.laps === 1 ? 'lap' : 'laps'} at ${Math.round(lapMs / 1000)}s = a ${raceLength} race, at about ${pace} body-lengths a second. A snail reads as a snail at about one; much above two and it looks like a beetle.`
+                  : `A ${raceLength} race.`}
+              </p>
+
               <label className="mt-3 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"

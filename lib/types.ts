@@ -120,6 +120,11 @@ export interface EventState {
   sound: boolean;
   /** Music and crowd ambience. Independent of `sound`, which gates everything. */
   music: boolean;
+  /**
+   * Bumped when the shipped mix changes, so a saved night picks up new levels
+   * instead of keeping a mix that was too quiet to hear in a function room.
+   */
+  audioRev: number;
   /** Master level, 0 to 1. */
   volume: number;
   /** Music bus level, 0 to 1. Sits under the effects by default. */

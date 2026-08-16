@@ -1591,3 +1591,49 @@ kbd {
 }
 
 .calm .c-rain { animation: none; opacity: 0.16; }
+
+/* Eye stalks. A snail without them reads as a beetle from the back of a hall. */
+.c-stalk {
+  stroke: var(--body);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  fill: none;
+}
+
+/* ──────────────────────── Sound is not playing ────────────────────────── */
+
+/*
+ * A browser that refuses to start audio does so silently, which is
+ * indistinguishable from an app with no sound. This says which it is, and
+ * fixes it when clicked - the click is itself the gesture the browser wanted.
+ */
+.audio-blocked {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 96;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(220, 38, 38, 0.94);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: var(--shadow-lift);
+  cursor: pointer;
+  animation: toast-in 0.5s var(--ease-out-expo) both;
+}
+
+.audio-blocked-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  animation: ping 1.4s ease-in-out infinite;
+}
+
+.calm .audio-blocked-dot { animation: none; }

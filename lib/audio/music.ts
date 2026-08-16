@@ -170,18 +170,18 @@ function lobbyBar(t: TrackState, at: number, beat: number): void {
   const rootFor = t.bar % 4 < 2 ? 0 : -4; // i, then VI
   const root = hz(rootFor, A_MINOR / 2);
 
-  tone({ freq: root, at: at - now(), dur: beat * 3.6, type: 'sine', peak: 0.16, bus: 'music', attack: 0.25 });
-  tone({ freq: root * 1.5, at: at - now() + beat * 0.5, dur: beat * 2.6, type: 'sine', peak: 0.07, bus: 'music', attack: 0.3 });
+  tone({ freq: root, at: at - now(), dur: beat * 3.6, type: 'sine', peak: 0.304, bus: 'music', attack: 0.25 });
+  tone({ freq: root * 1.5, at: at - now() + beat * 0.5, dur: beat * 2.6, type: 'sine', peak: 0.133, bus: 'music', attack: 0.3 });
 
   /* One soft mallet note a bar, wandering the scale. Enough to feel alive. */
   const step = PENTATONIC[(t.bar * 2 + 1) % PENTATONIC.length];
   tone({
     freq: hz(step + 12, A_MINOR), at: at - now() + beat * 2,
-    dur: beat * 1.4, type: 'triangle', peak: 0.05, bus: 'music', attack: 0.05,
+    dur: beat * 1.4, type: 'triangle', peak: 0.095, bus: 'music', attack: 0.05,
   });
 
   if (t.bar % 2 === 0) {
-    noise({ at: at - now(), dur: 0.3, peak: 0.02, bus: 'music', type: 'highpass', freq: 6000, attack: 0.02 });
+    noise({ at: at - now(), dur: 0.3, peak: 0.038, bus: 'music', type: 'highpass', freq: 6000, attack: 0.02 });
   }
 }
 
@@ -201,18 +201,18 @@ function raceBar(t: TrackState, at: number, beat: number): void {
     const beatAt = off + b * beat;
 
     /* Kick: the pulse, present from the gate. */
-    tone({ freq: 110, at: beatAt, dur: 0.16, type: 'sine', peak: 0.3, bus: 'music', slideTo: 42, attack: 0.02 });
+    tone({ freq: 110, at: beatAt, dur: 0.16, type: 'sine', peak: 0.5, bus: 'music', slideTo: 42, attack: 0.02 });
 
     /* Bass: root on 1 and 3, fifth on the off-beats once it gets going. */
     const bassStep = b % 2 === 0 ? 0 : i > 0.25 ? 7 : 0;
     tone({
       freq: hz(bassStep, A_MINOR / 2), at: beatAt, dur: beat * 0.85,
-      type: 'sawtooth', peak: 0.075, bus: 'music', attack: 0.04,
+      type: 'sawtooth', peak: 0.1425, bus: 'music', attack: 0.04,
     });
 
     /* Backbeat from a quarter of the way. */
     if (i > 0.25 && b % 2 === 1) {
-      noise({ at: beatAt, dur: 0.19, peak: 0.11, bus: 'music', type: 'highpass', freq: 1400, attack: 0.01 });
+      noise({ at: beatAt, dur: 0.19, peak: 0.209, bus: 'music', type: 'highpass', freq: 1400, attack: 0.01 });
     }
 
     /* Hats double up at halfway, then again in the run home. */
@@ -234,7 +234,7 @@ function raceBar(t: TrackState, at: number, beat: number): void {
       const step = PENTATONIC[(t.bar * 3 + s) % PENTATONIC.length] + (s >= 5 ? 12 : 0);
       tone({
         freq: hz(step, A_MINOR), at: off + (s * beat) / 2, dur: beat * 0.42,
-        type: 'square', peak: 0.032 + i * 0.022, bus: 'music', attack: 0.08,
+        type: 'square', peak: 0.0608 + i * 0.022, bus: 'music', attack: 0.08,
       });
     }
   }
@@ -245,9 +245,9 @@ function raceBar(t: TrackState, at: number, beat: number): void {
       const step = PENTATONIC[(t.bar * 3 + s) % PENTATONIC.length];
       tone({
         freq: hz(step + 24, A_MINOR), at: off + (s * beat) / 2, dur: beat * 0.3,
-        type: 'triangle', peak: 0.03, bus: 'music', attack: 0.06,
+        type: 'triangle', peak: 0.057, bus: 'music', attack: 0.06,
       });
-      noise({ at: off + (s * beat) / 2, dur: 0.06, peak: 0.03, bus: 'music', type: 'highpass', freq: 10000, attack: 0.05 });
+      noise({ at: off + (s * beat) / 2, dur: 0.06, peak: 0.057, bus: 'music', type: 'highpass', freq: 10000, attack: 0.05 });
     }
   }
 }
@@ -262,26 +262,26 @@ function winnerBar(t: TrackState, at: number, beat: number): void {
 
   if (t.bar === 0) {
     [0, 4, 7, 12].forEach((s, k) =>
-      tone({ freq: hz(s, 261.63), at: off + k * 0.11, dur: 1.5, type: 'triangle', peak: 0.16, bus: 'music', attack: 0.03 }),
+      tone({ freq: hz(s, 261.63), at: off + k * 0.11, dur: 1.5, type: 'triangle', peak: 0.304, bus: 'music', attack: 0.03 }),
     );
-    tone({ freq: 130.81, at: off, dur: beat * 4, type: 'sine', peak: 0.2, bus: 'music', attack: 0.02 });
+    tone({ freq: 130.81, at: off, dur: beat * 4, type: 'sine', peak: 0.38, bus: 'music', attack: 0.02 });
   }
 
   if (t.bar === 1 || t.bar === 2) {
     const chord = t.bar === 1 ? [5, 9, 12] : [7, 11, 14];
     chord.forEach((s, k) =>
-      tone({ freq: hz(s, 261.63), at: off + k * 0.08, dur: beat * 3, type: 'triangle', peak: 0.1, bus: 'music', attack: 0.06 }),
+      tone({ freq: hz(s, 261.63), at: off + k * 0.08, dur: beat * 3, type: 'triangle', peak: 0.19, bus: 'music', attack: 0.06 }),
     );
   }
 
   if (t.bar === 3) {
     [12, 16, 19, 24].forEach((s, k) =>
-      tone({ freq: hz(s, 261.63), at: off + k * 0.09, dur: 2.2, type: 'triangle', peak: 0.14, bus: 'music', attack: 0.03 }),
+      tone({ freq: hz(s, 261.63), at: off + k * 0.09, dur: 2.2, type: 'triangle', peak: 0.266, bus: 'music', attack: 0.03 }),
     );
   }
 
   for (let b = 0; b < BEATS_PER_BAR; b++) {
-    noise({ at: off + b * beat, dur: 0.12, peak: 0.06, bus: 'music', type: 'highpass', freq: 2000, attack: 0.01 });
+    noise({ at: off + b * beat, dur: 0.12, peak: 0.114, bus: 'music', type: 'highpass', freq: 2000, attack: 0.01 });
   }
 }
 
@@ -307,8 +307,8 @@ export function startAmbience(): void {
   const murmur = () => {
     if (!isMusicEnabled()) return;
     /* Overlapping four-second swells: no seam, and no loop to hear. */
-    noise({ dur: 4.2, peak: 0.03, bus: 'crowd', type: 'bandpass', freq: 520, q: 0.7, attack: 0.4 });
-    noise({ dur: 3.4, peak: 0.016, bus: 'crowd', type: 'bandpass', freq: 1400, q: 0.5, attack: 0.5 });
+    noise({ dur: 4.2, peak: 0.057, bus: 'crowd', type: 'bandpass', freq: 520, q: 0.7, attack: 0.4 });
+    noise({ dur: 3.4, peak: 0.0304, bus: 'crowd', type: 'bandpass', freq: 1400, q: 0.5, attack: 0.5 });
   };
 
   murmur();

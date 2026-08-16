@@ -430,11 +430,13 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
                 <g className="c-body">
                   {/* Small, flat and top-down: a side-on snail reads as lying
                       down once the course turns it through 180 degrees. */}
-                  <ellipse className="c-foot" cx={0} cy={0} rx={17} ry={10} />
-                  <circle className="c-shell" cx={-3} cy={0} r={8.5} />
-                  <circle className="c-shell-in" cx={-3} cy={0} r={4} />
-                  <circle className="c-eye" cx={13} cy={-4} r={2.4} />
-                  <circle className="c-eye" cx={13} cy={4} r={2.4} />
+                  <ellipse className="c-foot" cx={0} cy={0} rx={24} ry={13} />
+                  <circle className="c-shell" cx={-5} cy={0} r={12} />
+                  <circle className="c-shell-in" cx={-5} cy={0} r={5.5} />
+                  <path className="c-stalk" d="M17 -5 L23 -12" />
+                  <path className="c-stalk" d="M17 5 L23 12" />
+                  <circle className="c-eye" cx={24} cy={-13} r={3} />
+                  <circle className="c-eye" cx={24} cy={13} r={3} />
                 </g>
                 {/*
                   Labels are staggered above and below the snail by lane, so

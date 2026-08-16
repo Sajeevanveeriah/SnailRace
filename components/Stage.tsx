@@ -23,6 +23,8 @@ import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour } from '@/lib/palette';
 import {
+  audioState,
+  resumeAudio,
   primeAudio,
   setLevels,
   setMusicOn,
@@ -169,19 +171,30 @@ export function Stage() {
    * nothing before it creates a context at all.
    */
   const [primed, setPrimed] = useState(false);
+  const [audio, setAudio] = useState<'idle' | 'blocked' | 'running' | 'off'>('idle');
+
   useEffect(() => {
-    if (primed) return;
+    /*
+     * Every gesture, not just the first. A browser can suspend a running
+     * context long after it was created - the machine changes output device,
+     * the tab is backgrounded - and it does so silently, which on the night
+     * looks like an app with no sound rather than a browser wanting a click.
+     */
     const arm = () => {
       primeAudio();
+      resumeAudio();
       setPrimed(true);
+      setAudio(audioState());
     };
-    window.addEventListener('pointerdown', arm, { once: true });
-    window.addEventListener('keydown', arm, { once: true });
+    window.addEventListener('pointerdown', arm);
+    window.addEventListener('keydown', arm);
+    const poll = window.setInterval(() => setAudio(audioState()), 1500);
     return () => {
       window.removeEventListener('pointerdown', arm);
       window.removeEventListener('keydown', arm);
+      window.clearInterval(poll);
     };
-  }, [primed]);
+  }, []);
 
   /*
    * The soundtrack is idle-driven: whenever no race is running, the lobby
@@ -549,6 +562,22 @@ export function Stage() {
           </div>
         </main>
       </div>
+
+      {audio === 'blocked' || (audio === 'idle' && primed) ? (
+        <button
+          type="button"
+          className="audio-blocked"
+          onClick={() => {
+            primeAudio();
+            resumeAudio();
+            setAudio(audioState());
+            sfx.bell();
+          }}
+        >
+          <span className="audio-blocked-dot" aria-hidden="true" />
+          Sound is blocked by the browser - click here to turn it on
+        </button>
+      ) : null}
 
       {toast ? (
         <div className="toast glass glass-strong fixed right-5 top-5 z-[95] max-w-xs px-5 py-4">
