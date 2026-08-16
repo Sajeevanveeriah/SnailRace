@@ -15,6 +15,7 @@ export function WinnerOverlay({
   bets,
   highlights,
   nextRaceNo,
+  sponsor,
   onClose,
 }: {
   open: boolean;
@@ -24,6 +25,7 @@ export function WinnerOverlay({
   bets: Bet[];
   highlights: RaceHighlight[];
   nextRaceNo: number;
+  sponsor: string;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -73,6 +75,11 @@ export function WinnerOverlay({
         <div className="winner-glow" aria-hidden="true" />
 
         <p className="eyebrow">Race {raceNo} winner</p>
+        {sponsor ? (
+          <p className="sponsor-line mt-1">
+            Sponsored by <b>{sponsor}</b>
+          </p>
+        ) : null}
 
         <div className="mx-auto my-4 w-40">
           <Snail />

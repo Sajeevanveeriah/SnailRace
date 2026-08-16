@@ -79,6 +79,22 @@ projector. Turn the director off in **Controls** to hold the whole course in fra
 - Fields from 3 to 20 all fit: lane spacing tightens as the field grows, and past twelve
   runners the field is labelled by number with the tote board carrying the names.
 
+## Running the night
+
+- **Race sponsors.** Type the list once in **Controls**, one per line. They are cycled a
+  race at a time, so every sponsor gets an even share without anyone tracking whose turn
+  it is, and the name appears on the stage, on the winner card, in the CSV and on the
+  printed report with a thank-you line.
+- **A championship table.** Points by finishing position across the night, 5 for a win,
+  3 for a second, 1 for a third, so a consistent second beats one lucky win. It appears
+  once two races have run and gives the moderator a reason to call a final. Standings are
+  derived from the race history, so undoing a race corrects the table for free.
+- **Presenter clicker.** PageDown and the right arrow start the next race, PageUp and the
+  left arrow reset or close the winner card, which is what a wireless clicker actually
+  sends from the front of a hall.
+- **Undo the last race.** Removes the result, reopens that race's fun bets and puts the
+  chip bank and streaks back exactly, from a snapshot taken before the race settled.
+
 ## Keeping the room in it
 
 A race the crowd can look away from is a race they stop backing, so the night is built
@@ -197,9 +213,28 @@ Set the environment (see `.env.example`):
 6. At the end: export the CSV, print the report, and reconcile against Stripe's
    dashboard plus the cash tin. Save a backup JSON if the night continues next week.
 
-Keyboard: **Space** start, **Esc** reset/close, **M** controls, **C** calm mode
-(stops decorative motion), **S** sound, **B** music and crowd, **V** the spoken
-caller, **F** full screen.
+Keyboard: **Space** or **PageDown** start, **Esc** or **PageUp** reset/close, **M**
+controls, **C** calm mode (stops decorative motion), **S** sound, **B** music and crowd,
+**V** the spoken caller, **F** full screen.
+
+## Deployment
+
+Two shapes from one codebase.
+
+- **Server** (Vercel, Node, anything running `next start`): the whole app, Stripe API
+  routes included.
+- **GitHub Pages**: a static export of the game. Pages cannot run server code, so the
+  deploy workflow removes `app/api` before building and the stage runs cash-and-chips
+  only, saying so on screen. The build sets `NEXT_PUBLIC_STATIC_EXPORT`, which stops the
+  client calling `/api/...` at all. Without it the donation poll and the payment-link
+  fetch hit those paths every few seconds from a host that does not have them, and on a
+  project Pages site those paths are not even the same site.
+
+The Pages workflow deploys on every push to `main` and then **fetches the published URL
+and fails the job if the site is not serving the game**, so an inactive site shows up as
+a red build instead of a silent one. It never cancels a deployment that is already
+running, because cancelling one mid-flight is what leaves the `github-pages` environment
+showing an inactive deployment with nothing behind it.
 
 ## Architecture notes
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RaceTrack } from './RaceTrack';
 import { Circuit } from './Circuit';
 import { PitBoard } from './PitBoard';
+import { Standings } from './Standings';
 import { ToteBoard } from './ToteBoard';
 import { BetSlip } from './BetSlip';
 import { DonateQr } from './DonateQr';
@@ -15,11 +16,13 @@ import { ControlDrawer } from './ControlDrawer';
 import { ThemeToggle } from './ThemeToggle';
 import { hydrate, useEvent, setState } from '@/lib/event-store';
 import { useOrigin } from '@/lib/use-origin';
+import { HAS_API } from '@/lib/deployment';
 import { useCanSpeak } from '@/lib/use-can-speak';
 import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace } from '@/lib/use-race';
 import { poolsFor, settleBets } from '@/lib/tote';
+import { sponsorFor } from '@/lib/standings';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour } from '@/lib/palette';
@@ -84,6 +87,10 @@ export function Stage() {
     [event.names, event.fieldSize],
   );
   const nextRaceNo = event.raceNumber + 1;
+  const sponsor = useMemo(
+    () => sponsorFor(event.sponsors, nextRaceNo),
+    [event.sponsors, nextRaceNo],
+  );
 
   /** Stripe is authoritative for cards; the cash tin lives on this device. */
   const allDonations: Donation[] = useMemo(
@@ -122,6 +129,10 @@ export function Stage() {
         potCents,
         photoFinish: drawn.photoFinish,
         highlights: reel,
+        sponsor,
+        /* Taken before settlement, so Undo restores rather than re-derives. */
+        chipBankBefore: { ...event.chipBank },
+        streaksBefore: { ...event.streaks },
       };
 
       const settled = settleBets(event.bets, raceNo, winner?.lane ?? -1);
@@ -164,7 +175,7 @@ export function Stage() {
       setOverlayOpen(true);
       setConfettiKey((k) => k + 1);
     },
-    [event.bets, event.chipBank, event.history, event.raceDurationMs, event.raceType, event.streaks, names.length, nextRaceNo, potCents],
+    [event.bets, event.chipBank, event.history, event.raceDurationMs, event.raceType, event.streaks, names.length, nextRaceNo, potCents, sponsor],
   );
 
   const race = useRace(onFinish);
@@ -293,9 +304,23 @@ export function Stage() {
       if (typing(e.target)) return;
       const k = e.key.toLowerCase();
 
-      if (e.code === 'Space') {
+      /*
+       * A presentation clicker sends PageDown and PageUp, which is what a
+       * volunteer at the front of a hall is actually holding. Arrow keys are
+       * mapped with them so a wireless keyboard works from the back.
+       */
+      const forward = e.code === 'Space' || e.code === 'PageDown' || e.code === 'ArrowRight';
+      const back = e.code === 'PageUp' || e.code === 'ArrowLeft';
+
+      if (forward) {
         e.preventDefault();
         if (race.phase === 'idle' || race.phase === 'done') startRace();
+        return;
+      }
+      if (back) {
+        e.preventDefault();
+        if (overlayOpen) setOverlayOpen(false);
+        else resetRace();
         return;
       }
       if (k === 'escape') {
@@ -338,7 +363,7 @@ export function Stage() {
   const [qrMode, setQrMode] = useState<'lineup' | 'direct'>('lineup');
 
   useEffect(() => {
-    if (!event.eventId) return;
+    if (!event.eventId || !HAS_API) return;
     let cancel = false;
     void (async () => {
       try {
@@ -411,6 +436,11 @@ export function Stage() {
             <span className="chip-toggle pointer-events-none">
               {event.raceType} {nextRaceNo}
             </span>
+            {sponsor ? (
+              <span className="sponsor-line" title="Race sponsor">
+                Sponsored by <b>{sponsor}</b>
+              </span>
+            ) : null}
             <FeedPill status={feed.status} lastOk={feed.lastOk} />
             <button
               type="button"
@@ -525,6 +555,8 @@ export function Stage() {
               <PitBoard names={names} race={race} laps={event.laps} />
             ) : null}
 
+            <Standings history={event.history} />
+
             <RecentDonations donations={liveDonations} />
           </div>
 
@@ -629,6 +661,7 @@ export function Stage() {
         bets={event.bets}
         highlights={highlights}
         nextRaceNo={event.raceNumber + 1}
+        sponsor={event.history[0]?.sponsor ?? ''}
         onClose={() => setOverlayOpen(false)}
       />
 
