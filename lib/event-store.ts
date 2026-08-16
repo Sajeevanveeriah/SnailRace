@@ -57,6 +57,7 @@ export function freshState(): EventState {
     surprises: true,
     raceType: 'Heat',
     raceNumber: 0,
+    sponsors: [],
     cashLedger: [],
     history: [],
     bets: [],
@@ -116,6 +117,9 @@ function merge(raw: string | null): EventState {
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],
+      sponsors: Array.isArray(parsed.sponsors)
+        ? parsed.sponsors.filter((x): x is string => typeof x === 'string')
+        : [],
       chipBank: parsed.chipBank && typeof parsed.chipBank === 'object' ? parsed.chipBank : {},
       streaks: parsed.streaks && typeof parsed.streaks === 'object' ? parsed.streaks : {},
       /* Levels are clamped on the way in: a hand-edited backup with a volume

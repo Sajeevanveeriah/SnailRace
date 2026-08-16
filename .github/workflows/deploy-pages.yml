@@ -3,7 +3,7 @@
 # Pages is static hosting: the races, fun bets, cash console and reports all
 # run there, and the stage shows "Cash only" because the Stripe API routes
 # cannot. For card donations, deploy the same repo to a Node host (e.g.
-# Vercel) with STRIPE_SECRET_KEY set - no code changes needed.
+# Vercel) with STRIPE_SECRET_KEY set, no code changes needed.
 name: Deploy to GitHub Pages
 
 on:
@@ -16,9 +16,14 @@ permissions:
   pages: write
   id-token: write
 
+# One deployment at a time, but never cancel one that is already running.
+# Cancelling an in-flight Pages deployment is what leaves the github-pages
+# environment showing an inactive deployment with no live site behind it, and
+# merges here often land in bursts. Queued runs are superseded instead, which
+# is GitHub's documented configuration for Pages.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -44,6 +49,19 @@ jobs:
         env:
           GITHUB_PAGES: 'true'
 
+      # Next writes its assets into _next, and anything beginning with an
+      # underscore is invisible to Jekyll. The Actions deploy path does not run
+      # Jekyll, so this is belt and braces, and it is what keeps the site alive
+      # if the Pages source is ever switched back to branch serving.
+      - name: Disable Jekyll processing
+        run: touch out/.nojekyll
+
+      - name: Check the export is complete
+        run: |
+          test -f out/index.html || { echo "::error::out/index.html missing"; exit 1; }
+          test -d out/_next || { echo "::error::out/_next missing"; exit 1; }
+          echo "Export contains $(find out -type f | wc -l) files."
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
@@ -64,3 +82,31 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      # A green deploy step only proves the artefact was handed over. This
+      # fetches the published URL and fails the job if the site is not actually
+      # serving the game, so an inactive site is a red build rather than a
+      # silent one.
+      - name: Verify the published site is live
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          echo "Checking $PAGE_URL"
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -sSL -o page.html -w '%{http_code}' --max-time 30 "$PAGE_URL" || echo 000)
+            if [ "$code" = "200" ] && grep -qi 'snail' page.html; then
+              echo "Live: HTTP $code, $(wc -c < page.html) bytes."
+              {
+                echo "### Snail Race is live"
+                echo ""
+                echo "$PAGE_URL"
+                echo ""
+                echo "HTTP $code, $(wc -c < page.html) bytes, verified on attempt $attempt."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $code, retrying in 10s."
+            sleep 10
+          done
+          echo "::error::$PAGE_URL did not serve the game after 6 attempts (last HTTP $code)."
+          exit 1

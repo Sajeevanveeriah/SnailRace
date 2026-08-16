@@ -24,7 +24,16 @@ const basePath = isPages ? '/SnailRace' : '';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  env: { NEXT_PUBLIC_BASE_PATH: basePath },
+  /*
+   * `STATIC_EXPORT` tells the client there is no API behind it. Without it the
+   * donation poll and the payment-link fetch keep calling /api/... from a
+   * static host, where those paths belong to a different site entirely and
+   * answer 404 every few seconds for the whole night.
+   */
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_STATIC_EXPORT: isPages ? '1' : '',
+  },
   ...(isPages
     ? {
         output: 'export' as const,

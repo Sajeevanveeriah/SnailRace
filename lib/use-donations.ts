@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { HAS_API } from './deployment';
 import type { Donation, DonationsResponse } from './types';
 
 export type FeedStatus = 'loading' | 'live' | 'offline' | 'unconfigured';
@@ -33,6 +34,14 @@ export function useDonations(eventId: string, intervalMs = 4000) {
 
   const poll = useCallback(async () => {
     if (!eventId) return;
+    /*
+     * A static export has no API. Saying so once beats asking a host that
+     * cannot answer, every four seconds, for the length of a club night.
+     */
+    if (!HAS_API) {
+      setStatus('unconfigured');
+      return;
+    }
     try {
       const res = await fetch(`/api/donations?eventId=${encodeURIComponent(eventId)}`, {
         cache: 'no-store',
@@ -83,7 +92,8 @@ export function useDonations(eventId: string, intervalMs = 4000) {
      * only thing driving the feed.
      */
     const kickoff = window.setTimeout(() => void poll(), 0);
-    const timer = window.setInterval(() => void poll(), intervalMs);
+    /* Nothing to poll when there is no API behind the build. */
+    const timer = HAS_API ? window.setInterval(() => void poll(), intervalMs) : 0;
 
     /* A projector laptop that has been asleep should catch up immediately. */
     const onVisible = () => {

@@ -5,6 +5,7 @@ import { hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-st
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
 import { COURSES } from '@/lib/course';
+import { sponsorFor, standingsFrom } from '@/lib/standings';
 import { eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import { initVoice, primeAudio, sampleReport, samplesSettled, sfx, soundCheck } from '@/lib/sound';
@@ -163,6 +164,42 @@ export function ControlDrawer({
     say('New names drawn.');
   };
 
+  /**
+   * Undo the last race.
+   *
+   * Restores the chip bank and streaks from the snapshots taken before that
+   * race settled, reopens its bets and steps the race number back. A night
+   * recorded before snapshots existed can still drop the result, and says so
+   * rather than guessing at chips it cannot reverse.
+   */
+  const undoLastRace = () => {
+    const last = event.history[0];
+    if (!last) return;
+
+    const reopened = event.bets.map((b) =>
+      b.raceNo === last.raceNo
+        ? { ...b, settled: false, won: undefined, returned: undefined }
+        : b,
+    );
+
+    const canRestore = Boolean(last.chipBankBefore && last.streaksBefore);
+    setState({
+      history: event.history.slice(1),
+      raceNumber: Math.max(0, last.raceNo - 1),
+      bets: reopened,
+      bettingOpen: true,
+      ...(canRestore
+        ? { chipBank: { ...last.chipBankBefore }, streaks: { ...last.streaksBefore } }
+        : {}),
+    });
+
+    say(
+      canRestore
+        ? `Race ${last.raceNo} undone. Chips and streaks restored, bets reopened.`
+        : `Race ${last.raceNo} removed. This race predates chip snapshots, so chips were left as they are.`,
+    );
+  };
+
   const runVerify = () => {
     const past = event.history.find(
       (h) => h.seedHex.toUpperCase() === seedInput.trim().toUpperCase(),
@@ -203,12 +240,13 @@ export function ControlDrawer({
 
   const exportCsv = () => {
     const rows = [
-      ['race', 'lane', 'snail', 'backer', 'amount_aud', 'source', 'status', 'timestamp'],
+      ['race', 'sponsor', 'lane', 'snail', 'backer', 'amount_aud', 'source', 'status', 'timestamp'],
       ...donations
         .slice()
         .sort((a, b) => a.createdAt - b.createdAt)
         .map((d) => [
           d.raceNo,
+          event.history.find((h) => h.raceNo === d.raceNo)?.sponsor ?? '',
           d.lane + 1,
           d.snailName,
           d.backerName || 'Anonymous',
@@ -353,6 +391,21 @@ export function ControlDrawer({
                     onChange={(e) => setState({ eventName: e.target.value })}
                   />
                 </label>
+                <label className="fld">
+                  <span>Race sponsors</span>
+                  <textarea
+                    rows={3}
+                    value={event.sponsors.join('\n')}
+                    placeholder={'One sponsor per line\nUsed in order and cycled'}
+                    onChange={(e) => setState({ sponsors: e.target.value.split('\n') })}
+                  />
+                </label>
+                {event.sponsors.some((x) => x.trim()) ? (
+                  <p className="text-[11px] text-(--tx)/50">
+                    Race {nextRaceNo}: {sponsorFor(event.sponsors, nextRaceNo) || 'none'}
+                  </p>
+                ) : null}
+
                 <div>
                   <p className="fld mb-2"><span>Stage look</span></p>
                   <div className="flex flex-wrap gap-2">
@@ -709,7 +762,26 @@ export function ControlDrawer({
 
             {/* ── Results ──────────────────────────────────────────── */}
             <section className="panel">
-              <h3 className="mb-3 font-semibold">Results</h3>
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">Results</h3>
+                {event.history.length > 0 ? (
+                  <button
+                    type="button"
+                    className="text-xs text-(--tx)/55 underline hover:text-(--tx)"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Undo race ${event.history[0].raceNo}? The result is removed, its fun bets reopen and chips go back to what they were.`,
+                        )
+                      ) {
+                        undoLastRace();
+                      }
+                    }}
+                  >
+                    Undo last race
+                  </button>
+                ) : null}
+              </div>
               {event.history.length === 0 ? (
                 <p className="text-sm text-(--tx)/45">No races run yet.</p>
               ) : (
@@ -722,6 +794,9 @@ export function ControlDrawer({
                         </span>
                         <span className="num text-xs text-(--tx)/45">{moneyShort(h.potCents)}</span>
                       </div>
+                      {h.sponsor ? (
+                        <p className="text-[11px] text-(--gold)">{h.sponsor}</p>
+                      ) : null}
                       <p className="num text-[11px] text-(--tx)/40">
                         seed {h.seedHex}
                         {h.photoFinish ? ' - photo finish' : ''}
@@ -827,6 +902,42 @@ export function ControlDrawer({
           {printedAt ? `Report generated ${printedAt}. ` : ''}Total raised {money(nightCents)}{' '}
           across {event.history.length} races.
         </p>
+        {standingsFrom(event.history).length > 0 ? (
+          <>
+            <h2 className="mt-4 text-lg font-bold">Championship</h2>
+            <table className="mb-4 w-full text-left text-sm">
+              <thead>
+                <tr>
+                  <th className="border-b p-1">#</th>
+                  <th className="border-b p-1">Snail</th>
+                  <th className="border-b p-1 text-right">Races</th>
+                  <th className="border-b p-1 text-right">Wins</th>
+                  <th className="border-b p-1 text-right">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standingsFrom(event.history).map((row, i) => (
+                  <tr key={row.name}>
+                    <td className="p-1">{i + 1}</td>
+                    <td className="p-1">{row.name}</td>
+                    <td className="p-1 text-right">{row.races}</td>
+                    <td className="p-1 text-right">{row.wins}</td>
+                    <td className="p-1 text-right">{row.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : null}
+
+        {event.history.some((h) => h.sponsor) ? (
+          <p className="mb-4 text-sm">
+            With thanks to tonight&apos;s race sponsors:{' '}
+            {[...new Set(event.history.map((h) => h.sponsor).filter(Boolean))].join(', ')}.
+          </p>
+        ) : null}
+
+        <h2 className="text-lg font-bold">Donations</h2>
         <table className="w-full text-left text-sm">
           <thead>
             <tr>

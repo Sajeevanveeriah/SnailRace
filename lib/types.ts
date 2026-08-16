@@ -66,6 +66,16 @@ export interface RaceHistoryEntry {
   /** Total cents backed on this race, all lanes, all sources. */
   potCents: number;
   photoFinish: boolean;
+  /** Who put their name to this race. Empty when nobody sponsored it. */
+  sponsor?: string;
+  /*
+   * Snapshots taken before the race settled, so the console can undo it
+   * exactly. Reversing the arithmetic instead would have to re-derive a
+   * streak that was already overwritten, and a wrong reversal is worse than
+   * no undo when a club is reconciling chips in front of the room.
+   */
+  chipBankBefore?: Record<string, number>;
+  streaksBefore?: Record<string, number>;
   /** Surprises that landed, oldest first. Absent on nights from an older build. */
   highlights?: RaceHighlight[];
 }
@@ -108,6 +118,8 @@ export interface EventState {
   surprises: boolean;
   raceType: string;
   raceNumber: number;
+  /** Sponsors, used in order and cycled. One line per race on the stage. */
+  sponsors: string[];
   cashLedger: Donation[];
   history: RaceHistoryEntry[];
   bets: Bet[];
