@@ -63,11 +63,14 @@ export const COURSES: CourseDef[] = [
       { at: 0.78, name: 'the final bend' },
     ],
     scenery: [
-      { kind: 'grandstand', x: 500, y: 596, r: 150 },
-      { kind: 'pond', x: 500, y: 300, r: 74 },
-      { kind: 'lettuce', x: 300, y: 300, r: 40 },
-      { kind: 'tree', x: 700, y: 300, r: 34 },
-      { kind: 'mud', x: 620, y: 300, r: 30 },
+      /* The stand sits in the infield facing the home straight: below the
+         track it was clipped by the bottom of the frame. */
+      { kind: 'grandstand', x: 500, y: 402, r: 150 },
+      { kind: 'pond', x: 396, y: 258, r: 58 },
+      { kind: 'lettuce', x: 274, y: 300, r: 34 },
+      { kind: 'tree', x: 700, y: 250, r: 34 },
+      { kind: 'tree', x: 620, y: 320, r: 24 },
+      { kind: 'mud', x: 520, y: 300, r: 26 },
     ],
   },
   {
@@ -83,7 +86,7 @@ export const COURSES: CourseDef[] = [
       { at: 0.75, name: 'the west loop' },
     ],
     scenery: [
-      { kind: 'grandstand', x: 500, y: 588, r: 130 },
+      { kind: 'grandstand', x: 500, y: 604, r: 130 },
       { kind: 'lettuce', x: 880, y: 500, r: 44 },
       { kind: 'pond', x: 120, y: 500, r: 52 },
       { kind: 'tree', x: 500, y: 120, r: 30 },
@@ -109,7 +112,7 @@ export const COURSES: CourseDef[] = [
       { kind: 'mud', x: 470, y: 250, r: 34 },
       { kind: 'tree', x: 200, y: 200, r: 30 },
       { kind: 'tree', x: 860, y: 500, r: 26 },
-      { kind: 'grandstand', x: 250, y: 590, r: 110 },
+      { kind: 'grandstand', x: 250, y: 606, r: 110 },
     ],
   },
 ];
@@ -223,7 +226,7 @@ export function laneOffset(lane: number, fieldSize: number, spacing = 15): numbe
 
 /** Lane spacing that keeps a big field on the track. */
 export const spacingFor = (fieldSize: number): number =>
-  fieldSize <= 6 ? 30 : fieldSize <= 12 ? 20 : 13;
+  fieldSize <= 6 ? 21 : fieldSize <= 12 ? 15 : 10;
 
 /** Which named stretch `u` (a fraction of one lap) falls in. */
 export function sectorAt(def: CourseDef, u: number): string {

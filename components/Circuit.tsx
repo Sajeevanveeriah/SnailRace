@@ -341,11 +341,68 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
         aria-label={`${def.label} circuit, ${laps} ${laps === 1 ? 'lap' : 'laps'}, ${names.length} snails`}
       >
         <defs>
-          <radialGradient id="c-pond">
-            <stop offset="0%" stopColor="#2f7fbf" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#123f66" stopOpacity="0.75" />
+          {/*
+            Everything below exists to stop the course reading as a diagram.
+            Flat fills at projector scale look like a wireframe; a surface
+            needs a light direction, an edge and some grain before a room
+            accepts it as ground.
+          */}
+          <radialGradient id="c-pond" cx="38%" cy="32%">
+            <stop offset="0%" stopColor="#6fc0e8" />
+            <stop offset="55%" stopColor="#2f7fbf" />
+            <stop offset="100%" stopColor="#0d3652" />
+          </radialGradient>
+
+          <linearGradient id="c-grass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1d4a2b" />
+            <stop offset="100%" stopColor="#0e2a19" />
+          </linearGradient>
+
+          <linearGradient id="c-dirt" x1="0" y1="0" x2="0.35" y2="1">
+            <stop offset="0%" stopColor="#6b5540" />
+            <stop offset="45%" stopColor="#54412f" />
+            <stop offset="100%" stopColor="#3b2d20" />
+          </linearGradient>
+
+          <linearGradient id="c-roof" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3a4150" />
+            <stop offset="100%" stopColor="#232833" />
+          </linearGradient>
+
+          <radialGradient id="c-canopy" cx="35%" cy="30%">
+            <stop offset="0%" stopColor="#57a86a" />
+            <stop offset="100%" stopColor="#24603a" />
+          </radialGradient>
+
+          {/* Mown stripes, the thing that makes turf read as turf. */}
+          <pattern id="c-mow" width="46" height="46" patternUnits="userSpaceOnUse">
+            <rect width="46" height="46" fill="url(#c-grass)" />
+            <rect width="23" height="46" fill="#ffffff" opacity="0.028" />
+          </pattern>
+
+          {/* Grain on the racing surface, so it is not a flat brown band. */}
+          <filter id="c-grain" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="7" />
+            <feColorMatrix type="saturate" values="0" />
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.16" />
+            </feComponentTransfer>
+            <feComposite operator="in" in2="SourceGraphic" />
+          </filter>
+
+          <filter id="c-soft" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="7" />
+          </filter>
+
+          {/* A stadium lit from above: bright in the middle, dark at the edges. */}
+          <radialGradient id="c-vignette" cx="50%" cy="42%">
+            <stop offset="62%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.34" />
           </radialGradient>
         </defs>
+
+        {/* The ground the whole thing sits on. */}
+        <rect x={-400} y={-400} width={COURSE_W + 800} height={COURSE_H + 800} fill="url(#c-mow)" />
 
         {/* Scenery first, so the track is always drawn over the top of it. */}
         <g className="c-scenery" aria-hidden="true">
@@ -354,21 +411,27 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
               return <ellipse key={i} cx={s.x} cy={s.y} rx={s.r} ry={s.r * 0.62} fill="url(#c-pond)" />;
             }
             if (s.kind === 'grandstand') {
+              /* Tiered seating under a roof, and a crowd with a bit of
+                 colour in it. A grey box with dots reads as a car park. */
+              const rows = 3;
+              const seats = Math.round(s.r / 9);
               return (
                 <g key={i}>
-                  <rect
-                    x={s.x - s.r} y={s.y - 34} width={s.r * 2} height={44}
-                    rx={8} className="c-stand"
-                  />
-                  {Array.from({ length: Math.round(s.r / 11) }, (_, k) => (
-                    <circle
-                      key={k}
-                      cx={s.x - s.r + 10 + k * 22}
-                      cy={s.y - 20 + (k % 2) * 9}
-                      r={4.4}
-                      className="c-fan"
-                    />
-                  ))}
+                  <rect x={s.x - s.r} y={s.y - 50} width={s.r * 2} height={56} rx={6} className="c-stand" />
+                  {Array.from({ length: rows }, (_, r) =>
+                    Array.from({ length: seats }, (_, k) => (
+                      <circle
+                        key={`${r}-${k}`}
+                        cx={s.x - s.r + 12 + k * ((s.r * 2 - 24) / Math.max(1, seats - 1))}
+                        cy={s.y - 40 + r * 13}
+                        r={3.6}
+                        className="c-fan"
+                        style={{ opacity: 0.35 + ((r * 7 + k * 3) % 5) * 0.13 }}
+                      />
+                    )),
+                  )}
+                  <rect x={s.x - s.r - 8} y={s.y - 60} width={s.r * 2 + 16} height={13} rx={5} fill="url(#c-roof)" />
+                  <rect x={s.x - s.r - 8} y={s.y - 60} width={s.r * 2 + 16} height={3} rx={2} fill="#ffffff" opacity="0.16" />
                 </g>
               );
             }
@@ -387,23 +450,44 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
               );
             }
             if (s.kind === 'mud') {
-              return <ellipse key={i} cx={s.x} cy={s.y} rx={s.r} ry={s.r * 0.55} className="c-mud" />;
+              return (
+                <g key={i}>
+                  <ellipse cx={s.x} cy={s.y} rx={s.r} ry={s.r * 0.55} className="c-mud" />
+                  <ellipse cx={s.x - s.r * 0.2} cy={s.y - s.r * 0.12} rx={s.r * 0.45} ry={s.r * 0.2}
+                           fill="#ffffff" opacity="0.05" />
+                </g>
+              );
             }
+            /* A tree needs a shadow and a lit side or it is a green dot. */
             return (
               <g key={i} className="c-tree">
-                <rect x={s.x - 3} y={s.y} width={6} height={s.r * 0.8} rx={2} className="c-trunk" />
-                <circle cx={s.x} cy={s.y} r={s.r * 0.62} />
+                <ellipse cx={s.x + 5} cy={s.y + s.r * 0.85} rx={s.r * 0.7} ry={s.r * 0.22}
+                         fill="#000" opacity="0.32" />
+                <rect x={s.x - 3.5} y={s.y} width={7} height={s.r * 0.85} rx={3} className="c-trunk" />
+                <circle cx={s.x} cy={s.y} r={s.r * 0.66} fill="url(#c-canopy)" />
+                <circle cx={s.x - s.r * 0.28} cy={s.y - s.r * 0.3} r={s.r * 0.3}
+                        fill="#ffffff" opacity="0.09" />
               </g>
             );
           })}
         </g>
 
-        {/* The course: a wide dark bed, a soft verge and a dashed centreline. */}
-        <path className="c-verge" d={def.d} strokeWidth={names.length * spacing + 74} />
-        <path className="c-bed" d={def.d} strokeWidth={names.length * spacing + 54} />
-        <path className="c-centre" d={def.d} strokeWidth={2} />
+        {/*
+          The racing surface, built up the way a real one is: a worn verge,
+          the dirt itself, a grain pass over it, painted edges and a racing
+          line down the middle.
+        */}
+        <path className="c-verge" d={def.d} strokeWidth={names.length * spacing + 96} />
+        <path className="c-bed" d={def.d} strokeWidth={names.length * spacing + 62} />
+        <path className="c-grain" d={def.d} strokeWidth={names.length * spacing + 62} filter="url(#c-grain)" />
+        <path className="c-edge" d={def.d} strokeWidth={names.length * spacing + 62} />
+        <path className="c-edge-in" d={def.d} strokeWidth={names.length * spacing + 24} />
+        <path className="c-centre" d={def.d} strokeWidth={2.5} />
 
-        <StartLine def={def} width={names.length * spacing + 54} />
+        <StartLine def={def} width={names.length * spacing + 62} />
+
+        <rect x={-400} y={-400} width={COURSE_W + 800} height={COURSE_H + 800}
+              fill="url(#c-vignette)" pointerEvents="none" />
 
         <g className="c-runners">
           {names.map((name, i) => {
@@ -422,31 +506,43 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
                   } as React.CSSProperties
                 }
               >
+                {/*
+                  A snail from above, built in the order light hits it: the
+                  slime it is sitting in, a contact shadow, the soft foot, the
+                  shell with a spiral and a highlight, then the stalks. Flat
+                  shapes were the whole reason this read as a diagram.
+                */}
                 <g className="c-body">
-                  {/* Small, flat and top-down: a side-on snail reads as lying
-                      down once the course turns it through 180 degrees. */}
-                  <ellipse className="c-foot" cx={0} cy={0} rx={24} ry={13} />
-                  <circle className="c-shell" cx={-5} cy={0} r={12} />
-                  {/* A spiral, because at a close-up a plain disc reads as a
-                      beetle. It is the one line that says "snail". */}
+                  {/* Inside the rotated group, so the trail follows the
+                      heading rather than always pointing left. */}
+                  <ellipse className="c-slime" cx={-34} cy={0} rx={32} ry={8} />
+                  <ellipse className="c-shadow" cx={2} cy={5} rx={26} ry={13} />
+                  <ellipse className="c-foot" cx={0} cy={0} rx={25} ry={13} />
+                  <ellipse className="c-foot-lit" cx={4} cy={-3} rx={17} ry={6} />
+                  <circle className="c-shell" cx={-6} cy={0} r={13.5} />
                   <path
                     className="c-spiral"
-                    d="M-5 0 a2.6 2.6 0 1 0 2.4 1.6 a5.6 5.6 0 1 1 -7.4 -3.4 a8.8 8.8 0 1 1 -1.7 12.6"
+                    d="M-6 0 a3 3 0 1 0 2.7 1.8 a6.3 6.3 0 1 1 -8.3 -3.8 a9.9 9.9 0 1 1 -1.9 14.2"
                   />
-                  <path className="c-stalk" d="M17 -5 L23 -12" />
-                  <path className="c-stalk" d="M17 5 L23 12" />
-                  <circle className="c-eye" cx={24} cy={-13} r={3} />
-                  <circle className="c-eye" cx={24} cy={13} r={3} />
+                  <ellipse className="c-shell-lit" cx={-10} cy={-5} rx={5} ry={3.4} />
+                  <g className="c-head">
+                    <path className="c-stalk" d="M17 -5 Q22 -10 24 -15" />
+                    <path className="c-stalk" d="M17 5 Q22 10 24 15" />
+                    <circle className="c-eye" cx={24.5} cy={-15.5} r={3.4} />
+                    <circle className="c-eye" cx={24.5} cy={15.5} r={3.4} />
+                    <circle className="c-pupil" cx={25.6} cy={-16} r={1.5} />
+                    <circle className="c-pupil" cx={25.6} cy={15} r={1.5} />
+                  </g>
                 </g>
                 {/*
                   Labels are staggered above and below the snail by lane, so
                   two runners side by side never print on top of each other.
                 */}
-                <text className="c-chip num" x={0} y={i % 2 ? -20 : 30} textAnchor="middle" />
-                <text className="c-name" x={0} y={i % 2 ? -33 : 43} textAnchor="middle">
+                <text className="c-chip num" x={-6} y={i % 2 ? -26 : 40} textAnchor="end" />
+                <text className="c-name" x={0} y={i % 2 ? -26 : 40} textAnchor="start">
                   {compact ? i + 1 : name}
                 </text>
-                <text className="c-fx" x={0} y={i % 2 ? -46 : 56} textAnchor="middle" />
+                <text className="c-fx" x={0} y={i % 2 ? -44 : 58} textAnchor="middle" />
               </g>
             );
           })}
