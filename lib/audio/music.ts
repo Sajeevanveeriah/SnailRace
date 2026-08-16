@@ -304,11 +304,51 @@ export function startAmbience(): void {
     return;
   }
 
+  /*
+   * A room is not one noise, it is many people at slightly different pitches
+   * doing slightly different things. Two filtered swells read as wind; adding
+   * a low body, a chest band, scattered single voices and the occasional
+   * clap or whistle is what makes it read as people in a hall.
+   */
   const murmur = () => {
     if (!isMusicEnabled()) return;
-    /* Overlapping four-second swells: no seam, and no loop to hear. */
+
+    /* Overlapping swells at three heights: no seam, and no loop to hear. */
+    noise({ dur: 4.6, peak: 0.05, bus: 'crowd', type: 'bandpass', freq: 240, q: 0.6, attack: 0.45 });
     noise({ dur: 4.2, peak: 0.057, bus: 'crowd', type: 'bandpass', freq: 520, q: 0.7, attack: 0.4 });
     noise({ dur: 3.4, peak: 0.0304, bus: 'crowd', type: 'bandpass', freq: 1400, q: 0.5, attack: 0.5 });
+
+    /*
+     * Individual voices. Narrow bands wandering the speech range at
+     * unrepeatable offsets, which is what stops the bed sounding like a
+     * machine holding one note.
+     */
+    for (let i = 0; i < 3; i++) {
+      noise({
+        at: Math.random() * 2.8,
+        dur: 0.5 + Math.random() * 0.9,
+        peak: 0.012 + Math.random() * 0.016,
+        bus: 'crowd',
+        type: 'bandpass',
+        freq: 380 + Math.random() * 900,
+        q: 5 + Math.random() * 6,
+        attack: 0.3,
+      });
+    }
+
+    /* An occasional clap, and more rarely somebody whistling. */
+    if (Math.random() < 0.55) {
+      noise({
+        at: Math.random() * 2.8, dur: 0.05, peak: 0.05,
+        bus: 'crowd', type: 'highpass', freq: 2600, attack: 0.02,
+      });
+    }
+    if (Math.random() < 0.12) {
+      tone({
+        freq: 1900 + Math.random() * 500, at: Math.random() * 2.5, dur: 0.32,
+        type: 'sine', peak: 0.026, bus: 'crowd', slideTo: 2500, attack: 0.25,
+      });
+    }
   };
 
   murmur();

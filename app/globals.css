@@ -1025,9 +1025,9 @@ body {
 }
 .lap-pill {
   right: 14px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--hairline-strong);
-  color: var(--tx);
+  background: rgba(8, 10, 14, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
 }
 .lap-pill:empty { display: none; }
 
@@ -1710,3 +1710,183 @@ kbd {
   box-shadow: 0 0 0 4px rgba(41, 151, 255, 0.18);
   outline: none;
 }
+
+/* ═══════════════════════════ Cinema mode ═══════════════════════════════
+   A projector at the back of a hall wants the race, not the furniture. The
+   moment a race starts the course takes the whole screen, the tote and the
+   bet slip stand down, and what is left is broadcast: a big call along the
+   bottom, the camera and the lap in the corners.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.cinema .stage-shell {
+  max-width: none;
+  padding: 0;
+  gap: 0;
+  height: 100dvh;
+}
+
+/* Everything a moderator reads between races leaves the screen. */
+.cinema header,
+.cinema .stage-side,
+.cinema .ticker-wrap,
+.cinema .pit-board,
+.cinema section[aria-label='Championship standings'] {
+  display: none;
+}
+
+.cinema .stage-main {
+  display: block;
+  height: 100dvh;
+}
+
+.cinema .stage-track {
+  height: 100dvh;
+  gap: 0;
+}
+
+.cinema .track-wrap {
+  height: 100dvh;
+  border-radius: 0;
+  aspect-ratio: auto;
+}
+
+.cinema .circuit { height: 100dvh; }
+
+/* The controls become a quiet strip that does not compete with the race. */
+.cinema .stage-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 40;
+  width: min(1500px, 96vw);
+  translate: -50% 0;
+  border-radius: 0;
+  padding: 60px 40px 22px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.86) 55%);
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+.cinema .stage-bar > * { pointer-events: auto; }
+
+/* Broadcast type: readable from the back of a function room. */
+.cinema .stage-bar .text-lg { font-size: clamp(1.1rem, 1.9vw, 2rem); }
+
+.cinema .call-rail {
+  height: auto;
+  font-size: clamp(1rem, 1.7vw, 1.9rem);
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: normal;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+  max-width: 60ch;
+}
+
+/* The status sits above the call, small, so the call owns the line. */
+.cinema .stage-bar .text-lg {
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+}
+
+/* The big furniture scales up with the screen rather than staying 11px. */
+.cinema .cam-pill,
+.cinema .lap-pill {
+  top: 22px;
+  font-size: clamp(12px, 1.05vw, 20px);
+  padding: 8px 16px;
+}
+.cinema .cam-pill { left: 22px; }
+.cinema .lap-pill { right: 22px; }
+
+.cinema .moment { font-size: clamp(1.4rem, 3.2vw, 3.4rem); padding: 14px 40px; }
+.cinema .countdown { font-size: clamp(7rem, 22vw, 20rem); }
+.cinema .photo-banner { font-size: clamp(13px, 1.3vw, 22px); top: 70px; }
+
+/* ══════════════════════ Course and runners, redrawn ════════════════════ */
+
+/* The racing surface. Built up in layers so it reads as ground. */
+.c-verge {
+  fill: none;
+  stroke: #4a3a28;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+.c-bed {
+  fill: none;
+  stroke: url(#c-dirt);
+  stroke-linecap: round;
+}
+.c-grain {
+  fill: none;
+  stroke: #d8c6ae;
+  stroke-linecap: round;
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* Painted edges, the thing that turns a brown band into a track. */
+.c-edge {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 0;
+  stroke-linecap: round;
+  paint-order: stroke;
+}
+.c-edge,
+.c-edge-in {
+  fill: none;
+  stroke-linecap: round;
+}
+.c-edge { stroke: rgba(255, 255, 255, 0.16); stroke-dasharray: 0; }
+.c-edge-in { stroke: rgba(255, 255, 255, 0.07); }
+.c-centre {
+  fill: none;
+  stroke: rgba(255, 236, 190, 0.34);
+  stroke-dasharray: 18 26;
+  stroke-linecap: round;
+}
+
+.c-scenery { opacity: 1; }
+.c-stand { fill: #2a2f3a; stroke: rgba(255, 255, 255, 0.1); }
+.c-fan { fill: #f2c9a0; }
+.c-lettuce circle { fill: #63b055; }
+.c-mud { fill: #4a3726; }
+.c-trunk { fill: #5a422c; }
+
+/* Runners. */
+.c-shadow { fill: #000; opacity: 0.38; }
+.c-foot { fill: var(--body); }
+.c-foot-lit { fill: #fff; opacity: 0.28; }
+.c-shell { fill: var(--shell); }
+.c-shell-lit { fill: #fff; opacity: 0.4; }
+.c-spiral {
+  fill: none;
+  stroke: var(--shell-dk);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.c-eye { fill: var(--body); stroke: var(--shell-dk); stroke-width: 1.2; }
+.c-pupil { fill: #14161c; }
+.c-stalk { stroke: var(--body); stroke-width: 3; stroke-linecap: round; fill: none; }
+
+/* The wet trail every snail leaves. It is what sells the surface. */
+.c-slime {
+  fill: var(--shell);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.circuit.racing .c-slime { opacity: 0.22; }
+
+/* Stalks lead the turn, the way a real one's do. */
+.circuit.racing .c-head { animation: c-stalks 1.1s var(--ease-in-out-soft) infinite; }
+.c-runner.fx-up .c-head { animation-duration: 0.5s; }
+
+@keyframes c-stalks {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+.c-head { transform-box: fill-box; transform-origin: 20% 50%; }
+
+.calm .circuit.racing .c-head { animation: none; }

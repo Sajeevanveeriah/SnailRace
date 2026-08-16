@@ -399,16 +399,23 @@ export function Stage() {
   }, [origin, event.eventId, event.clubName, nextRaceNo, names]);
 
   const racing = race.phase === 'running' || race.phase === 'countdown';
+  /*
+   * Cinema mode. A projector at the back of a hall wants the race, not the
+   * furniture: while one is on, the course goes full bleed and everything a
+   * moderator reads between races gets out of the way. Measured on a 1080p
+   * screen the course went from under half of it to nearly all of it.
+   */
+  const cinema = racing || race.phase === 'done';
   const winnerColour = race.results[0] ? laneColour(race.results[0].lane).shell : '#ffb020';
 
   return (
-    <div className={event.calm ? 'calm' : undefined}>
+    <div className={`${event.calm ? 'calm ' : ''}${cinema ? 'cinema' : ''}`}>
       <a className="skip-link" href="#controls">
         Skip to moderator controls
       </a>
       <div className="aurora" aria-hidden="true" />
 
-      <div className="stage-shell mx-auto flex min-h-dvh max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
+      <div className="stage-shell mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
         {/* ── Header ─────────────────────────────────────────────────── */}
         <header className="reveal flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div className="min-w-0">
@@ -495,8 +502,8 @@ export function Stage() {
         </header>
 
         {/* ── Stage body ─────────────────────────────────────────────── */}
-        <main className="grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="flex min-w-0 flex-col gap-4">
+        <main className="stage-main grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="stage-track flex min-w-0 flex-col gap-4">
             {event.trackShape === 'circuit' ? (
               <Circuit
                 names={names}
@@ -511,7 +518,7 @@ export function Stage() {
               <RaceTrack names={names} race={race} surface={event.stageTheme} />
             )}
 
-            <div className="glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+            <div className="stage-bar glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
                 <div className="flex items-baseline gap-3">
                   <p className="text-lg font-semibold">{race.status}</p>
@@ -524,7 +531,7 @@ export function Stage() {
                     </span>
                   ) : null}
                 </div>
-                <p className="h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
+                <p className="call-rail h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -560,7 +567,7 @@ export function Stage() {
             <RecentDonations donations={liveDonations} />
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="stage-side flex flex-col gap-4">
             <ToteBoard
               lanes={lanes}
               potCents={potCents}
@@ -720,7 +727,7 @@ function RecentDonations({ donations }: { donations: Donation[] }) {
 
   if (recent.length === 0) {
     return (
-      <div className="glass px-5 py-4 text-sm text-(--tx)/45">
+      <div className="ticker-wrap glass px-5 py-4 text-sm text-(--tx)/45">
         No donations yet tonight. Scan the code to be the first.
       </div>
     );
@@ -752,7 +759,7 @@ function RecentDonations({ donations }: { donations: Donation[] }) {
     ));
 
   return (
-    <div className="glass overflow-hidden px-5 py-3.5">
+    <div className="ticker-wrap glass overflow-hidden px-5 py-3.5">
       <div className="flex items-center gap-3">
         <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.22em] text-(--tx)/40">
           Latest

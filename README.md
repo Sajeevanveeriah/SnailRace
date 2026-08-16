@@ -31,6 +31,21 @@ a wagering product.
 | `/donate` | A punter's phone | Opened from the QR code. Pick a snail, pick an amount, pay through Stripe Checkout (Apple Pay / Google Pay) |
 | `/donate/thanks` | The same phone | Confirms the paid amount and snail straight from Stripe |
 
+## On the projector
+
+The stage is built for a hall, not a laptop. **The moment a race starts it goes
+full bleed**: the tote board, the bet slip, the donation ticker and the header
+stand down, and the course takes the whole screen with broadcast furniture over
+the top, a big call along the bottom and the camera and lap in the corners. It
+comes back between races, when the moderator needs the console again.
+
+Measured on a 1080p screen, the race went from **47 percent of it to 100**.
+Checked at 1280x800, 1366x768, 1920x1080 and 3840x2160: fills the screen at
+every one, with no horizontal overflow.
+
+The type scales with the screen rather than staying at laptop sizes, so the
+commentary, the lap and the surprise banners are readable from the back.
+
 ## The circuit
 
 The default track is a **closed course run over laps**, not a straight line. Three
@@ -69,6 +84,20 @@ flicker on a projector, when a real cut is simply the next frame from a differen
 is drawn from the race seed, so a replayed race is shot the same way. Name labels
 counter-scale against the zoom, so a close-up never prints a name across the whole
 projector. Turn the director off in **Controls** to hold the whole course in frame.
+
+### How it is drawn
+
+Flat fills at projector scale read as a wireframe, so the course is built up
+the way ground actually is: mown turf underneath, a worn verge, the racing
+surface with grain over it, painted edges and a dashed racing line, then a
+soft vignette so the scene is lit from above rather than evenly. The stand has
+a roof and a crowd with light in it, trees have canopies and shadows, and the
+water has a highlight.
+
+The snails are drawn in the order light hits them: the wet trail they are
+sitting in, a contact shadow, the soft foot, the shell with its spiral and a
+highlight, then eye stalks that lead into the turns. The trail sits inside the
+rotated group, so it follows the heading instead of always pointing one way.
 
 ### Also on the circuit
 
