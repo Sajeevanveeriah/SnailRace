@@ -487,6 +487,98 @@ export function eventBudget(durationMs: number, fieldSize: number): number {
 }
 
 /**
+ * Drama at the line.
+ *
+ * This is the one thing the old book could not do. Every surprise was bounded
+ * well short of the finish, so a race that had been decided by two thirds
+ * distance simply ran out - and the room, which is watching precisely because
+ * it has money on it, had nothing to watch for the last twenty seconds.
+ *
+ * So: better than half the time, the snail that is going to win gets a wobble
+ * inside the last tenth and the one behind it gets a late charge. The leader
+ * is visibly reeled in, the gap closes to nothing, the photo-finish camera
+ * comes out - and then the winner comes home, because it was always going to.
+ *
+ * IT CANNOT CHANGE THE RESULT, and this is worth being precise about, because
+ * it looks like it should. Position is monotone, so a held snail plateaus and
+ * never goes backwards; the bump rides the same envelope as everything else,
+ * which is exactly zero at u = 1; and the winner's own curve carries it to the
+ * line at its drawn time regardless. What moves is how close the second one
+ * gets before that happens. The finish is theatre; the finishing order was
+ * settled by the shuffle before any of this was drawn.
+ */
+function drawFinishDrama(rnd: () => number, order: number[]): RaceEvent[] {
+  /* Half the races. Every race would make a grandstand finish routine, which
+     is the failure mode this exists to fix. */
+  if (rnd() > 0.5) return [];
+
+  const at = 0.855 + rnd() * 0.05;
+  const span = 0.075 + rnd() * 0.045;
+  const out: RaceEvent[] = [];
+
+  const wobbles = [
+    { label: 'LATE WOBBLE', call: '{a} has wobbled with the line in sight!' },
+    { label: 'LEGS GONE', call: 'The legs have gone on {a}! This is not over!' },
+    { label: 'SHELL WOBBLE', call: '{a} is rolling all over the track and the lead is going!' },
+    { label: 'CAUGHT SHORT', call: '{a} has stopped to look at the crowd! What is it doing!' },
+  ];
+  const charges = [
+    { label: 'LATE CHARGE', call: '{a} is FLYING at them! Look at this finish!' },
+    { label: 'DESPERATE LUNGE', call: '{a} has thrown everything at it!' },
+    { label: 'THE CHASE IS ON', call: '{a} is eating into it with every stride!' },
+  ];
+
+  const w = wobbles[Math.floor(rnd() * wobbles.length)];
+  out.push({
+    id: 'fin-lead',
+    lane: order[0],
+    kind: 'stumble',
+    label: w.label,
+    call: w.call,
+    tone: 'bad',
+    sound: 'down',
+    at,
+    span,
+    mag: -(0.05 + rnd() * 0.055),
+    fired: false,
+  });
+
+  const c = charges[Math.floor(rnd() * charges.length)];
+  out.push({
+    id: 'fin-chase',
+    lane: order[1],
+    kind: 'surge',
+    label: c.label,
+    call: c.call,
+    tone: 'good',
+    sound: 'up',
+    at: at + 0.008,
+    span,
+    mag: 0.045 + rnd() * 0.055,
+    fired: false,
+  });
+
+  /* A third one closing too, if the field is deep enough to notice. */
+  if (order.length > 3 && rnd() < 0.5) {
+    out.push({
+      id: 'fin-third',
+      lane: order[2],
+      kind: 'surge',
+      label: 'COMING FAST',
+      call: '{a} is coming at them as well! Three in it!',
+      tone: 'good',
+      sound: 'up',
+      at: at + 0.014,
+      span,
+      mag: 0.04 + rnd() * 0.045,
+      fired: false,
+    });
+  }
+
+  return out;
+}
+
+/**
  * How many field events a race carries.
  *
  * One every forty-five seconds or so, and never in a race too short to have
@@ -737,6 +829,7 @@ export function drawRace(
   }
 
   const events = surprises ? drawEvents(rnd, n, durationMs) : [];
+  if (surprises && n > 1) events.push(...drawFinishDrama(rnd, order));
 
   /* Drawn last, so adding it cannot shift the order or the surprises. */
   const roll = rnd();
@@ -959,26 +1052,50 @@ export const COMMENTARY = {
  * A caller that only knows how far in it is has nothing to say when the top
  * two are locked together or when the leader has gone eight lengths clear -
  * which is exactly when the room most wants to be told what it is looking at.
+ * `{g}` is the real margin, in lengths, and `{c}` is whoever is third.
  */
+export const MARGIN_LINES = [
+  '{a} leads by {g} from {b}.',
+  '{g} is the margin, {a} to {b}.',
+  '{b} is {g} down on {a}, with {c} third.',
+  'It is {a}, then {g} back to {b}.',
+  '{a} in front, {b} chasing at {g}.',
+] as const;
+
 export const TIGHT_LINES = [
   'You could throw a blanket over {a} and {b}!',
   'Nothing in it! {a} and {b} are locked together!',
   '{a} and {b}, side by side, neither giving an inch!',
-  'This pair have been inseparable for a minute now.',
+  '{g} in it between {a} and {b}!',
 ] as const;
 
 export const CLEAR_LINES = [
-  '{a} has broken the elastic! Daylight second!',
+  '{a} has broken the elastic! {g} clear!',
   '{a} is gone. {b} is running for second now.',
-  'That is a proper lead {a} has built.',
-  '{b} will need a miracle to reel in {a} from here.',
+  'That is {g} {a} has put on the field.',
+  '{b} will need a miracle to reel in {a} from {g} back.',
 ] as const;
 
 export const BACK_MARKER_LINES = [
-  'Spare a thought for {c} at the back. It is having a lovely time.',
-  '{c} is last and does not appear to care.',
-  '{c} is running its own race back there, and good luck to it.',
-  'Somebody backed {c} tonight, and they are being very quiet about it.',
+  'Spare a thought for {d} at the back. It is having a lovely time.',
+  '{d} is last and does not appear to care.',
+  '{d} is running its own race back there, and good luck to it.',
+  'Somebody backed {d} tonight, and they are being very quiet about it.',
+] as const;
+
+/** Called when a snail actually changes places, anywhere in the field. */
+export const OVERTAKE_LINES = [
+  '{a} goes past {b} and into {n}!',
+  '{a} is up to {n}, past {b}!',
+  'Nice move by {a}, {b} has been passed for {n}!',
+  '{a} takes {n} off {b}!',
+] as const;
+
+/** The last stretch, quoted in distance rather than in adjectives. */
+export const RUN_HOME_LINES = [
+  '{m} to run and it is {a} by {g}!',
+  'Inside the last {m}! {a} from {b}!',
+  '{m} left, {b} is {g} away and closing!',
 ] as const;
 
 /**
@@ -1042,37 +1159,78 @@ const fill = (line: string, a: string, b: string, c = ''): string =>
   line.replace('{a}', a).replace('{b}', b).replace('{c}', c);
 
 /** Pick a line for the current phase of the race, with the names filled in. */
+/**
+ * How long a snail is, as a fraction of one lap.
+ *
+ * The margins a broadcast quotes are in lengths, not in percentages, and a
+ * length is a real distance on this track: a lap is 4,000 world units and a
+ * snail is about 170 of them, so a lap is roughly twenty-three and a half of
+ * them nose to tail. Quoting the number the room can actually count off the
+ * screen is what separates a caller from a progress bar.
+ */
+export const LENGTHS_PER_LAP = 23.5;
+
+/** A margin, said the way a caller says it. */
+export function lengthPhrase(lengths: number): string {
+  const n = Math.abs(lengths);
+  if (n < 0.25) return 'a nose';
+  if (n < 0.6) return 'half a length';
+  if (n < 1.5) return 'a length';
+  if (n < 2.5) return 'two lengths';
+  if (n < 3.5) return 'three lengths';
+  if (n < 6) return `${Math.round(n)} lengths`;
+  if (n < 12) return 'a big gap';
+  return 'a mile';
+}
+
 /** What the caller can see, so it can talk about that rather than the clock. */
 export interface CallContext {
   leadP: number;
   lead: string;
   chase: string;
-  /** Progress between the leader and second, in lane units. */
-  gap: number;
+  /** Third place, for the lines that mention it. */
+  third: string;
   /** Whoever is last. Occasionally the funniest thing on the track. */
   tail: string;
+  /** The real margin between first and second, in lengths. */
+  gapLengths: number;
+  /** How far the leader has left, in lengths. */
+  toGoLengths: number;
 }
 
 /**
  * Pick a line for what is actually happening.
  *
- * The situation pools come first and the phase pools are the fallback, so a
- * caller describing two snails locked together says so instead of reaching
- * for "halfway home". The back-marker line is rationed hard: it is a joke,
- * and a joke told every fifteen seconds is not one.
+ * Every branch here is driven by a measurement off the track: the margin in
+ * lengths, the distance left to run, who is actually third. The phase pools
+ * are the last resort rather than the first, because "they are away and {a}
+ * shows early pace" is true of every race ever run and therefore tells the
+ * room nothing about this one.
  */
 export function callLine(ctx: CallContext): string {
-  if (ctx.gap < 0.018 && ctx.leadP > 0.2) {
-    return fill(pick(TIGHT_LINES), ctx.lead, ctx.chase, ctx.tail);
+  const g = lengthPhrase(ctx.gapLengths);
+  const say = (pool: readonly string[]) =>
+    fill(pick(pool), ctx.lead, ctx.chase, ctx.third)
+      .replace('{d}', ctx.tail)
+      .replace('{g}', g)
+      .replace('{m}', lengthPhrase(ctx.toGoLengths));
+
+  if (ctx.leadP > 0.86) return say(RUN_HOME_LINES);
+  if (ctx.gapLengths < 0.6 && ctx.leadP > 0.15) return say(TIGHT_LINES);
+  if (ctx.gapLengths > 4 && ctx.leadP > 0.3) return say(CLEAR_LINES);
+  if (ctx.tail && ctx.tail !== ctx.lead && ctx.leadP > 0.25 && Math.random() < 0.14) {
+    return say(BACK_MARKER_LINES);
   }
-  if (ctx.gap > 0.13 && ctx.leadP > 0.3) {
-    return fill(pick(CLEAR_LINES), ctx.lead, ctx.chase, ctx.tail);
-  }
-  if (ctx.tail && ctx.tail !== ctx.lead && ctx.leadP > 0.25 && Math.random() < 0.16) {
-    return fill(pick(BACK_MARKER_LINES), ctx.lead, ctx.chase, ctx.tail);
-  }
+  /* Otherwise quote the margin, which is what a race caller does most of the
+     time, and only fall back to colour when there is nothing to quote. */
+  if (Math.random() < 0.62) return say(MARGIN_LINES);
   const phase = ctx.leadP < 0.3 ? 'early' : ctx.leadP < 0.72 ? 'mid' : 'late';
-  return fill(pick(COMMENTARY[phase]), ctx.lead, ctx.chase, ctx.tail);
+  return say(COMMENTARY[phase]);
+}
+
+/** A snail has actually passed another one. Said by name, with the place. */
+export function overtakeLine(mover: string, passed: string, place: number): string {
+  return fill(pick(OVERTAKE_LINES), mover, passed, '').replace('{n}', ordinal(place));
 }
 
 /** The beat after a surprise. Said only if the caller has room for it. */

@@ -47,9 +47,15 @@ export interface AudioLevels {
  */
 export const DEFAULT_LEVELS: AudioLevels = {
   master: 1,
-  music: 0.62,
+  music: 0.72,
   sfx: 1,
-  crowd: 0.7,
+  /*
+   * The room, at full. The crowd bus carries the ambience bed as well as the
+   * reactions, and at 0.7 under a 0.62 soundtrack the hall was the quietest
+   * thing in a mix that is supposed to be set in one - which is how a stage
+   * with a continuous crowd bed gets reported as having no crowd at all.
+   */
+  crowd: 1,
 };
 
 /**

@@ -227,12 +227,14 @@ export function Stage() {
    */
   useEffect(() => {
     if (!primed) return;
-    if (!event.sound || !event.music) {
+    if (!event.sound) {
       stopAmbience();
       return;
     }
+    /* The crowd is the venue, not the soundtrack: it stays up whenever sound
+       is on, even with the music switched off. */
     startAmbience();
-    if (race.phase === 'idle') startTrack('lobby');
+    if (event.music && race.phase === 'idle') startTrack('lobby');
   }, [primed, event.sound, event.music, race.phase]);
 
   const startRace = useCallback(() => {

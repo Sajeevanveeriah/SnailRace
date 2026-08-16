@@ -56,9 +56,19 @@ interface Props {
   raceNo: number;
 }
 
-/** Per-frame approach rates. Position keeps up; zoom breathes. */
+/** How fast the camera follows the field along the track. */
 const PAN_EASE = 0.12;
-const ZOOM_EASE = 0.045;
+/**
+ * How fast a re-zoom lands.
+ *
+ * Fast, deliberately. The director now holds a focal length and steps it only
+ * when there is a reason, but easing that step at a crawl turned every step
+ * into a twenty-second creep - which from the back of the room is
+ * indistinguishable from a lens that never stops moving. At this rate a
+ * re-zoom is over in about a third of a second and the picture is then
+ * completely still until the next one.
+ */
+const ZOOM_EASE = 0.12;
 
 /** Parallax: how fast each backdrop layer slides against the track. */
 const PX_STAND = 0.16;
