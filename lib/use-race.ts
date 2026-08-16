@@ -10,10 +10,12 @@ import {
   ordinal,
   rankSnails,
   lapLine,
+  reactionLine,
   sectorLine,
   stepRace,
   type DrawnRace,
   WEATHER_CALL,
+  type EventTone,
   type RaceEvent,
   type SnailRun,
   type Weather,
@@ -46,12 +48,26 @@ export type RacePhase = 'idle' | 'countdown' | 'running' | 'done';
 
 export type MomentTone = 'good' | 'bad' | 'hot';
 
+/**
+ * A `wild` surprise gets the hot banner. Its magnitude is drawn either side
+ * of zero, so at the moment it lands nobody knows whether it was a good thing
+ * - and a banner that has already decided would be lying to the room.
+ */
+const momentTone = (tone: EventTone): MomentTone =>
+  tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : 'hot';
+
 /** A shout for the middle of the track: a surprise, or a change of leader. */
 export interface RaceMoment {
   /** Bumped on every moment so the banner replays its keyframe. */
   id: number;
   text: string;
   tone: MomentTone;
+  /**
+   * A field event rather than one snail's bad luck. The stage gives these a
+   * wider card and a jolt of the camera, because "the magpie is back" is a
+   * different size of news from "Gary is having a nap".
+   */
+  big?: boolean;
 }
 
 /**
@@ -136,6 +152,11 @@ interface LiveRace extends DrawnRace {
   /** Race-time at which slow-motion hands back to normal speed. */
   slowUntil: number;
   commentaryAt: number;
+  /** Field events already shouted, so a swarm is announced once. */
+  swarms: Set<string>;
+  /** Race-time at which the caller may react to the last surprise. */
+  reactAt: number;
+  reactTone: EventTone | null;
   /** Which quarter-mark call has already been made. */
   sector: number;
   /** How many laps of the circuit the leader has already completed. */
@@ -236,9 +257,9 @@ export function useRace(
    * stack two cards on top of each other, and the newer moment is always the
    * one the room is looking at.
    */
-  const announce = useCallback((text: string, tone: MomentTone) => {
+  const announce = useCallback((text: string, tone: MomentTone, big = false) => {
     momentIdRef.current += 1;
-    setMoment({ id: momentIdRef.current, text, tone });
+    setMoment({ id: momentIdRef.current, text, tone, big });
     window.clearTimeout(momentTimerRef.current);
     momentTimerRef.current = window.setTimeout(() => {
       momentTimerRef.current = 0;
@@ -359,6 +380,13 @@ export function useRace(
        * one is kept for the result card so the room can relive the race that
        * just cost them their chips.
        */
+      /*
+       * A field event lands on several lanes within a couple of frames. Every
+       * one of them is kept for the result card, but the room gets ONE call
+       * and one banner: six copies of "MAGPIE SWOOP" inside a second is not
+       * six surprises, it is a stutter.
+       */
+      const shouted = new Set<string>();
       for (const { event, snail } of fired) {
         race.highlights.push({
           atMs: Math.round(race.raceT),
@@ -367,11 +395,27 @@ export function useRace(
           kind: event.kind,
           label: event.label,
         });
+
+        if (event.group) {
+          if (race.swarms.has(event.group)) continue;
+          if (shouted.has(event.group)) continue;
+          shouted.add(event.group);
+          race.swarms.add(event.group);
+          call(event.groupCall ?? event.label, 'big');
+          race.commentaryAt = race.raceT;
+          if (!quiet) announce(event.groupLabel ?? event.label, momentTone(event.tone), true);
+          sfx.event(event.sound);
+          race.reactAt = race.raceT + 1700;
+          race.reactTone = event.tone;
+          continue;
+        }
+
         call(eventLine(event, snail.name));
         race.commentaryAt = race.raceT;
-        if (!quiet) announce(`${snail.name}: ${event.label}`, event.tone);
-        if (event.tone === 'good') sfx.boost();
-        else sfx.stumble();
+        if (!quiet) announce(`${snail.name}: ${event.label}`, momentTone(event.tone));
+        sfx.event(event.sound);
+        race.reactAt = race.raceT + 1500;
+        race.reactTone = event.tone;
       }
 
       for (const s of crossed) {
@@ -523,9 +567,36 @@ export function useRace(
         boardRef.current.forEach((cb) => cb(rows));
       }
 
-      if (race.raceT - race.commentaryAt > 1600) {
+      /*
+       * The beat after a surprise. A caller who moves straight back to the
+       * running order has reported an event; one who says "oh, that is
+       * heartbreaking" first has called a race.
+       */
+      if (race.reactTone && race.raceT >= race.reactAt) {
+        const tone = race.reactTone;
+        race.reactTone = null;
+        call(reactionLine(tone));
         race.commentaryAt = race.raceT;
-        if (lead) call(callLine(lead.p, lead.name, chaser.name));
+      }
+
+      /*
+       * The run of play. The caller reaches for this only when nothing louder
+       * has happened recently, and it is handed the shape of the race - the
+       * gap, the tail-ender - rather than just the clock, so it can describe
+       * what the room is looking at instead of reciting the distance.
+       */
+      if (race.raceT - race.commentaryAt > 1600 && lead) {
+        race.commentaryAt = race.raceT;
+        const tail = ranked[ranked.length - 1];
+        call(
+          callLine({
+            leadP: lead.p,
+            lead: lead.name,
+            chase: chaser.name,
+            gap: lead.p - (byPosition[1]?.p ?? lead.p),
+            tail: tail?.name ?? '',
+          }),
+        );
       }
 
       if (race.placed < race.snails.length && race.raceT < race.tMax) {
@@ -558,6 +629,9 @@ export function useRace(
         slowmoUsed: false,
         slowUntil: 0,
         commentaryAt: -2000,
+        swarms: new Set<string>(),
+        reactAt: 0,
+        reactTone: null,
         sector: 0,
         lapsDone: 0,
         leadLane: -1,

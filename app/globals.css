@@ -1778,6 +1778,10 @@ kbd {
 .tv-shot {
   border-radius: 6px;
   padding: 0.42em 0.75em;
+  /* Set explicitly rather than inherited: these sit on a picture, not on the
+     page, so they must read the same in either theme and against a crowd,
+     a hoarding or the sky. */
+  color: #eef2f8;
   background: rgba(8, 12, 20, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(6px);
@@ -1805,7 +1809,18 @@ kbd {
 
 .tv-title { text-transform: uppercase; }
 .tv-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
-.tv-shot { opacity: 0.75; }
+.tv-shot { color: rgba(238, 242, 248, 0.72); }
+
+/* A little shade under the top bar, for the shapes it lands on. */
+.tv-top::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * clamp(10px, 1.4vw, 22px)) calc(-1 * clamp(10px, 1.4vw, 22px)) auto;
+  height: 300%;
+  background: linear-gradient(180deg, rgba(4, 7, 12, 0.5), transparent);
+  pointer-events: none;
+  z-index: -1;
+}
 .tv-lap:empty,
 .tv-shot:empty { display: none; }
 
@@ -1974,3 +1989,46 @@ kbd {
    rest are carried by the running order, exactly as a broadcast does it. */
 .tv.compact .tv-runner .tv-super { opacity: 0; transition: opacity 0.25s ease; }
 .tv.compact .tv-runner.named .tv-super { opacity: 1; }
+
+/* ── Field events ─────────────────────────────────────────────────────── */
+
+/*
+ * A plague or a magpie is not one snail's bad luck, so it does not get the
+ * same small card. It gets a wide one with a red flag on it, and the camera
+ * takes a knock - which is the cheapest way to make the room look up.
+ */
+.tv-flash-big {
+  left: clamp(10px, 1.4vw, 22px);
+  right: clamp(10px, 1.4vw, 22px);
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  font-size: clamp(13px, 1.5vw, 28px);
+}
+.tv-flash-big b {
+  padding: 0.2em 0.6em;
+  border-radius: 4px;
+  background: rgba(8, 12, 20, 0.55);
+  font-size: 0.72em;
+  letter-spacing: 0.16em;
+}
+
+.tv.jolt { animation: tv-jolt 0.68s var(--ease-out-expo); }
+@keyframes tv-jolt {
+  0% { transform: translate3d(0, 0, 0); }
+  12% { transform: translate3d(-9px, 5px, 0) rotate(-0.35deg); }
+  28% { transform: translate3d(7px, -4px, 0) rotate(0.28deg); }
+  46% { transform: translate3d(-5px, 3px, 0) rotate(-0.18deg); }
+  66% { transform: translate3d(3px, -2px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* The running order gives up rows before it gives up the track. */
+.tv-order {
+  max-height: min(38%, 320px);
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv.jolt { animation: none; }
+}

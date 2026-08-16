@@ -25,6 +25,24 @@
 export const VIEW_W = 1600;
 export const VIEW_H = 900;
 
+/**
+ * How far past the authored frame the ground, the sky and the lanes are drawn.
+ *
+ * A projector is not 16:9 and neither is a laptop. Rather than crop the frame
+ * to fit - which is what put the outside lanes off the bottom of the picture -
+ * the visible window is fitted to whatever shape the screen is, and on a very
+ * wide one that window is wider than the frame was authored. The bleed is what
+ * it finds out there: more track, more stand, more grass.
+ */
+export const BLEED = 900;
+
+/**
+ * The shortest window that still shows the whole track with room for the
+ * graphics above and below it. Anchored to the bottom of the frame, so what a
+ * letterbox screen loses is sky.
+ */
+export const FLOOR_H = 596;
+
 /** The far side of the stadium: sky and stand above, track below. */
 export const HORIZON = 296;
 /** Advertising hoardings run along the far side of the track. */

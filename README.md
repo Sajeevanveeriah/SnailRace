@@ -90,6 +90,14 @@ The zoom is always chosen to *contain* the runners rather than to find a dramati
 close-up, so nobody ever loses their snail off the edge of the screen. Turn the
 director off in **Controls** to hold the whole race in one frame.
 
+**The frame fits the screen, not the other way round.** The picture is authored
+16:9, but a projector, a laptop and a hall's pull-down screen are not. Rather than
+crop a fixed frame - which is what put the outside lanes and the strap off the
+bottom - the visible window is fitted to the container's shape and anchored to the
+bottom, and the ground, sky and lanes are drawn well past the authored edges so a
+wide screen simply sees more track. Checked at 1366x768, 1920x1080 and 2560x720:
+every lane visible, nothing under the graphics.
+
 ### The graphics
 
 Everything a broadcast puts on screen, and none of it over the runners:
@@ -125,6 +133,33 @@ behind, a contact shadow, the soft foot, the shell with its spiral and a highlig
 then a head on a neck with two eye stalks. They glide on a wave down the foot and
 cast their stalks about as they go. Runners are drawn far side first, so a snail
 in a near lane passing one on the far side occludes it.
+
+### Surprises
+
+Twenty-two of them, weighted so the ordinary ones carry the race and the strange
+ones are worth waiting for. Turbo slime, a second wind, a slipstream tow and a
+triple espresso on the good side; shell slips, micro-naps, cramp, stage fright, a
+lettuce break and a wrong turn on the bad. Then a third tone, **wild**, whose
+magnitude is drawn either side of zero - mystery slime, a banana peel, snail
+romance, a trip upstairs to the third umpire - so nobody, the caller included,
+knows which way it went until it lands.
+
+**Field events** hit several lanes at once and are the ones the room talks about
+afterwards: a shell plague sweeping the field, a magpie swoop, the sprinklers
+coming on, hail, the club dog loose on the track, a lettuce thrown over the fence,
+a false-start panic, a streaker. One roughly every forty-five seconds. They get one
+loud call rather than six small ones, a wide card, and a knock of the camera.
+
+Every surprise has its own sound - a nap does not sound like a cramp, and a magpie
+does not sound like either - so a punter at the bar with their back to the screen
+knows what just happened.
+
+Mechanically a field event is nothing new: one ordinary per-lane event sharing a
+start, a label and a group id. Every bump still rides an envelope that is exactly
+zero at the line, so **the fairness argument does not move**. Verified over 4,000
+races across fields of 3 to 20: zero order mismatches, zero early finishes, zero
+reversals, and the winner uniform to within 0.13 points of 1/N over 120,000 draws
+per field size.
 
 ### Also on the track
 
@@ -205,6 +240,13 @@ had time to become a sentence - interrupting the instant a line started
 produced half-words and a caller that sounded like a radio being retuned.
 Everything the room reads is everything the room hears; the two can never
 drift apart because they go through one function.
+
+The caller also reacts. A beat after a surprise it says something about it -
+"oh, that is heartbreaking", "the stewards are going to have a look at that one" -
+before going back to the running order, and the run of play is chosen from what it
+can actually see: the top two locked together get a different line from a leader
+eight lengths clear, and the snail at the back gets the occasional joke at its
+expense.
 
 It is read at a **level rate and pitch**, a shade quicker on the big moments and
 no more. Past about 1.1 a synthetic voice stops sounding urgent and starts
