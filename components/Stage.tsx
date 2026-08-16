@@ -15,6 +15,7 @@ import { ControlDrawer } from './ControlDrawer';
 import { ThemeToggle } from './ThemeToggle';
 import { hydrate, useEvent, setState } from '@/lib/event-store';
 import { useOrigin } from '@/lib/use-origin';
+import { useCanSpeak } from '@/lib/use-can-speak';
 import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace } from '@/lib/use-race';
@@ -24,7 +25,9 @@ import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour } from '@/lib/palette';
 import {
   audioState,
+  initVoice,
   resumeAudio,
+  setCallerOn,
   primeAudio,
   setLevels,
   setMusicOn,
@@ -61,6 +64,10 @@ export function Stage() {
   useEffect(() => {
     setMusicOn(event.music);
   }, [event.music]);
+
+  useEffect(() => {
+    setCallerOn(event.sound && event.caller);
+  }, [event.sound, event.caller]);
 
   useEffect(() => {
     setLevels({ master: event.volume, music: event.musicVolume });
@@ -172,6 +179,10 @@ export function Stage() {
    */
   const [primed, setPrimed] = useState(false);
   const [audio, setAudio] = useState<'idle' | 'blocked' | 'running' | 'off'>('idle');
+  const canSpeak = useCanSpeak();
+  useEffect(() => {
+    initVoice();
+  }, []);
 
   useEffect(() => {
     /*
@@ -183,6 +194,7 @@ export function Stage() {
     const arm = () => {
       primeAudio();
       resumeAudio();
+      initVoice();
       setPrimed(true);
       setAudio(audioState());
     };
@@ -299,6 +311,11 @@ export function Stage() {
         primeAudio();
         setState({ music: !event.music });
       }
+      if (k === 'v') {
+        primeAudio();
+        initVoice();
+        setState({ caller: !event.caller });
+      }
       if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
         else void document.documentElement.requestFullscreen().catch(() => {});
@@ -307,7 +324,7 @@ export function Stage() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, event.calm, event.sound, event.music]);
+  }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, event.calm, event.sound, event.music, event.caller]);
 
   /* ── Direct-pay link ─────────────────────────────────────────────────── */
 
@@ -415,6 +432,20 @@ export function Stage() {
               title="Sound (S)"
             >
               {event.sound ? 'Sound on' : 'Muted'}
+            </button>
+            <button
+              type="button"
+              className="chip-toggle"
+              aria-pressed={event.caller}
+              disabled={!event.sound || !canSpeak}
+              onClick={() => {
+                primeAudio();
+                initVoice();
+                setState({ caller: !event.caller });
+              }}
+              title="Spoken race caller (V)"
+            >
+              {event.caller ? 'Caller on' : 'Caller off'}
             </button>
             <button
               type="button"

@@ -71,10 +71,10 @@ const ASPECT = COURSE_W / COURSE_H;
 const SHOT_WIDTH: Record<ShotId, number> = {
   wide: COURSE_W,
   pack: 0, // computed from the field's spread
-  leader: 430,
-  battle: 380,
-  reaction: 340,
-  finish: 470,
+  leader: 520,
+  battle: 460,
+  reaction: 430,
+  finish: 540,
 };
 
 const SHOT_LABEL: Record<ShotId, string> = {

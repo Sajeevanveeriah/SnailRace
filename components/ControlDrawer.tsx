@@ -7,7 +7,8 @@ import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, 
 import { COURSES } from '@/lib/course';
 import { eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
-import { primeAudio, sampleReport, samplesSettled, sfx, soundCheck } from '@/lib/sound';
+import { initVoice, primeAudio, sampleReport, samplesSettled, sfx, soundCheck } from '@/lib/sound';
+import { useCanSpeak } from '@/lib/use-can-speak';
 import type { Donation } from '@/lib/types';
 
 /**
@@ -59,6 +60,8 @@ export function ControlDrawer({
    * context exists and resolves asynchronously, so this is re-read while the
    * console is open rather than being captured once at mount.
    */
+  const canSpeak = useCanSpeak();
+
   const [samples, setSamples] = useState(() => sampleReport());
   useEffect(() => {
     if (!open || samplesSettled()) return;
@@ -527,6 +530,25 @@ export function ControlDrawer({
                   />
                   Music and crowd <kbd>B</kbd>
                 </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={event.caller}
+                    disabled={!event.sound || !canSpeak}
+                    onChange={(e) => {
+                      primeAudio();
+                      initVoice();
+                      setState({ caller: e.target.checked });
+                    }}
+                  />
+                  Spoken race caller <kbd>V</kbd>
+                </label>
+                {!canSpeak ? (
+                  <p className="text-[11px] leading-snug text-(--tx)/50">
+                    This browser has no speech voices installed, so the caller is
+                    unavailable. The written commentary still runs.
+                  </p>
+                ) : null}
 
                 <label className="fld">
                   <span>Overall volume</span>

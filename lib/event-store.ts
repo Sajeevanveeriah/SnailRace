@@ -66,6 +66,7 @@ export function freshState(): EventState {
     calm: false,
     sound: true,
     music: true,
+    caller: true,
     audioRev: AUDIO_REV,
     volume: 1,
     musicVolume: 0.62,

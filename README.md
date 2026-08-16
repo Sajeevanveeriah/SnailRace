@@ -63,7 +63,9 @@ The frame is not fixed. A **director** cuts between shots the way a race broadca
 | `FINISH LINE` | Locked on the line from the run home |
 
 Shots hold for a few seconds and only a real event - a surprise, a lead change, the run
-home - can break the hold early, so a cut always means something happened. The sequence
+home - can break the hold early, so a cut always means something happened. A cut is
+instant, and there is deliberately no flash frame over it: one was tried and reads as a
+flicker on a projector, when a real cut is simply the next frame from a different camera. The sequence
 is drawn from the race seed, so a replayed race is shot the same way. Name labels
 counter-scale against the zoom, so a close-up never prints a name across the whole
 projector. Turn the director off in **Controls** to hold the whole course in frame.
@@ -115,6 +117,25 @@ synthesised by WebAudio at the moment it plays.
   final straight and at the line. Anything good rises in pitch and anything bad falls, so a
   punter at the bar with their back to the screen still knows what happened.
 - **The music ducks** under the big moments so the commentary stays readable.
+
+### The race caller
+
+The commentary is also **spoken aloud**, which is what a room means by
+commentary. It uses the browser's own speech synthesis, so it keeps the same
+bargain as the rest of the audio: no files, no licence, no network.
+
+The hard part is not speaking but *not* speaking. A race throws lines faster
+than anyone can say them, so every line carries a priority: the big
+moments - the off, a lead change, the bell lap, the winner - interrupt
+whatever is being said, and the ordinary run of play is spoken only if the
+caller is free and dropped otherwise, exactly as a human commentator drops a
+line they no longer have time for. Everything the room reads is everything
+the room hears; the two can never drift apart because they go through one
+function.
+
+**V** turns the caller on and off, or use **Controls → Sound**. A browser with
+no speech voices installed simply shows the option greyed out and keeps the
+written commentary.
 
 Levels live in **Controls → Sound**: overall volume, music under the commentary, and a
 **Sound check** button that plays every cue in order so you can set the room level cold,
@@ -177,7 +198,8 @@ Set the environment (see `.env.example`):
    dashboard plus the cash tin. Save a backup JSON if the night continues next week.
 
 Keyboard: **Space** start, **Esc** reset/close, **M** controls, **C** calm mode
-(stops decorative motion), **S** sound, **B** music and crowd, **F** full screen.
+(stops decorative motion), **S** sound, **B** music and crowd, **V** the spoken
+caller, **F** full screen.
 
 ## Architecture notes
 

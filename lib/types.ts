@@ -120,6 +120,8 @@ export interface EventState {
   sound: boolean;
   /** Music and crowd ambience. Independent of `sound`, which gates everything. */
   music: boolean;
+  /** The spoken race caller. Independent of `music`, gated by `sound`. */
+  caller: boolean;
   /**
    * Bumped when the shipped mix changes, so a saved night picks up new levels
    * instead of keeping a mix that was too quiet to hear in a function room.
