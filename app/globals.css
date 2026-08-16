@@ -938,6 +938,12 @@ body {
 .c-foot { fill: var(--body); }
 .c-shell { fill: var(--shell); }
 .c-shell-in { fill: var(--shell-dk); }
+.c-spiral {
+  fill: none;
+  stroke: var(--shell-dk);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
 .c-eye { fill: #14161c; }
 
 .c-runner .c-body {
@@ -1025,24 +1031,16 @@ body {
 }
 .lap-pill:empty { display: none; }
 
-/* One frame of white on a cut, the way a hard switch reads on broadcast. */
-.circuit-wrap.cut::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-  background: #fff;
-  animation: cut-flash 0.16s ease-out forwards;
-}
-
-@keyframes cut-flash {
-  from { opacity: 0.24; }
-  to { opacity: 0; }
-}
+/*
+ * There is deliberately no flash on a cut.
+ *
+ * A white frame between shots was tried and reads as a flicker on a
+ * projector, which is exactly what a broadcast cut is not: a real cut is
+ * simply the next frame from a different camera. The reframe alone carries
+ * it, and the CAM pill says which camera is live.
+ */
 
 .calm .cam-pill::before,
-.calm .circuit-wrap.cut::after,
 .calm .circuit.racing .c-runner .c-body {
   animation: none !important;
 }

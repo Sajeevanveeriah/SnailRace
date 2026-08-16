@@ -18,7 +18,7 @@ import {
   type SnailRun,
   type Weather,
 } from './race-engine';
-import { setIntensity, sfx, startTrack } from './sound';
+import { say, setIntensity, sfx, silence, startTrack } from './sound';
 import type { RaceHighlight, RaceResult } from './types';
 
 /** How much race-time the photo-finish slow-motion covers, at 0.3x speed. */
@@ -246,6 +246,18 @@ export function useRace(
     }, MOMENT_MS);
   }, []);
 
+  /**
+   * Put a line on the rail and, if the caller is on, say it out loud.
+   *
+   * One function so the two can never drift apart: everything the room reads
+   * is everything the room hears. Priority decides whether a line is worth
+   * talking over the last one - see `audio/voice.ts`.
+   */
+  const call = useCallback((text: string, priority: 'big' | 'call' = 'call') => {
+    setCommentary(text);
+    say(text, priority);
+  }, []);
+
   /** Pull a banner down early, e.g. because the leaders have reached the run home. */
   const hushMoment = useCallback(() => {
     if (!momentTimerRef.current) return;
@@ -271,6 +283,7 @@ export function useRace(
     setEvents([]);
     setMoment(null);
     setStatus('Ready to race');
+    silence();
     painterRef.current?.reset();
   }, [clearTimers, stop]);
 
@@ -311,10 +324,19 @@ export function useRace(
     setResults(ordered);
     setPhase('done');
     setStatus(ordered[0] ? `${ordered[0].name} wins!` : 'Race over');
+    if (ordered[0]) {
+      const margin = ordered[1] ? ordered[1].finishMs - ordered[0].finishMs : 0;
+      call(
+        margin && margin < 200
+          ? `${ordered[0].name} wins it on the line!`
+          : `${ordered[0].name} wins!`,
+        'big',
+      );
+    }
     startTrack('winner');
     sfx.fanfare();
     finishRef.current(race, ordered, race.highlights);
-  }, [stop]);
+  }, [call, stop]);
 
   const frame = useCallback(
     (now: number) => {
@@ -345,7 +367,7 @@ export function useRace(
           kind: event.kind,
           label: event.label,
         });
-        setCommentary(eventLine(event, snail.name));
+        call(eventLine(event, snail.name));
         race.commentaryAt = race.raceT;
         if (!quiet) announce(`${snail.name}: ${event.label}`, event.tone);
         if (event.tone === 'good') sfx.boost();
@@ -376,7 +398,7 @@ export function useRace(
         lead.lane !== race.leadLane
       ) {
         const deposed = race.snails.find((s) => s.lane === race.leadLane);
-        setCommentary(leadChangeLine(lead.name, deposed?.name ?? chaser.name));
+        call(leadChangeLine(lead.name, deposed?.name ?? chaser.name), 'big');
         race.commentaryAt = race.raceT;
         if (!quiet) announce(`${lead.name} HITS THE FRONT`, 'hot');
         sfx.leadChange();
@@ -395,7 +417,7 @@ export function useRace(
         if (done > race.lapsDone && done < laps) {
           race.lapsDone = done;
           const starting = done + 1;
-          setCommentary(lapLine(starting, laps, lead.name, chaser.name));
+          call(lapLine(starting, laps, lead.name, chaser.name), 'big');
           race.commentaryAt = race.raceT;
           if (starting === laps) {
             announce('BELL LAP', 'hot');
@@ -411,7 +433,7 @@ export function useRace(
           race.sector = sector;
           const line = sectorLine(sector, lead.name, chaser.name);
           if (line) {
-            setCommentary(line);
+            call(line, 'big');
             race.commentaryAt = race.raceT;
             if (sector === 2) sfx.bell();
           }
@@ -496,7 +518,7 @@ export function useRace(
 
       if (race.raceT - race.commentaryAt > 1600) {
         race.commentaryAt = race.raceT;
-        if (lead) setCommentary(callLine(lead.p, lead.name, chaser.name));
+        if (lead) call(callLine(lead.p, lead.name, chaser.name));
       }
 
       if (race.placed < race.snails.length && race.raceT < race.tMax) {
@@ -505,7 +527,7 @@ export function useRace(
         finish();
       }
     },
-    [announce, finish, hushMoment],
+    [announce, call, finish, hushMoment],
   );
 
   useEffect(() => {
@@ -540,7 +562,8 @@ export function useRace(
       setSeedHex(drawn.seedHex);
       setEvents(drawn.events);
       setWeather(drawn.weather);
-      setCommentary(WEATHER_CALL[drawn.weather]);
+      silence();
+      call(WEATHER_CALL[drawn.weather], 'big');
       setPhase('countdown');
       setStatus('On your marks');
 
@@ -570,12 +593,13 @@ export function useRace(
           setCountdown('');
           setPhase('running');
           setStatus('And they are away!');
+          call('And they are away!', 'big');
           painterRef.current?.start();
           rafRef.current = requestAnimationFrame((t) => frameRef.current(t));
         }, steps.length * 900),
       );
     },
-    [phase, reset],
+    [call, phase, reset],
   );
 
   useEffect(

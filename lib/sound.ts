@@ -2,6 +2,7 @@
 
 import { noise, playSample, primeAudio, setEnabled, setMusicEnabled, tone } from './audio/engine';
 import { duck, stopAmbience, stopTrack } from './audio/music';
+import { say, setVoiceEnabled, silence } from './audio/voice';
 
 /**
  * Every cue the night makes.
@@ -31,6 +32,15 @@ export {
 } from './audio/engine';
 
 export {
+  say,
+  silence,
+  initVoice,
+  voiceAvailable,
+  isVoiceEnabled,
+  type CallPriority,
+} from './audio/voice';
+
+export {
   startTrack,
   stopTrack,
   setIntensity,
@@ -44,7 +54,13 @@ export function setSoundEnabled(on: boolean) {
   if (!on) {
     stopTrack(0.25);
     stopAmbience();
+    silence();
   }
+}
+
+/** The spoken race caller. Independent of the music, gated by `sound`. */
+export function setCallerOn(on: boolean) {
+  setVoiceEnabled(on);
 }
 
 export function setMusicOn(on: boolean) {
@@ -61,6 +77,10 @@ export const soundCheck = () => {
     () => sfx.photo(), () => sfx.fanfare(),
   ];
   order.forEach((play, i) => window.setTimeout(play, i * 620));
+  window.setTimeout(
+    () => say('And they are away! This is the sound check, and it is working.', 'big'),
+    order.length * 620 + 200,
+  );
 };
 
 /* ── Crowd reactions ───────────────────────────────────────────────────── */

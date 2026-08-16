@@ -52,12 +52,14 @@ interface Props {
 /**
  * Per-frame approach rates.
  *
- * A cut snaps almost instantly, because a lens that glides between two shots
- * is a zoom, not a cut, and reads as sluggish. Within a shot the camera
- * drifts, so it feels operated rather than mechanical.
+ * A cut is instant. Easing 55% of the way and settling over the next few
+ * frames was neither a cut nor a move - it lurched, and with a flash frame
+ * over the top it read as a flicker. A real cut is just the next frame from
+ * a different camera, so that is what this does. Within a shot the camera
+ * drifts slowly, which is what makes it feel operated rather than mechanical.
  */
 const CAM_EASE = 0.055;
-const CAM_CUT_EASE = 0.55;
+const CAM_CUT_EASE = 1;
 
 interface SnailNodes {
   g: SVGGElement;
@@ -136,7 +138,8 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
     const applyCam = (immediate: boolean) => {
       const cam = camRef.current;
       const k = immediate ? 1 : Math.max(CAM_EASE, clock.cutEase);
-      clock.cutEase *= 0.72;
+      /* One frame at full rate, then straight back to the drift. */
+      clock.cutEase = 0;
       cam.x += (camTarget.x - cam.x) * k;
       cam.y += (camTarget.y - cam.y) * k;
       cam.w += (camTarget.w - cam.w) * k;
@@ -286,15 +289,7 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
           camTarget.w = framing.rect.w;
           camTarget.h = framing.rect.h;
 
-          if (framing.cut) {
-            clock.cutEase = CAM_CUT_EASE;
-            const el = svgRef.current?.parentElement;
-            if (el) {
-              el.classList.remove('cut');
-              void el.offsetWidth; // restart the keyframe
-              el.classList.add('cut');
-            }
-          }
+          if (framing.cut) clock.cutEase = CAM_CUT_EASE;
           if (camLabelRef.current && camLabelRef.current.textContent !== framing.label) {
             camLabelRef.current.textContent = framing.label;
           }
@@ -432,7 +427,12 @@ export function Circuit({ names, race, surface, courseId, laps, chase, calm }: P
                       down once the course turns it through 180 degrees. */}
                   <ellipse className="c-foot" cx={0} cy={0} rx={24} ry={13} />
                   <circle className="c-shell" cx={-5} cy={0} r={12} />
-                  <circle className="c-shell-in" cx={-5} cy={0} r={5.5} />
+                  {/* A spiral, because at a close-up a plain disc reads as a
+                      beetle. It is the one line that says "snail". */}
+                  <path
+                    className="c-spiral"
+                    d="M-5 0 a2.6 2.6 0 1 0 2.4 1.6 a5.6 5.6 0 1 1 -7.4 -3.4 a8.8 8.8 0 1 1 -1.7 12.6"
+                  />
                   <path className="c-stalk" d="M17 -5 L23 -12" />
                   <path className="c-stalk" d="M17 5 L23 12" />
                   <circle className="c-eye" cx={24} cy={-13} r={3} />
