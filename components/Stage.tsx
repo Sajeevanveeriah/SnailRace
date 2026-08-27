@@ -14,7 +14,8 @@ import { Confetti } from './Confetti';
 import { WinnerOverlay } from './WinnerOverlay';
 import { ControlDrawer } from './ControlDrawer';
 import { ThemeToggle } from './ThemeToggle';
-import { hydrate, useEvent, setState } from '@/lib/event-store';
+import { addAudit, hydrate, useEvent, setState } from '@/lib/event-store';
+import { commitmentOf, resultHashOf, shortHash, type RaceConfig } from '@/lib/audit';
 import { useOrigin } from '@/lib/use-origin';
 import { HAS_API } from '@/lib/deployment';
 import { useCanSpeak } from '@/lib/use-can-speak';
@@ -113,10 +114,33 @@ export function Stage() {
 
   const [highlights, setHighlights] = useState<RaceHighlight[]>([]);
 
+  /*
+   * The armed race: everything the audit block needs, captured at lock so a
+   * mid-race rename or setting change cannot rewrite what was committed to.
+   */
+  const armedRef = useRef<{
+    raceNo: number;
+    lockedAt: number;
+    startedAt: number;
+    config: RaceConfig;
+    oddsAtLock: Record<number, number>;
+    commitHash: string;
+  } | null>(null);
+
   const onFinish = useCallback(
     (drawn: DrawnRace, results: RaceResult[], reel: RaceHighlight[]) => {
       const raceNo = nextRaceNo;
       const winner = results[0];
+
+      /*
+       * Settle exactly once. The loop calls this once per race, but a race
+       * that already has a standing (non-void) result must never settle
+       * again - re-entry here would pay every winning bet a second time.
+       */
+      if (event.history.some((h) => h.raceNo === raceNo && !h.void)) return;
+
+      const armed = armedRef.current;
+      const finishedAt = nowMs();
 
       const entry: RaceHistoryEntry = {
         raceNo,
@@ -124,12 +148,22 @@ export function Stage() {
         seedHex: drawn.seedHex,
         fieldSize: names.length,
         durationMs: event.raceDurationMs,
-        at: nowMs(),
+        at: finishedAt,
         results,
         potCents,
         photoFinish: drawn.photoFinish,
         highlights: reel,
         sponsor,
+        /* The audit block, captured when betting locked. */
+        names: armed?.config.names ?? names,
+        laps: armed?.config.laps,
+        surprises: armed?.config.surprises,
+        trackShape: event.trackShape,
+        lockedAt: armed?.lockedAt,
+        startedAt: armed?.startedAt,
+        finishedAt,
+        oddsAtLock: armed?.oddsAtLock,
+        commitHash: armed?.commitHash,
         /* Taken before settlement, so Undo restores rather than re-derives. */
         chipBankBefore: { ...event.chipBank },
         streaksBefore: { ...event.streaks },
@@ -171,11 +205,48 @@ export function Stage() {
         bettingOpen: true,
       });
 
+      const settledCount = settled.filter((b) => b.raceNo === raceNo).length;
+      const paid = settled
+        .filter((b) => b.raceNo === raceNo)
+        .reduce((s, b) => s + (b.returned ?? 0), 0);
+      addAudit({
+        kind: 'race_finished',
+        raceNo,
+        detail: `Race ${raceNo} finished. Winner ${winner?.name ?? 'none'} (lane ${
+          (winner?.lane ?? -1) + 1
+        }), seed ${drawn.seedHex}.`,
+      });
+      if (settledCount) {
+        addAudit({
+          kind: 'bets_settled',
+          raceNo,
+          detail: `Race ${raceNo}: ${settledCount} fun-chip ${
+            settledCount === 1 ? 'bet' : 'bets'
+          } settled once, ${paid} chips paid at locked odds. FUN CHIPS - no monetary value.`,
+        });
+      }
+
+      /*
+       * The result hash is async (SHA-256), so it lands on the entry a beat
+       * after the entry itself. The functional patch finds the entry again
+       * rather than assuming it is still at the head of the list.
+       */
+      void resultHashOf(drawn.seedHex, results).then((hash) => {
+        setState((s) => ({
+          history: s.history.map((h) =>
+            h.raceNo === raceNo && !h.void && h.seedHex === drawn.seedHex
+              ? { ...h, resultHash: hash }
+              : h,
+          ),
+        }));
+      });
+
+      armedRef.current = null;
       setHighlights(reel);
       setOverlayOpen(true);
       setConfettiKey((k) => k + 1);
     },
-    [event.bets, event.chipBank, event.history, event.raceDurationMs, event.raceType, event.streaks, names.length, nextRaceNo, potCents, sponsor],
+    [event.bets, event.chipBank, event.history, event.raceDurationMs, event.raceType, event.trackShape, event.streaks, names, nextRaceNo, potCents, sponsor],
   );
 
   const race = useRace(onFinish);
@@ -240,33 +311,127 @@ export function Stage() {
   const startRace = useCallback(() => {
     primeAudio();
     setOverlayOpen(false);
+
+    const laps = event.trackShape === 'circuit' ? event.laps : 1;
+    const lockedAt = nowMs();
+    const oddsAtLock: Record<number, number> = {};
+    for (const l of lanes) oddsAtLock[l.lane] = l.odds;
+
+    armedRef.current = {
+      raceNo: nextRaceNo,
+      lockedAt,
+      startedAt: lockedAt,
+      config: {
+        raceNo: nextRaceNo,
+        raceType: event.raceType,
+        fieldSize: names.length,
+        names: names.slice(),
+        durationMs: event.raceDurationMs,
+        laps,
+        surprises: event.surprises,
+        trackShape: event.trackShape,
+      },
+      oddsAtLock,
+      commitHash: '',
+    };
+
     setState({ bettingOpen: false });
-    race.start(
-      names,
-      event.raceDurationMs,
-      event.surprises,
-      event.trackShape === 'circuit' ? event.laps : 1,
-    );
-  }, [names, event.raceDurationMs, event.surprises, event.trackShape, event.laps, race]);
+    addAudit({
+      kind: 'race_locked',
+      raceNo: nextRaceNo,
+      detail: `Race ${nextRaceNo} locked: selections closed, odds snapshotted for ${names.length} lanes. Set-up is frozen until the race finishes or is voided.`,
+    });
+    race.start(names, event.raceDurationMs, event.surprises, laps);
+  }, [names, lanes, nextRaceNo, event.raceDurationMs, event.raceType, event.surprises, event.trackShape, event.laps, race]);
+
+  /*
+   * The seed exists only once the draw is taken inside `race.start`, so the
+   * commitment - SHA-256 over seed plus the locked configuration - is
+   * published the moment the seed lands rather than in the click handler.
+   */
+  useEffect(() => {
+    const armed = armedRef.current;
+    if (!race.seedHex || !armed || armed.commitHash) return;
+    if (race.phase !== 'countdown' && race.phase !== 'running') return;
+    armed.startedAt = nowMs();
+    void commitmentOf(race.seedHex, armed.config).then((hash) => {
+      if (armedRef.current !== armed) return;
+      armed.commitHash = hash;
+      addAudit({
+        kind: 'race_started',
+        raceNo: armed.raceNo,
+        detail: `Race ${armed.raceNo} started. Seed ${race.seedHex}, commitment ${shortHash(hash)}… binds seed to field of ${armed.config.fieldSize}, ${armed.config.laps} lap(s), ${Math.round(armed.config.durationMs / 1000)}s, surprises ${armed.config.surprises ? 'on' : 'off'}.`,
+      });
+    });
+  }, [race.seedHex, race.phase]);
 
   const resetRace = useCallback(() => {
     race.reset();
     setOverlayOpen(false);
+    armedRef.current = null;
     setState({ bettingOpen: true });
   }, [race]);
+
+  /** Declare the race in progress void: no result, no settlement, re-run. */
+  const voidCurrentRace = useCallback(() => {
+    if (race.phase !== 'countdown' && race.phase !== 'running') return;
+    const armed = armedRef.current;
+    const raceNo = armed?.raceNo ?? nextRaceNo;
+    race.voidRace();
+    setState((s) => ({
+      bettingOpen: true,
+      history: [
+        {
+          raceNo,
+          raceType: event.raceType,
+          seedHex: race.seedHex || '--------',
+          fieldSize: names.length,
+          durationMs: event.raceDurationMs,
+          at: nowMs(),
+          results: [],
+          potCents,
+          photoFinish: false,
+          sponsor,
+          names: armed?.config.names ?? names,
+          lockedAt: armed?.lockedAt,
+          startedAt: armed?.startedAt,
+          commitHash: armed?.commitHash || undefined,
+          oddsAtLock: armed?.oddsAtLock,
+          void: true,
+          voidReason: 'Declared void by the moderator before the finish. Bets reopened for the re-run.',
+        } satisfies RaceHistoryEntry,
+        ...s.history,
+      ],
+    }));
+    addAudit({
+      kind: 'race_void',
+      raceNo,
+      detail: `Race ${raceNo} declared VOID before the finish (seed ${race.seedHex || 'not yet drawn'}). No settlement occurred; bets reopened for the re-run.`,
+    });
+    armedRef.current = null;
+  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, names, potCents, sponsor]);
 
   /* ── Fun bets ────────────────────────────────────────────────────────── */
 
   const placeBet = useCallback(
     (bet: Omit<Bet, 'id' | 'settled'>) => {
       const k = bet.punter.trim().toLowerCase();
-      const bank = event.chipBank[k] ?? CHIP_START;
-      setState({
-        bets: [...event.bets, { ...bet, id: newId('bet'), settled: false }],
-        chipBank: { ...event.chipBank, [k]: bank - bet.chips },
+      /*
+       * Functional, and re-checked at write time: the lock and the bank are
+       * verified against the freshest state, so a stale tab cannot slip a
+       * bet under a closed book or spend chips it no longer has.
+       */
+      setState((s) => {
+        if (!s.bettingOpen) return {};
+        const bank = s.chipBank[k] ?? CHIP_START;
+        if (bet.chips > bank || bet.chips <= 0) return {};
+        return {
+          bets: [...s.bets, { ...bet, id: newId('bet'), settled: false }],
+          chipBank: { ...s.chipBank, [k]: bank - bet.chips },
+        };
       });
     },
-    [event.bets, event.chipBank],
+    [],
   );
 
   /* ── Donation arrivals ───────────────────────────────────────────────── */
@@ -316,7 +481,7 @@ export function Stage() {
 
       if (forward) {
         e.preventDefault();
-        if (race.phase === 'idle' || race.phase === 'done') startRace();
+        if (race.phase === 'idle' || race.phase === 'done' || race.phase === 'void') startRace();
         return;
       }
       if (back) {
@@ -524,6 +689,7 @@ export function Stage() {
             <div className="stage-bar glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
                 <div className="flex items-baseline gap-3">
+                  <StateBanner phase={race.phase} />
                   <p className="text-lg font-semibold">{race.status}</p>
                   {race.seedHex ? (
                     <span
@@ -544,8 +710,30 @@ export function Stage() {
                   onClick={startRace}
                   disabled={racing}
                 >
-                  {race.phase === 'done' ? 'Next race' : 'Start race'} <kbd>Space</kbd>
+                  {race.phase === 'done'
+                    ? 'Next race'
+                    : race.phase === 'void'
+                      ? 'Re-run race'
+                      : 'Start race'}{' '}
+                  <kbd>Space</kbd>
                 </button>
+                {racing ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost !text-(--bad)"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Void race ${nextRaceNo}? No result, no settlement; bets reopen for the re-run and an audit entry is written.`,
+                        )
+                      ) {
+                        voidCurrentRace();
+                      }
+                    }}
+                  >
+                    Void race
+                  </button>
+                ) : null}
                 <button type="button" className="btn btn-ghost" onClick={resetRace}>
                   Reset
                 </button>
@@ -684,12 +872,31 @@ export function Stage() {
         stripeDonations={feed.donations}
         nextRaceNo={nextRaceNo}
         nightCents={nightCents}
+        locked={racing}
       />
     </div>
   );
 }
 
 /* ── Small presentational pieces ──────────────────────────────────────── */
+
+/**
+ * The live lifecycle, said out loud: READY, COUNTDOWN, RUNNING, FINISHED,
+ * VOID. One glance from the back of a hall answers "can I still bet?".
+ */
+function StateBanner({ phase }: { phase: string }) {
+  const label =
+    phase === 'idle'
+      ? 'READY'
+      : phase === 'countdown'
+        ? 'COUNTDOWN'
+        : phase === 'running'
+          ? 'RUNNING'
+          : phase === 'done'
+            ? 'FINISHED'
+            : 'VOID';
+  return <span className={`state-banner state-${phase}`}>{label}</span>;
+}
 
 function FeedPill({ status, lastOk }: { status: string; lastOk: number }) {
   const label =

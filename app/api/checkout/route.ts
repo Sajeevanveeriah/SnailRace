@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getStripe, META, APP_TAG } from '@/lib/stripe';
 import { MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD } from '@/lib/palette';
+import { checkOrigin } from '@/lib/server-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,15 @@ const clean = (value: unknown, max: number): string =>
     .slice(0, max);
 
 export async function POST(request: Request) {
+  /*
+   * Cross-origin POSTs are refused before anything is created: the return
+   * URLs on a Checkout Session must never be steered by a foreign page.
+   */
+  const originCheck = checkOrigin(request);
+  if (!originCheck.ok) {
+    return NextResponse.json({ ok: false, error: 'Cross-origin requests are not accepted.' }, { status: 403 });
+  }
+
   const stripe = getStripe();
   if (!stripe) {
     return NextResponse.json(
@@ -69,9 +79,7 @@ export async function POST(request: Request) {
   const snailName = clean(body.snailName, 40) || `Lane ${lane + 1}`;
   const backerName = clean(body.backerName, 40);
 
-  const origin =
-    request.headers.get('origin') ??
-    (process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin);
+  const origin = originCheck.origin;
 
   try {
     const session = await stripe.checkout.sessions.create({

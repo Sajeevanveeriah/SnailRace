@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStripe, META, APP_TAG } from '@/lib/stripe';
 import { MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
+import { checkOrigin } from '@/lib/server-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,13 @@ export const dynamic = 'force-dynamic';
 const linkCache = new Map<string, { id: string; url: string }>();
 
 export async function POST(request: Request) {
+  /* Same boundary as /api/checkout: a foreign page cannot mint links whose
+     completion redirect it controls. */
+  const originCheck = checkOrigin(request);
+  if (!originCheck.ok) {
+    return NextResponse.json({ ok: false, error: 'Cross-origin requests are not accepted.' }, { status: 403 });
+  }
+
   const stripe = getStripe();
   if (!stripe) {
     return NextResponse.json(
@@ -52,9 +60,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, url: cached.url, id: cached.id });
   }
 
-  const origin =
-    request.headers.get('origin') ??
-    (process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin);
+  const origin = originCheck.origin;
 
   try {
     const price = await stripe.prices.create({

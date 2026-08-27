@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
+import Link from 'next/link';
+import { addAudit, hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
+import { commitmentOf, resultHashOf, shortHash, type RaceConfig } from '@/lib/audit';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
 import { LAP_LEN } from '@/lib/broadcast';
@@ -30,6 +32,7 @@ export function ControlDrawer({
   stripeDonations,
   nextRaceNo,
   nightCents,
+  locked = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -37,6 +40,12 @@ export function ControlDrawer({
   stripeDonations: Donation[];
   nextRaceNo: number;
   nightCents: number;
+  /**
+   * True while a race is armed or running. The set-up that the seed
+   * commitment binds - field, names, length, laps, surprises - cannot be
+   * edited while locked; voiding the race is the audited way out.
+   */
+  locked?: boolean;
 }) {
   const event = useEvent();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -164,39 +173,59 @@ export function ControlDrawer({
     say('New names drawn.');
   };
 
+  /** The newest race that still stands. Voided entries are already undone. */
+  const lastStanding = event.history.find((h) => !h.void);
+
   /**
-   * Undo the last race.
+   * Undo the last race - as a COMPENSATING entry, never a deletion.
    *
-   * Restores the chip bank and streaks from the snapshots taken before that
-   * race settled, reopens its bets and steps the race number back. A night
-   * recorded before snapshots existed can still drop the result, and says so
-   * rather than guessing at chips it cannot reverse.
+   * The result row stays in the history marked void with the reason printed
+   * beside it, chips and streaks are restored from the snapshots taken
+   * before settlement, its bets reopen, and an audit line records all of it.
+   * A ledger that can be silently shortened is not a ledger.
    */
   const undoLastRace = () => {
-    const last = event.history[0];
+    const last = lastStanding;
     if (!last) return;
 
-    const reopened = event.bets.map((b) =>
-      b.raceNo === last.raceNo
-        ? { ...b, settled: false, won: undefined, returned: undefined }
-        : b,
-    );
-
     const canRestore = Boolean(last.chipBankBefore && last.streaksBefore);
-    setState({
-      history: event.history.slice(1),
+    setState((s) => ({
+      history: s.history.map((h) =>
+        h.raceNo === last.raceNo && !h.void && h.seedHex === last.seedHex
+          ? {
+              ...h,
+              void: true,
+              voidReason: `Undone by the moderator at ${new Date().toLocaleTimeString('en-AU')}. ${
+                canRestore
+                  ? 'Chips and streaks restored from pre-settlement snapshots; bets reopened.'
+                  : 'Recorded before chip snapshots existed, so chips were left as they were.'
+              }`,
+            }
+          : h,
+      ),
       raceNumber: Math.max(0, last.raceNo - 1),
-      bets: reopened,
+      bets: s.bets.map((b) =>
+        b.raceNo === last.raceNo
+          ? { ...b, settled: false, won: undefined, returned: undefined }
+          : b,
+      ),
       bettingOpen: true,
       ...(canRestore
         ? { chipBank: { ...last.chipBankBefore }, streaks: { ...last.streaksBefore } }
         : {}),
+    }));
+    addAudit({
+      kind: 'race_undone',
+      raceNo: last.raceNo,
+      detail: `Race ${last.raceNo} (seed ${last.seedHex}) undone via compensating void entry. ${
+        canRestore ? 'Chip bank and streaks restored exactly; bets reopened.' : 'Chips left as they were (pre-snapshot race).'
+      } The result row remains in the history marked void.`,
     });
 
     say(
       canRestore
-        ? `Race ${last.raceNo} undone. Chips and streaks restored, bets reopened.`
-        : `Race ${last.raceNo} removed. This race predates chip snapshots, so chips were left as they are.`,
+        ? `Race ${last.raceNo} undone. Chips and streaks restored, bets reopened. The result stays in the ledger marked void.`
+        : `Race ${last.raceNo} voided. This race predates chip snapshots, so chips were left as they are.`,
     );
   };
 
@@ -221,6 +250,40 @@ export function ControlDrawer({
         ? `Match. Race ${past.raceNo} finished exactly as seed ${past.seedHex} drew it: ${replay}`
         : `Mismatch against the recorded result for race ${past.raceNo}. Replay says ${replay}.`,
     );
+
+    /* The audit block, when the race recorded one: recompute both hashes. */
+    if (past.commitHash || past.resultHash) {
+      void (async () => {
+        const lines: string[] = [];
+        if (past.commitHash && past.names && past.laps !== undefined && past.surprises !== undefined) {
+          const config: RaceConfig = {
+            raceNo: past.raceNo,
+            raceType: past.raceType,
+            fieldSize: past.fieldSize,
+            names: past.names,
+            durationMs: past.durationMs,
+            laps: past.laps,
+            surprises: past.surprises,
+            trackShape: past.trackShape ?? 'circuit',
+          };
+          const commit = await commitmentOf(past.seedHex, config);
+          lines.push(
+            commit === past.commitHash
+              ? `Commitment ${shortHash(commit)}… verifies: the seed was bound to exactly this set-up.`
+              : 'COMMITMENT MISMATCH: the recorded set-up is not the one the seed was committed to.',
+          );
+        }
+        if (past.resultHash) {
+          const rh = await resultHashOf(past.seedHex, past.results);
+          lines.push(
+            rh === past.resultHash
+              ? `Result hash ${shortHash(rh)}… verifies.`
+              : 'RESULT HASH MISMATCH: the recorded finishing order has been altered.',
+          );
+        }
+        if (lines.length) setVerifyOut((prev) => `${prev} ${lines.join(' ')}`);
+      })();
+    }
   };
 
   const download = (filename: string, text: string, mime: string) => {
@@ -258,6 +321,37 @@ export function ControlDrawer({
     ];
     download(
       `${dateStamp()}-Snail-Race-Donations-Rev00.csv`,
+      rows.map((r) => r.map(csvCell).join(',')).join('\n'),
+      'text/csv;charset=utf-8',
+    );
+  };
+
+  /** Race audit block plus the trail, in one reconciliation-friendly file. */
+  const exportAuditCsv = () => {
+    const rows = [
+      ['section', 'race', 'kind', 'timestamp', 'seed', 'commit_sha256', 'result_sha256', 'detail'],
+      ...event.history
+        .slice()
+        .reverse()
+        .map((h) => [
+          'race',
+          h.raceNo,
+          h.void ? 'void' : 'result',
+          new Date(h.at).toISOString(),
+          h.seedHex,
+          h.commitHash ?? '',
+          h.resultHash ?? '',
+          h.void
+            ? (h.voidReason ?? 'void')
+            : h.results.map((r) => `${r.place}. ${r.name} (lane ${r.lane + 1})`).join('; '),
+        ]),
+      ...event.audit
+        .slice()
+        .reverse()
+        .map((a) => ['audit', a.raceNo, a.kind, new Date(a.at).toISOString(), '', '', '', a.detail]),
+    ];
+    download(
+      `${dateStamp()}-Snail-Race-Audit-Rev00.csv`,
       rows.map((r) => r.map(csvCell).join(',')).join('\n'),
       'text/csv;charset=utf-8',
     );
@@ -429,11 +523,19 @@ export function ControlDrawer({
             {/* ── Race setup ───────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Race setup</h3>
+              {locked ? (
+                <p className="mb-3 rounded-xl bg-(--bad)/10 px-3 py-2 text-[11px] font-medium text-(--bad)">
+                  LOCKED: race {nextRaceNo} is armed or running. The set-up the seed was
+                  committed to cannot change now. Void the race (stage bar) to change it;
+                  the void is written to the audit trail.
+                </p>
+              ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="fld">
                   <span>{event.trackShape === 'circuit' ? 'Lap length' : 'Race length'}</span>
                   <select
                     value={lapMs}
+                    disabled={locked}
                     onChange={(e) => setLength(Number(e.target.value), event.laps)}
                   >
                     {lengthOptions.map((o) => (
@@ -448,6 +550,7 @@ export function ControlDrawer({
                   <span>Track</span>
                   <select
                     value={event.trackShape}
+                    disabled={locked}
                     onChange={(e) =>
                       setState({ trackShape: e.target.value as 'circuit' | 'lanes' })
                     }
@@ -462,6 +565,7 @@ export function ControlDrawer({
                     <span>Laps</span>
                     <select
                       value={event.laps}
+                      disabled={locked}
                       onChange={(e) => setLength(lapMs, Number(e.target.value))}
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
@@ -476,6 +580,7 @@ export function ControlDrawer({
                   <span>Race type</span>
                   <select
                     value={event.raceType}
+                    disabled={locked}
                     onChange={(e) => setState({ raceType: e.target.value })}
                   >
                     <option>Heat</option>
@@ -487,6 +592,7 @@ export function ControlDrawer({
                   <span>Number of racers</span>
                   <select
                     value={event.fieldSize}
+                    disabled={locked}
                     onChange={(e) => setState({ fieldSize: Number(e.target.value) })}
                   >
                     {Array.from({ length: MAX_FIELD - MIN_FIELD + 1 }, (_, i) => MIN_FIELD + i).map(
@@ -539,6 +645,7 @@ export function ControlDrawer({
                 <input
                   type="checkbox"
                   checked={event.surprises}
+                  disabled={locked}
                   onChange={(e) => setState({ surprises: e.target.checked })}
                 />
                 In-race surprises
@@ -680,15 +787,26 @@ export function ControlDrawer({
                       type="text"
                       value={n}
                       maxLength={24}
+                      disabled={locked}
                       onChange={(e) => setName(i, e.target.value)}
                       className="w-full rounded-lg border border-(--tx)/15 bg-(--well) px-3 py-1.5 text-sm"
                     />
                   </label>
                 ))}
               </div>
-              <button type="button" className="btn btn-ghost mt-3 w-full" onClick={suggestNames}>
+              <button
+                type="button"
+                className="btn btn-ghost mt-3 w-full"
+                disabled={locked}
+                onClick={suggestNames}
+              >
                 Suggest names
               </button>
+              {locked ? (
+                <p className="mt-2 text-[11px] text-(--tx)/45">
+                  Names are locked while a race is armed or running.
+                </p>
+              ) : null}
             </section>
 
             {/* ── Ledger ───────────────────────────────────────────── */}
@@ -740,9 +858,9 @@ export function ControlDrawer({
                               ) : (
                                 <span
                                   className="text-[11px] text-(--tx)/30"
-                                  title="Card donations are held by Stripe. Refund it in the Stripe dashboard and it leaves this board on the next read."
+                                  title="Card donations are held by Stripe. Refund it in the Stripe dashboard and the board nets it off on the next read."
                                 >
-                                  Stripe
+                                  {d.refundedCents ? `refunded ${money(d.refundedCents)}` : 'Stripe'}
                                 </span>
                               )}
                             </td>
@@ -758,14 +876,14 @@ export function ControlDrawer({
             <section className="panel">
               <div className="mb-3 flex items-baseline justify-between gap-2">
                 <h3 className="font-semibold">Results</h3>
-                {event.history.length > 0 ? (
+                {lastStanding ? (
                   <button
                     type="button"
                     className="text-xs text-(--tx)/55 underline hover:text-(--tx)"
                     onClick={() => {
                       if (
                         window.confirm(
-                          `Undo race ${event.history[0].raceNo}? The result is removed, its fun bets reopen and chips go back to what they were.`,
+                          `Undo race ${lastStanding.raceNo}? The result stays in the ledger marked void, its fun bets reopen and chips go back to what they were. An audit entry is written.`,
                         )
                       ) {
                         undoLastRace();
@@ -781,18 +899,28 @@ export function ControlDrawer({
               ) : (
                 <ol className="max-h-64 overflow-y-auto text-sm">
                   {event.history.map((h) => (
-                    <li key={h.raceNo} className="border-b border-(--tx)/8 py-2 last:border-0">
+                    <li
+                      key={`${h.raceNo}-${h.at}`}
+                      className={`border-b border-(--tx)/8 py-2 last:border-0 ${h.void ? 'opacity-60' : ''}`}
+                    >
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-semibold">
-                          {h.raceType} {h.raceNo}: {h.results[0]?.name}
+                        <span className={`font-semibold ${h.void ? 'line-through' : ''}`}>
+                          {h.raceType} {h.raceNo}: {h.results[0]?.name ?? 'no result'}
                         </span>
                         <span className="num text-xs text-(--tx)/45">{moneyShort(h.potCents)}</span>
                       </div>
+                      {h.void ? (
+                        <p className="text-[11px] font-semibold text-(--bad)">
+                          VOID - {h.voidReason ?? 'voided'}
+                        </p>
+                      ) : null}
                       {h.sponsor ? (
                         <p className="text-[11px] text-(--gold)">{h.sponsor}</p>
                       ) : null}
                       <p className="num text-[11px] text-(--tx)/40">
                         seed {h.seedHex}
+                        {h.commitHash ? ` - commit ${shortHash(h.commitHash)}` : ''}
+                        {h.resultHash ? ` - result ${shortHash(h.resultHash)}` : ''}
                         {h.photoFinish ? ' - photo finish' : ''}
                         {h.highlights?.length
                           ? ` - ${h.highlights.length} ${h.highlights.length === 1 ? 'surprise' : 'surprises'}`
@@ -802,6 +930,83 @@ export function ControlDrawer({
                   ))}
                 </ol>
               )}
+              <p className="mt-2 text-[11px] text-(--tx)/45">
+                Full results, replays and audit metadata live in the{' '}
+                <Link href="/archive" className="underline hover:text-(--tx)">
+                  race archive
+                </Link>
+                .
+              </p>
+            </section>
+
+            {/* ── Fun-chip settlement ──────────────────────────────── */}
+            <section className="panel">
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">Fun-chip settlement</h3>
+                <span className="fun-chip-tag">fun chips - no monetary value</span>
+              </div>
+              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+                Every bet settles exactly once, at the odds locked before the start. Undoing a
+                race writes a compensating entry and reopens its bets; nothing is deleted.
+              </p>
+              {event.bets.length === 0 ? (
+                <p className="text-sm text-(--tx)/45">No fun bets placed yet.</p>
+              ) : (
+                <ul className="max-h-64 overflow-y-auto text-xs">
+                  {event.bets
+                    .slice()
+                    .reverse()
+                    .slice(0, 40)
+                    .map((b) => (
+                      <li
+                        key={b.id}
+                        className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0"
+                      >
+                        <span className="num w-8 shrink-0 text-(--tx)/40">R{b.raceNo}</span>
+                        <span className="truncate font-medium">{b.punter}</span>
+                        <span className="truncate text-(--tx)/50">on {b.snailName}</span>
+                        <span className="num ml-auto shrink-0 text-(--gold)">
+                          {b.chips} @ {b.odds.toFixed(2)}
+                        </span>
+                        <span
+                          className={`w-14 shrink-0 text-right font-semibold ${
+                            !b.settled
+                              ? 'text-(--tx)/40'
+                              : b.won
+                                ? 'text-(--ok)'
+                                : 'text-(--tx)/50'
+                          }`}
+                        >
+                          {!b.settled ? 'open' : b.won ? `+${b.returned ?? 0}` : 'lost'}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </section>
+
+            {/* ── Audit trail ──────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-1 font-semibold">Audit trail</h3>
+              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+                Locks, starts, finishes, voids, undos and settlements, newest first. Entries are
+                appended by the app and never edited here; they ride along in every backup and
+                the audit CSV.
+              </p>
+              {event.audit.length === 0 ? (
+                <p className="text-sm text-(--tx)/45">Nothing recorded yet.</p>
+              ) : (
+                <ul className="max-h-64 overflow-y-auto text-xs">
+                  {event.audit.map((a) => (
+                    <li key={a.id} className="border-b border-(--tx)/8 py-1.5 last:border-0">
+                      <p className="num text-[10px] text-(--tx)/40">
+                        {new Date(a.at).toLocaleTimeString('en-AU')} · {a.kind.replace(/_/g, ' ')}
+                      </p>
+                      <p className="leading-snug text-(--tx)/75">{a.detail}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             {/* ── End of night ─────────────────────────────────────── */}
@@ -810,6 +1015,9 @@ export function ControlDrawer({
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn btn-ghost" onClick={exportCsv}>
                   Export donations CSV
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={exportAuditCsv}>
+                  Export audit CSV
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={exportBackup}>
                   Save backup

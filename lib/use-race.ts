@@ -46,7 +46,12 @@ const MOMENT_UNTIL = 0.82;
  */
 const LEAD_CHANGE_FROM = 0.12;
 
-export type RacePhase = 'idle' | 'countdown' | 'running' | 'done';
+/**
+ * The live lifecycle: READY, COUNTDOWN, RUNNING, FINISHED, VOID. `idle` is
+ * READY and `done` is FINISHED; the stage banner translates. VOID is reached
+ * only through the moderator's void action and always leaves an audit entry.
+ */
+export type RacePhase = 'idle' | 'countdown' | 'running' | 'done' | 'void';
 
 export type MomentTone = 'good' | 'bad' | 'hot';
 
@@ -143,6 +148,11 @@ export interface RaceController {
   setPainter: (painter: RacePainter | null) => void;
   start: (names: string[], durationMs: number, surprises?: boolean, laps?: number) => void;
   reset: () => void;
+  /**
+   * Abandon the race in progress: no result, no settlement. The countdown or
+   * the field freezes and the stage shows VOID until the next reset or start.
+   */
+  voidRace: () => void;
 }
 
 interface LiveRace extends DrawnRace {
@@ -744,6 +754,21 @@ export function useRace(
     [call, phase, reset],
   );
 
+  const voidRace = useCallback(() => {
+    if (phase !== 'countdown' && phase !== 'running') return;
+    stop();
+    clearTimers();
+    raceRef.current = null;
+    setCountdown('');
+    setMoment(null);
+    setPhotoFinish(false);
+    setPhase('void');
+    setStatus('RACE VOID');
+    call('This race has been declared void. All bets are off and will be re-run.', 'big');
+    silence();
+    setCrowdLevel(0.12);
+  }, [phase, stop, clearTimers, call]);
+
   useEffect(
     () => () => {
       stop();
@@ -767,5 +792,6 @@ export function useRace(
     setPainter,
     start,
     reset,
+    voidRace,
   };
 }

@@ -12,8 +12,10 @@ import type { RaceHistoryEntry } from '@/lib/types';
  */
 export function Standings({ history }: { history: RaceHistoryEntry[] }) {
   const rows = useMemo(() => standingsFrom(history).slice(0, 8), [history]);
+  /* Voided races are compensating entries and score nothing. */
+  const counted = useMemo(() => history.filter((h) => !h.void).length, [history]);
 
-  if (history.length < 2 || rows.length === 0) return null;
+  if (counted < 2 || rows.length === 0) return null;
 
   const top = rows[0].points || 1;
 

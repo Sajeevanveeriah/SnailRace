@@ -30,6 +30,11 @@ export interface Donation {
   sessionId?: string;
   /** Voided entries stay in the ledger for auditability but leave the totals. */
   void?: boolean;
+  /**
+   * Cents Stripe has refunded on this payment. `cents` is already net of
+   * this; the field exists so the ledger can say why the number changed.
+   */
+  refundedCents?: number;
 }
 
 export interface RaceResult {
@@ -55,6 +60,42 @@ export interface RaceHighlight {
   label: string;
 }
 
+/** One line in the tamper-evident audit trail the console shows. */
+export interface AuditEntry {
+  id: string;
+  /** Wall-clock ms. */
+  at: number;
+  kind:
+    | 'race_locked'
+    | 'race_started'
+    | 'race_finished'
+    | 'race_void'
+    | 'race_undone'
+    | 'bets_settled'
+    | 'note';
+  /** Race the entry belongs to. 0 for event-level notes. */
+  raceNo: number;
+  /** One human-readable line for the console and the export. */
+  detail: string;
+}
+
+/**
+ * A recording attached to a completed race.
+ *
+ * The file itself cannot live in localStorage, so what is kept is its
+ * fingerprint: on reload the operator re-attaches the file and the archive
+ * verifies the SHA-256 before playing a frame of it. A file that does not
+ * match is refused, with the deterministic seed replay always available as
+ * the authoritative reconstruction.
+ */
+export interface RaceMedia {
+  fileName: string;
+  bytes: number;
+  mimeType: string;
+  sha256: string;
+  addedAt: number;
+}
+
 export interface RaceHistoryEntry {
   raceNo: number;
   raceType: string;
@@ -68,6 +109,33 @@ export interface RaceHistoryEntry {
   photoFinish: boolean;
   /** Who put their name to this race. Empty when nobody sponsored it. */
   sponsor?: string;
+  /*
+   * The audit block. SHA-256 of seed plus configuration, published at the
+   * off; SHA-256 of the finishing order, recorded at the line; and the
+   * configuration and timestamps they bind. Absent on races from an older
+   * build, which the console says rather than hides.
+   */
+  commitHash?: string;
+  resultHash?: string;
+  /** Snail names as raced, so the replay is exact even after a rename. */
+  names?: string[];
+  laps?: number;
+  surprises?: boolean;
+  trackShape?: 'lanes' | 'circuit';
+  lockedAt?: number;
+  startedAt?: number;
+  finishedAt?: number;
+  /** Tote odds per lane at the moment betting locked. */
+  oddsAtLock?: Record<number, number>;
+  /**
+   * A voided race stays in the history as a compensating entry rather than
+   * being deleted: standings, sponsors and settlement all skip it, and the
+   * reason is printed beside it.
+   */
+  void?: boolean;
+  voidReason?: string;
+  /** Verified recording, when the operator has attached one. */
+  media?: RaceMedia;
   /*
    * Snapshots taken before the race settled, so the console can undo it
    * exactly. Reversing the arithmetic instead would have to re-derive a
@@ -126,6 +194,8 @@ export interface EventState {
   chipBank: Record<string, number>;
   /** Consecutive winning races per punter, keyed the same way as chipBank. */
   streaks: Record<string, number>;
+  /** The audit trail, newest first. Appended to, never edited from the UI. */
+  audit: AuditEntry[];
   /** Which lighting the track runs under. Information design never changes. */
   stageTheme: 'midnight' | 'turf' | 'dusk';
   calm: boolean;

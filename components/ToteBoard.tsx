@@ -85,7 +85,9 @@ export function ToteBoard({
 
       <p className="text-[11px] leading-snug text-(--tx)/45">
         Every snail has the same 1-in-{fieldSize} chance. Prices show what the room has backed, not
-        form, and donations never influence the result.
+        form, and donations never influence the result. Odds settle{' '}
+        <b className="text-(--tx)/70">fun chips only - no monetary value</b>; a donation is not a
+        wager and has no return.
       </p>
     </aside>
   );

@@ -211,8 +211,54 @@ per field size.
 - **Presenter clicker.** PageDown and the right arrow start the next race, PageUp and the
   left arrow reset or close the winner card, which is what a wireless clicker actually
   sends from the front of a hall.
-- **Undo the last race.** Removes the result, reopens that race's fun bets and puts the
-  chip bank and streaks back exactly, from a snapshot taken before the race settled.
+- **Undo the last race.** A compensating action, never a deletion: the result stays in
+  the history marked void with the reason printed beside it, that race's fun bets reopen,
+  and the chip bank and streaks go back exactly, from a snapshot taken before the race
+  settled. An audit entry records all of it.
+- **Void a race in flight.** The moderator can declare a running race void: no result,
+  no settlement, bets reopen for the re-run, and the stage shows VOID until the next
+  start. The void is written to the audit trail.
+
+## The audit block
+
+Every race carries a checkable record, and the stage lifecycle is explicit:
+READY, COUNTDOWN, RUNNING, FINISHED, VOID, on a banner a hall can read.
+
+- **The seed commitment.** The moment the seed is drawn, SHA-256 over the seed plus the
+  locked configuration (field, names, length, laps, surprises) is written to the audit
+  trail. A result cannot be quietly re-attributed to a different set-up.
+- **The result hash.** SHA-256 over the finishing order, recorded at the line.
+- **Locked set-up.** While a race is armed or running, the race set-up is frozen in the
+  console; the audited way out is the void button.
+- **The audit trail.** Locks, starts, finishes, voids, undos and settlements, newest
+  first, in the console, in every backup, and in its own CSV export.
+- **Verify draw** replays any seed and now also recomputes both hashes.
+
+The canonical strings behind both hashes are stated in `lib/audit.ts`, so anyone with a
+terminal can reproduce them without this app.
+
+## The archive and recorded races
+
+`/archive` lists every completed race - grouped by day, result summary, seed, hashes,
+void status - and every result links to a replay, the way a racing site does it.
+
+- **The deterministic replay** rebuilds the race from its seed and locked configuration:
+  play, pause, scrub forwards and backwards, elapsed and remaining time, surprise markers
+  on the timeline that jump the tape, and the recorded result alongside. It cannot drift
+  from what was announced, because it is the same arithmetic. It survives any reload, and
+  the archive reopens where you left off.
+- **A verified recording.** Attach a video of the race and its SHA-256 is fingerprinted
+  on the spot. Files cannot live in browser storage, so after a reload the file is
+  re-attached and verified before a frame plays; a file that does not match is refused
+  with the reason on screen. The deterministic replay stays authoritative either way.
+
+## Fun chips, said loudly
+
+**FUN CHIPS - NO MONETARY VALUE** is printed wherever selections, odds, settlement or
+chip leaderboards appear. Chips cannot be bought, cashed out or exchanged; selections
+lock before the start; the odds a bet keeps are snapshotted at lock; settlement happens
+exactly once per race; and the undo path is a compensating, audited action. None of this
+touches donations, which remain gifts with no return.
 
 ## Keeping the room in it
 
@@ -326,13 +372,17 @@ and where to find CC0 tracks - and for the one trade-off, which is that a suppli
 ## How money flows
 
 - **Cards**: the phone page creates a Stripe Checkout Session tagged with the event,
-  race and lane. The stage polls `/api/donations`, which reads paid sessions straight
+  race and lane. Cross-origin requests to the checkout and payment-link routes are
+  refused outright, so a foreign page can never mint a session whose return URL it
+  controls; the webhook verifies Stripe's signature and is idempotent under replay. The stage polls `/api/donations`, which reads paid sessions straight
   back from Stripe. **Stripe is the ledger** - there is no database to drift from the
   bank statement.
 - **Cash**: recorded in the moderator console on the stage device, kept separately,
   exported in the same CSV.
-- **Refunds**: refund the payment in the Stripe dashboard; it leaves the board on the
-  next poll. Cash entries are voided, never deleted, so the ledger always reconciles.
+- **Refunds**: refund the payment in the Stripe dashboard; the board reads the charge
+  behind each session and nets refunds off on the next poll - a full refund stays in the
+  ledger marked void, a partial one reduces the entry to what the club holds. Cash
+  entries are voided, never deleted, so the ledger always reconciles.
 
 ## Running it
 
@@ -341,6 +391,9 @@ npm install
 npm run dev        # develop
 npm run build      # production build
 npm start          # serve the production build
+npm test           # unit tests: draw fairness, settlement, hashes, refunds
+npm run lint       # eslint
+npm run typecheck  # tsc --noEmit
 ```
 
 Set the environment (see `.env.example`):
