@@ -54,6 +54,12 @@ interface Props {
   calm: boolean;
   clubName: string;
   raceNo: number;
+  /**
+   * Recorded mode. The coverage is identical; the chrome must not lie about
+   * it, so the badge reads REPLAY and the live clock stands down in favour
+   * of the transport bar underneath.
+   */
+  replay?: boolean;
 }
 
 /** How fast the camera follows the field along the track. */
@@ -106,6 +112,7 @@ export function Telecast({
   calm,
   clubName,
   raceNo,
+  replay = false,
 }: Props) {
   const { setPainter } = race;
 
@@ -776,16 +783,27 @@ export function Telecast({
       {/* ── Broadcast graphics ──────────────────────────────────────────── */}
 
       <div className="tv-top" aria-hidden="true">
-        <span className="tv-live">
-          <i /> LIVE
+        <span className={`tv-live ${race.phase === 'void' ? 'tv-void' : ''} ${replay ? 'tv-replay' : ''}`}>
+          <i />{' '}
+          {replay
+            ? 'REPLAY'
+            : race.phase === 'done'
+              ? 'FINISHED'
+              : race.phase === 'void'
+                ? 'VOID'
+                : race.phase === 'idle'
+                  ? 'READY'
+                  : 'LIVE'}
         </span>
         <span className="tv-title">
           {clubName} · Race {raceNo}
         </span>
         <span ref={lapRef} className="tv-lap num" />
-        <span ref={clockRef} className="tv-clock num">
-          0:00.0
-        </span>
+        {replay ? null : (
+          <span ref={clockRef} className="tv-clock num">
+            0:00.0
+          </span>
+        )}
         <span ref={shotRef} className="tv-shot num" />
       </div>
 
@@ -841,11 +859,9 @@ function RunningOrder({
   const { onBoard } = race;
 
   useEffect(() => onBoard(setRows), [onBoard]);
-  useEffect(() => {
-    if (race.phase === 'idle') setRows([]);
-  }, [race.phase]);
 
-  const shown = rows.slice(0, 6);
+  /* Between races there is no order to show; derived, not synchronised. */
+  const shown = race.phase === 'idle' ? [] : rows.slice(0, 6);
   if (!open || !shown.length) return null;
 
   return (

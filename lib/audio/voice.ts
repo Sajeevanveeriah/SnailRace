@@ -58,6 +58,25 @@ const synth = (): SpeechSynthesis | null =>
 export const voiceAvailable = (): boolean => synth() !== null;
 
 /**
+ * Whether the browser can actually speak: the API alone is not enough - a
+ * headless or stripped-down browser exposes speechSynthesis with an empty
+ * voice list and would mouth silence. `getVoices` fills in asynchronously,
+ * so callers should also listen for `voiceschanged`.
+ */
+export const voicesReady = (): boolean => {
+  const s = synth();
+  return s !== null && s.getVoices().length > 0;
+};
+
+/** Subscribe to the voice list arriving. Returns an unsubscribe. */
+export function onVoicesChanged(cb: () => void): () => void {
+  const s = synth();
+  if (!s || typeof s.addEventListener !== 'function') return () => {};
+  s.addEventListener('voiceschanged', cb);
+  return () => s.removeEventListener('voiceschanged', cb);
+}
+
+/**
  * Choose a voice once.
  *
  * `getVoices` is asynchronous on most browsers and returns an empty list on

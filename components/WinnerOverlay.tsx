@@ -113,14 +113,19 @@ export function WinnerOverlay({
         ) : null}
 
         {winningBets.length > 0 ? (
-          <p className="mt-4 text-sm text-(--tx)/70">
-            {winningBets.length} winning play {winningBets.length === 1 ? 'bet' : 'bets'} on the
-            fun board, paying{' '}
-            <span className="num font-semibold text-(--gold)">
-              {winningBets.reduce((s, b) => s + (b.returned ?? 0), 0).toLocaleString('en-AU')}
-            </span>{' '}
-            chips.
-          </p>
+          <div className="mt-4">
+            <p className="fun-chip-banner mx-auto w-fit" role="note">
+              FUN CHIPS - NO MONETARY VALUE
+            </p>
+            <p className="mt-2 text-sm text-(--tx)/70">
+              {winningBets.length} winning play {winningBets.length === 1 ? 'bet' : 'bets'} on the
+              fun board, paying{' '}
+              <span className="num font-semibold text-(--gold)">
+                {winningBets.reduce((s, b) => s + (b.returned ?? 0), 0).toLocaleString('en-AU')}
+              </span>{' '}
+              chips at the odds locked before the start.
+            </p>
+          </div>
         ) : null}
 
         <ol className="mt-6 grid gap-1.5 text-left">

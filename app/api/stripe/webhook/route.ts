@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   switch (event.type) {
     case 'checkout.session.completed':
     case 'checkout.session.async_payment_succeeded':
+    case 'checkout.session.async_payment_failed':
     case 'charge.refunded': {
       const object = event.data.object as { metadata?: Record<string, string> };
       bustCache(object.metadata?.[META.eventId]);

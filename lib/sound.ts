@@ -37,6 +37,8 @@ export {
   silence,
   initVoice,
   voiceAvailable,
+  voicesReady,
+  onVoicesChanged,
   isVoiceEnabled,
   type CallPriority,
 } from './audio/voice';

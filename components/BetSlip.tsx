@@ -97,6 +97,9 @@ export function BetSlip({
 
   return (
     <section className="glass glass-strong p-5 sm:p-6 flex flex-col gap-4" aria-label="Fun bets">
+      <p className="fun-chip-banner" role="note">
+        FUN CHIPS - NO MONETARY VALUE
+      </p>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="eyebrow">Fun bets</h2>
         <span className="flex items-center gap-2">
@@ -200,7 +203,9 @@ export function BetSlip({
 
       {leaderboard.length > 0 ? (
         <div className="border-t border-(--tx)/10 pt-3">
-          <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-(--tx)/45">Chip leaders</p>
+          <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-(--tx)/45">
+            Chip leaders <span className="fun-chip-tag">fun chips - no monetary value</span>
+          </p>
           <ol className="flex flex-col gap-1">
             {leaderboard.map((row, i) => (
               <li key={row.key} className="flex items-center gap-2 text-xs">

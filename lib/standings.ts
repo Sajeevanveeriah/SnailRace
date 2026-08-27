@@ -40,6 +40,8 @@ export function standingsFrom(history: RaceHistoryEntry[]): Standing[] {
   const table = new Map<string, Standing>();
 
   for (const race of history) {
+    /* A voided race is a compensating entry, not a result. */
+    if (race.void) continue;
     for (const result of race.results) {
       const name = result.name.trim();
       if (!name) continue;

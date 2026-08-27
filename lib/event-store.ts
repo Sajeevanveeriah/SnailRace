@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_NAMES, MAX_FIELD, MIN_FIELD } from './palette';
-import type { EventState } from './types';
+import type { AuditEntry, EventState } from './types';
 
 /**
  * The moderator's night lives on the moderator's device.
@@ -63,6 +63,7 @@ export function freshState(): EventState {
     bets: [],
     chipBank: {},
     streaks: {},
+    audit: [],
     stageTheme: 'midnight',
     calm: false,
     sound: true,
@@ -85,11 +86,37 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
+/** The last JSON this tab wrote, so a foreign write is recognisable. */
+let lastRaw: string | null = null;
+
 function persist() {
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    lastRaw = JSON.stringify(state);
+    localStorage.setItem(KEY, lastRaw);
   } catch {
     /* Private browsing or a full quota. The night continues in memory. */
+  }
+}
+
+/**
+ * Re-read before writing when another tab got there first.
+ *
+ * Two open tabs both hold the night in memory, and the `storage` event that
+ * keeps them aligned is asynchronous - so a bet placed in each tab within the
+ * same beat used to have the second write silently drop the first. Functional
+ * patches applied on top of the freshest persisted state close most of that
+ * window; the stage being a single operator device closes the rest.
+ */
+function syncFromStorage() {
+  if (!hydrated || typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw !== null && raw !== lastRaw) {
+      state = merge(raw);
+      lastRaw = raw;
+    }
+  } catch {
+    /* unreadable storage: keep the in-memory night */
   }
 }
 
@@ -122,6 +149,7 @@ function merge(raw: string | null): EventState {
         : [],
       chipBank: parsed.chipBank && typeof parsed.chipBank === 'object' ? parsed.chipBank : {},
       streaks: parsed.streaks && typeof parsed.streaks === 'object' ? parsed.streaks : {},
+      audit: Array.isArray(parsed.audit) ? parsed.audit : [],
       /* Levels are clamped on the way in: a hand-edited backup with a volume
          of 40 would hit the limiter hard enough to sound broken. */
       laps: Math.min(9, Math.max(1, Number(parsed.laps) || base.laps)),
@@ -144,16 +172,39 @@ export function hydrate() {
   window.addEventListener('storage', (e) => {
     if (e.key !== KEY) return;
     state = merge(e.newValue);
+    lastRaw = e.newValue;
     emit();
   });
   emit();
 }
 
 export function setState(patch: Partial<EventState> | ((s: EventState) => Partial<EventState>)) {
+  /* Functional patches see the freshest persisted state, so concurrent tabs
+     converge instead of clobbering each other's ledger writes. */
+  if (typeof patch === 'function') syncFromStorage();
   const next = typeof patch === 'function' ? patch(state) : patch;
   state = { ...state, ...next };
   persist();
   emit();
+}
+
+/** How much audit trail a night keeps. A cap, not a design size. */
+const AUDIT_CAP = 500;
+
+/** Append one line to the audit trail. Newest first, capped, never edited. */
+export function addAudit(entry: Omit<AuditEntry, 'id' | 'at'>) {
+  setState((s) => ({
+    audit: [
+      { ...entry, id: newAuditId(), at: Date.now() },
+      ...s.audit,
+    ].slice(0, AUDIT_CAP),
+  }));
+}
+
+function newAuditId(): string {
+  const buf = new Uint32Array(1);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(buf);
+  return `au${Date.now().toString(36)}${buf[0].toString(36)}`;
 }
 
 export function resetEvent() {
