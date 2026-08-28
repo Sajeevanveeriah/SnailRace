@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
-import { getStripe, META } from '@/lib/stripe';
+import { getStripe, META, stripeMode } from '@/lib/stripe';
 import { toDonation } from '@/lib/stripe-read';
 import { readCache, writeCache } from '@/lib/donation-cache';
 import type { Donation, DonationsResponse } from '@/lib/types';
@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     const body: DonationsResponse = {
       ok: true,
       configured: true,
+      mode: stripeMode() ?? undefined,
       donations: hit.donations,
       at: hit.at,
     };
@@ -77,6 +78,7 @@ export async function GET(request: Request) {
     const body: DonationsResponse = {
       ok: true,
       configured: true,
+      mode: stripeMode() ?? undefined,
       donations,
       at,
     };

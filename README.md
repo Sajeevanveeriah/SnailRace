@@ -27,9 +27,38 @@ a wagering product.
 
 | Route | Who it is for | What it does |
 |---|---|---|
-| `/` | The projector | Race stage, timing tower, tote board, goal ring, donation ticker, QR code, fun-bet slip, moderator drawer |
+| `/` | The projector | The whole night: run-of-show screens, race stage, tote board, goal ring, donation ticker, QR codes, fun-bet slip, moderator console |
+| `/play` | An audience phone | Phone Play: join with the room code, 100 free fun chips, picks, reactions, live leaderboard - all validated by the event server |
 | `/donate` | A punter's phone | Opened from the QR code. Pick a snail, pick an amount, pay through Stripe Checkout (Apple Pay / Google Pay) |
 | `/donate/thanks` | The same phone | Confirms the paid amount and snail straight from Stripe |
+| `/archive` | Anyone, later | Every completed race with seeds, hashes and deterministic replays |
+
+## The run of show
+
+A race night is a sequence, not a settings page. From v4 the projector walks
+**lobby → racecard → market → race → results → championship → (intermission) →
+finale** on one button - Space, or a presentation clicker - with a floating
+toolbar for the market lock, the interval and the console. Each phase is a
+full-bleed broadcast screen: the welcome with rules, sponsors and join QRs; a
+printable racecard that keeps **facts** (points, placings, the room's backing)
+visibly separate from **flavour** (labelled "for fun"); a market screen with the
+tote, the room's phone picks and a lock countdown that calls 30/10/5; the
+championship; and a finale with the night champion and the total raised.
+
+Around it sits what a volunteer actually needs:
+
+- **Preflight** - screen, sound, storage, server, Stripe mode, pack media, the
+  clicker - each row a fact with an exact reason, and the verdict the worst of
+  them: READY, ATTENTION or BLOCKED.
+- **Rehearsal mode** - a loud REHEARSAL badge on projector and phones, and a
+  one-click clear that removes rehearsal races and chips while keeping the
+  set-up and every real donation.
+- **The surprise director** - Calm, Standard, Big Night, Chaos. Presets scale how
+  much drama is dealt and can never touch a result: order and finish times are
+  drawn before the surprise budget is spent, and every envelope closes to zero at
+  the line (unit-tested per preset; Standard is bit-identical to v3).
+- **Saved nights** - whole nights archived on-device behind a SHA-256 integrity
+  fingerprint; a saved night that fails its check refuses to load.
 
 ## On the projector
 
@@ -237,6 +266,13 @@ READY, COUNTDOWN, RUNNING, FINISHED, VOID, on a banner a hall can read.
 The canonical strings behind both hashes are stated in `lib/audit.ts`, so anyone with a
 terminal can reproduce them without this app.
 
+From v4 the trail is also **hash-chained**: each entry records
+`entryHash = SHA-256(previousHash + its canonical line)`, so an edited, removed or
+reordered entry breaks every hash after it. The console verifies the chain in one
+click, in front of the room. Chained is the honest word - it is tamper-*evident*,
+not tamper-proof against the device's own owner; publishing the head hash (a photo,
+the exported CSV) is the club's control for that.
+
 ## The archive and recorded races
 
 `/archive` lists every completed race - grouped by day, result summary, seed, hashes,
@@ -251,6 +287,49 @@ void status - and every result links to a replay, the way a racing site does it.
   on the spot. Files cannot live in browser storage, so after a reload the file is
   re-attached and verified before a frame plays; a file that does not match is refused
   with the reason on screen. The deterministic replay stays authoritative either way.
+
+## Recorded Race Packs
+
+A whole night can run from **recorded, simulated races** instead of the live engine.
+A pack is a card of up to twelve races - each with its runners, its video's SHA-256
+fingerprint, and its finishing order sealed in the manifest - built or imported in
+the console, then **locked**, which publishes one SHA-256 commitment over the whole
+card to the audit trail. On the night, each race is **drawn** from the still-sealed
+pool by a seeded draw whose seed is audited, played full-bleed under honest
+REC PLAYBACK chrome, and its sealed result revealed and settled through the same
+exactly-once path as a live race. A swapped video, an edited result or a doctored
+manifest breaks a stated hash; a substituted media file is refused by name at
+attach. Voiding a playback returns the race to the pool, audited.
+
+Stated honestly, because the console and runbook say it too: the manifest - results
+included - lives on the operator's device. The commitment is tamper evidence for
+the room, not secrecy from whoever owns the laptop. Only footage the club made or
+holds rights to may enter a pack; source and licence are recorded per race and
+validated.
+
+## Phone Play
+
+The room joins on their own phones: a six-letter code on the lobby and market
+screens, 100 free fun chips each, picks at snapshot odds, emoji reactions, and a
+live leaderboard. The server is authoritative for all of it - phones only render
+its revisioned snapshot and submit requests it validates:
+
+- picks are **nonce-idempotent** (a retried submit cannot double-spend), replace
+  semantics refund the held stake first, and the market and race number are checked
+  at write time;
+- settlement happens **exactly once** per race, server-side, at each pick's locked
+  odds;
+- the operator key that pushes show state, settles and closes the room never leaves
+  the stage device, and every operator route compares it timing-safe;
+- joins are flood-limited per address, bodies capped, cross-origin posts refused,
+  reactions throttled per phone - and reactions reach the projector's atmosphere
+  only, never a race or a ledger;
+- a reload rejoins with the identity saved on the phone; closing the room tells
+  every phone the event has ended.
+
+State lives in a file-backed store on the event server (`.data/live/`, or
+`SNAILRACE_DATA_DIR`) - no cloud database. On the static Pages build, `/play`
+says plainly that Phone Play needs the event server, and makes zero API calls.
 
 ## Fun chips, said loudly
 
@@ -403,21 +482,29 @@ Set the environment (see `.env.example`):
 | `STRIPE_SECRET_KEY` | For card donations | Without it the app runs in cash-only mode and says so on the stage |
 | `STRIPE_WEBHOOK_SECRET` | Optional | Speeds up how quickly a payment lands on the board |
 | `NEXT_PUBLIC_SITE_URL` | Optional | Absolute return URLs when no Origin header exists |
+| `SNAILRACE_DATA_DIR` | Optional | Where Phone Play sessions persist (default `.data/live/`) |
 
 ## Running the night
 
-1. Open `/` on the projector laptop and press **F** for full screen.
-2. Set the line-up, goal, track, lap length and laps in **Controls** (**M**).
-3. The room scans the QR code and backs snails from their phones between races.
-4. **Space** starts the race. Betting closes, the countdown runs, drama ensues - and
-   with a longer race set, keeps ensuing.
-5. The winner card names the snail's backers; fun-bet chips pay out at locked odds.
-6. At the end: export the CSV, print the report, and reconcile against Stripe's
-   dashboard plus the cash tin. Save a backup JSON if the night continues next week.
+1. Open `/` on the projector laptop, run **Preflight** in Controls, press **F** for
+   full screen.
+2. Set the event, card length, line-up, goal and race length in **Controls** (**M**);
+   open **Phone Play** if the event server is running.
+3. **Space** walks the show: welcome, racecard, market (lock on a countdown or by
+   hand), race, results, championship, finale. The room backs snails by QR and
+   plays fun chips from their phones throughout.
+4. The winner card names the snail's backers; fun chips pay out at locked odds, on
+   stage and on every phone.
+5. At the end: export the CSVs, print the report, save a backup, archive the night -
+   and reconcile against Stripe's dashboard plus the cash tin.
 
-Keyboard: **Space** or **PageDown** start, **Esc** or **PageUp** reset/close, **M**
-controls, **C** calm mode (stops decorative motion), **S** sound, **B** music and crowd,
-**V** the spoken caller, **F** full screen.
+The step-by-step volunteer script lives in
+`docs/20260828-Operator-Runbook-Rev00.md`.
+
+Keyboard: **Space** or **PageDown** advance the show / start the race, **Esc** or
+**PageUp** step back / reset / close, **M** controls, **C** calm mode (stops
+decorative motion), **S** sound, **B** music and crowd, **V** the spoken caller,
+**F** full screen.
 
 ## Deployment
 

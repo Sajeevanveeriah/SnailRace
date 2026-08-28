@@ -72,11 +72,90 @@ export interface AuditEntry {
     | 'race_void'
     | 'race_undone'
     | 'bets_settled'
+    | 'event_created'
+    | 'phase_change'
+    | 'pack_locked'
+    | 'pack_race_drawn'
+    | 'backup_exported'
+    | 'backup_restored'
     | 'note';
   /** Race the entry belongs to. 0 for event-level notes. */
   raceNo: number;
   /** One human-readable line for the console and the export. */
   detail: string;
+  /*
+   * The hash chain. entryHash = SHA-256(prevHash + canonical entry), so a
+   * removed or edited line breaks every hash after it. This is tamper
+   * EVIDENCE on a device the operator controls, not proof against the
+   * device's owner - stated, not oversold. Entries from a v3 night predate
+   * the chain and anchor it where it begins.
+   */
+  prevHash?: string;
+  entryHash?: string;
+}
+
+/* ── The show, as phases a volunteer steps through ─────────────────────── */
+
+/**
+ * The run of show. A race night is a sequence, not a settings page: the
+ * projector renders each phase as its own screen and the clicker's forward
+ * button advances through them. `race` hands control to the existing race
+ * lifecycle (ready/countdown/running/finished/void) and returns to `results`.
+ */
+export type ShowPhase =
+  | 'lobby'
+  | 'racecard'
+  | 'market'
+  | 'race'
+  | 'results'
+  | 'championship'
+  | 'intermission'
+  | 'finale';
+
+/** How busy the Surprise Director is allowed to be. Never touches results. */
+export type SurpriseIntensity = 'calm' | 'standard' | 'big' | 'chaos';
+
+/* ── Recorded Race Packs ───────────────────────────────────────────────── */
+
+/**
+ * One recorded, simulated race inside a pack. The media file itself never
+ * enters the manifest - only its SHA-256, size and name - so a substituted
+ * or corrupted file is refused before a frame plays.
+ */
+export interface PackRace {
+  /** Unique within the pack. */
+  raceId: string;
+  title: string;
+  /** Runner names, lane order. */
+  runners: string[];
+  sponsor?: string;
+  durationMs: number;
+  mediaFileName: string;
+  mediaSha256: string;
+  mediaBytes: number;
+  mediaType: string;
+  /**
+   * The committed result: finishing order as lane indices, winner first.
+   * Hidden by every operator surface until the race has been played.
+   */
+  resultOrder: number[];
+  /** Optional timeline notes shown after reveal. */
+  highlights?: { atMs: number; text: string }[];
+  /** Where the footage came from and the licence that permits this use. */
+  source: string;
+  licence: string;
+  createdAt: number;
+}
+
+/** A locked card of recorded races. Fingerprints make it tamper-evident. */
+export interface RacePackManifest {
+  schema: 1;
+  packId: string;
+  title: string;
+  createdAt: number;
+  races: PackRace[];
+  /** SHA-256 over the canonical manifest (races included, hashes excluded). */
+  manifestHash?: string;
 }
 
 /**
@@ -122,6 +201,8 @@ export interface RaceHistoryEntry {
   laps?: number;
   surprises?: boolean;
   trackShape?: 'lanes' | 'circuit';
+  /** Surprise Director preset the race ran under. Part of the commitment. */
+  intensity?: SurpriseIntensity;
   lockedAt?: number;
   startedAt?: number;
   finishedAt?: number;
@@ -136,6 +217,10 @@ export interface RaceHistoryEntry {
   voidReason?: string;
   /** Verified recording, when the operator has attached one. */
   media?: RaceMedia;
+  /** Where the result came from: the seeded engine, or a locked Race Pack. */
+  source?: 'engine' | 'pack';
+  packId?: string;
+  packRaceId?: string;
   /*
    * Snapshots taken before the race settled, so the console can undo it
    * exactly. Reversing the arithmetic instead would have to re-derive a
@@ -165,10 +250,36 @@ export interface Bet {
 }
 
 export interface EventState {
-  version: 3;
+  version: 4;
   eventId: string;
   clubName: string;
   eventName: string;
+  /** Presentation timezone for the night. */
+  timezone: string;
+  /** ISO date of the event, for the archive and reports. Optional. */
+  eventDate?: string;
+  venue?: string;
+  /** Which product the night runs on: the animated engine, or a Race Pack. */
+  eventMode: 'live' | 'recorded';
+  /** How many races the card plans. Presentation only; never a limit. */
+  plannedRaces: number;
+  /** Rehearsal nights are loudly labelled and cheap to reset. */
+  rehearsal: boolean;
+  /** Where the run of show currently stands. Survives reloads. */
+  showPhase: ShowPhase;
+  /** Surprise Director preset. Part of the race commitment. */
+  intensity: SurpriseIntensity;
+  /** The locked recorded card, when eventMode is 'recorded'. */
+  racePack?: RacePackManifest | null;
+  packLockedAt?: number;
+  /** SHA-256 commitment over the locked pack, published to the audit. */
+  packCommit?: string;
+  /** raceIds already played from the pack, in play order. */
+  packPlayed?: string[];
+  /** The drawn-but-not-yet-finished pack race, so a reload recovers it. */
+  packCurrent?: string | null;
+  /** Phone Play session, when the server mode has one open. */
+  phonePlay?: { code: string; operatorKey: string; pin?: string } | null;
   fieldSize: number;
   names: string[];
   goalCents: number;
@@ -221,6 +332,8 @@ export interface EventState {
 export interface DonationsResponse {
   ok: boolean;
   configured: boolean;
+  /** Which Stripe mode the server key selects. Never the key itself. */
+  mode?: 'test' | 'live';
   donations: Donation[];
   /** Server clock in ms, so the stage can detect a stalled poll. */
   at: number;

@@ -61,7 +61,9 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
     if (!entry || names.length === 0) return null;
     const seed = hexToSeed(entry.seedHex);
     if (seed === null) return null;
-    return drawRace(seed, names, entry.durationMs, entry.surprises ?? true);
+    /* Intensity is part of what the seed drew (v2 commitments bind it), so a
+       replay of a Big Night race re-deals the same drama, not standard's. */
+    return drawRace(seed, names, entry.durationMs, entry.surprises ?? true, entry.intensity ?? 'standard');
   }, [entry, names]);
 
   /*

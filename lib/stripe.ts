@@ -30,6 +30,17 @@ export function getStripe(): Stripe | null {
 
 export const stripeConfigured = (): boolean => Boolean(process.env.STRIPE_SECRET_KEY);
 
+/**
+ * Which Stripe mode the server key selects. Preflight shows this so a test
+ * key cannot masquerade as a live night; the key itself never leaves the
+ * server.
+ */
+export const stripeMode = (): 'test' | 'live' | null => {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  return key.startsWith('sk_test') || key.startsWith('rk_test') ? 'test' : 'live';
+};
+
 /** Metadata keys, in one place, so the writer and the reader cannot drift. */
 export const META = {
   app: 'ndcc_snailrace',

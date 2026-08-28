@@ -1195,7 +1195,9 @@ body {
   background: color-mix(in srgb, var(--card) 96%, transparent);
   position: fixed;
   inset: auto 0 0 0;
-  z-index: 60;
+  /* Above the show screens (60) and their toolbar (80): the console must be
+     reachable from any phase of the night. */
+  z-index: 85;
   max-height: 84vh;
   overflow-y: auto;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
@@ -2144,3 +2146,189 @@ kbd {
 
 .tv-live.tv-replay { background: #1c4fa0; }
 .tv-live.tv-replay i { animation: none; border-radius: 2px; }
+
+/* ── Phone Play ────────────────────────────────────────────────────────── */
+
+.react-btn {
+  display: grid;
+  place-items: center;
+  min-width: 52px;
+  min-height: 48px;
+  flex: 1;
+  border-radius: 14px;
+  border: 1px solid var(--hairline-strong);
+  background: color-mix(in srgb, var(--tx) 4%, transparent);
+  font-size: 22px;
+  transition: transform 160ms var(--ease-spring, ease);
+}
+.react-btn:active { transform: scale(1.18); }
+@media (prefers-reduced-motion: reduce) { .react-btn:active { transform: none; } }
+
+/* ── The run of show: full-bleed phase screens ─────────────────────────── */
+
+.show-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--tx) 5%, transparent), transparent 60%),
+    var(--bg);
+  overflow-y: auto;
+}
+.show-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: clamp(1rem, 2.5vh, 1.6rem) clamp(1.2rem, 3vw, 2.4rem) 0;
+}
+.show-phase {
+  margin-left: auto;
+  border-radius: 8px;
+  padding: 0.4em 0.9em;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #fff;
+  background: #b3141c;
+}
+.show-rehearsal {
+  border-radius: 8px;
+  padding: 0.4em 0.9em;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #fff;
+  background: color-mix(in srgb, var(--bad) 75%, #000);
+}
+.show-body {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: clamp(1rem, 3vh, 2rem) clamp(1.2rem, 3vw, 2.4rem);
+}
+.show-center { align-items: center; }
+.show-panel {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  padding: clamp(1.2rem, 3vh, 2rem);
+}
+.show-panel-wide { width: 100%; max-width: 1100px; }
+.show-strap {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  border-top: 1px solid var(--hairline);
+  padding: 0.8rem clamp(1.2rem, 3vw, 2.4rem) calc(0.8rem + env(safe-area-inset-bottom));
+}
+.show-countdown {
+  font-size: 2.6rem;
+  font-weight: 800;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.show-countdown-hot { color: var(--bad); }
+.calm .show-countdown-hot { animation: none; }
+
+/* Reaction bubbles: the room's phones, visible on the projector. */
+.reaction-float {
+  position: fixed;
+  bottom: 12vh;
+  z-index: 70;
+  font-size: 34px;
+  pointer-events: none;
+  animation: reaction-rise 2.6s ease-out forwards;
+}
+@keyframes reaction-rise {
+  0% { transform: translateY(0) scale(0.7); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translateY(-42vh) scale(1.15); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reaction-float { animation: none; opacity: 0; }
+}
+.calm .reaction-float { animation: none; opacity: 0; }
+
+@media print {
+  .show-screen, .show-strap, .react-btn { display: none !important; }
+  .racecard { color: #000; }
+  .racecard table { width: 100%; border-collapse: collapse; }
+  .racecard th, .racecard td { border-bottom: 1px solid #999; padding: 4px 6px; }
+}
+
+/* ── Recorded Race Pack stage ─────────────────────────────────────────── */
+/*
+ * The pack stage stands where the telecast normally does, so it inherits
+ * the telecast's footprint; while a recording plays it goes full-bleed
+ * black like a broadcast VT roll.
+ */
+.pack-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: clamp(340px, 52vh, 640px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.pack-playing {
+  background: #000;
+  border: 1px solid var(--hairline);
+}
+.pack-playing .tv-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+}
+.pack-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.pack-controls {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  gap: 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(10px);
+  padding: 0.45rem 0.7rem;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+.pack-controls:hover,
+.pack-controls:focus-within {
+  opacity: 1;
+}
+
+/* ── Show controls: the volunteer's floating next/back bar ────────────── */
+.show-controls {
+  position: fixed;
+  bottom: calc(1.1rem + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
+  padding: 0.5rem 0.7rem;
+}
+@media print {
+  .pack-controls, .show-controls { display: none !important; }
+}
