@@ -481,10 +481,27 @@ export interface RaceEvent {
  * loses a room, so the budget scales the whole way up - roughly one every
  * three seconds. The ceiling is a runaway guard, not a design choice.
  */
-export function eventBudget(durationMs: number, fieldSize: number): number {
-  const byLength = Math.round((durationMs / 1000) * 0.34);
+export function eventBudget(durationMs: number, fieldSize: number, factor = 1): number {
+  const byLength = Math.round((durationMs / 1000) * 0.34 * factor);
   return Math.max(2, Math.min(120, byLength, fieldSize * 8));
 }
+
+/**
+ * The Surprise Director's presets.
+ *
+ * A pure budget multiplier, deliberately: `standard` is exactly 1, so a v3
+ * night replayed under v4 deals the identical surprises from the identical
+ * stream, and the fairness argument never moves - a preset changes how MANY
+ * envelopes are dealt, never what an envelope can do at the line.
+ */
+export const INTENSITY_FACTOR = {
+  calm: 0.45,
+  standard: 1,
+  big: 1.7,
+  chaos: 2.8,
+} as const;
+
+export type IntensityId = keyof typeof INTENSITY_FACTOR;
 
 /**
  * Drama at the line.
@@ -585,9 +602,9 @@ function drawFinishDrama(rnd: () => number, order: number[]): RaceEvent[] {
  * built up a field worth scattering. Rare enough that a plague is still an
  * event; common enough that a five-minute race gets a few.
  */
-export function swarmBudget(durationMs: number, fieldSize: number): number {
+export function swarmBudget(durationMs: number, fieldSize: number, factor = 1): number {
   if (fieldSize < 4 || durationMs < 25_000) return 0;
-  return Math.max(1, Math.min(6, Math.round(durationMs / 45_000)));
+  return Math.max(1, Math.min(8, Math.round((durationMs / 45_000) * factor)));
 }
 
 /**
@@ -608,8 +625,9 @@ export function drawEvents(
   rnd: () => number,
   fieldSize: number,
   durationMs: number,
+  factor = 1,
 ): RaceEvent[] {
-  const target = eventBudget(durationMs, fieldSize);
+  const target = eventBudget(durationMs, fieldSize, factor);
   const events: RaceEvent[] = [];
   const perLane = new Map<number, RaceEvent[]>();
 
@@ -628,7 +646,7 @@ export function drawEvents(
 
   /* ── Field events first ─────────────────────────────────────────── */
 
-  const swarms = swarmBudget(durationMs, fieldSize);
+  const swarms = swarmBudget(durationMs, fieldSize, factor);
   for (let g = 0; g < swarms; g++) {
     const spec = pickWeighted(rnd, SWARM_SPECS);
     const span = spec.spanFrom + rnd() * (spec.spanTo - spec.spanFrom);
@@ -801,9 +819,11 @@ export function drawRace(
   names: string[],
   durationMs: number,
   surprises = true,
+  intensity: IntensityId = 'standard',
 ): DrawnRace {
   const n = names.length;
   const { order, rnd } = drawOrder(seed, n);
+  const factor = INTENSITY_FACTOR[intensity] ?? 1;
 
   const photoFinish = rnd() < 0.25; // one race in four is a genuine squeaker
 
@@ -828,7 +848,7 @@ export function drawRace(
     T[order[j]] = Math.min(T[order[j - 1]] + gap, durationMs * 1.24 + j * 90);
   }
 
-  const events = surprises ? drawEvents(rnd, n, durationMs) : [];
+  const events = surprises ? drawEvents(rnd, n, durationMs, factor) : [];
   if (surprises && n > 1) events.push(...drawFinishDrama(rnd, order));
 
   /* Drawn last, so adding it cannot shift the order or the surprises. */

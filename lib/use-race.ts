@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   callLine,
   drawRace,
+  type IntensityId,
   eventLine,
   freshSeed,
   leadChangeLine,
@@ -146,7 +147,13 @@ export interface RaceController {
   onBoard: (cb: (rows: BoardRow[]) => void) => () => void;
   /** Register the renderer that turns each frame's positions into pixels. */
   setPainter: (painter: RacePainter | null) => void;
-  start: (names: string[], durationMs: number, surprises?: boolean, laps?: number) => void;
+  start: (
+    names: string[],
+    durationMs: number,
+    surprises?: boolean,
+    laps?: number,
+    intensity?: IntensityId,
+  ) => void;
   reset: () => void;
   /**
    * Abandon the race in progress: no result, no settlement. The countdown or
@@ -682,12 +689,12 @@ export function useRace(
   }, [frame]);
 
   const start = useCallback(
-    (names: string[], durationMs: number, surprises = true, laps = 1) => {
+    (names: string[], durationMs: number, surprises = true, laps = 1, intensity: IntensityId = 'standard') => {
       if (phase === 'countdown' || phase === 'running') return;
       reset();
       painterRef.current?.measure();
 
-      const drawn = drawRace(freshSeed(), names, durationMs, surprises);
+      const drawn = drawRace(freshSeed(), names, durationMs, surprises, intensity);
       lapsRef.current = Math.max(1, laps);
       raceRef.current = {
         ...drawn,

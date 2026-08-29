@@ -2,7 +2,8 @@
 
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_NAMES, MAX_FIELD, MIN_FIELD } from './palette';
-import type { AuditEntry, EventState } from './types';
+import { canonicalAuditEntry, sha256Hex } from './audit';
+import type { AuditEntry, EventState, ShowPhase, SurpriseIntensity } from './types';
 
 /**
  * The moderator's night lives on the moderator's device.
@@ -17,6 +18,11 @@ import type { AuditEntry, EventState } from './types';
  * also gives us cross-tab sync for free through the `storage` event.
  */
 
+/*
+ * The storage key is unchanged from v3 on purpose: a club laptop that ran a
+ * v3 night upgrades in place, with `merge` performing the deterministic
+ * v3-to-v4 migration on first load. Nothing is ever discarded by version.
+ */
 const KEY = 'ndcc-snailrace-v3';
 
 /*
@@ -34,10 +40,20 @@ function newEventId(): string {
 
 export function freshState(): EventState {
   return {
-    version: 3,
+    version: 4,
     eventId: newEventId(),
     clubName: 'Newcomb & District Cricket Club',
     eventName: 'Snail Racing Fundraiser',
+    timezone: 'Australia/Melbourne',
+    eventMode: 'live',
+    plannedRaces: 6,
+    rehearsal: false,
+    showPhase: 'lobby',
+    intensity: 'standard',
+    racePack: null,
+    packPlayed: [],
+    packCurrent: null,
+    phonePlay: null,
     fieldSize: 6,
     names: DEFAULT_NAMES.slice(),
     goalCents: 100_000,
@@ -135,10 +151,39 @@ function merge(raw: string | null): EventState {
     const parsed = JSON.parse(raw) as Partial<EventState>;
     const names = Array.isArray(parsed.names) ? parsed.names.slice(0, MAX_FIELD) : base.names;
     while (names.length < MAX_FIELD) names.push(DEFAULT_NAMES[names.length % DEFAULT_NAMES.length]);
+    const phases: ShowPhase[] = [
+      'lobby', 'racecard', 'market', 'race', 'results', 'championship', 'intermission', 'finale',
+    ];
+    const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos'];
     return {
       ...base,
       ...parsed,
-      version: 3,
+      version: 4,
+      /* v3 nights predate these; every default is deterministic. */
+      timezone: typeof parsed.timezone === 'string' && parsed.timezone ? parsed.timezone : base.timezone,
+      eventMode: parsed.eventMode === 'recorded' ? 'recorded' : 'live',
+      plannedRaces: Math.min(12, Math.max(1, Number(parsed.plannedRaces) || base.plannedRaces)),
+      rehearsal: parsed.rehearsal === true,
+      showPhase: phases.includes(parsed.showPhase as ShowPhase)
+        ? (parsed.showPhase as ShowPhase)
+        : 'lobby',
+      intensity: intensities.includes(parsed.intensity as SurpriseIntensity)
+        ? (parsed.intensity as SurpriseIntensity)
+        : parsed.surprises === false
+          ? 'calm'
+          : 'standard',
+      racePack:
+        parsed.racePack && typeof parsed.racePack === 'object' && Array.isArray(parsed.racePack.races)
+          ? parsed.racePack
+          : null,
+      packPlayed: Array.isArray(parsed.packPlayed)
+        ? parsed.packPlayed.filter((x): x is string => typeof x === 'string')
+        : [],
+      packCurrent: typeof parsed.packCurrent === 'string' ? parsed.packCurrent : null,
+      phonePlay:
+        parsed.phonePlay && typeof parsed.phonePlay === 'object' && typeof parsed.phonePlay.code === 'string'
+          ? parsed.phonePlay
+          : null,
       names,
       fieldSize: Math.min(MAX_FIELD, Math.max(MIN_FIELD, Number(parsed.fieldSize) || base.fieldSize)),
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
@@ -169,6 +214,7 @@ export function hydrate() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
   state = merge(localStorage.getItem(KEY));
+  reanchorChain();
   window.addEventListener('storage', (e) => {
     if (e.key !== KEY) return;
     state = merge(e.newValue);
@@ -191,15 +237,37 @@ export function setState(patch: Partial<EventState> | ((s: EventState) => Partia
 /** How much audit trail a night keeps. A cap, not a design size. */
 const AUDIT_CAP = 500;
 
-/** Append one line to the audit trail. Newest first, capped, never edited. */
-export function addAudit(entry: Omit<AuditEntry, 'id' | 'at'>) {
-  setState((s) => ({
-    audit: [
-      { ...entry, id: newAuditId(), at: Date.now() },
-      ...s.audit,
-    ].slice(0, AUDIT_CAP),
-  }));
+/*
+ * The chain head: the entryHash of the newest chained entry. Hashing is
+ * async (SHA-256), so writes are serialised through one promise queue - the
+ * chain order is the insertion order even when two entries land in the same
+ * millisecond. The head re-anchors from storage on hydrate and restore.
+ */
+let chainHead = '';
+let chainQueue: Promise<void> = Promise.resolve();
+
+function reanchorChain() {
+  chainHead = state.audit.find((a) => a.entryHash)?.entryHash ?? '';
 }
+
+/** Append one line to the audit trail. Newest first, capped, never edited. */
+export function addAudit(entry: Omit<AuditEntry, 'id' | 'at' | 'prevHash' | 'entryHash'>) {
+  const full: AuditEntry = { ...entry, id: newAuditId(), at: Date.now() };
+  setState((s) => ({
+    audit: [full, ...s.audit].slice(0, AUDIT_CAP),
+  }));
+  chainQueue = chainQueue.then(async () => {
+    const prevHash = chainHead;
+    const entryHash = await sha256Hex(prevHash + canonicalAuditEntry(full));
+    chainHead = entryHash;
+    setState((s) => ({
+      audit: s.audit.map((a) => (a.id === full.id ? { ...a, prevHash, entryHash } : a)),
+    }));
+  });
+}
+
+/** Let tests and exports wait for in-flight chain hashes to settle. */
+export const auditChainSettled = (): Promise<void> => chainQueue.then(() => undefined);
 
 function newAuditId(): string {
   const buf = new Uint32Array(1);
@@ -215,9 +283,20 @@ export function resetEvent() {
 
 /** Replace the whole night, used by the backup restore. Returns false if unusable. */
 export function restore(raw: string): boolean {
+  /* A backup that does not even parse must refuse, never quietly become a
+     fresh night: refusing loses nothing, "restoring" it loses the event. */
+  try {
+    const probe = JSON.parse(raw) as { eventId?: unknown } | null;
+    if (!probe || typeof probe !== 'object' || typeof probe.eventId !== 'string' || !probe.eventId) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
   const next = merge(raw);
   if (!next.eventId) return false;
   state = next;
+  reanchorChain();
   persist();
   emit();
   return true;
@@ -231,6 +310,9 @@ const subscribe = (listener: () => void) => {
 };
 
 const getSnapshot = () => state;
+
+/** The state as it stands right now - for reads after an awaited settle. */
+export const currentState = (): EventState => state;
 /*
  * The server renders the default night, never a restored one: localStorage is
  * not readable there, and returning a different object on the server than on

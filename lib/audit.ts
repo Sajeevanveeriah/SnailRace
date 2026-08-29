@@ -1,4 +1,4 @@
-import type { RaceResult } from './types';
+import type { AuditEntry, RaceResult } from './types';
 
 /**
  * The audit trail and its hashes.
@@ -31,12 +31,18 @@ export interface RaceConfig {
   laps: number;
   surprises: boolean;
   trackShape: string;
+  /**
+   * Surprise Director preset. Part of the commitment from v4 on; races
+   * recorded before presets existed verify against the v1 canonical string,
+   * which this field's absence selects.
+   */
+  intensity?: string;
 }
 
 /** The canonical string the commitment hashes. Stated so it can be replayed. */
-export const commitmentInput = (seedHex: string, config: RaceConfig): string =>
-  [
-    'ndcc-race-commit-v1',
+export const commitmentInput = (seedHex: string, config: RaceConfig): string => {
+  const base = [
+    config.intensity === undefined ? 'ndcc-race-commit-v1' : 'ndcc-race-commit-v2',
     seedHex.toUpperCase(),
     config.raceNo,
     config.raceType,
@@ -47,7 +53,10 @@ export const commitmentInput = (seedHex: string, config: RaceConfig): string =>
     config.laps,
     config.surprises ? 1 : 0,
     config.trackShape,
-  ].join('|');
+  ];
+  if (config.intensity !== undefined) base.push(config.intensity);
+  return base.join('|');
+};
 
 export const commitmentOf = (seedHex: string, config: RaceConfig): Promise<string> =>
   sha256Hex(commitmentInput(seedHex, config));
@@ -65,6 +74,51 @@ export const resultInput = (seedHex: string, results: RaceResult[]): string =>
 
 export const resultHashOf = (seedHex: string, results: RaceResult[]): Promise<string> =>
   sha256Hex(resultInput(seedHex, results));
+
+/* ── The audit hash chain ──────────────────────────────────────────────── */
+
+/**
+ * The canonical string one audit entry contributes to the chain. Stated so
+ * an exported trail can be verified with nothing but a SHA-256 tool:
+ *
+ *   entryHash = SHA-256(prevHash + canonicalAuditEntry(entry))
+ *
+ * A removed, reordered or edited entry breaks every hash after it. On a
+ * capped or migrated trail the chain is verified from its oldest chained
+ * entry forward, with that entry's prevHash taken as the anchor.
+ */
+export const canonicalAuditEntry = (e: Pick<AuditEntry, 'id' | 'at' | 'kind' | 'raceNo' | 'detail'>): string =>
+  ['ndcc-audit-v1', e.id, e.at, e.kind, e.raceNo, e.detail].join('|');
+
+export interface ChainReport {
+  ok: boolean;
+  /** Entries carrying chain hashes. */
+  chained: number;
+  /** Entries predating the chain (v3 nights), anchoring it. */
+  unchained: number;
+  /** id of the first entry whose hash does not verify, when !ok. */
+  breakAt?: string;
+}
+
+/** Verify a trail as stored: newest first. */
+export async function verifyAuditChain(auditNewestFirst: AuditEntry[]): Promise<ChainReport> {
+  const chrono = auditNewestFirst.slice().reverse().filter((e) => e.entryHash);
+  const unchained = auditNewestFirst.length - chrono.length;
+  let prev: string | null = null;
+  for (const e of chrono) {
+    /* The oldest chained entry anchors the chain: its prevHash is trusted. */
+    const prevHash = prev === null ? (e.prevHash ?? '') : prev;
+    if (prev !== null && e.prevHash !== prev) {
+      return { ok: false, chained: chrono.length, unchained, breakAt: e.id };
+    }
+    const expect = await sha256Hex(prevHash + canonicalAuditEntry(e));
+    if (expect !== e.entryHash) {
+      return { ok: false, chained: chrono.length, unchained, breakAt: e.id };
+    }
+    prev = e.entryHash!;
+  }
+  return { ok: true, chained: chrono.length, unchained };
+}
 
 /* ── SHA-256 ───────────────────────────────────────────────────────────── */
 

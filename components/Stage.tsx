@@ -15,14 +15,21 @@ import { WinnerOverlay } from './WinnerOverlay';
 import { ControlDrawer } from './ControlDrawer';
 import { ThemeToggle } from './ThemeToggle';
 import { addAudit, hydrate, useEvent, setState } from '@/lib/event-store';
-import { commitmentOf, resultHashOf, shortHash, type RaceConfig } from '@/lib/audit';
+import { commitmentOf, shortHash, type RaceConfig } from '@/lib/audit';
+import { recordRaceResult } from '@/lib/settlement';
+import { hostLineFor, marketWarning, nextShowPhase, showPhaseSpec } from '@/lib/show';
+import { usePhonePlay } from '@/lib/use-phone-play';
+import { ShowOverlay } from './ShowScreens';
+import { PackRunner } from './PackRunner';
+import type { LiveShow } from '@/lib/live/store';
+import type { PackRace, ShowPhase } from '@/lib/types';
 import { useOrigin } from '@/lib/use-origin';
 import { HAS_API } from '@/lib/deployment';
 import { useCanSpeak } from '@/lib/use-can-speak';
 import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace } from '@/lib/use-race';
-import { poolsFor, settleBets } from '@/lib/tote';
+import { poolsFor } from '@/lib/tote';
 import { sponsorFor } from '@/lib/standings';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
@@ -30,6 +37,7 @@ import { laneColour } from '@/lib/palette';
 import {
   audioState,
   initVoice,
+  say,
   resumeAudio,
   setCallerOn,
   primeAudio,
@@ -44,9 +52,6 @@ import {
 } from '@/lib/sound';
 import type { Bet, Donation, RaceHighlight, RaceHistoryEntry, RaceResult } from '@/lib/types';
 import type { DrawnRace } from '@/lib/race-engine';
-
-/** Bonus chips per race for a punter on a run, so a hot streak is worth chasing. */
-const STREAK_BONUS = 25;
 
 export function Stage() {
   const event = useEvent();
@@ -127,22 +132,24 @@ export function Stage() {
     commitHash: string;
   } | null>(null);
 
+  /** Set once Phone Play mounts; onFinish settles the room through it. */
+  const phonePlayRef = useRef<((raceNo: number, results: RaceResult[]) => Promise<void>) | null>(
+    null,
+  );
+
   const onFinish = useCallback(
     (drawn: DrawnRace, results: RaceResult[], reel: RaceHighlight[]) => {
       const raceNo = nextRaceNo;
-      const winner = results[0];
-
-      /*
-       * Settle exactly once. The loop calls this once per race, but a race
-       * that already has a standing (non-void) result must never settle
-       * again - re-entry here would pay every winning bet a second time.
-       */
-      if (event.history.some((h) => h.raceNo === raceNo && !h.void)) return;
-
       const armed = armedRef.current;
       const finishedAt = nowMs();
 
-      const entry: RaceHistoryEntry = {
+      /*
+       * One settlement path for every race source. `recordRaceResult` holds
+       * the exactly-once guard, snapshots, streaks, audit entries and the
+       * async result hash; this callback only supplies the engine's entry
+       * and drives the stage furniture.
+       */
+      const { recorded } = recordRaceResult({
         raceNo,
         raceType: event.raceType,
         seedHex: drawn.seedHex,
@@ -154,99 +161,27 @@ export function Stage() {
         photoFinish: drawn.photoFinish,
         highlights: reel,
         sponsor,
-        /* The audit block, captured when betting locked. */
+        source: 'engine',
         names: armed?.config.names ?? names,
         laps: armed?.config.laps,
         surprises: armed?.config.surprises,
         trackShape: event.trackShape,
+        intensity: event.intensity,
         lockedAt: armed?.lockedAt,
         startedAt: armed?.startedAt,
         finishedAt,
         oddsAtLock: armed?.oddsAtLock,
         commitHash: armed?.commitHash,
-        /* Taken before settlement, so Undo restores rather than re-derives. */
-        chipBankBefore: { ...event.chipBank },
-        streaksBefore: { ...event.streaks },
-      };
-
-      const settled = settleBets(event.bets, raceNo, winner?.lane ?? -1);
-      const bank = { ...event.chipBank };
-      for (const b of settled) {
-        if (b.raceNo !== raceNo || !b.returned) continue;
-        const k = b.punter.trim().toLowerCase();
-        bank[k] = (bank[k] ?? CHIP_START) + b.returned;
-      }
-
-      /*
-       * Streaks. Anyone who had a bet on this race either extended a run or
-       * ended one, and a run pays a bonus on top of the odds - which is the
-       * reason to come back for the next race rather than sit the rest out.
-       * Punters who sat this one out keep the streak they had.
-       */
-      const streaks = { ...event.streaks };
-      const played = new Map<string, boolean>();
-      for (const b of settled) {
-        if (b.raceNo !== raceNo) continue;
-        const k = b.punter.trim().toLowerCase();
-        played.set(k, (played.get(k) ?? false) || Boolean(b.won));
-      }
-      for (const [k, won] of played) {
-        const run = won ? (streaks[k] ?? 0) + 1 : 0;
-        streaks[k] = run;
-        if (run >= 2) bank[k] = (bank[k] ?? CHIP_START) + STREAK_BONUS * run;
-      }
-
-      setState({
-        raceNumber: raceNo,
-        history: [entry, ...event.history],
-        bets: settled,
-        chipBank: bank,
-        streaks,
-        bettingOpen: true,
       });
+      if (!recorded) return;
 
-      const settledCount = settled.filter((b) => b.raceNo === raceNo).length;
-      const paid = settled
-        .filter((b) => b.raceNo === raceNo)
-        .reduce((s, b) => s + (b.returned ?? 0), 0);
-      addAudit({
-        kind: 'race_finished',
-        raceNo,
-        detail: `Race ${raceNo} finished. Winner ${winner?.name ?? 'none'} (lane ${
-          (winner?.lane ?? -1) + 1
-        }), seed ${drawn.seedHex}.`,
-      });
-      if (settledCount) {
-        addAudit({
-          kind: 'bets_settled',
-          raceNo,
-          detail: `Race ${raceNo}: ${settledCount} fun-chip ${
-            settledCount === 1 ? 'bet' : 'bets'
-          } settled once, ${paid} chips paid at locked odds. FUN CHIPS - no monetary value.`,
-        });
-      }
-
-      /*
-       * The result hash is async (SHA-256), so it lands on the entry a beat
-       * after the entry itself. The functional patch finds the entry again
-       * rather than assuming it is still at the head of the list.
-       */
-      void resultHashOf(drawn.seedHex, results).then((hash) => {
-        setState((s) => ({
-          history: s.history.map((h) =>
-            h.raceNo === raceNo && !h.void && h.seedHex === drawn.seedHex
-              ? { ...h, resultHash: hash }
-              : h,
-          ),
-        }));
-      });
-
+      void phonePlayRef.current?.(raceNo, results);
       armedRef.current = null;
       setHighlights(reel);
       setOverlayOpen(true);
       setConfettiKey((k) => k + 1);
     },
-    [event.bets, event.chipBank, event.history, event.raceDurationMs, event.raceType, event.trackShape, event.streaks, names, nextRaceNo, potCents, sponsor],
+    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, names, nextRaceNo, potCents, sponsor],
   );
 
   const race = useRace(onFinish);
@@ -372,6 +307,23 @@ export function Stage() {
     setState({ bettingOpen: true });
   }, [race]);
 
+  /* A brand-new event replaces the night in the store, but the engine's last
+     running order lives in this component - clear it so the fresh night does
+     not open showing the old one's arrivals. Only the engine's visuals reset:
+     this also fires when hydration swaps in the stored night on load, and a
+     reload mid-race must NOT reopen its locked betting. */
+  const eventIdRef = useRef(event.eventId);
+  useEffect(() => {
+    if (eventIdRef.current === event.eventId) return;
+    eventIdRef.current = event.eventId;
+    const id = window.setTimeout(() => {
+      race.reset();
+      setOverlayOpen(false);
+      armedRef.current = null;
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [event.eventId, race]);
+
   /** Declare the race in progress void: no result, no settlement, re-run. */
   const voidCurrentRace = useCallback(() => {
     if (race.phase !== 'countdown' && race.phase !== 'running') return;
@@ -410,6 +362,247 @@ export function Stage() {
     });
     armedRef.current = null;
   }, [race, nextRaceNo, event.raceType, event.raceDurationMs, names, potCents, sponsor]);
+
+  /* ── The run of show ─────────────────────────────────────────────────── */
+
+  const racesRun = useMemo(
+    () => event.history.filter((h) => !h.void).length,
+    [event.history],
+  );
+
+  const [marketLockAt, setMarketLockAt] = useState<number | null>(null);
+  const warnedRef = useRef<Set<number>>(new Set());
+
+  /** The host speaks between races; the race keeps its own richer caller. */
+  const sayHost = useCallback((text: string) => {
+    say(text, 'big');
+  }, []);
+
+  const goToPhase = useCallback(
+    (phase: ShowPhase) => {
+      setState({ showPhase: phase });
+      addAudit({
+        kind: 'phase_change',
+        raceNo: nextRaceNo,
+        detail: `Show advanced to ${showPhaseSpec(phase).screen}.`,
+      });
+      sayHost(
+        hostLineFor(phase, {
+          clubName: event.clubName,
+          eventName: event.eventName,
+          raceNo: nextRaceNo,
+          plannedRaces: event.plannedRaces,
+          sponsor,
+          leaderName: undefined,
+          intensity: event.intensity,
+        }),
+      );
+    },
+    [sayHost, event.clubName, event.eventName, event.plannedRaces, event.intensity, nextRaceNo, sponsor],
+  );
+
+  const advanceShow = useCallback(() => {
+    const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces });
+    if (next === event.showPhase) return;
+    if (event.showPhase === 'results') {
+      setOverlayOpen(false);
+      race.reset();
+    }
+    setMarketLockAt(null);
+    warnedRef.current.clear();
+    goToPhase(next);
+  }, [event.showPhase, event.plannedRaces, racesRun, goToPhase, race]);
+
+  const backShow = useCallback(() => {
+    const back: Partial<Record<ShowPhase, ShowPhase>> = {
+      racecard: 'lobby',
+      market: 'racecard',
+      race: 'market',
+      intermission: 'championship',
+      finale: 'championship',
+    };
+    const prev = back[event.showPhase];
+    if (prev) {
+      setMarketLockAt(null);
+      warnedRef.current.clear();
+      goToPhase(prev);
+    }
+  }, [event.showPhase, goToPhase]);
+
+  /* The market lock countdown: 30/10/5 warnings, then lock and race. */
+  useEffect(() => {
+    if (!marketLockAt) return;
+    const timer = window.setInterval(() => {
+      const left = Math.ceil((marketLockAt - Date.now()) / 1000);
+      for (const mark of [30, 10, 5] as const) {
+        if (left <= mark && !warnedRef.current.has(mark)) {
+          warnedRef.current.add(mark);
+          sayHost(marketWarning(mark));
+        }
+      }
+      if (left <= 0) {
+        setMarketLockAt(null);
+        warnedRef.current.clear();
+        setState({ bettingOpen: false, showPhase: 'race' });
+        sayHost('The market is closed. They are heading to the gate.');
+        addAudit({
+          kind: 'phase_change',
+          raceNo: nextRaceNo,
+          detail: `Market countdown reached zero: selections closed for race ${nextRaceNo}.`,
+        });
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [marketLockAt, sayHost, nextRaceNo]);
+
+  /* A race taking the gate always lands the show in the race phase and
+     cancels any armed market countdown. */
+  useEffect(() => {
+    if (race.phase !== 'countdown') return;
+    const id = window.setTimeout(() => {
+      setMarketLockAt(null);
+      warnedRef.current.clear();
+      if (event.showPhase !== 'race') setState({ showPhase: 'race' });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [race.phase, event.showPhase]);
+
+  /* ── Phone Play: the room on its own devices ─────────────────────────── */
+
+  const liveShow = useMemo<LiveShow>(() => {
+    const standing = event.history.find((h) => !h.void);
+    const isRacing = race.phase === 'countdown' || race.phase === 'running';
+    /* While the show sits on the results, the phones stay on the race that
+       just ran - jumping the room to race N+1 the instant N settles would
+       hide every result and outcome from the very people who picked. */
+    const onResults = event.showPhase === 'results' && Boolean(standing);
+    return {
+      eventName: event.eventName,
+      clubName: event.clubName,
+      raceNo: onResults && standing ? standing.raceNo : nextRaceNo,
+      phase: event.showPhase,
+      marketOpen: event.bettingOpen && !isRacing && !onResults,
+      names,
+      odds: Object.fromEntries(lanes.map((l) => [l.lane, l.odds])),
+      result:
+        standing && standing.results.length
+          ? {
+              raceNo: standing.raceNo,
+              winnerLane: standing.results.find((r) => r.place === 1)?.lane ?? -1,
+              order: standing.results
+                .slice()
+                .sort((a, b) => a.place - b.place)
+                .map((r) => ({ lane: r.lane, name: r.name, place: r.place })),
+            }
+          : null,
+      rehearsal: event.rehearsal,
+    };
+  }, [event.history, event.eventName, event.clubName, event.showPhase, event.bettingOpen, event.rehearsal, race.phase, nextRaceNo, names, lanes]);
+
+  const phonePlay = usePhonePlay(HAS_API ? liveShow : null);
+  useEffect(() => {
+    phonePlayRef.current = phonePlay.settle;
+  }, [phonePlay.settle]);
+
+  const playUrl = useMemo(
+    () => (origin && phonePlay.session ? `${origin}/play?c=${phonePlay.session.code}` : ''),
+    [origin, phonePlay.session],
+  );
+
+  /* Reaction bursts float up the projector and nudge the crowd bed. */
+  const [floats, setFloats] = useState<{ id: number; glyph: string; left: number }[]>([]);
+  const floatIdRef = useRef(0);
+  useEffect(() => {
+    const glyphs: Record<string, string> = {
+      cheer: '📣', clap: '👏', laugh: '😂', shock: '😱', snail: '🐌',
+    };
+    const burst = Object.entries(phonePlay.reactionBurst).flatMap(([kind, count]) =>
+      Array.from({ length: Math.min(4, count) }, () => glyphs[kind] ?? '🐌'),
+    );
+    if (!burst.length || event.calm) return;
+    sfx.crowd.cheer(Math.min(0.5, 0.15 + burst.length * 0.05));
+    const added = burst.slice(0, 8).map((glyph) => ({
+      id: (floatIdRef.current += 1),
+      glyph,
+      left: 8 + Math.random() * 84,
+    }));
+    setFloats((f) => [...f.slice(-12), ...added]);
+    const timer = window.setTimeout(
+      () => setFloats((f) => f.filter((x) => !added.some((a) => a.id === x.id))),
+      2800,
+    );
+    return () => window.clearTimeout(timer);
+  }, [phonePlay.reactionBurst, event.calm]);
+
+  /* ── Recorded Race Pack results, through the same settlement path ────── */
+
+  const onPackResult = useCallback(
+    (packRace: PackRace, results: RaceResult[]) => {
+      const raceNo = nextRaceNo;
+      const finishedAt = nowMs();
+      const { recorded } = recordRaceResult({
+        raceNo,
+        raceType: event.raceType,
+        seedHex: packRace.mediaSha256.slice(0, 8).toUpperCase(),
+        fieldSize: packRace.runners.length,
+        durationMs: packRace.durationMs,
+        at: finishedAt,
+        results,
+        potCents,
+        photoFinish: false,
+        sponsor: packRace.sponsor ?? sponsor,
+        source: 'pack',
+        packId: event.racePack?.packId,
+        packRaceId: packRace.raceId,
+        commitHash: event.packCommit,
+        names: packRace.runners,
+        finishedAt,
+        oddsAtLock: Object.fromEntries(lanes.map((l) => [l.lane, l.odds])),
+      });
+      if (!recorded) return;
+      void phonePlayRef.current?.(raceNo, results);
+      setHighlights([]);
+      setOverlayOpen(true);
+      setConfettiKey((k) => k + 1);
+    },
+    [nextRaceNo, event.raceType, event.racePack?.packId, event.packCommit, potCents, sponsor, lanes],
+  );
+
+  const onPackVoid = useCallback(
+    (packRace: PackRace, reason: string) => {
+      const raceNo = nextRaceNo;
+      setState((s) => ({
+        bettingOpen: true,
+        history: [
+          {
+            raceNo,
+            raceType: event.raceType,
+            seedHex: packRace.mediaSha256.slice(0, 8).toUpperCase(),
+            fieldSize: packRace.runners.length,
+            durationMs: packRace.durationMs,
+            at: nowMs(),
+            results: [],
+            potCents,
+            photoFinish: false,
+            sponsor: packRace.sponsor ?? sponsor,
+            source: 'pack',
+            packId: event.racePack?.packId,
+            packRaceId: packRace.raceId,
+            names: packRace.runners,
+            void: true,
+            voidReason: reason,
+          } satisfies RaceHistoryEntry,
+          ...s.history,
+        ],
+      }));
+      addAudit({
+        kind: 'race_void',
+        raceNo,
+        detail: `Recorded race ${packRace.raceId} ("${packRace.title}") declared VOID: ${reason}`,
+      });
+    },
+    [nextRaceNo, event.raceType, event.racePack?.packId, potCents, sponsor],
+  );
 
   /* ── Fun bets ────────────────────────────────────────────────────────── */
 
@@ -481,13 +674,27 @@ export function Stage() {
 
       if (forward) {
         e.preventDefault();
+        if (event.showPhase !== 'race') {
+          advanceShow();
+          return;
+        }
+        /* Recorded mode: the pack runner's own draw and play buttons drive
+           playback, so a stray clicker press cannot start an engine race. */
+        if (event.eventMode === 'recorded') return;
         if (race.phase === 'idle' || race.phase === 'done' || race.phase === 'void') startRace();
         return;
       }
       if (back) {
         e.preventDefault();
-        if (overlayOpen) setOverlayOpen(false);
-        else resetRace();
+        if (overlayOpen) {
+          setOverlayOpen(false);
+          return;
+        }
+        if (event.showPhase !== 'race') {
+          backShow();
+          return;
+        }
+        resetRace();
         return;
       }
       if (k === 'escape') {
@@ -516,7 +723,7 @@ export function Stage() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, event.calm, event.sound, event.music, event.caller]);
+  }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, advanceShow, backShow, event.showPhase, event.eventMode, event.calm, event.sound, event.music, event.caller]);
 
   /* ── Direct-pay link ─────────────────────────────────────────────────── */
 
@@ -608,8 +815,14 @@ export function Stage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip-toggle pointer-events-none">
-              {event.raceType} {nextRaceNo}
+              {event.raceType} {nextRaceNo} of {event.plannedRaces}
             </span>
+            {event.rehearsal ? (
+              <span className="chip-toggle pointer-events-none !text-(--bad)">REHEARSAL</span>
+            ) : null}
+            {event.eventMode === 'recorded' ? (
+              <span className="chip-toggle pointer-events-none">Recorded card</span>
+            ) : null}
             {sponsor ? (
               <span className="sponsor-line" title="Race sponsor">
                 Sponsored by <b>{sponsor}</b>
@@ -671,7 +884,9 @@ export function Stage() {
         {/* ── Stage body ─────────────────────────────────────────────── */}
         <main className="stage-main grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="stage-track flex min-w-0 flex-col gap-4">
-            {event.trackShape === 'circuit' ? (
+            {event.eventMode === 'recorded' ? (
+              <PackRunner onResult={onPackResult} onVoid={onPackVoid} />
+            ) : event.trackShape === 'circuit' ? (
               <Telecast
                 names={names}
                 race={race}
@@ -704,6 +919,7 @@ export function Stage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {event.eventMode === 'live' ? (
                 <button
                   type="button"
                   className={`btn btn-go ${!racing ? 'btn-pulse' : ''}`}
@@ -717,7 +933,8 @@ export function Stage() {
                       : 'Start race'}{' '}
                   <kbd>Space</kbd>
                 </button>
-                {racing ? (
+                ) : null}
+                {racing && event.eventMode === 'live' ? (
                   <button
                     type="button"
                     className="btn btn-ghost !text-(--bad)"
@@ -824,6 +1041,74 @@ export function Stage() {
         </main>
       </div>
 
+      <ShowOverlay
+        event={event}
+        lanes={lanes}
+        potCents={potCents}
+        nightCents={nightCents}
+        nextRaceNo={nextRaceNo}
+        sponsor={sponsor}
+        donateUrl={feed.status !== 'unconfigured' ? donateUrl : ''}
+        playUrl={playUrl}
+        room={phonePlay.session ? phonePlay.summary : null}
+        marketLockAt={marketLockAt}
+      />
+
+      {event.showPhase !== 'race' ? (
+        <div className="show-controls no-print" role="toolbar" aria-label="Show controls">
+          <button type="button" className="btn btn-ghost" onClick={backShow}>
+            Back <kbd>PgUp</kbd>
+          </button>
+          {event.showPhase === 'market' && event.bettingOpen ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  warnedRef.current.clear();
+                  setMarketLockAt(Date.now() + 60_000);
+                }}
+              >
+                Lock in 60s
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setMarketLockAt(null);
+                  setState({ bettingOpen: false, showPhase: 'race' });
+                }}
+              >
+                Lock now
+              </button>
+            </>
+          ) : null}
+          {event.showPhase === 'championship' ? (
+            <button type="button" className="btn btn-ghost" onClick={() => goToPhase('intermission')}>
+              Intermission
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-ghost"
+            aria-controls="controls"
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen((v) => !v)}
+          >
+            Controls <kbd>M</kbd>
+          </button>
+          <button type="button" className={`btn btn-go`} onClick={advanceShow}>
+            {showPhaseSpec(event.showPhase).advance} <kbd>Space</kbd>
+          </button>
+        </div>
+      ) : null}
+
+      {floats.map((f) => (
+        <span key={f.id} className="reaction-float" style={{ left: `${f.left}%` }} aria-hidden="true">
+          {f.glyph}
+        </span>
+      ))}
+
       {audio === 'blocked' || (audio === 'idle' && primed) ? (
         <button
           type="button"
@@ -854,7 +1139,15 @@ export function Stage() {
       <WinnerOverlay
         open={overlayOpen}
         raceNo={event.raceNumber}
-        results={race.results}
+        results={
+          /* Recorded races settle without the engine, so the card falls back
+             to the standing ledger entry for the race just recorded. */
+          race.results.length
+            ? race.results
+            : (event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.results ?? [])
+                .slice()
+                .sort((a, b) => a.place - b.place)
+        }
         donations={allDonations}
         bets={event.bets}
         highlights={highlights}
@@ -873,6 +1166,8 @@ export function Stage() {
         nextRaceNo={nextRaceNo}
         nightCents={nightCents}
         locked={racing}
+        phonePlay={phonePlay}
+        playUrl={playUrl}
       />
     </div>
   );

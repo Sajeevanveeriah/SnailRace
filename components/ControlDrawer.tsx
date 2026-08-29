@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { addAudit, hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
-import { commitmentOf, resultHashOf, shortHash, type RaceConfig } from '@/lib/audit';
+import { addAudit, auditChainSettled, currentState, hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
+import { commitmentOf, resultHashOf, shortHash, verifyAuditChain, type RaceConfig } from '@/lib/audit';
+import { archiveNight, listNights, removeNight, verifyNight, type ArchivedNight } from '@/lib/event-archive';
+import { PhonePlayPanel } from './PhonePlayPanel';
+import { PackManager } from './PackManager';
+import { Preflight } from './Preflight';
+import type { usePhonePlay } from '@/lib/use-phone-play';
+import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
 import { LAP_LEN } from '@/lib/broadcast';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
-import { eventBudget, verifyDraw } from '@/lib/race-engine';
+import { INTENSITY_FACTOR, eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import { initVoice, primeAudio, sampleReport, samplesSettled, sfx, soundCheck } from '@/lib/sound';
 import { useCanSpeak } from '@/lib/use-can-speak';
@@ -33,6 +39,8 @@ export function ControlDrawer({
   nextRaceNo,
   nightCents,
   locked = false,
+  phonePlay,
+  playUrl,
 }: {
   open: boolean;
   onClose: () => void;
@@ -40,6 +48,9 @@ export function ControlDrawer({
   stripeDonations: Donation[];
   nextRaceNo: number;
   nightCents: number;
+  /** The stage's Phone Play controller; the drawer only presents it. */
+  phonePlay: ReturnType<typeof usePhonePlay>;
+  playUrl: string;
   /**
    * True while a race is armed or running. The set-up that the seed
    * commitment binds - field, names, length, laps, surprises - cannot be
@@ -55,6 +66,8 @@ export function ControlDrawer({
   const [cashAmount, setCashAmount] = useState('10');
   const [seedInput, setSeedInput] = useState('');
   const [verifyOut, setVerifyOut] = useState('');
+  const [chainOut, setChainOut] = useState('');
+  const [nights, setNights] = useState<ArchivedNight[]>([]);
   const [notice, setNotice] = useState('');
   /*
    * Stamped when the report is asked for, not while rendering. A clock read
@@ -71,6 +84,13 @@ export function ControlDrawer({
    * console is open rather than being captured once at mount.
    */
   const canSpeak = useCanSpeak();
+
+  /* The device archive is read when the console opens, not held live. */
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => setNights(listNights()), 0);
+    return () => window.clearTimeout(id);
+  }, [open]);
 
   const [samples, setSamples] = useState(() => sampleReport());
   useEffect(() => {
@@ -363,16 +383,119 @@ export function ControlDrawer({
       JSON.stringify(event, null, 2),
       'application/json',
     );
+    addAudit({
+      kind: 'backup_exported',
+      raceNo: 0,
+      detail: `Backup exported: ${event.history.length} race rows, ${event.audit.length} audit entries at the time of export.`,
+    });
   };
 
   const importBackup = (file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
       const ok = restore(String(reader.result));
+      if (ok) {
+        addAudit({
+          kind: 'backup_restored',
+          raceNo: 0,
+          detail: `Night restored from the backup file "${file.name}". The restored trail continues from here.`,
+        });
+      }
       say(ok ? 'Night restored from backup.' : 'That backup could not be read.');
       hydrate();
     };
     reader.readAsText(file);
+  };
+
+  /**
+   * Verify the audit hash chain as stored. Settlement hashes entries
+   * asynchronously, so the check waits for the chain queue before reading
+   * the live state - the rendered `event` may be a step behind it.
+   */
+  const runChainVerify = () => {
+    void auditChainSettled()
+      .then(() => verifyAuditChain(currentState().audit))
+      .then((r) =>
+        setChainOut(
+          r.ok
+            ? `Chain verifies: ${r.chained} hashed ${r.chained === 1 ? 'entry' : 'entries'}${
+                r.unchained ? `, plus ${r.unchained} pre-chain entries from before v4 anchoring it` : ''
+              }. Each entry hash is SHA-256(previous hash + the entry's canonical line), so an edited, removed or reordered entry breaks every hash after it.`
+            : `CHAIN BROKEN at entry ${r.breakAt}: the stored trail does not match its own hashes. It has been edited, reordered or truncated after being written.`,
+        ),
+      );
+  };
+
+  const saveNightToArchive = () => {
+    void auditChainSettled()
+      .then(() => archiveNight(currentState()))
+      .then((ok) => {
+        setNights(listNights());
+        if (ok) {
+          addAudit({
+            kind: 'backup_exported',
+            raceNo: 0,
+            detail: 'Night saved to the on-device archive with a SHA-256 integrity fingerprint.',
+          });
+          say('Night saved to the archive on this device.');
+        } else {
+          say('The archive refused the save - storage is full or blocked.');
+        }
+      });
+  };
+
+  const restoreNightFromArchive = (n: ArchivedNight) => {
+    void verifyNight(n).then((intact) => {
+      if (!intact) {
+        say('Integrity check failed: that saved night no longer matches its fingerprint. It was not loaded.');
+        return;
+      }
+      if (!window.confirm(`Load "${n.name}"? The current night on this device is replaced.`)) return;
+      const ok = restore(JSON.stringify(n.state));
+      if (ok) {
+        addAudit({
+          kind: 'backup_restored',
+          raceNo: 0,
+          detail: `Night "${n.name}" restored from the on-device archive after its SHA-256 integrity fingerprint verified.`,
+        });
+        say('Night restored from the archive.');
+      } else {
+        say('That saved night could not be read.');
+      }
+    });
+  };
+
+  /**
+   * End a rehearsal cleanly: rehearsal races, fun bets and chips go, the
+   * event set-up, names and the donation ledgers stay. Donations are real
+   * money even on a rehearsal night, so they are never cleared here.
+   */
+  const resetRehearsal = () => {
+    if (
+      !window.confirm(
+        'Clear the rehearsal? Races, fun bets and chips from the rehearsal are removed. Names, set-up and all donations stay.',
+      )
+    ) {
+      return;
+    }
+    setState({
+      history: [],
+      bets: [],
+      chipBank: {},
+      streaks: {},
+      raceNumber: 0,
+      bettingOpen: true,
+      showPhase: 'lobby',
+      rehearsal: false,
+      packPlayed: [],
+      packCurrent: null,
+    });
+    addAudit({
+      kind: 'note',
+      raceNo: 0,
+      detail: 'Rehearsal cleared: rehearsal races, fun bets and chips removed. Donation ledgers untouched.',
+    });
+    say('Rehearsal cleared. Ready for the real night; donations were untouched.');
   };
 
   return (
@@ -485,6 +608,26 @@ export function ControlDrawer({
                     onChange={(e) => setState({ eventName: e.target.value })}
                   />
                 </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="fld">
+                    <span>Event date</span>
+                    <input
+                      type="date"
+                      value={event.eventDate ?? ''}
+                      onChange={(e) => setState({ eventDate: e.target.value || undefined })}
+                    />
+                  </label>
+                  <label className="fld">
+                    <span>Venue</span>
+                    <input
+                      type="text"
+                      value={event.venue ?? ''}
+                      maxLength={60}
+                      placeholder="e.g. the clubrooms"
+                      onChange={(e) => setState({ venue: e.target.value || undefined })}
+                    />
+                  </label>
+                </div>
                 <label className="fld">
                   <span>Race sponsors</span>
                   <textarea
@@ -655,6 +798,173 @@ export function ControlDrawer({
                   ? `About ${eventBudget(event.raceDurationMs, event.fieldSize)} turbo boosts, shell slips and naps per race, marked on the track before they land. They are drawn from the race seed after the finishing order is settled, so they change the drama and never the result.`
                   : 'Surprises are off. The field runs on wobble alone.'}
               </p>
+            </section>
+
+            {/* ── Run of show ──────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Run of show</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="fld">
+                  <span>Event mode</span>
+                  <select
+                    value={event.eventMode}
+                    disabled={locked}
+                    onChange={(e) => setState({ eventMode: e.target.value as 'live' | 'recorded' })}
+                  >
+                    <option value="live">Live animated races</option>
+                    <option value="recorded">Recorded race pack</option>
+                  </select>
+                </label>
+                <label className="fld">
+                  <span>Races on the card</span>
+                  <select
+                    value={event.plannedRaces}
+                    onChange={(e) => setState({ plannedRaces: Number(e.target.value) })}
+                  >
+                    {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                      <option key={n} value={n}>
+                        {n} races
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="fld sm:col-span-2">
+                  <span>Surprise director</span>
+                  <select
+                    value={event.intensity}
+                    disabled={locked}
+                    onChange={(e) => setState({ intensity: e.target.value as SurpriseIntensity })}
+                  >
+                    <option value="calm">Calm night</option>
+                    <option value="standard">Standard</option>
+                    <option value="big">Big night</option>
+                    <option value="chaos">Chaos</option>
+                  </select>
+                </label>
+              </div>
+              <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
+                {`About ${eventBudget(event.raceDurationMs, event.fieldSize, INTENSITY_FACTOR[event.intensity])} surprises a race at this setting. `}
+                Presets change only how much drama is drawn - every surprise still comes from
+                the race seed after the finishing order is settled, and every envelope closes
+                to zero at the line, so the preset can never change a result.
+              </p>
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={event.rehearsal}
+                  onChange={(e) => {
+                    setState({ rehearsal: e.target.checked });
+                    addAudit({
+                      kind: 'note',
+                      raceNo: 0,
+                      detail: e.target.checked
+                        ? 'Rehearsal mode ON: the stage and phones are badged REHEARSAL.'
+                        : 'Rehearsal mode off.',
+                    });
+                  }}
+                />
+                Rehearsal mode
+                {event.rehearsal ? (
+                  <span className="rounded-md bg-(--gold)/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-(--gold)">
+                    Rehearsal
+                  </span>
+                ) : null}
+              </label>
+              {event.rehearsal || event.history.length ? (
+                <button type="button" className="btn btn-ghost mt-3 w-full" onClick={resetRehearsal}>
+                  Clear rehearsal (keep set-up and donations)
+                </button>
+              ) : null}
+              <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
+                On the stage, the clicker walks the night forward: lobby, racecard, market,
+                race, results, championship, and an interval when you want one. Backspace
+                steps back.
+              </p>
+            </section>
+
+            {/* ── Phone Play ───────────────────────────────────────── */}
+            <section className="panel">
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">Phone Play</h3>
+                <span className="fun-chip-tag">fun chips - no monetary value</span>
+              </div>
+              <PhonePlayPanel
+                session={phonePlay.session}
+                summary={phonePlay.summary}
+                online={phonePlay.online}
+                playUrl={playUrl}
+                onStart={phonePlay.start}
+                onEnd={phonePlay.end}
+                say={say}
+              />
+            </section>
+
+            {/* ── Race Pack (recorded mode) ────────────────────────── */}
+            {event.eventMode === 'recorded' ? (
+              <section className="panel lg:col-span-2">
+                <h3 className="mb-3 font-semibold">Race Pack</h3>
+                <PackManager say={say} />
+              </section>
+            ) : null}
+
+            {/* ── Preflight ────────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Preflight</h3>
+              <Preflight />
+            </section>
+
+            {/* ── Saved nights ─────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-1 font-semibold">Saved nights</h3>
+              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+                Whole nights saved on this device with a SHA-256 fingerprint. A saved night
+                that fails its fingerprint check refuses to load.
+              </p>
+              <button type="button" className="btn btn-ghost mb-3 w-full" onClick={saveNightToArchive}>
+                Save this night to the archive
+              </button>
+              {nights.length === 0 ? (
+                <p className="text-sm text-(--tx)/45">No nights saved on this device.</p>
+              ) : (
+                <ul className="max-h-48 overflow-y-auto text-xs">
+                  {nights.map((n) => (
+                    <li key={n.id} className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {n.name}
+                          {n.rehearsal ? (
+                            <span className="ml-1.5 rounded bg-(--gold)/15 px-1 text-[9px] font-bold uppercase text-(--gold)">
+                              rehearsal
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="num text-[10px] text-(--tx)/40">
+                          {new Date(n.savedAt).toLocaleString('en-AU')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="ml-auto shrink-0 text-(--tx)/55 underline hover:text-(--tx)"
+                        onClick={() => restoreNightFromArchive(n)}
+                      >
+                        load
+                      </button>
+                      <button
+                        type="button"
+                        className="shrink-0 text-(--tx)/40 underline hover:text-(--bad)"
+                        onClick={() => {
+                          if (window.confirm(`Delete the saved night "${n.name}" from this device?`)) {
+                            removeNight(n.id);
+                            setNights(listNights());
+                          }
+                        }}
+                      >
+                        delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             {/* ── Sound ────────────────────────────────────────────── */}
@@ -991,8 +1301,21 @@ export function ControlDrawer({
               <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
                 Locks, starts, finishes, voids, undos and settlements, newest first. Entries are
                 appended by the app and never edited here; they ride along in every backup and
-                the audit CSV.
+                the audit CSV. Each entry is hash-chained to the one before it.
               </p>
+              <button type="button" className="btn btn-ghost mb-3 w-full" onClick={runChainVerify}>
+                Verify the hash chain
+              </button>
+              {chainOut ? (
+                <p
+                  className={`mb-3 rounded-xl px-3 py-2 text-[11px] leading-snug ${
+                    chainOut.startsWith('CHAIN BROKEN') ? 'bg-(--bad)/10 text-(--bad)' : 'bg-(--ok)/10 text-(--ok)'
+                  }`}
+                  role="status"
+                >
+                  {chainOut}
+                </p>
+              ) : null}
               {event.audit.length === 0 ? (
                 <p className="text-sm text-(--tx)/45">Nothing recorded yet.</p>
               ) : (

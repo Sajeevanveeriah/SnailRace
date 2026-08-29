@@ -1,0 +1,566 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Snail } from './Snail';
+import { ThemeToggle } from './ThemeToggle';
+import { HAS_API } from '@/lib/deployment';
+import { laneColour } from '@/lib/palette';
+import { ordinal } from '@/lib/race-engine';
+import type { LivePick, LiveShow } from '@/lib/live/store';
+
+/**
+ * The audience phone.
+ *
+ * Never authoritative: this surface renders the server's revisioned snapshot
+ * and submits picks and reactions the server validates. A dead connection
+ * shows itself honestly, a reload rejoins from the token kept on the phone,
+ * and everything chip-shaped says what chips are: fun, and worth nothing.
+ */
+
+const STAKES = [10, 25, 50, 100];
+const POLL_MS = 2000;
+
+interface StateResponse {
+  ok: boolean;
+  unchanged?: boolean;
+  revision: number;
+  show?: LiveShow;
+  players?: number;
+  leaderboard?: { name: string; chips: number }[];
+  you?: { name: string; chips: number; pick: LivePick | null } | null;
+  error?: string;
+}
+
+interface Identity {
+  playerId: string;
+  token: string;
+  name: string;
+}
+
+const REACTIONS: { kind: string; glyph: string; label: string }[] = [
+  { kind: 'cheer', glyph: '📣', label: 'Cheer' },
+  { kind: 'clap', glyph: '👏', label: 'Applaud' },
+  { kind: 'laugh', glyph: '😂', label: 'Laugh' },
+  { kind: 'shock', glyph: '😱', label: 'Shock' },
+  { kind: 'snail', glyph: '🐌', label: 'Snail' },
+];
+
+export function PlayFlow() {
+  const params = useSearchParams();
+  const codeFromQr = (params.get('c') ?? '').toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6);
+
+  const [code, setCode] = useState(codeFromQr);
+  const [name, setName] = useState('');
+  const [pin, setPin] = useState('');
+  const [needsPin, setNeedsPin] = useState(false);
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState('');
+
+  const [snap, setSnap] = useState<StateResponse | null>(null);
+  const [online, setOnline] = useState(true);
+  const revisionRef = useRef(0);
+
+  const storeKey = code ? `ndcc-play-${code}` : '';
+
+  /* Reconnect: a reload keeps the same player, chips and pick. Deferred a
+     tick so restore-on-load is not a render-time cascade. */
+  useEffect(() => {
+    if (!storeKey || identity) return;
+    const id = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem(storeKey);
+        if (saved) setIdentity(JSON.parse(saved) as Identity);
+      } catch {
+        /* no storage: joining again is fine */
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [storeKey, identity]);
+
+  const join = useCallback(async () => {
+    setError('');
+    setJoining(true);
+    try {
+      const res = await fetch('/api/live/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, name, ...(pin ? { pin } : {}) }),
+      });
+      const body = (await res.json()) as {
+        ok: boolean;
+        error?: string;
+        playerId?: string;
+        token?: string;
+        name?: string;
+      };
+      if (!body.ok || !body.playerId || !body.token) {
+        if (res.status === 403) setNeedsPin(true);
+        setError(body.error ?? 'Could not join. Check the code on the big screen.');
+        return;
+      }
+      const id: Identity = { playerId: body.playerId, token: body.token, name: body.name ?? name };
+      setIdentity(id);
+      try {
+        localStorage.setItem(storeKey, JSON.stringify(id));
+      } catch {
+        /* fine */
+      }
+    } catch {
+      setError('No connection to the event. Check the venue wifi and try again.');
+    } finally {
+      setJoining(false);
+    }
+  }, [code, name, pin, storeKey]);
+
+  /* The poll. Every phone asks a couple of times a second in aggregate;
+     the server answers `unchanged` from its revision when nothing moved. */
+  const poll = useCallback(async () => {
+    if (!code || code.length !== 6) return;
+    try {
+      const query = new URLSearchParams({ code, since: String(revisionRef.current) });
+      if (identity) {
+        query.set('playerId', identity.playerId);
+        query.set('token', identity.token);
+      }
+      const res = await fetch(`/api/live/state?${query}`, { cache: 'no-store' });
+      const body = (await res.json()) as StateResponse;
+      if (!body.ok) {
+        setOnline(res.status < 500);
+        if (res.status === 404 || res.status === 410) {
+          setSnap(null);
+          setError(body.error ?? 'The session has ended.');
+        }
+        return;
+      }
+      setOnline(true);
+      if (body.unchanged) return;
+      revisionRef.current = body.revision;
+      setSnap(body);
+    } catch {
+      setOnline(false);
+    }
+  }, [code, identity]);
+
+  useEffect(() => {
+    if (!HAS_API || !identity) return;
+    revisionRef.current = 0;
+    void poll();
+    const timer = window.setInterval(() => void poll(), POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void poll();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [identity, poll]);
+
+  /* ── Picks ─────────────────────────────────────────────────────────── */
+
+  const [lane, setLane] = useState<number | null>(null);
+  const [stake, setStake] = useState(25);
+  const [sending, setSending] = useState(false);
+  const [pickError, setPickError] = useState('');
+
+  const show = snap?.show;
+  const you = snap?.you ?? null;
+  const marketOpen = Boolean(show?.marketOpen);
+
+  const submitPick = useCallback(async () => {
+    if (!identity || !show || lane === null) {
+      setPickError('Pick a snail first.');
+      return;
+    }
+    setSending(true);
+    setPickError('');
+    try {
+      const res = await fetch('/api/live/pick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          playerId: identity.playerId,
+          token: identity.token,
+          raceNo: show.raceNo,
+          lane,
+          chips: stake,
+          nonce: crypto.randomUUID(),
+        }),
+      });
+      const body = (await res.json()) as { ok: boolean; error?: string };
+      if (!body.ok) {
+        setPickError(body.error ?? 'The pick did not land. Try again.');
+        if (res.status === 401) {
+          setIdentity(null);
+          try {
+            localStorage.removeItem(storeKey);
+          } catch {
+            /* fine */
+          }
+        }
+      } else {
+        setLane(null);
+      }
+      revisionRef.current = 0;
+      void poll();
+    } catch {
+      setPickError('No connection. Your chips are safe - try again.');
+    } finally {
+      setSending(false);
+    }
+  }, [identity, show, lane, stake, code, storeKey, poll]);
+
+  /* ── Reactions ─────────────────────────────────────────────────────── */
+
+  const [reactedAt, setReactedAt] = useState(0);
+  const sendReaction = useCallback(
+    async (kind: string) => {
+      if (!identity || Date.now() - reactedAt < 1500) return;
+      setReactedAt(Date.now());
+      try {
+        await fetch('/api/live/react', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, playerId: identity.playerId, token: identity.token, kind }),
+        });
+      } catch {
+        /* atmosphere only; a lost reaction costs nothing */
+      }
+    },
+    [identity, reactedAt, code],
+  );
+
+  const myOutcome = useMemo(() => {
+    if (!you?.pick || !show?.result || show.result.raceNo !== show.raceNo) return null;
+    if (!you.pick.settled) return null;
+    return you.pick.returned && you.pick.returned > 0
+      ? { won: true, chips: you.pick.returned }
+      : { won: false, chips: 0 };
+  }, [you, show]);
+
+  /* ── Static build: the truth, with zero API calls ──────────────────── */
+
+  if (!HAS_API) {
+    return (
+      <main className="sheet grid min-h-dvh place-items-center p-6">
+        <div className="fixed right-4 top-4 z-30">
+          <ThemeToggle />
+        </div>
+        <div className="card reveal max-w-sm p-8 text-center">
+          <div className="mx-auto w-24">
+            <Snail />
+          </div>
+          <h1 className="display mt-4 text-3xl">Phone Play needs the event server</h1>
+          <p className="mt-3 text-sm text-(--tx)/60">
+            This copy of the site is the offline build, which runs the races and fun chips on
+            the big screen only. On nights where the club runs the event server, the QR code on
+            the projector brings this page to life.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  /* ── Join ──────────────────────────────────────────────────────────── */
+
+  if (!identity || !show) {
+    return (
+      <main className="sheet grid min-h-dvh place-items-center p-6">
+        <div className="fixed right-4 top-4 z-30">
+          <ThemeToggle />
+        </div>
+        <div className="card reveal w-full max-w-sm p-8">
+          <div className="mx-auto w-24">
+            <Snail />
+          </div>
+          <h1 className="display mt-4 text-center text-3xl">Join the races</h1>
+          <p className="fun-chip-banner mx-auto mt-3 w-fit" role="note">
+            FUN CHIPS - NO MONETARY VALUE
+          </p>
+          <div className="mt-5 grid gap-3">
+            <label className="fld">
+              <span>Event code (on the big screen)</span>
+              <input
+                type="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                value={code}
+                maxLength={6}
+                placeholder="e.g. KQ7M2X"
+                onChange={(e) =>
+                  setCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6))
+                }
+              />
+            </label>
+            <label className="fld">
+              <span>Your name</span>
+              <input
+                type="text"
+                value={name}
+                maxLength={24}
+                placeholder="e.g. Dave S."
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            {needsPin ? (
+              <label className="fld">
+                <span>Event PIN</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={pin}
+                  maxLength={12}
+                  onChange={(e) => setPin(e.target.value)}
+                />
+              </label>
+            ) : null}
+            {error ? (
+              <p role="alert" className="text-sm font-medium text-(--bad)">
+                {error}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-sheet w-full"
+              disabled={joining || code.length !== 6 || !name.trim()}
+              onClick={() => void join()}
+            >
+              {joining ? 'Joining…' : identity ? 'Reconnecting…' : 'Join with 100 free chips'}
+            </button>
+            <p className="text-center text-[11px] leading-relaxed text-(--tx)/45">
+              Chips are free, cannot be bought and are worth nothing. The leaderboard is the
+              prize. Donations to the club are completely separate.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const result = show.result;
+
+  return (
+    <main className="sheet min-h-dvh pb-36">
+      <div className="mx-auto max-w-md px-5 pt-6">
+        <header className="reveal">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-(--tx)/45">
+              {show.clubName}
+            </p>
+            <ThemeToggle />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <h1 className="display text-3xl text-(--tx)">Race {show.raceNo}</h1>
+            {show.rehearsal ? (
+              <span className="rounded-full bg-(--bad)/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-(--bad)">
+                Rehearsal
+              </span>
+            ) : null}
+            <span
+              className={`ml-auto flex items-center gap-1.5 text-[11px] font-semibold ${online ? 'text-(--ok)' : 'text-(--bad)'}`}
+              role="status"
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${online ? 'bg-(--ok)' : 'bg-(--bad)'}`}
+                aria-hidden="true"
+              />
+              {online ? 'Live' : 'Reconnecting…'}
+            </span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="fun-chip-banner" role="note">
+              FUN CHIPS - NO MONETARY VALUE
+            </span>
+            <span className="num rounded-full bg-(--gold)/15 px-3 py-1 text-xs font-bold text-(--gold)">
+              {you?.chips ?? 0} chips
+            </span>
+          </div>
+        </header>
+
+        {/* ── Market ────────────────────────────────────────────────── */}
+        {marketOpen ? (
+          <section className="reveal mt-6" aria-label="Pick a snail">
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-(--tx)/45">
+              The market is open - pick your snail
+            </h2>
+            <div className="flex flex-col gap-2">
+              {show.names.map((n, i) => {
+                const c = laneColour(i);
+                const picked = lane === i;
+                const mine = you?.pick?.lane === i;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="pick"
+                    aria-pressed={picked}
+                    onClick={() => setLane(picked ? null : i)}
+                    style={
+                      {
+                        '--shell': c.shell,
+                        '--shell-dk': c.dark,
+                        '--body': c.body,
+                        '--glow': c.glow,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <span className="num w-7 shrink-0 text-sm font-bold text-(--tx)/50">{i + 1}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold text-(--tx)">{n}</span>
+                      <span className="block text-xs text-(--tx)/50">
+                        {(show.odds[i] ?? show.names.length).toFixed(2)} for 1 in fun chips
+                        {mine ? ' · your pick' : ''}
+                      </span>
+                    </span>
+                    {picked ? (
+                      <span
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white"
+                        style={{ background: c.shell }}
+                        aria-hidden="true"
+                      >
+                        ✓
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Chips to play">
+              {STAKES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="chip-amount"
+                  aria-pressed={stake === s}
+                  onClick={() => setStake(s)}
+                >
+                  {s} chips
+                </button>
+              ))}
+            </div>
+            {pickError ? (
+              <p role="alert" className="mt-2 text-sm font-medium text-(--bad)">
+                {pickError}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-sheet mt-3 w-full"
+              disabled={sending || lane === null}
+              onClick={() => void submitPick()}
+            >
+              {sending
+                ? 'Sending…'
+                : you?.pick
+                  ? `Change pick to ${lane === null ? '…' : show.names[lane]} for ${stake} chips`
+                  : lane === null
+                    ? 'Pick a snail to continue'
+                    : `Play ${stake} chips on ${show.names[lane]}`}
+            </button>
+          </section>
+        ) : (
+          <section className="reveal mt-6" aria-label="Market closed">
+            <div className="card p-5 text-center">
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-(--bad)">
+                Market closed
+              </p>
+              {you?.pick ? (
+                <p className="mt-2 text-sm text-(--tx)/65">
+                  You have <b className="num">{you.pick.chips}</b> chips on{' '}
+                  <b>{show.names[you.pick.lane] ?? `lane ${you.pick.lane + 1}`}</b> at{' '}
+                  <span className="num">{you.pick.odds.toFixed(2)}</span>. Eyes on the big screen.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-(--tx)/65">
+                  No pick this race - cheer anyway, the next market opens after the result.
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Result ────────────────────────────────────────────────── */}
+        {result && result.raceNo === show.raceNo && !marketOpen ? (
+          <section className="reveal mt-4" aria-label="Result">
+            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-(--tx)/45">
+              Result - race {result.raceNo}
+            </h2>
+            <ol className="flex flex-col gap-1.5">
+              {result.order.slice(0, 6).map((r) => (
+                <li
+                  key={r.lane}
+                  className="flex items-center gap-2.5 rounded-xl bg-(--tx)/5 px-3 py-2 text-sm"
+                >
+                  <span className="num w-9 font-bold text-(--tx)/60">{ordinal(r.place)}</span>
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: laneColour(r.lane).shell }}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate font-medium">{r.name}</span>
+                </li>
+              ))}
+            </ol>
+            {myOutcome ? (
+              <p
+                className={`mt-3 rounded-xl px-4 py-3 text-sm font-semibold ${
+                  myOutcome.won ? 'bg-(--ok)/12 text-(--ok)' : 'bg-(--tx)/6 text-(--tx)/60'
+                }`}
+                role="status"
+              >
+                {myOutcome.won
+                  ? `Your snail got home! ${myOutcome.chips} fun chips back at locked odds.`
+                  : 'Not this time - your chips went down with the ship. The next market is your comeback.'}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* ── Leaderboard ───────────────────────────────────────────── */}
+        {snap.leaderboard?.length ? (
+          <section className="reveal mt-6" aria-label="Chip leaderboard">
+            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-(--tx)/45">
+              Room leaderboard <span className="fun-chip-tag">fun chips - no monetary value</span>
+            </h2>
+            <ol className="flex flex-col gap-1">
+              {snap.leaderboard.map((row, i) => (
+                <li key={`${row.name}-${i}`} className="flex items-center gap-2 text-sm">
+                  <span className="num w-5 text-(--tx)/40">{i + 1}</span>
+                  <span className="truncate">{row.name}</span>
+                  <span className="num ml-auto font-semibold">{row.chips.toLocaleString('en-AU')}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-2 text-[11px] text-(--tx)/40">
+              {snap.players ?? 0} {snap.players === 1 ? 'player' : 'players'} in the room.
+            </p>
+          </section>
+        ) : null}
+      </div>
+
+      {/* ── Reactions: always in thumb reach ─────────────────────────── */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-(--tx)/10 bg-(--card)/85 px-5 pb-[max(0.9rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-2">
+          {REACTIONS.map((r) => (
+            <button
+              key={r.kind}
+              type="button"
+              className="react-btn"
+              aria-label={r.label}
+              onClick={() => void sendReaction(r.kind)}
+            >
+              <span aria-hidden="true">{r.glyph}</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-center text-[10px] text-(--tx)/35">
+          Reactions reach the room&apos;s atmosphere only - they never touch a race.
+        </p>
+      </div>
+    </main>
+  );
+}
