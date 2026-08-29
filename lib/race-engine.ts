@@ -390,13 +390,13 @@ export const SWARM_SPECS: SwarmSpec[] = [
     magFrom: -0.08, magTo: 0.08, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.72,
   },
   {
-    kind: 'swoop', label: 'HAIL SHOWER', tone: 'bad', sound: 'plague', weight: 5,
+    kind: 'chaos', label: 'ROGUE CRICKET BALL', tone: 'wild', sound: 'weird', weight: 7,
     calls: [
-      'Hail! Out of nowhere, and they have all pulled up!',
-      'It is hailing on the back straight and this field does not like it!',
+      'A cricket ball has entered the field. It has no lane and no apology!',
+      'Rogue cricket ball! The middle of the field is taking evasive action!',
     ],
-    shareFrom: 0.5, shareTo: 0.9,
-    magFrom: -0.075, magTo: -0.035, spanFrom: 0.08, spanTo: 0.14, from: 0.18, to: 0.7,
+    shareFrom: 0.25, shareTo: 0.5,
+    magFrom: -0.075, magTo: 0.055, spanFrom: 0.07, spanTo: 0.13, from: 0.18, to: 0.72,
   },
   {
     kind: 'chaos', label: 'DOG ON THE TRACK', tone: 'wild', sound: 'swoop', weight: 6,
@@ -426,13 +426,13 @@ export const SWARM_SPECS: SwarmSpec[] = [
     magFrom: -0.09, magTo: 0.04, spanFrom: 0.07, spanTo: 0.13, from: 0.16, to: 0.6,
   },
   {
-    kind: 'swoop', label: 'STREAKER', tone: 'wild', sound: 'siren', weight: 3,
+    kind: 'plague', label: 'PITCH ROLLER CROSSING', tone: 'wild', sound: 'siren', weight: 4,
     calls: [
-      'There is a streaker on the track and nobody knows where to look!',
-      'Security is on and this field has completely lost the plot!',
+      'The pitch roller is crossing the track. Slowly, but with total commitment!',
+      'Pitch roller on the course! It has right of way and knows it!',
     ],
-    shareFrom: 0.35, shareTo: 0.7,
-    magFrom: -0.085, magTo: 0.06, spanFrom: 0.08, spanTo: 0.14, from: 0.25, to: 0.75,
+    shareFrom: 0.25, shareTo: 0.55,
+    magFrom: -0.095, magTo: 0.035, spanFrom: 0.1, spanTo: 0.17, from: 0.22, to: 0.72,
   },
 ];
 
@@ -476,14 +476,17 @@ export interface RaceEvent {
 /**
  * How many surprises a race of this length carries.
  *
- * A rate rather than a cap. A five-minute race with a dozen surprises in it
- * has four minutes of nothing happening, which is exactly how a long race
- * loses a room, so the budget scales the whole way up - roughly one every
- * three seconds. The ceiling is a runaway guard, not a design choice.
+ * A rate with a hard ceiling. One authored beat about every 7.5 seconds gives
+ * the caller and crowd time to react; the ceiling keeps long cards varied
+ * without turning the broadcast into a notification feed.
  */
 export function eventBudget(durationMs: number, fieldSize: number, factor = 1): number {
-  const byLength = Math.round((durationMs / 1000) * 0.34 * factor);
-  return Math.max(2, Math.min(120, byLength, fieldSize * 8));
+  /* One authored beat about every 7.5 seconds. The old 0.34-per-second rate
+     made a long race feel like a notification feed: plenty happened, but
+     nothing had time to land. This keeps a 60-second feature around eight
+     individual moments before the occasional field event and finish beat. */
+  const byLength = Math.round((durationMs / 7500) * factor);
+  return Math.max(2, Math.min(14, byLength, Math.max(2, fieldSize * 2)));
 }
 
 /**
@@ -495,10 +498,10 @@ export function eventBudget(durationMs: number, fieldSize: number, factor = 1): 
  * envelopes are dealt, never what an envelope can do at the line.
  */
 export const INTENSITY_FACTOR = {
-  calm: 0.45,
+  calm: 0.5,
   standard: 1,
-  big: 1.7,
-  chaos: 2.8,
+  big: 1.35,
+  chaos: 1.75,
 } as const;
 
 export type IntensityId = keyof typeof INTENSITY_FACTOR;
@@ -509,7 +512,7 @@ export type IntensityId = keyof typeof INTENSITY_FACTOR;
  * This is the one thing the old book could not do. Every surprise was bounded
  * well short of the finish, so a race that had been decided by two thirds
  * distance simply ran out - and the room, which is watching precisely because
- * it has money on it, had nothing to watch for the last twenty seconds.
+ * it has picked a favourite, had nothing to watch for the last twenty seconds.
  *
  * So: better than half the time, the snail that is going to win gets a wobble
  * inside the last tenth and the one behind it gets a late charge. The leader
@@ -790,7 +793,7 @@ export interface SnailRun {
  * Weather is scenery and commentary only - it never touches a position, so it
  * needs no place in the fairness argument. It exists because a five-minute
  * race wants a variable the room can see from the first second, and "they are
- * running in a downpour tonight" is one every punter already understands.
+ * running in a downpour tonight" is a condition every supporter understands.
  */
 export type Weather = 'clear' | 'drizzle' | 'downpour';
 
@@ -1023,46 +1026,27 @@ export function freshSeed(): number {
 
 export const COMMENTARY = {
   early: [
-    '{a} out of the gate first!',
-    'They are away, and {a} shows early pace.',
-    '{a} leads them out.',
-    '{a} slimes into an early lead!',
-    '{a} sets the tempo, {b} tucked in behind.',
-    'A clean getaway and {a} has the rail.',
-    '{b} is already hunting down {a}.',
-    'Plenty of running left, but {a} likes the front.',
-    '{a} has gone out hard. Can it last?',
-    'Settling down now, {a} from {b}.',
+    '{a} has made the tidy start. {b} is keeping it honest.',
+    '{a} leads them out, antennae down and businesslike.',
+    '{a} has the rail. {b} is close enough to read the shell pattern.',
+    'A clean getaway for {a}. Nobody panic, there is a long way to crawl.',
+    '{a} sets the pace. {b} has declined to be impressed.',
   ],
   mid: [
-    '{a} hits the front!',
-    '{b} is reeling in {a}!',
-    'Nothing between {a} and {b}!',
-    '{a} kicks clear!',
-    '{b} finds another gear!',
-    '{a} under pressure from {b}!',
-    '{a} and {b} are trading blows out there.',
-    '{b} has come from nowhere!',
-    'The gap is opening for {a}.',
-    '{a} looks comfortable. For now.',
-    'This is where a race is won, and {a} knows it.',
-    '{b} has not given up on {a}, not by a long way.',
-    'If you have money on {a}, you are enjoying this.',
-    'Halfway home and the shape of it is {a} and {b}.',
+    '{a} looks settled. That is usually when this event stops being sensible.',
+    '{b} is closing on {a}, slowly in absolute terms and rapidly for a snail.',
+    '{a} and {b} are making a proper race of it now.',
+    '{a} holds the front. {b} is waiting for one bad patch of turf.',
+    '{b} has found another gear. Nobody ask where it was hiding.',
+    'Halfway home, and {a} has {b} for company.',
   ],
   late: [
-    '{a} into the final straight!',
-    '{b} is closing fast!',
-    'This is going to be tight!',
-    '{a} holding on!',
-    '{b} charging home!',
-    '{a} can see the line!',
-    '{b} throws everything at it!',
-    'The room is on its feet for {a}!',
-    'Two lengths to run and {b} will not give in!',
-    'Somebody in this room is about to be very happy.',
-    '{a} is going to need every bit of that lead!',
-    'Hold your tickets! {b} is flying!',
+    '{a} turns for home. {b} has not received the message.',
+    '{b} is closing. This has become unnecessarily dramatic.',
+    '{a} can see the line, which is more than we can say for the rest of them.',
+    '{b} is throwing everything at it, including basic snail dignity.',
+    '{a} needs every millimetre of that lead.',
+    'The room is up. {a} and {b} are still arguing over it.',
   ],
 } as const;
 
@@ -1076,10 +1060,9 @@ export const COMMENTARY = {
  */
 export const MARGIN_LINES = [
   '{a} leads by {g} from {b}.',
-  '{g} is the margin, {a} to {b}.',
-  '{b} is {g} down on {a}, with {c} third.',
-  'It is {a}, then {g} back to {b}.',
-  '{a} in front, {b} chasing at {g}.',
+  '{a} has {g} on {b}, with {c} holding third.',
+  '{a} in front. {b} is {g} away and paying attention.',
+  '{a} from {b} by {g}. That gap is not getting comfortable.',
 ] as const;
 
 export const TIGHT_LINES = [
@@ -1097,10 +1080,9 @@ export const CLEAR_LINES = [
 ] as const;
 
 export const BACK_MARKER_LINES = [
-  'Spare a thought for {d} at the back. It is having a lovely time.',
-  '{d} is last and does not appear to care.',
-  '{d} is running its own race back there, and good luck to it.',
-  'Somebody backed {d} tonight, and they are being very quiet about it.',
+  '{d} is last and appears to be taking in the scenery.',
+  '{d} is running a private event at the back. Good luck to it.',
+  '{d} has work to do and no visible urgency about doing it.',
 ] as const;
 
 /** Called when a snail actually changes places, anywhere in the field. */
@@ -1131,10 +1113,10 @@ export const REACTION_LINES = {
     'You do not see that every day!',
   ],
   bad: [
-    'Oh, that is heartbreaking!',
-    'Disaster! Absolute disaster!',
-    'There goes somebody’s money.',
-    'You have to feel for the backers there.',
+    'That is dreadful timing.',
+    'A small disaster, beautifully executed.',
+    'You have to feel for that snail.',
+    'That has turned a promising crawl into paperwork.',
   ],
   wild: [
     'What on earth was that?',
@@ -1173,7 +1155,10 @@ export const SECTOR_LINES: Record<number, string> = {
   3: 'Three-quarter mark, {a} in front and {b} winding up.',
 };
 
-const pick = <T>(pool: readonly T[]): T => pool[Math.floor(Math.random() * pool.length)];
+export type CommentaryRandom = () => number;
+
+const pick = <T>(pool: readonly T[], rnd: CommentaryRandom = Math.random): T =>
+  pool[Math.floor(rnd() * pool.length)];
 
 const fill = (line: string, a: string, b: string, c = ''): string =>
   line.replace('{a}', a).replace('{b}', b).replace('{c}', c);
@@ -1227,10 +1212,10 @@ export interface CallContext {
  * shows early pace" is true of every race ever run and therefore tells the
  * room nothing about this one.
  */
-export function callLine(ctx: CallContext): string {
+export function callLine(ctx: CallContext, rnd: CommentaryRandom = Math.random): string {
   const g = lengthPhrase(ctx.gapLengths);
   const say = (pool: readonly string[]) =>
-    fill(pick(pool), ctx.lead, ctx.chase, ctx.third)
+    fill(pick(pool, rnd), ctx.lead, ctx.chase, ctx.third)
       .replace('{d}', ctx.tail)
       .replace('{g}', g)
       .replace('{m}', lengthPhrase(ctx.toGoLengths));
@@ -1238,26 +1223,36 @@ export function callLine(ctx: CallContext): string {
   if (ctx.leadP > 0.86) return say(RUN_HOME_LINES);
   if (ctx.gapLengths < 0.6 && ctx.leadP > 0.15) return say(TIGHT_LINES);
   if (ctx.gapLengths > 4 && ctx.leadP > 0.3) return say(CLEAR_LINES);
-  if (ctx.tail && ctx.tail !== ctx.lead && ctx.leadP > 0.25 && Math.random() < 0.14) {
+  if (ctx.tail && ctx.tail !== ctx.lead && ctx.leadP > 0.25 && rnd() < 0.12) {
     return say(BACK_MARKER_LINES);
   }
   /* Otherwise quote the margin, which is what a race caller does most of the
      time, and only fall back to colour when there is nothing to quote. */
-  if (Math.random() < 0.62) return say(MARGIN_LINES);
+  if (rnd() < 0.54) return say(MARGIN_LINES);
   const phase = ctx.leadP < 0.3 ? 'early' : ctx.leadP < 0.72 ? 'mid' : 'late';
   return say(COMMENTARY[phase]);
 }
 
 /** A snail has actually passed another one. Said by name, with the place. */
-export function overtakeLine(mover: string, passed: string, place: number): string {
-  return fill(pick(OVERTAKE_LINES), mover, passed, '').replace('{n}', ordinal(place));
+export function overtakeLine(
+  mover: string,
+  passed: string,
+  place: number,
+  rnd: CommentaryRandom = Math.random,
+): string {
+  return fill(pick(OVERTAKE_LINES, rnd), mover, passed, '').replace('{n}', ordinal(place));
 }
 
 /** The beat after a surprise. Said only if the caller has room for it. */
-export const reactionLine = (tone: EventTone): string => pick(REACTION_LINES[tone]);
+export const reactionLine = (tone: EventTone, rnd: CommentaryRandom = Math.random): string =>
+  pick(REACTION_LINES[tone], rnd);
 
-export function leadChangeLine(newLeader: string, deposed: string): string {
-  return fill(pick(LEAD_CHANGE_LINES), newLeader, deposed);
+export function leadChangeLine(
+  newLeader: string,
+  deposed: string,
+  rnd: CommentaryRandom = Math.random,
+): string {
+  return fill(pick(LEAD_CHANGE_LINES, rnd), newLeader, deposed);
 }
 
 export function sectorLine(sector: number, leadName: string, chaserName: string): string | null {
@@ -1269,9 +1264,15 @@ export function sectorLine(sector: number, leadName: string, chaserName: string)
  * The call as the leader crosses to start a new lap. `lap` is the one being
  * started, so the bell goes with the last one.
  */
-export function lapLine(lap: number, laps: number, a: string, b: string): string {
+export function lapLine(
+  lap: number,
+  laps: number,
+  a: string,
+  b: string,
+  rnd: CommentaryRandom = Math.random,
+): string {
   const pool = lap === laps ? BELL_LAP_LINES : LAP_LINES;
-  return fill(pick(pool), a, b).replace('{n}', String(lap));
+  return fill(pick(pool, rnd), a, b).replace('{n}', String(lap));
 }
 
 /** The call for a surprise, e.g. "Gary hits the turbo slime and LUNGES!". */

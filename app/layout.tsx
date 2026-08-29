@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './broadcast-theatre.css';
 
 export const metadata: Metadata = {
   title: 'Snail Racing Fundraiser | Newcomb & District Cricket Club',

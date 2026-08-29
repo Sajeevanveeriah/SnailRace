@@ -12,6 +12,7 @@ import {
   rankSnails,
   lapLine,
   LENGTHS_PER_LAP,
+  mulberry32,
   overtakeLine,
   reactionLine,
   sectorLine,
@@ -171,6 +172,8 @@ interface LiveRace extends DrawnRace {
   /** Race-time at which slow-motion hands back to normal speed. */
   slowUntil: number;
   commentaryAt: number;
+  /** A separate seeded stream for wording. Replays now tell the same story. */
+  commentaryRnd: () => number;
   /** Field events already shouted, so a swarm is announced once. */
   swarms: Set<string>;
   /** Race-time at which the caller may react to the last surprise. */
@@ -404,7 +407,7 @@ export function useRace(
       /*
        * Surprises. Only the last one on a frame gets the banner, but every
        * one is kept for the result card so the room can relive the race that
-       * just cost them their chips.
+       * just changed the shape of the race.
        */
       /*
        * A field event lands on several lanes within a couple of frames. Every
@@ -468,7 +471,7 @@ export function useRace(
         lead.lane !== race.leadLane
       ) {
         const deposed = race.snails.find((s) => s.lane === race.leadLane);
-        call(leadChangeLine(lead.name, deposed?.name ?? chaser.name), 'big');
+        call(leadChangeLine(lead.name, deposed?.name ?? chaser.name, race.commentaryRnd), 'big');
         race.commentaryAt = race.raceT;
         if (!quiet) announce(`${lead.name} HITS THE FRONT`, 'hot');
         sfx.leadChange();
@@ -480,8 +483,8 @@ export function useRace(
        *
        * Before this the caller only ever noticed the lead changing hands, so
        * for most of a race it was reduced to reciting stock lines - which is
-       * precisely what "it is just saying random words" means. A punter with
-       * money on the snail running seventh wants to hear that it has just gone
+       * precisely what "it is just saying random words" means. Someone
+       * following the snail running seventh wants to hear that it has just gone
        * past the one in sixth, by name. Rationed to one every three seconds:
        * in a twenty-lane field several places change every second, and calling
        * all of them would be a list, not a commentary.
@@ -495,7 +498,7 @@ export function useRace(
           if (s.done || s.p < 0.12) continue;
           const passed = byPosition[i + 1];
           if (!passed) continue;
-          call(overtakeLine(s.name, passed.name, i + 1), 'big');
+          call(overtakeLine(s.name, passed.name, i + 1, race.commentaryRnd), 'big');
           race.commentaryAt = race.raceT;
           race.overtakeAt = race.raceT;
           sfx.crowd.cheer(0.45);
@@ -519,7 +522,7 @@ export function useRace(
         if (done > race.lapsDone && done < laps) {
           race.lapsDone = done;
           const starting = done + 1;
-          call(lapLine(starting, laps, lead.name, chaser.name), 'big');
+          call(lapLine(starting, laps, lead.name, chaser.name, race.commentaryRnd), 'big');
           race.commentaryAt = race.raceT;
           if (starting === laps) {
             announce('BELL LAP', 'hot');
@@ -649,7 +652,7 @@ export function useRace(
       if (race.reactTone && race.raceT >= race.reactAt) {
         const tone = race.reactTone;
         race.reactTone = null;
-        call(reactionLine(tone));
+        call(reactionLine(tone, race.commentaryRnd));
         race.commentaryAt = race.raceT;
       }
 
@@ -659,19 +662,22 @@ export function useRace(
        * gap, the tail-ender - rather than just the clock, so it can describe
        * what the room is looking at instead of reciting the distance.
        */
-      if (race.raceT - race.commentaryAt > 1600 && lead) {
+      if (race.raceT - race.commentaryAt > 4200 && lead) {
         race.commentaryAt = race.raceT;
         const tail = ranked[ranked.length - 1];
         call(
-          callLine({
-            leadP: lead.p,
-            lead: lead.name,
-            chase: chaser.name,
-            third: byPosition[2]?.name ?? '',
-            tail: tail?.name ?? '',
-            gapLengths: toLengths(lead.p - (byPosition[1]?.p ?? lead.p)),
-            toGoLengths: toLengths(1 - lead.p),
-          }),
+          callLine(
+            {
+              leadP: lead.p,
+              lead: lead.name,
+              chase: chaser.name,
+              third: byPosition[2]?.name ?? '',
+              tail: tail?.name ?? '',
+              gapLengths: toLengths(lead.p - (byPosition[1]?.p ?? lead.p)),
+              toGoLengths: toLengths(1 - lead.p),
+            },
+            race.commentaryRnd,
+          ),
         );
       }
 
@@ -705,6 +711,7 @@ export function useRace(
         slowmoUsed: false,
         slowUntil: 0,
         commentaryAt: -2000,
+        commentaryRnd: mulberry32(drawn.seed ^ 0x4e444343),
         swarms: new Set<string>(),
         reactAt: 0,
         reactTone: null,

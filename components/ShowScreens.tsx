@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Racecard } from './Racecard';
 import { ToteBoard } from './ToteBoard';
 import { DonateQr } from './DonateQr';
@@ -13,6 +13,8 @@ import { moneyShort } from '@/lib/money';
 import type { RoomSummary } from '@/lib/use-phone-play';
 import type { LanePool } from '@/lib/tote';
 import type { EventState } from '@/lib/types';
+
+const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
 /**
  * The projector's non-race screens: the run of show.
@@ -52,11 +54,11 @@ export function ShowOverlay({
   if (phase === 'race' || phase === 'results') return null;
 
   return (
-    <div className="show-screen" role="region" aria-label={`${showPhaseSpec(phase).screen} screen`}>
+    <ShowDialog phase={phase}>
       <header className="show-top">
         <div className="min-w-0">
-          <p className="eyebrow">{event.clubName}</p>
-          <p className="truncate text-lg font-bold">{event.eventName}</p>
+          <p className="show-club">{event.clubName}</p>
+          <p className="show-event truncate">{event.eventName}</p>
         </div>
         {event.rehearsal ? <span className="show-rehearsal">REHEARSAL</span> : null}
         <span className="show-phase num">{showPhaseSpec(phase).screen}</span>
@@ -118,6 +120,26 @@ export function ShowOverlay({
           Every snail has an equal chance. Donations never influence a result.
         </span>
       </footer>
+    </ShowDialog>
+  );
+}
+
+function ShowDialog({ phase, children }: { phase: EventState['showPhase']; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true });
+  }, [phase]);
+  return (
+    <div
+      ref={ref}
+      className="show-screen"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${showPhaseSpec(phase).screen} screen`}
+      tabIndex={-1}
+      style={{ '--show-art': `url(${ART_BASE}/snail-race-oval.webp)` } as React.CSSProperties}
+    >
+      {children}
     </div>
   );
 }
@@ -202,10 +224,15 @@ function Market({
   const roomTotal = room
     ? Object.values(room.perLane).reduce((s, l) => s + l.chips, 0)
     : 0;
+  const hasAudiencePanel = Boolean(playUrl || (room && room.players > 0));
 
   return (
     <section className="show-body">
-      <div className="grid w-full max-w-[1240px] gap-5 lg:grid-cols-[1.1fr_1fr]">
+      <div
+        className={`grid w-full gap-5 ${
+          hasAudiencePanel ? 'max-w-[1240px] lg:grid-cols-[1.1fr_1fr]' : 'max-w-[1040px]'
+        }`}
+      >
         <div className="flex flex-col gap-4">
           <div className="show-panel">
             <div className="flex items-baseline justify-between gap-3">
@@ -233,7 +260,7 @@ function Market({
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        {hasAudiencePanel ? <div className="flex flex-col gap-4">
           {room && room.players > 0 ? (
             <div className="show-panel">
               <div className="mb-3 flex items-baseline justify-between">
@@ -271,7 +298,7 @@ function Market({
               <DonateQr url={playUrl} caption="Scan to play along - free fun chips" />
             </div>
           ) : null}
-        </div>
+        </div> : null}
       </div>
     </section>
   );

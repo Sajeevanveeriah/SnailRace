@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Snail } from './Snail';
 import { ThemeToggle } from './ThemeToggle';
 import { HAS_API } from '@/lib/deployment';
 import { laneColour } from '@/lib/palette';
@@ -20,6 +20,17 @@ import type { LivePick, LiveShow } from '@/lib/live/store';
 
 const STAKES = [10, 25, 50, 100];
 const POLL_MS = 2000;
+const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
+
+function PlayerSnailArt() {
+  return (
+    <span
+      className="player-snail-art"
+      style={{ backgroundImage: `url(${ART_BASE}/snails/speedy.png)` }}
+      aria-hidden="true"
+    />
+  );
+}
 
 interface StateResponse {
   ok: boolean;
@@ -249,16 +260,17 @@ export function PlayFlow() {
         <div className="fixed right-4 top-4 z-30">
           <ThemeToggle />
         </div>
-        <div className="card reveal max-w-sm p-8 text-center">
-          <div className="mx-auto w-24">
-            <Snail />
-          </div>
+        <div className="card play-fallback reveal max-w-md p-8 text-center">
+          <PlayerSnailArt />
           <h1 className="display mt-4 text-3xl">Phone Play needs the event server</h1>
           <p className="mt-3 text-sm text-(--tx)/60">
             This copy of the site is the offline build, which runs the races and fun chips on
             the big screen only. On nights where the club runs the event server, the QR code on
             the projector brings this page to life.
           </p>
+          <Link className="btn btn-sheet mt-6 inline-flex" href="/">
+            Open the projector experience
+          </Link>
         </div>
       </main>
     );
@@ -273,9 +285,7 @@ export function PlayFlow() {
           <ThemeToggle />
         </div>
         <div className="card reveal w-full max-w-sm p-8">
-          <div className="mx-auto w-24">
-            <Snail />
-          </div>
+          <PlayerSnailArt />
           <h1 className="display mt-4 text-center text-3xl">Join the races</h1>
           <p className="fun-chip-banner mx-auto mt-3 w-fit" role="note">
             FUN CHIPS - NO MONETARY VALUE

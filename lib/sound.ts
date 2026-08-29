@@ -12,7 +12,7 @@ import type { EventSound } from './race-engine';
  * set together:
  *
  *   - Direction carries meaning. Anything good rises in pitch and anything
- *     bad falls, so a punter at the bar with their back to the screen knows
+ *     bad falls, so a supporter at the bar with their back to the screen knows
  *     whether their snail just got a boost or fell asleep.
  *   - The crowd answers the track. Every race cue has a matching reaction on
  *     the crowd bus, because a race with no room in it sounds like a
@@ -40,6 +40,11 @@ export {
   voicesReady,
   onVoicesChanged,
   isVoiceEnabled,
+  previewVoice,
+  selectVoice,
+  selectedVoiceURI,
+  voiceChoices,
+  type VoiceChoice,
   type CallPriority,
 } from './audio/voice';
 

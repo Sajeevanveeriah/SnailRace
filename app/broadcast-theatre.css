@@ -1,0 +1,285 @@
+:root {
+  --ndcc-maroon: #b3141c;
+  --ndcc-blue: #1c4fa0;
+  --ndcc-gold: #e8b55e;
+  --broadcast-ink: #07111e;
+  --broadcast-panel: #0b1b2e;
+  --broadcast-type: #f7f3e8;
+}
+
+/* The audience experience is a sports broadcast. The operator surfaces keep
+   the existing light/dark choice, but the projected stage owns its colours. */
+.aurora { display: none; }
+
+.show-screen {
+  color: var(--broadcast-type);
+  background-color: var(--broadcast-ink);
+  background-image: var(--show-art);
+  background-position: center;
+  background-size: cover;
+  outline: none;
+}
+
+.show-screen::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: rgb(7 17 30 / 0.84);
+  pointer-events: none;
+}
+.show-screen > * { position: relative; z-index: 1; }
+
+.show-top {
+  min-height: 78px;
+  padding: 0 clamp(1rem, 3vw, 2.75rem);
+  border-bottom: 4px solid var(--ndcc-gold);
+  background: var(--ndcc-maroon);
+}
+
+.show-club,
+.show-event {
+  margin: 0;
+  color: #fff;
+}
+.show-club {
+  font-size: clamp(0.72rem, 0.9vw, 0.95rem);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.show-event {
+  margin-top: 0.2rem;
+  font-size: clamp(1rem, 1.5vw, 1.45rem);
+  font-weight: 700;
+}
+
+.show-phase,
+.show-rehearsal {
+  border-radius: 0;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background: var(--broadcast-ink);
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  padding-inline: 1.2rem;
+}
+
+.show-body {
+  align-items: center;
+  padding-block: clamp(1rem, 4vh, 3rem) clamp(5.8rem, 12vh, 8rem);
+}
+
+.show-panel {
+  border-radius: 4px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-left: 5px solid var(--ndcc-blue);
+  background: rgb(7 17 30 / 0.94);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 0.28);
+  color: var(--broadcast-type);
+}
+
+.show-panel .eyebrow { color: rgb(247 243 232 / 0.7); }
+.show-panel .text-\(--tx\)\/60,
+.show-panel .text-\(--tx\)\/65,
+.show-panel .text-\(--tx\)\/70,
+.show-panel .text-\(--tx\)\/55,
+.show-panel .text-\(--tx\)\/45 { color: rgb(247 243 232 / 0.72); }
+
+.show-strap {
+  min-height: 66px;
+  border-top: 4px solid var(--ndcc-gold);
+  background: var(--broadcast-ink);
+  color: rgb(247 243 232 / 0.72);
+}
+.fun-chip-banner {
+  border-radius: 0;
+  border-color: var(--ndcc-gold);
+  color: var(--broadcast-ink);
+  background: var(--ndcc-gold);
+}
+
+.show-controls {
+  border-radius: 4px;
+  border-color: rgb(255 255 255 / 0.2);
+  background: rgb(7 17 30 / 0.96);
+  box-shadow: 0 14px 36px rgb(0 0 0 / 0.38);
+}
+.show-controls .btn { border-radius: 3px; }
+.show-controls .btn-go {
+  color: #fff;
+  background: var(--ndcc-maroon);
+}
+
+/* Generated oval and character art sit inside the same deterministic SVG
+   geometry as the previous code-drawn field. */
+.tv-art-background { pointer-events: none; }
+.tv-snail-sprite {
+  filter: drop-shadow(0 7px 5px rgb(0 0 0 / 0.38));
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.tv.racing .tv-runner:not(.finished) .tv-snail-sprite {
+  animation: broadcast-crawl 1.35s ease-in-out infinite;
+}
+.tv-runner.surging .tv-snail-sprite {
+  filter: drop-shadow(0 0 11px rgb(var(--glow) / 0.82)) drop-shadow(0 7px 5px rgb(0 0 0 / 0.38));
+}
+.tv-runner.fx-down .tv-snail-sprite { filter: grayscale(0.2) brightness(0.82); }
+.tv-runner.finished .tv-snail-sprite { filter: drop-shadow(0 0 15px var(--ndcc-gold)); }
+
+@keyframes broadcast-crawl {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(-0.7deg); }
+}
+
+/* Sports graphics: solid colour, clipped corners and one hierarchy. */
+.tv-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  gap: 0;
+  min-height: 58px;
+  align-items: stretch;
+  background: rgb(7 17 30 / 0.96);
+  border-bottom: 3px solid var(--ndcc-gold);
+}
+.tv-top::before { display: none; }
+.tv-live,
+.tv-title,
+.tv-lap,
+.tv-clock,
+.tv-shot {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 0;
+  padding-inline: clamp(0.75rem, 1.5vw, 1.5rem);
+  background: transparent;
+  backdrop-filter: none;
+}
+.tv-live { background: var(--ndcc-maroon); }
+.tv-title {
+  background: var(--ndcc-blue);
+  font-weight: 800;
+}
+.tv-clock { background: rgb(255 255 255 / 0.06); }
+.tv-shot { color: var(--ndcc-gold); }
+
+.tv-order {
+  top: clamp(76px, 8vw, 116px);
+  right: clamp(10px, 1.4vw, 22px);
+  bottom: auto;
+  left: auto;
+  width: clamp(210px, 19vw, 330px);
+  border-radius: 0;
+  border-top: 4px solid var(--ndcc-gold);
+  background: rgb(7 17 30 / 0.92);
+  backdrop-filter: none;
+}
+.tv-order-row:first-child { background: var(--ndcc-maroon); }
+
+.tv-strap {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: clamp(58px, 6.4vw, 92px);
+  border: 0;
+  border-top: 4px solid var(--ndcc-gold);
+  border-radius: 0;
+  background: rgb(7 17 30 / 0.96);
+  backdrop-filter: none;
+}
+.tv-strap-badge {
+  min-width: clamp(118px, 13vw, 210px);
+  justify-content: center;
+  background: var(--ndcc-maroon);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+}
+.tv-strap-line { padding-right: clamp(0.75rem, 20vw, 20rem); }
+
+.tv-flash {
+  right: auto;
+  left: clamp(10px, 1.4vw, 22px);
+  bottom: clamp(76px, 8vw, 128px);
+  max-width: min(56rem, 68vw);
+  border-radius: 0;
+  border-left: 5px solid var(--ndcc-gold);
+  background: rgb(7 17 30 / 0.94);
+  color: #fff;
+}
+
+.tv-surprise-art {
+  position: absolute;
+  z-index: 7;
+  right: clamp(4.5rem, 22vw, 24rem);
+  bottom: clamp(5rem, 12vw, 11rem);
+  width: clamp(100px, 15vw, 260px);
+  aspect-ratio: 1;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 10px 9px rgb(0 0 0 / 0.5));
+  pointer-events: none;
+  animation: surprise-arrive 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.tv-surprise-cricket-ball { right: 34%; bottom: 20%; }
+.tv-surprise-sprinkler { right: 42%; bottom: 18%; }
+.tv-surprise-pitch-roller { right: 30%; bottom: 18%; }
+.tv-surprise-club-dog { right: 22%; bottom: 20%; }
+.tv-surprise-lettuce-crate { right: 40%; bottom: 19%; }
+.tv-surprise-magpie { right: 35%; bottom: 43%; }
+
+@keyframes surprise-arrive {
+  0% { opacity: 0; transform: translateX(40px) scale(0.8); }
+  18%, 82% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-28px) scale(0.96); }
+}
+
+.cinema .stage-bar {
+  padding-bottom: calc(clamp(58px, 6.4vw, 92px) + 0.7rem);
+}
+
+@media (max-width: 900px) {
+  .show-top { min-height: 64px; }
+  .show-event { display: none; }
+  .show-body { align-items: flex-start; padding-bottom: 7rem; }
+  .show-strap { align-items: flex-start; flex-direction: column; gap: 0.45rem; }
+  .show-controls { width: calc(100vw - 1rem); overflow-x: auto; }
+  .tv-shot,
+  .tv-lap { display: none; }
+  .tv-title { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
+  .tv-order { width: min(42vw, 250px); }
+  .tv-order-row:nth-child(n + 5) { display: none; }
+  .tv-surprise-art { width: clamp(82px, 18vw, 150px); }
+}
+
+@media (max-width: 560px) {
+  .tv-live i,
+  .tv-shot,
+  .tv-clock { display: none; }
+  .tv-live,
+  .tv-title { padding-inline: 0.7rem; }
+  .tv-order { display: none; }
+  .tv-strap-badge { min-width: 84px; }
+  .tv-strap-line { padding-right: 0.55rem; font-size: clamp(11px, 3.2vw, 16px); }
+  .tv-flash { max-width: calc(100vw - 20px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-snail-sprite,
+  .tv-surprise-art { animation: none !important; }
+}
+
+.player-snail-art {
+  display: block;
+  width: min(270px, 78vw);
+  aspect-ratio: 1.55;
+  margin-inline: auto;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 14px 16px rgb(0 0 0 / 0.24));
+}
+.play-fallback {
+  border-radius: 6px;
+  border-top: 5px solid var(--ndcc-maroon);
+}

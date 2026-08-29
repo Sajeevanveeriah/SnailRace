@@ -29,7 +29,7 @@ a wagering product.
 |---|---|---|
 | `/` | The projector | The whole night: run-of-show screens, race stage, tote board, goal ring, donation ticker, QR codes, fun-bet slip, moderator console |
 | `/play` | An audience phone | Phone Play: join with the room code, 100 free fun chips, picks, reactions, live leaderboard - all validated by the event server |
-| `/donate` | A punter's phone | Opened from the QR code. Pick a snail, pick an amount, pay through Stripe Checkout (Apple Pay / Google Pay) |
+| `/donate` | A supporter's phone | Opened from the QR code. Pick a snail, pick an amount, pay through Stripe Checkout (Apple Pay / Google Pay) |
 | `/donate/thanks` | The same phone | Confirms the paid amount and snail straight from Stripe |
 | `/archive` | Anyone, later | Every completed race with seeds, hashes and deterministic replays |
 
@@ -76,6 +76,16 @@ every one, with no horizontal overflow.
 
 The type scales with the screen rather than staying at laptop sizes, so the
 commentary, the lap and the surprise banners are readable from the back.
+
+### Broadcast Theatre art direction
+
+Version 4.1 treats the projector as a cricket-night telecast rather than a
+generic dashboard. The race sits over an illustrated oval at dusk; six distinct
+snail characters carry club-sport markings; solid maroon, chevron blue and warm
+gold graphics create one broadcast hierarchy; and cricket-ball, sprinkler,
+pitch-roller, club-dog, lettuce-crate and magpie props make the larger surprises
+read instantly. The generated art is committed under `public/art/`, so it needs
+no network request, subscription, runtime image service or venue Wi-Fi.
 
 ## The telecast
 
@@ -209,7 +219,7 @@ a false-start panic, a streaker. One roughly every forty-five seconds. They get 
 loud call rather than six small ones, a wide card, and a knock of the camera.
 
 Every surprise has its own sound - a nap does not sound like a cramp, and a magpie
-does not sound like either - so a punter at the bar with their back to the screen
+does not sound like either - so a supporter at the bar with their back to the screen
 knows what just happened.
 
 Mechanically a field event is nothing new: one ordinary per-lane event sharing a
@@ -347,13 +357,13 @@ to keep giving them reasons to look back.
 - **Longer races.** Lap lengths from a 7-second sprint to a 60-second epic, times up to
   nine laps. The field's finishing gaps scale with the length, so a long race spreads the
   placings out instead of landing the whole field in one clump.
-- **Surprises.** Turbo slime, second winds, shell slips, micro-naps and lettuce breaks,
-  roughly one every three seconds of race - so a five-minute race carries a steady drip
-  of them rather than four quiet minutes. On straight lanes each one is **marked on the
+- **Surprises.** Turbo slime, second winds, shell slips, micro-naps, lettuce breaks and
+  whole-field cricket set-pieces land at a deliberate broadcast pace - Standard deals
+  about one moment every 7.5 seconds, capped at 14. On straight lanes each one is **marked on the
   track before it lands**, so the room can see a nap coming and shout at a snail about it.
 - **Called out loud.** Every surprise gets a banner across the track, a sound cue and a
   commentary line. So does every change of leader, every lap crossing, and the bell lap.
-- **A highlight reel.** The winner card lists what happened and when, so the punter who
+- **A highlight reel.** The winner card lists what happened and when, so the supporter who
   just lost on a nap at 8.1s knows exactly what to blame.
 - **Streaks.** Two winning fun bets in a row starts a run, and every win after that pays
   bonus chips on top of the odds. The chip leaderboard shows who is on one.
@@ -382,7 +392,7 @@ synthesised by WebAudio at the moment it plays.
   tambourine only in the run home. The room hears how far in it is without looking up.
 - **The crowd answers the track.** Cheers on a boost, a groan on a nap, a roar into the
   final straight and at the line. Anything good rises in pitch and anything bad falls, so a
-  punter at the bar with their back to the screen still knows what happened.
+  supporter at the bar with their back to the screen still knows what happened.
 - **The music ducks** under the big moments so the commentary stays readable.
 
 ### The race caller
@@ -406,28 +416,27 @@ drift apart because they go through one function.
 the track: the margin between first and second in lengths, the distance the leader
 has left, who is really third. And it calls **overtakes anywhere in the field**,
 by name and by place - "Flash goes past Comet and into fifth!" - not only the lead
-changing hands, which is what a punter with money on the snail running seventh
-actually wants to hear. Rationed to one every three seconds, because in a
+changing hands, which is what someone following the snail running seventh
+actually wants to hear. Overtake calls are rationed to one every three seconds, because in a
 twenty-lane field several places change every second and calling all of them is a
 list, not a commentary.
 
-The caller also reacts. A beat after a surprise it says something about it -
-"oh, that is heartbreaking", "the stewards are going to have a look at that one" -
-before going back to the running order, and the run of play is chosen from what it
+The caller also reacts. A beat after a surprise it gives one short, event-specific
+observation before returning to the running order, and the run of play is chosen from what it
 can actually see: the top two locked together get a different line from a leader
 eight lengths clear, and the snail at the back gets the occasional joke at its
 expense.
 
 It is read at a **level rate and pitch**, a shade quicker on the big moments and
-no more. Past about 1.1 a synthetic voice stops sounding urgent and starts
-sounding wrong, which is exactly what an earlier version at 1.22 and a tone
-higher did.
+no more. Controls lists the English voices installed on the event laptop, prefers
+an Australian natural/local voice where available, remembers the operator's choice,
+and includes a preview button before the hall opens.
 
-**V** turns the caller on and off, or use **Controls → Sound**. A browser with
+**V** turns the caller on and off, or use **Controls -> Sound**. A browser with
 no speech voices installed simply shows the option greyed out and keeps the
 written commentary.
 
-Levels live in **Controls → Sound**: overall volume, music under the commentary, and a
+Levels live in **Controls -> Sound**: overall volume, music under the commentary, and a
 **Sound check** button that plays every cue in order so you can set the room level cold,
 before anyone arrives. **S** mutes everything, **B** drops just the music and crowd.
 

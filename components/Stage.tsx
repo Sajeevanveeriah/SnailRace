@@ -784,12 +784,18 @@ export function Stage() {
 
   return (
     <div className={`${event.calm ? 'calm ' : ''}${cinema ? 'cinema' : ''}`}>
-      <a className="skip-link" href="#controls">
-        Skip to moderator controls
-      </a>
+      {event.showPhase === 'race' || event.showPhase === 'results' ? (
+        <a className="skip-link" href="#controls">
+          Skip to moderator controls
+        </a>
+      ) : null}
       <div className="aurora" aria-hidden="true" />
 
-      <div className="stage-shell mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
+      <div
+        className="stage-shell mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8"
+        inert={event.showPhase !== 'race' && event.showPhase !== 'results'}
+        aria-hidden={event.showPhase !== 'race' && event.showPhase !== 'results'}
+      >
         {/* ── Header ─────────────────────────────────────────────────── */}
         <header className="reveal flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div className="min-w-0">
@@ -915,7 +921,9 @@ export function Stage() {
                     </span>
                   ) : null}
                 </div>
-                <p className="call-rail h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
+                {event.trackShape === 'circuit' ? null : (
+                  <p className="call-rail h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">

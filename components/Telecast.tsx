@@ -92,6 +92,20 @@ interface RunnerNodes {
   pos: SVGTextElement;
 }
 
+const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
+const SNAIL_ART = ['speedy', 'turbo', 'lightning', 'flash', 'rocket', 'bolt'] as const;
+
+function surpriseArtFor(text: string): string | null {
+  const value = text.toUpperCase();
+  if (value.includes('CRICKET BALL')) return 'cricket-ball';
+  if (value.includes('SPRINKLER')) return 'sprinkler';
+  if (value.includes('PITCH ROLLER')) return 'pitch-roller';
+  if (value.includes('DOG ON THE TRACK')) return 'club-dog';
+  if (value.includes('LETTUCE ON THE TRACK')) return 'lettuce-crate';
+  if (value.includes('MAGPIE')) return 'magpie';
+  return null;
+}
+
 /** A deterministic scatter, so the crowd is identical on server and client. */
 function scatter(seed: number, n: number): number[] {
   let s = seed >>> 0;
@@ -637,6 +651,20 @@ export function Telecast({
           <line className="tv-lane-line kerb" x1={-BLEED} y1={TRACK_BOTTOM} x2={VIEW_W + BLEED} y2={TRACK_BOTTOM} />
         </g>
 
+        {/* The authored oval is the visual source of truth. The geometry and
+            finish gantries remain code-native above it, so fairness and
+            projector scaling are unchanged. */}
+        <image
+          className="tv-art-background"
+          href={`${ART_BASE}/snail-race-oval.webp`}
+          x={0}
+          y={0}
+          width={VIEW_W}
+          height={VIEW_H}
+          preserveAspectRatio="xMidYMid slice"
+          aria-hidden="true"
+        />
+
         {/* Cross marks painted on the surface. These are the speed. */}
         <g ref={marksRef} className="tv-marks" aria-hidden="true">
           {marks.map((w, i) => (
@@ -712,28 +740,15 @@ export function Telecast({
                 <g className="tv-art" transform={`scale(${s.toFixed(3)})`}>
                   <ellipse className="tv-shadow" cx={0} cy={3} rx={36} ry={7} />
                   <path className="tv-slime" d="M-30 0 H-104" />
-                  <g className="tv-flex">
-                    <path
-                      className="tv-foot"
-                      d="M-34 0 Q-42 -13 -22 -17 L16 -18 Q36 -17 39 -6 Q40 0 32 0 Z"
-                    />
-                    <path className="tv-foot-lit" d="M-24 -12 Q-2 -16 24 -12" />
-                    <circle className="tv-shell" cx={-8} cy={-27} r={19} />
-                    <path
-                      className="tv-spiral"
-                      d="M-8 -27 a4 4 0 1 0 3.6 2.4 a8.6 8.6 0 1 1 -11.2 -5.2 a13.6 13.6 0 1 1 -2.4 19.4"
-                    />
-                    <ellipse className="tv-shell-lit" cx={-15} cy={-34} rx={6.5} ry={4.2} />
-                    <g className="tv-head">
-                      <path className="tv-neck" d="M20 -14 Q33 -19 35 -28" />
-                      <path className="tv-stalk" d="M34 -27 Q40 -37 42 -45" />
-                      <path className="tv-stalk" d="M28 -28 Q31 -39 30 -47" />
-                      <circle className="tv-eye" cx={42.5} cy={-46.5} r={4.2} />
-                      <circle className="tv-eye" cx={30} cy={-48.5} r={4.2} />
-                      <circle className="tv-pupil" cx={43.8} cy={-47} r={1.9} />
-                      <circle className="tv-pupil" cx={31.2} cy={-49} r={1.9} />
-                    </g>
-                  </g>
+                  <image
+                    className="tv-snail-sprite"
+                    href={`${ART_BASE}/snails/${SNAIL_ART[lane % SNAIL_ART.length]}.png`}
+                    x={-74}
+                    y={-84}
+                    width={148}
+                    height={92}
+                    preserveAspectRatio="xMidYMax meet"
+                  />
                 </g>
 
                 {/* Name super. Lanes are separated vertically, so two runners
@@ -822,14 +837,26 @@ export function Telecast({
 
       {/* A surprise gets a lower third, not a card across the track. */}
       {race.moment && race.phase === 'running' ? (
-        <p
-          key={race.moment.id}
-          className={`tv-flash moment-${race.moment.tone} ${race.moment.big ? 'tv-flash-big' : ''}`}
-          aria-hidden="true"
-        >
-          {race.moment.big ? <b>FIELD EVENT</b> : null}
-          {race.moment.text}
-        </p>
+        <>
+          {surpriseArtFor(race.moment.text) ? (
+            <span
+              key={`art-${race.moment.id}`}
+              className={`tv-surprise-art tv-surprise-${surpriseArtFor(race.moment.text)}`}
+              style={{
+                backgroundImage: `url(${ART_BASE}/surprises/${surpriseArtFor(race.moment.text)}.png)`,
+              }}
+              aria-hidden="true"
+            />
+          ) : null}
+          <p
+            key={race.moment.id}
+            className={`tv-flash moment-${race.moment.tone} ${race.moment.big ? 'tv-flash-big' : ''}`}
+            aria-hidden="true"
+          >
+            {race.moment.big ? <b>FIELD EVENT</b> : null}
+            {race.moment.text}
+          </p>
+        </>
       ) : null}
 
       {race.photoFinish && race.phase === 'running' ? (
