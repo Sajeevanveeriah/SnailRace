@@ -50,14 +50,14 @@ jobs:
       - name: Unit and invariant tests
         run: npm test
 
+      - name: Build production server bundle
+        run: npm run build
+
       - name: Install browser for experience tests
         run: npx playwright install --with-deps chromium
 
       - name: Browser, accessibility and responsive tests
         run: npm run test:e2e
-
-      - name: Build production server bundle
-        run: npm run build
 
   build:
     needs: quality
