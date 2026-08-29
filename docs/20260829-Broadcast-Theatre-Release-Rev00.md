@@ -31,7 +31,8 @@ service, runtime generation, external asset host or venue network request.
 - Standard surprise pace is about one authored beat per 7.5 seconds with a cap of 14.
   Whole-field moments are announced once even when several lanes are affected.
 - Hidden stage content is inert and removed from the accessibility tree while a show
-  screen is active; each show screen receives focus as it opens.
+  screen is active; each screen is a named region while the sibling show controls remain
+  directly keyboard and assistive-technology accessible.
 - All new decorative animation is disabled by `prefers-reduced-motion`.
 - The historical Stripe metadata tag remains stable for reconciliation; only the client
   library app version changes to 4.1.0.
