@@ -78,11 +78,12 @@
 }
 
 .show-panel .eyebrow { color: rgb(247 243 232 / 0.7); }
-.show-panel .text-\(--tx\)\/60,
-.show-panel .text-\(--tx\)\/65,
-.show-panel .text-\(--tx\)\/70,
-.show-panel .text-\(--tx\)\/55,
-.show-panel .text-\(--tx\)\/45 { color: rgb(247 243 232 / 0.72); }
+.show-screen .text-\(--tx\)\/60,
+.show-screen .text-\(--tx\)\/65,
+.show-screen .text-\(--tx\)\/70,
+.show-screen .text-\(--tx\)\/55,
+.show-screen .text-\(--tx\)\/50,
+.show-screen .text-\(--tx\)\/45 { color: rgb(247 243 232 / 0.78); }
 
 .show-strap {
   min-height: 66px;
@@ -104,6 +105,8 @@
   box-shadow: 0 14px 36px rgb(0 0 0 / 0.38);
 }
 .show-controls .btn { border-radius: 3px; }
+.show-controls .btn,
+.show-controls kbd { color: var(--broadcast-type); }
 .show-controls .btn-go {
   color: #fff;
   background: var(--ndcc-maroon);

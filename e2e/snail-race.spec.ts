@@ -20,6 +20,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
+  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 });
 
 test('show flow isolates the hidden stage and remains accessible', async ({ page }) => {
