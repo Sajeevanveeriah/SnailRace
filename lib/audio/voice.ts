@@ -33,12 +33,13 @@ export type CallPriority = 'big' | 'call';
 let enabled = false;
 let voice: SpeechSynthesisVoice | null = null;
 let picked = false;
+let preferredVoiceURI = '';
 /** Cleared by the utterance's own end/error handlers. */
 let speaking = false;
 let lastSpokenAt = 0;
 
 /** Minimum gap between ordinary calls, so the caller is not relentless. */
-const CALL_GAP_MS = 3400;
+const CALL_GAP_MS = 4400;
 
 /**
  * How long a line must have been running before a big moment may cut it off.
@@ -90,12 +91,28 @@ function pickVoice(): void {
   const all = s.getVoices();
   if (!all.length) return;
 
+  if (!preferredVoiceURI) {
+    try {
+      preferredVoiceURI = window.localStorage.getItem('ndcc-commentary-voice') ?? '';
+    } catch {
+      preferredVoiceURI = '';
+    }
+  }
+
+  const saved = all.find((v) => v.voiceURI === preferredVoiceURI);
+  if (saved) {
+    voice = saved;
+    picked = true;
+    return;
+  }
+
   const score = (v: SpeechSynthesisVoice): number => {
     const lang = v.lang?.toLowerCase() ?? '';
-    if (lang.startsWith('en-au')) return 4;
-    if (lang.startsWith('en-gb')) return 3;
-    if (lang.startsWith('en')) return 2;
-    return 1;
+    const name = v.name.toLowerCase();
+    let value = lang.startsWith('en-au') ? 100 : lang.startsWith('en-gb') ? 75 : lang.startsWith('en') ? 50 : 0;
+    if (/natural|neural|premium|enhanced/.test(name)) value += 40;
+    if (v.localService) value += 10;
+    return value;
   };
   voice = all.slice().sort((a, b) => score(b) - score(a))[0] ?? null;
   picked = true;
@@ -106,6 +123,54 @@ export function initVoice(): void {
   if (!s) return;
   pickVoice();
   if (!picked) s.addEventListener('voiceschanged', pickVoice, { once: true });
+}
+
+export interface VoiceChoice {
+  uri: string;
+  name: string;
+  lang: string;
+  local: boolean;
+}
+
+export function voiceChoices(): VoiceChoice[] {
+  const all = synth()?.getVoices() ?? [];
+  return all
+    .filter((v) => v.lang.toLowerCase().startsWith('en'))
+    .map((v) => ({ uri: v.voiceURI, name: v.name, lang: v.lang, local: v.localService }));
+}
+
+export const selectedVoiceURI = (): string => voice?.voiceURI ?? preferredVoiceURI;
+
+export function selectVoice(uri: string): void {
+  preferredVoiceURI = uri;
+  picked = false;
+  voice = null;
+  try {
+    window.localStorage.setItem('ndcc-commentary-voice', uri);
+  } catch {
+    /* The selection still applies for this tab when storage is unavailable. */
+  }
+  pickVoice();
+}
+
+export function previewVoice(): boolean {
+  const s = synth();
+  if (!s) return false;
+  pickVoice();
+  try {
+    s.cancel();
+    const u = new SpeechSynthesisUtterance(
+      'Righto. The field is ready, the fun chips are free, and the snails have been warned.',
+    );
+    if (voice) u.voice = voice;
+    u.lang = voice?.lang ?? 'en-AU';
+    u.rate = 0.96;
+    u.pitch = 0.98;
+    s.speak(u);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function setVoiceEnabled(on: boolean): void {
@@ -157,8 +222,8 @@ export function say(text: string, priority: CallPriority = 'call'): boolean {
      * which is where the "weird" came from: past about 1.1 the synthesiser
      * stops sounding urgent and starts sounding wrong.
      */
-    u.rate = priority === 'big' ? 1.08 : 0.98;
-    u.pitch = priority === 'big' ? 1.06 : 1;
+    u.rate = priority === 'big' ? 1.01 : 0.94;
+    u.pitch = 0.98;
     u.volume = 1;
 
     speaking = true;

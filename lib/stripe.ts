@@ -21,7 +21,7 @@ export function getStripe(): Stripe | null {
   if (!cached) {
     cached = new Stripe(key, {
       apiVersion: '2025-08-27.basil',
-      appInfo: { name: 'NDCC Snail Race Fundraiser', version: '3.0.0' },
+      appInfo: { name: 'NDCC Snail Race Fundraiser', version: '4.1.0' },
       maxNetworkRetries: 2,
     });
   }
@@ -51,4 +51,5 @@ export const META = {
   backerName: 'backer_name',
 } as const;
 
+/* Kept stable so historical Stripe metadata remains query-compatible. */
 export const APP_TAG = 'ndcc_snailrace_v3';

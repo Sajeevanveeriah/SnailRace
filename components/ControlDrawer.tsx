@@ -16,7 +16,20 @@ import { LAP_LEN } from '@/lib/broadcast';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
 import { INTENSITY_FACTOR, eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
-import { initVoice, primeAudio, sampleReport, samplesSettled, sfx, soundCheck } from '@/lib/sound';
+import {
+  initVoice,
+  onVoicesChanged,
+  previewVoice,
+  primeAudio,
+  sampleReport,
+  samplesSettled,
+  selectVoice,
+  selectedVoiceURI,
+  sfx,
+  soundCheck,
+  voiceChoices,
+  type VoiceChoice,
+} from '@/lib/sound';
 import { useCanSpeak } from '@/lib/use-can-speak';
 import type { Donation } from '@/lib/types';
 
@@ -75,6 +88,8 @@ export function ControlDrawer({
    * hydration, and it would also print the wrong time.
    */
   const [printedAt, setPrintedAt] = useState('');
+  const [voices, setVoices] = useState<VoiceChoice[]>([]);
+  const [voiceURI, setVoiceURI] = useState('');
 
   const names = event.names.slice(0, event.fieldSize);
 
@@ -84,6 +99,17 @@ export function ControlDrawer({
    * console is open rather than being captured once at mount.
    */
   const canSpeak = useCanSpeak();
+
+  useEffect(() => {
+    if (!open) return;
+    const refresh = () => {
+      initVoice();
+      setVoices(voiceChoices());
+      setVoiceURI(selectedVoiceURI());
+    };
+    refresh();
+    return onVoicesChanged(refresh);
+  }, [open]);
 
   /* The device archive is read when the console opens, not held live. */
   useEffect(() => {
@@ -505,6 +531,7 @@ export function ControlDrawer({
         className={`drawer glass glass-strong no-print ${open ? 'open' : ''}`}
         aria-label="Moderator controls"
         aria-hidden={!open}
+        inert={!open}
       >
         <div className="mx-auto max-w-[1500px] p-5 sm:p-7">
           <div className="mb-5 flex items-center justify-between gap-4">
@@ -1012,6 +1039,39 @@ export function ControlDrawer({
                     This browser has no speech voices installed, so the caller is
                     unavailable. The written commentary still runs.
                   </p>
+                ) : null}
+                {canSpeak && voices.length ? (
+                  <div className="grid gap-2 rounded-md border border-(--tx)/10 p-3">
+                    <label className="fld">
+                      <span>Commentary voice</span>
+                      <select
+                        value={voiceURI}
+                        onChange={(e) => {
+                          selectVoice(e.target.value);
+                          setVoiceURI(e.target.value);
+                        }}
+                      >
+                        {voices.map((v) => (
+                          <option key={v.uri} value={v.uri}>
+                            {v.name} - {v.lang}{v.local ? '' : ' - online'}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        primeAudio();
+                        previewVoice();
+                      }}
+                    >
+                      Preview commentator
+                    </button>
+                    <p className="text-[11px] leading-snug text-(--tx)/50">
+                      Natural or enhanced Australian voices are preferred when this device provides them.
+                    </p>
+                  </div>
                 ) : null}
 
                 <label className="fld">

@@ -55,6 +55,7 @@ import type { DrawnRace } from '@/lib/race-engine';
 
 export function Stage() {
   const event = useEvent();
+  const [clientReady, setClientReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
@@ -64,6 +65,8 @@ export function Stage() {
 
   useEffect(() => {
     hydrate();
+    const id = window.setTimeout(() => setClientReady(true), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -783,13 +786,22 @@ export function Stage() {
   const winnerColour = race.results[0] ? laneColour(race.results[0].lane).shell : '#ffb020';
 
   return (
-    <div className={`${event.calm ? 'calm ' : ''}${cinema ? 'cinema' : ''}`}>
-      <a className="skip-link" href="#controls">
-        Skip to moderator controls
-      </a>
+    <div
+      className={`${event.calm ? 'calm ' : ''}${cinema ? 'cinema' : ''}`}
+      data-hydrated={clientReady ? 'true' : 'false'}
+    >
+      {event.showPhase === 'race' || event.showPhase === 'results' ? (
+        <a className="skip-link" href="#controls">
+          Skip to moderator controls
+        </a>
+      ) : null}
       <div className="aurora" aria-hidden="true" />
 
-      <div className="stage-shell mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
+      <div
+        className="stage-shell mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8"
+        inert={event.showPhase !== 'race' && event.showPhase !== 'results'}
+        aria-hidden={event.showPhase !== 'race' && event.showPhase !== 'results'}
+      >
         {/* ── Header ─────────────────────────────────────────────────── */}
         <header className="reveal flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div className="min-w-0">
@@ -915,7 +927,9 @@ export function Stage() {
                     </span>
                   ) : null}
                 </div>
-                <p className="call-rail h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
+                {event.trackShape === 'circuit' ? null : (
+                  <p className="call-rail h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -1056,7 +1070,7 @@ export function Stage() {
 
       {event.showPhase !== 'race' ? (
         <div className="show-controls no-print" role="toolbar" aria-label="Show controls">
-          <button type="button" className="btn btn-ghost" onClick={backShow}>
+          <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={backShow}>
             Back <kbd>PgUp</kbd>
           </button>
           {event.showPhase === 'market' && event.bettingOpen ? (
@@ -1064,6 +1078,7 @@ export function Stage() {
               <button
                 type="button"
                 className="btn btn-ghost"
+                disabled={!clientReady}
                 onClick={() => {
                   warnedRef.current.clear();
                   setMarketLockAt(Date.now() + 60_000);
@@ -1074,6 +1089,7 @@ export function Stage() {
               <button
                 type="button"
                 className="btn btn-ghost"
+                disabled={!clientReady}
                 onClick={() => {
                   setMarketLockAt(null);
                   setState({ bettingOpen: false, showPhase: 'race' });
@@ -1084,20 +1100,21 @@ export function Stage() {
             </>
           ) : null}
           {event.showPhase === 'championship' ? (
-            <button type="button" className="btn btn-ghost" onClick={() => goToPhase('intermission')}>
+            <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={() => goToPhase('intermission')}>
               Intermission
             </button>
           ) : null}
           <button
             type="button"
             className="btn btn-ghost"
+            disabled={!clientReady}
             aria-controls="controls"
             aria-expanded={drawerOpen}
             onClick={() => setDrawerOpen((v) => !v)}
           >
             Controls <kbd>M</kbd>
           </button>
-          <button type="button" className={`btn btn-go`} onClick={advanceShow}>
+          <button type="button" className={`btn btn-go`} disabled={!clientReady} onClick={advanceShow}>
             {showPhaseSpec(event.showPhase).advance} <kbd>Space</kbd>
           </button>
         </div>

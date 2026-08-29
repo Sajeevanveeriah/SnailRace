@@ -77,7 +77,14 @@ export interface HostContext {
   intensity: SurpriseIntensity;
 }
 
-const pick = <T,>(pool: readonly T[]): T => pool[Math.floor(Math.random() * pool.length)];
+const pickFor = <T,>(pool: readonly T[], key: string): T => {
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return pool[(hash >>> 0) % pool.length];
+};
 
 /**
  * What the caller says as each segment opens. One line per advance, so the
@@ -87,18 +94,22 @@ const pick = <T,>(pool: readonly T[]): T => pool[Math.floor(Math.random() * pool
 export function hostLineFor(phase: ShowPhase, ctx: HostContext): string {
   switch (phase) {
     case 'lobby':
-      return `Welcome to ${ctx.eventName}, racing for ${ctx.clubName}. Find a seat, the first field is nearly ready.`;
+      return `Welcome to ${ctx.eventName}. Settle in - the first field for ${ctx.clubName} is nearly ready.`;
     case 'racecard':
       return ctx.raceNo === 1
         ? `Tonight's card: ${ctx.plannedRaces} races. Remember, the chips are fun chips with no monetary value, every snail has an equal chance, and every dollar donated goes straight to the club.`
         : `Here is the field for race ${ctx.raceNo} of ${ctx.plannedRaces}${ctx.sponsor ? `, proudly sponsored by ${ctx.sponsor}` : ''}.`;
     case 'market':
-      return pick([
-        `The fun-chip market is open for race ${ctx.raceNo}. Get your chips on - they are worth nothing and that is the point.`,
-        `Chips in for race ${ctx.raceNo}! The market closes at the gate.`,
-      ]);
+      return pickFor(
+        [
+          `The fun-chip market is open for race ${ctx.raceNo}. Make your pick before the gate closes.`,
+          `Race ${ctx.raceNo} is open. Choose a snail, spend only free fun chips, and keep your dignity where possible.`,
+          `Selections are open for race ${ctx.raceNo}. The chips are free; the bragging rights are not.`,
+        ],
+        `${ctx.eventName}:${ctx.raceNo}:market`,
+      );
     case 'race':
-      return `They are heading to the gate for race ${ctx.raceNo}. Last chips now - the market locks when the lights go.`;
+      return `The field is heading to the gate for race ${ctx.raceNo}. Selections are locked when the lights go.`;
     case 'results':
       return 'And that is the result, drawn before a single snail moved. Settling the fun chips now.';
     case 'championship':
@@ -106,7 +117,7 @@ export function hostLineFor(phase: ShowPhase, ctx: HostContext): string {
         ? `After ${ctx.raceNo} ${ctx.raceNo === 1 ? 'race' : 'races'}, ${ctx.leaderName} leads the championship.`
         : 'Here is how the championship stands.';
     case 'intermission':
-      return 'Time for a short break. Stretch the legs, back the club at the bar, and we race again shortly.';
+      return 'Time for a short break. Stretch the legs, support the club if you can, and we race again shortly.';
     case 'finale':
       return `That is the card complete. Thank you for racing with ${ctx.clubName} - every dollar tonight goes to the club. Safe travels home.`;
   }
