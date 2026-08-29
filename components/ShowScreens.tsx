@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Racecard } from './Racecard';
 import { ToteBoard } from './ToteBoard';
 import { DonateQr } from './DonateQr';
@@ -126,15 +126,14 @@ export function ShowOverlay({
 
 function ShowDialog({ phase, children }: { phase: EventState['showPhase']; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     ref.current?.focus({ preventScroll: true });
   }, [phase]);
   return (
     <div
       ref={ref}
       className="show-screen"
-      role="dialog"
-      aria-modal="true"
+      role="region"
       aria-label={`${showPhaseSpec(phase).screen} screen`}
       tabIndex={-1}
       style={{ '--show-art': `url(${ART_BASE}/snail-race-oval.webp)` } as React.CSSProperties}

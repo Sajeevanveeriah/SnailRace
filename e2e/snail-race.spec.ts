@@ -7,6 +7,15 @@ const assertNoSeriousAxeFindings = async (page: Page) => {
   expect(serious, serious.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([]);
 };
 
+const advanceToRace = async (page: Page) => {
+  await page.keyboard.press('Space');
+  await expect(page.locator('.show-screen')).toHaveAttribute('aria-label', 'RACECARD screen');
+  await page.keyboard.press('Space');
+  await expect(page.locator('.show-screen')).toHaveAttribute('aria-label', 'MARKET OPEN screen');
+  await page.keyboard.press('Space');
+  await expect(page.locator('.show-screen')).toHaveCount(0);
+};
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
@@ -14,32 +23,28 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('show flow isolates the hidden stage and remains accessible', async ({ page }) => {
-  const welcome = page.getByRole('dialog', { name: 'WELCOME screen' });
+  const welcome = page.getByRole('region', { name: 'WELCOME screen' });
   await expect(welcome).toBeVisible();
   await expect(welcome).toBeFocused();
   await expect(page.locator('.stage-shell')).toHaveAttribute('inert', '');
   await expect(page.locator('.stage-shell')).toHaveAttribute('aria-hidden', 'true');
   await assertNoSeriousAxeFindings(page);
 
-  await page.getByRole('button', { name: /Show the racecard/i }).click();
-  await expect(page.getByRole('dialog', { name: 'RACECARD screen' })).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toBeFocused();
   await assertNoSeriousAxeFindings(page);
 
-  await page.getByRole('button', { name: /Open the fun-chip market/i }).click();
-  const market = page.getByRole('dialog', { name: 'MARKET OPEN screen' });
+  await page.keyboard.press('Space');
+  const market = page.getByRole('region', { name: 'MARKET OPEN screen' });
   await expect(market).toBeFocused();
   await expect(market).toContainText('FUN CHIPS - NO MONETARY VALUE');
   await assertNoSeriousAxeFindings(page);
 });
 
 test('race uses production art and commentary avoids monetary language', async ({ page }, testInfo) => {
-  await page.getByRole('button', { name: /Show the racecard/i }).click();
-  await page.getByRole('button', { name: /Open the fun-chip market/i }).click();
-  await page.getByRole('button', { name: /Lock and race/i }).click();
-
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await advanceToRace(page);
   await expect(page.locator('.stage-shell')).not.toHaveAttribute('inert', '');
-  await page.getByRole('button', { name: /Start race/i }).click();
+  await page.keyboard.press('Space');
 
   await expect(page.locator('.tv-art-background')).toBeVisible();
   await expect(page.locator('.tv-snail-sprite')).toHaveCount(6);
@@ -54,15 +59,13 @@ test('200 percent zoom does not create horizontal page overflow', async ({ page 
     document.documentElement.style.zoom = '2';
   });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2)).toBe(true);
-  await page.getByRole('button', { name: /Show the racecard/i }).click();
+  await page.keyboard.press('Space');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2)).toBe(true);
 });
 
 test('reduced motion disables decorative race and surprise animation', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.getByRole('button', { name: /Show the racecard/i }).click();
-  await page.getByRole('button', { name: /Open the fun-chip market/i }).click();
-  await page.getByRole('button', { name: /Lock and race/i }).click();
+  await advanceToRace(page);
   const sprite = page.locator('.tv-snail-sprite').first();
   await expect(sprite).toBeVisible();
   await expect(sprite).toHaveCSS('animation-name', 'none');
