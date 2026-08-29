@@ -130,6 +130,7 @@ function ShowDialog({ phase, children }: { phase: EventState['showPhase']; child
       className="show-screen"
       role="region"
       aria-label={`${showPhaseSpec(phase).screen} screen`}
+      tabIndex={0}
       style={{ '--show-art': `url(${ART_BASE}/snail-race-oval.webp)` } as React.CSSProperties}
     >
       {children}

@@ -341,7 +341,7 @@ export function PlayFlow() {
             >
               {joining ? 'Joining…' : identity ? 'Reconnecting…' : 'Join with 100 free chips'}
             </button>
-            <p className="text-center text-[11px] leading-relaxed text-(--tx)/65">
+            <p className="text-center text-[11px] leading-relaxed text-(--tx)/75">
               Chips are free, cannot be bought and are worth nothing. The leaderboard is the
               prize. Donations to the club are completely separate.
             </p>

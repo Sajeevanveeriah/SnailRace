@@ -531,6 +531,7 @@ export function ControlDrawer({
         className={`drawer glass glass-strong no-print ${open ? 'open' : ''}`}
         aria-label="Moderator controls"
         aria-hidden={!open}
+        inert={!open}
       >
         <div className="mx-auto max-w-[1500px] p-5 sm:p-7">
           <div className="mb-5 flex items-center justify-between gap-4">
