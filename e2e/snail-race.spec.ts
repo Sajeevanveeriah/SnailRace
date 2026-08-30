@@ -85,6 +85,10 @@ test('race uses production art and commentary avoids monetary language', async (
 });
 
 test('first finisher freezes the field and opens one result within one second', async ({ page }) => {
+  test.setTimeout(45_000);
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+
   await setSprintRace(page);
   await advanceToRace(page);
   await page.getByRole('button', { name: /Start race/i }).click();
@@ -129,6 +133,11 @@ test('first finisher freezes the field and opens one result within one second', 
   await expect.poll(recordedOnce).toEqual({ results: 1, finishEvents: 1 });
   await page.waitForTimeout(200);
   expect(await recordedOnce()).toEqual({ results: 1, finishEvents: 1 });
+
+  /* The generated winner fanfare tears itself down after four bars. Keep the
+     page alive long enough to cover that asynchronous lifecycle boundary. */
+  await page.waitForTimeout(8_500);
+  expect(pageErrors, pageErrors.join('\n')).toEqual([]);
 });
 
 test('200 percent zoom does not create horizontal page overflow', async ({ page }) => {

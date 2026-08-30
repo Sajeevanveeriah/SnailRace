@@ -151,29 +151,34 @@ export function setCrowdLevel(value: number): void {
  * rather than a late note.
  */
 function tick(): void {
-  if (!track || track.voice) return;
+  const active = track;
+  if (!active || active.voice) return;
   if (!isMusicEnabled()) {
     stopTrack(0.3);
     return;
   }
 
-  const secondsPerBeat = 60 / track.bpm;
+  const secondsPerBeat = 60 / active.bpm;
   const barLength = secondsPerBeat * BEATS_PER_BAR;
 
   /* A backgrounded tab wakes with a stale playhead. Catch up rather than
      dumping every missed bar into the speakers at once. */
-  if (track.nextBarAt < now() - barLength) track.nextBarAt = now() + 0.05;
+  if (active.nextBarAt < now() - barLength) active.nextBarAt = now() + 0.05;
 
-  const start = track.nextBarAt;
-  if (track.id === 'lobby') lobbyBar(track, start, secondsPerBeat);
-  else if (track.id === 'race') raceBar(track, start, secondsPerBeat);
-  else winnerBar(track, start, secondsPerBeat);
+  const start = active.nextBarAt;
+  if (active.id === 'lobby') lobbyBar(active, start, secondsPerBeat);
+  else if (active.id === 'race') raceBar(active, start, secondsPerBeat);
+  else winnerBar(active, start, secondsPerBeat);
 
-  track.bar += 1;
-  track.nextBarAt = start + barLength;
+  /* A bar may deliberately stop or replace the current track. Do not touch
+     the shared slot after that transition - winnerBar ends its own fanfare. */
+  if (track !== active) return;
 
-  const wait = Math.max(20, (track.nextBarAt - now() - SCHEDULE_AHEAD) * 1000);
-  track.timer = window.setTimeout(tick, wait);
+  active.bar += 1;
+  active.nextBarAt = start + barLength;
+
+  const wait = Math.max(20, (active.nextBarAt - now() - SCHEDULE_AHEAD) * 1000);
+  active.timer = window.setTimeout(tick, wait);
 }
 
 /* ── The tracks ────────────────────────────────────────────────────────── */
