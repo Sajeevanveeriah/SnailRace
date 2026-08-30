@@ -16,11 +16,32 @@ export interface OriginCheck {
   ok: boolean;
 }
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+const hostnameOf = (url: URL): string => url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+
+const effectivePort = (url: URL): string =>
+  url.port || (url.protocol === 'https:' ? '443' : url.protocol === 'http:' ? '80' : '');
+
+/**
+ * Next normalises loopback hosts in some server paths, so a request made to
+ * 127.0.0.1 can reach a route handler as localhost. Treat only the three
+ * literal loopback spellings as equivalent, and only with the same scheme and
+ * effective port. This keeps the production host boundary exact.
+ */
+const sameLoopbackOrigin = (left: URL, right: URL): boolean =>
+  LOOPBACK_HOSTS.has(hostnameOf(left)) &&
+  LOOPBACK_HOSTS.has(hostnameOf(right)) &&
+  left.protocol === right.protocol &&
+  effectivePort(left) === effectivePort(right);
+
 export function checkOrigin(request: Request): OriginCheck {
-  const requestOrigin = new URL(request.url).origin;
+  const requestUrl = new URL(request.url);
+  const requestOrigin = requestUrl.origin;
   const configured = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '';
   let appBase = requestOrigin;
   let allowedOrigin = requestOrigin;
+  let hasConfiguredOrigin = false;
 
   if (configured.trim()) {
     try {
@@ -28,6 +49,7 @@ export function checkOrigin(request: Request): OriginCheck {
       if (url.protocol === 'https:' || url.protocol === 'http:') {
         allowedOrigin = url.origin;
         appBase = `${url.origin}${url.pathname.replace(/\/$/, '')}`;
+        hasConfiguredOrigin = true;
       }
     } catch {
       /* A malformed configured URL falls back to the request URL. */
@@ -39,8 +61,12 @@ export function checkOrigin(request: Request): OriginCheck {
 
   try {
     const supplied = new URL(header);
-    if (supplied.origin === header.replace(/\/$/, '') && supplied.origin === allowedOrigin) {
+    const isCanonicalOrigin = supplied.origin === header.replace(/\/$/, '');
+    if (isCanonicalOrigin && supplied.origin === allowedOrigin) {
       return { origin: appBase, ok: true };
+    }
+    if (isCanonicalOrigin && !hasConfiguredOrigin && sameLoopbackOrigin(supplied, requestUrl)) {
+      return { origin: supplied.origin, ok: true };
     }
   } catch {
     /* Unparseable Origin is treated as foreign. */

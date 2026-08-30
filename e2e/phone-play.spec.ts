@@ -35,8 +35,11 @@ async function createRoom(request: APIRequestContext) {
     headers: sameOriginHeaders,
     data: { show: show() },
   });
-  expect(response.ok()).toBe(true);
   const body = await bodyOf(response);
+  expect(
+    response.ok(),
+    `POST /api/live/session returned ${response.status()}: ${JSON.stringify(body)}`,
+  ).toBe(true);
   expect(body).toMatchObject({ ok: true });
   expect(body.code).toMatch(/^[A-Z2-9]{6}$/);
   expect(body.operatorKey).toEqual(expect.any(String));

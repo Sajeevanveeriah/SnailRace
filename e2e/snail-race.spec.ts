@@ -18,7 +18,10 @@ const advanceToRace = async (page: Page) => {
 
 const setSprintRace = async (page: Page) => {
   await page.getByRole('button', { name: /Controls/i }).click();
-  const controls = page.getByRole('region', { name: 'Moderator controls' });
+  const controls = page.getByRole('region', {
+    name: 'Moderator controls',
+    includeHidden: true,
+  });
   await expect(controls).toBeVisible();
   await controls.getByLabel('Lap length').selectOption('7000');
   await controls.getByLabel('Laps').selectOption('1');
