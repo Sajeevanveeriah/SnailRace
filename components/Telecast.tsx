@@ -1,8 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ordinal, type SnailRun } from '@/lib/race-engine';
+import { ClubBrand } from './brand/ClubBrand';
+import { runnerArtForLane } from '@/lib/presentation/runner-art';
+import { BroadcastHud } from './race-broadcast/BroadcastHud';
+import { SurpriseLayer } from './race-broadcast/SurpriseLayer';
+import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import {
   BLEED,
   Broadcaster,
@@ -22,7 +27,7 @@ import {
   VIEW_W,
   type LaneBand,
 } from '@/lib/broadcast';
-import type { BoardRow, PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
+import type { PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
 
 /**
  * The race, shot for television.
@@ -93,18 +98,6 @@ interface RunnerNodes {
 }
 
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
-const SNAIL_ART = ['speedy', 'turbo', 'lightning', 'flash', 'rocket', 'bolt'] as const;
-
-function surpriseArtFor(text: string): string | null {
-  const value = text.toUpperCase();
-  if (value.includes('CRICKET BALL')) return 'cricket-ball';
-  if (value.includes('SPRINKLER')) return 'sprinkler';
-  if (value.includes('PITCH ROLLER')) return 'pitch-roller';
-  if (value.includes('DOG ON THE TRACK')) return 'club-dog';
-  if (value.includes('LETTUCE ON THE TRACK')) return 'lettuce-crate';
-  if (value.includes('MAGPIE')) return 'magpie';
-  return null;
-}
 
 /** A deterministic scatter, so the crowd is identical on server and client. */
 function scatter(seed: number, n: number): number[] {
@@ -129,6 +122,8 @@ export function Telecast({
   replay = false,
 }: Props) {
   const { setPainter } = race;
+  const prefersReducedMotion = useReducedMotion();
+  const reduceMotion = calm || prefersReducedMotion;
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -257,9 +252,10 @@ export function Telecast({
         directorRef.current.reset();
         clock.ms = 0;
         clock.running = false;
-        /* Open on the gate, wide enough to see the whole field line up. */
-        cam.x = 260;
-        cam.z = 0.5;
+        /* Reduced motion holds one wide camera. Runner translation remains
+           essential race information; camera travel and parallax do not. */
+        cam.x = reduceMotion ? totalWorld / 2 : 260;
+        cam.z = reduceMotion ? (VIEW_W - 200) / totalWorld : 0.5;
         write();
         placeAll(() => 0);
         nodesRef.current.forEach((n) => {
@@ -340,7 +336,7 @@ export function Telecast({
         /* Where to point. With the camera off, hold the whole race in frame. */
         let targetX: number;
         let targetZ: number;
-        if (chase) {
+        if (chase && !reduceMotion) {
           const framing = directorRef.current.update({
             tMs: clock.ms,
             worldByPosition: info.byPosition.map((s) => s.p * totalWorld),
@@ -360,12 +356,17 @@ export function Telecast({
           if (shotRef.current) shotRef.current.textContent = 'WIDE';
         }
 
-        cam.x += (targetX - cam.x) * PAN_EASE;
-        cam.z += (targetZ - cam.z) * ZOOM_EASE;
+        if (reduceMotion) {
+          cam.x = targetX;
+          cam.z = targetZ;
+        } else {
+          cam.x += (targetX - cam.x) * PAN_EASE;
+          cam.z += (targetZ - cam.z) * ZOOM_EASE;
+        }
         write();
       },
     };
-  }, [bands, chase, compact, laps, totalWorld]);
+  }, [bands, chase, compact, laps, reduceMotion, totalWorld]);
 
   useEffect(() => {
     setPainter(painter);
@@ -380,14 +381,14 @@ export function Telecast({
    */
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg || !race.moment?.big || calm) return;
+    if (!svg || !race.moment?.big || reduceMotion) return;
     svg.classList.add('jolt');
     const t = window.setTimeout(() => svg.classList.remove('jolt'), 700);
     return () => {
       window.clearTimeout(t);
       svg.classList.remove('jolt');
     };
-  }, [race.moment?.id, race.moment?.big, calm]);
+  }, [race.moment?.id, race.moment?.big, reduceMotion]);
 
   /*
    * Cinema mode changes the height of the stage without the window resizing,
@@ -467,18 +468,22 @@ export function Telecast({
     return out;
   }, [laps, totalWorld]);
 
-  const running = race.phase === 'running' || race.phase === 'countdown';
+  const phase = race.phase as string;
+  const confirming = phase === 'confirming';
+  const running = phase === 'running' || phase === 'countdown' || confirming;
 
   return (
     <div
       ref={wrapRef}
-      className={`track-wrap tv-wrap ${calm ? 'calm' : ''}`}
+      className={`track-wrap tv-wrap race-broadcast ${reduceMotion ? 'calm race-motion-reduced' : ''} ${confirming ? 'race-confirming' : ''}`}
       data-surface={surface}
+      data-race-phase={phase}
+      data-reduced-motion={reduceMotion ? 'true' : 'false'}
       data-weather={race.phase === 'idle' ? 'clear' : race.weather}
     >
       <svg
         ref={svgRef}
-        className={`tv ${compact ? 'compact' : ''}`}
+        className={`tv ${compact ? 'compact' : ''} ${confirming ? 'tv-confirming' : ''}`}
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
@@ -742,7 +747,7 @@ export function Telecast({
                   <path className="tv-slime" d="M-30 0 H-104" />
                   <image
                     className="tv-snail-sprite"
-                    href={`${ART_BASE}/snails/${SNAIL_ART[lane % SNAIL_ART.length]}.png`}
+                    href={runnerArtForLane(lane).src}
                     x={-74}
                     y={-84}
                     width={148}
@@ -797,37 +802,25 @@ export function Telecast({
 
       {/* ── Broadcast graphics ──────────────────────────────────────────── */}
 
-      <div className="tv-top" aria-hidden="true">
-        <span className={`tv-live ${race.phase === 'void' ? 'tv-void' : ''} ${replay ? 'tv-replay' : ''}`}>
-          <i />{' '}
-          {replay
-            ? 'REPLAY'
-            : race.phase === 'done'
-              ? 'FINISHED'
-              : race.phase === 'void'
-                ? 'VOID'
-                : race.phase === 'idle'
-                  ? 'READY'
-                  : 'LIVE'}
-        </span>
-        <span className="tv-title">
-          {clubName} · Race {raceNo}
-        </span>
-        <span ref={lapRef} className="tv-lap num" />
-        {replay ? null : (
-          <span ref={clockRef} className="tv-clock num">
-            0:00.0
-          </span>
-        )}
-        <span ref={shotRef} className="tv-shot num" />
-      </div>
-
-      <RunningOrder race={race} names={names} open={running || race.phase === 'done'} />
-
-      <div className="tv-strap">
-        <span className="tv-strap-badge">{race.phase === 'done' ? 'RESULT' : 'ON THE CALL'}</span>
-        <p className="tv-strap-line">{race.commentary || race.status}</p>
-      </div>
+      <BroadcastHud
+        brand={
+          <ClubBrand
+            className="club-brand tv-club-brand"
+            imageClassName="club-brand-logo tv-club-logo"
+            nameClassName="tv-club-name"
+            priority
+          />
+        }
+        race={race}
+        names={names}
+        raceNo={raceNo}
+        replay={replay}
+        confirming={confirming}
+        running={running}
+        clockRef={clockRef}
+        lapRef={lapRef}
+        shotRef={shotRef}
+      />
 
       {race.countdown ? (
         <div className="countdown" aria-hidden="true">
@@ -835,72 +828,11 @@ export function Telecast({
         </div>
       ) : null}
 
-      {/* A surprise gets a lower third, not a card across the track. */}
-      {race.moment && race.phase === 'running' ? (
-        <>
-          {surpriseArtFor(race.moment.text) ? (
-            <span
-              key={`art-${race.moment.id}`}
-              className={`tv-surprise-art tv-surprise-${surpriseArtFor(race.moment.text)}`}
-              style={{
-                backgroundImage: `url(${ART_BASE}/surprises/${surpriseArtFor(race.moment.text)}.png)`,
-              }}
-              aria-hidden="true"
-            />
-          ) : null}
-          <p
-            key={race.moment.id}
-            className={`tv-flash moment-${race.moment.tone} ${race.moment.big ? 'tv-flash-big' : ''}`}
-            aria-hidden="true"
-          >
-            {race.moment.big ? <b>FIELD EVENT</b> : null}
-            {race.moment.text}
-          </p>
-        </>
-      ) : null}
+      <SurpriseLayer race={race} />
 
       {race.photoFinish && race.phase === 'running' ? (
         <p className="photo-banner">PHOTO FINISH</p>
       ) : null}
     </div>
-  );
-}
-
-/**
- * The running order, bottom left, exactly where a broadcast keeps it.
- *
- * Fed from the loop's own board feed rather than from race state, so it
- * updates a few times a second without re-rendering the stage. Six rows: past
- * that it stops being glanceable and the tote board carries the rest.
- */
-function RunningOrder({
-  race,
-  names,
-  open,
-}: {
-  race: RaceController;
-  names: string[];
-  open: boolean;
-}) {
-  const [rows, setRows] = useState<BoardRow[]>([]);
-  const { onBoard } = race;
-
-  useEffect(() => onBoard(setRows), [onBoard]);
-
-  /* Between races there is no order to show; derived, not synchronised. */
-  const shown = race.phase === 'idle' ? [] : rows.slice(0, 6);
-  if (!open || !shown.length) return null;
-
-  return (
-    <ol className="tv-order" aria-label="Running order">
-      {shown.map((r) => (
-        <li key={r.lane} className="tv-order-row">
-          <span className="tv-order-pos num">{r.place}</span>
-          <i className="tv-order-dot" style={{ background: laneColour(r.lane).shell }} />
-          <span className="tv-order-name">{names[r.lane] ?? `Lane ${r.lane + 1}`}</span>
-          <span className="tv-order-gap num">{r.gapText}</span>
-        </li>
-      ))}
-    </ol>
   );
 }

@@ -1,9 +1,16 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { DEFAULT_NAMES, MAX_FIELD, MIN_FIELD } from './palette';
+import { DEFAULT_NAMES, MAX_FIELD } from './palette';
 import { canonicalAuditEntry, sha256Hex } from './audit';
-import type { AuditEntry, EventState, ShowPhase, SurpriseIntensity } from './types';
+import type {
+  AuditEntry,
+  EventState,
+  HeldRaceStartState,
+  ShowPhase,
+  SurpriseIntensity,
+  VoidRecoveryState,
+} from './types';
 
 /**
  * The moderator's night lives on the moderator's device.
@@ -54,18 +61,20 @@ export function freshState(): EventState {
     packPlayed: [],
     packCurrent: null,
     phonePlay: null,
-    fieldSize: 6,
+    heldRaceStart: null,
+    voidRecovery: null,
+    fieldSize: 8,
     names: DEFAULT_NAMES.slice(),
     goalCents: 100_000,
     goalShow: true,
     /*
-     * 45 seconds a lap, three laps. Pace matters more than it looks: the
+     * 40 seconds a lap, three laps. Pace matters more than it looks: the
      * oval is about 2,200 course units round and a snail is 48 long, so a
      * 12-second lap has them covering five body-lengths a second, which
-     * reads as a sprinting animal rather than a snail. 45 seconds is about
-     * one length a second, which is brisk for a snail and still a race.
+     * reads as a sprinting animal rather than a snail. 40 seconds is about
+     * one length a second, which is brisk enough for a two-minute race-night film.
      */
-    raceDurationMs: 135_000,
+    raceDurationMs: 120_000,
     trackShape: 'circuit',
     courseId: 'oval',
     laps: 3,
@@ -144,6 +153,100 @@ function syncFromStorage() {
 const clamp01 = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
 
+const LOCKED_FIELD_SIZE = 8;
+const HEX_64 = /^[a-f0-9]{64}$/i;
+
+/**
+ * Accept only a complete consequential plan as a reloadable start. A partial
+ * JSON write must fail closed instead of letting Stage draw over a remote room
+ * that may already have acknowledged the original plan hash.
+ */
+function validHeldRaceStart(value: unknown): HeldRaceStartState | null {
+  if (!value || typeof value !== 'object') return null;
+  const held = value as Partial<HeldRaceStartState>;
+  const config = held.config;
+  const plan = held.plan;
+  const odds = held.oddsAtLock;
+  const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos'];
+  const trackShapes = ['lanes', 'circuit'];
+  const names = config?.names;
+
+  if (
+    !Number.isSafeInteger(held.raceNo) ||
+    (held.raceNo ?? 0) < 1 ||
+    typeof held.lockedAt !== 'number' ||
+    !Number.isFinite(held.lockedAt) ||
+    held.lockedAt <= 0 ||
+    typeof held.startedAt !== 'number' ||
+    !Number.isFinite(held.startedAt) ||
+    held.startedAt <= 0 ||
+    typeof held.commitHash !== 'string' ||
+    !HEX_64.test(held.commitHash) ||
+    typeof held.planHash !== 'string' ||
+    !HEX_64.test(held.planHash) ||
+    !config ||
+    config.raceNo !== held.raceNo ||
+    typeof config.raceType !== 'string' ||
+    !config.raceType.trim() ||
+    config.fieldSize !== LOCKED_FIELD_SIZE ||
+    !Array.isArray(names) ||
+    names.length !== LOCKED_FIELD_SIZE ||
+    names.some((name) => typeof name !== 'string' || !name.trim()) ||
+    !Number.isFinite(config.durationMs) ||
+    config.durationMs <= 0 ||
+    !Number.isSafeInteger(config.laps) ||
+    config.laps < 1 ||
+    typeof config.surprises !== 'boolean' ||
+    !trackShapes.includes(config.trackShape) ||
+    !intensities.includes(config.intensity) ||
+    !odds ||
+    typeof odds !== 'object' ||
+    !plan ||
+    plan.schema !== 1 ||
+    plan.engine !== 'consequential-eight-v1' ||
+    !Number.isSafeInteger(plan.seed) ||
+    typeof plan.seedHex !== 'string' ||
+    !/^[a-f0-9]{8}$/i.test(plan.seedHex) ||
+    !Array.isArray(plan.names) ||
+    plan.names.length !== LOCKED_FIELD_SIZE ||
+    !Array.isArray(plan.runners) ||
+    plan.runners.length !== LOCKED_FIELD_SIZE ||
+    !Array.isArray(plan.events) ||
+    !Array.isArray(plan.cues) ||
+    !Array.isArray(plan.results) ||
+    plan.results.length !== LOCKED_FIELD_SIZE ||
+    plan.durationMs !== config.durationMs ||
+    plan.laps !== config.laps ||
+    plan.surprises !== config.surprises ||
+    plan.trackShape !== config.trackShape ||
+    plan.intensity !== config.intensity ||
+    plan.names.some((name, lane) => name !== names[lane]) ||
+    !Number.isSafeInteger(plan.winnerLane) ||
+    plan.winnerLane < 0 ||
+    plan.winnerLane >= LOCKED_FIELD_SIZE ||
+    !Number.isFinite(plan.stopAtMs) ||
+    plan.stopAtMs <= 0
+  ) {
+    return null;
+  }
+
+  const lanes = Array.from({ length: LOCKED_FIELD_SIZE }, (_, lane) => lane);
+  if (
+    lanes.some(
+      (lane) =>
+        typeof odds[lane] !== 'number' ||
+        !Number.isFinite(odds[lane]) ||
+        odds[lane] <= 0 ||
+        plan.runners.filter((runner) => runner.lane === lane).length !== 1 ||
+        plan.results.filter((result) => result.lane === lane).length !== 1,
+    )
+  ) {
+    return null;
+  }
+
+  return held as HeldRaceStartState;
+}
+
 function merge(raw: string | null): EventState {
   const base = freshState();
   if (!raw) return base;
@@ -155,6 +258,26 @@ function merge(raw: string | null): EventState {
       'lobby', 'racecard', 'market', 'race', 'results', 'championship', 'intermission', 'finale',
     ];
     const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos'];
+    const heldRaceStart = validHeldRaceStart(parsed.heldRaceStart);
+    const recoveryValue = parsed.voidRecovery as VoidRecoveryState | null | undefined;
+    const recoveryShow = recoveryValue?.openShow;
+    const voidRecovery =
+      recoveryValue &&
+      Number.isSafeInteger(recoveryValue.raceNo) &&
+      recoveryValue.raceNo > 0 &&
+      typeof recoveryValue.planHash === 'string' &&
+      HEX_64.test(recoveryValue.planHash) &&
+      typeof recoveryValue.reason === 'string' &&
+      recoveryValue.reason.trim().length > 0 &&
+      recoveryValue.reason.length <= 120 &&
+      recoveryShow &&
+      typeof recoveryShow === 'object' &&
+      recoveryShow.raceNo === recoveryValue.raceNo &&
+      recoveryShow.marketOpen === true &&
+      Array.isArray(recoveryShow.names) &&
+      recoveryShow.names.length === 8
+        ? recoveryValue
+        : null;
     return {
       ...base,
       ...parsed,
@@ -184,8 +307,13 @@ function merge(raw: string | null): EventState {
         parsed.phonePlay && typeof parsed.phonePlay === 'object' && typeof parsed.phonePlay.code === 'string'
           ? parsed.phonePlay
           : null,
+      heldRaceStart,
+      voidRecovery,
       names,
-      fieldSize: Math.min(MAX_FIELD, Math.max(MIN_FIELD, Number(parsed.fieldSize) || base.fieldSize)),
+      /* The club format is intentionally one fixed eight-runner card. Older
+         saved nights may carry the previous 3-20 lane setting; keeping that
+         value would make the consequential engine refuse the race at Start. */
+      fieldSize: 8,
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],

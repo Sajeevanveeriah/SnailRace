@@ -6,12 +6,14 @@ import { ToteBoard } from './ToteBoard';
 import { DonateQr } from './DonateQr';
 import { GoalRing } from './GoalRing';
 import { CountUp } from './CountUp';
+import { ClubBrand } from './brand/ClubBrand';
+import { RunnerLineup } from './race-broadcast/RunnerLineup';
 import { showPhaseSpec } from '@/lib/show';
 import { standingsFrom } from '@/lib/standings';
 import { laneColour } from '@/lib/palette';
 import { moneyShort } from '@/lib/money';
 import type { RoomSummary } from '@/lib/use-phone-play';
-import type { LanePool } from '@/lib/tote';
+import type { FunChipLane } from '@/lib/tote';
 import type { EventState } from '@/lib/types';
 
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
@@ -29,7 +31,7 @@ const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 export function ShowOverlay({
   event,
   lanes,
-  potCents,
+  totalChips,
   nightCents,
   nextRaceNo,
   sponsor,
@@ -39,8 +41,8 @@ export function ShowOverlay({
   marketLockAt,
 }: {
   event: EventState;
-  lanes: LanePool[];
-  potCents: number;
+  lanes: FunChipLane[];
+  totalChips: number;
   nightCents: number;
   nextRaceNo: number;
   sponsor?: string;
@@ -56,8 +58,13 @@ export function ShowOverlay({
   return (
     <ShowDialog phase={phase}>
       <header className="show-top">
-        <div className="min-w-0">
-          <p className="show-club">{event.clubName}</p>
+        <ClubBrand
+          className="club-brand show-club-brand"
+          imageClassName="club-brand-logo show-club-logo"
+          nameClassName="show-club"
+          priority
+        />
+        <div className="min-w-0 show-event-block">
           <p className="show-event truncate">{event.eventName}</p>
         </div>
         {event.rehearsal ? <span className="show-rehearsal">REHEARSAL</span> : null}
@@ -67,22 +74,25 @@ export function ShowOverlay({
       {phase === 'lobby' ? <Lobby event={event} donateUrl={donateUrl} playUrl={playUrl} /> : null}
       {phase === 'racecard' ? (
         <section className="show-body">
-          <div className="show-panel show-panel-wide">
-            <Racecard
-              names={event.names.slice(0, event.fieldSize)}
-              history={event.history}
-              lanes={lanes}
-              raceNo={nextRaceNo}
-              sponsor={sponsor}
-              compact={event.fieldSize > 12}
-            />
+          <div className="show-panel show-panel-wide show-racecard-panel">
+            <RunnerLineup names={event.names.slice(0, event.fieldSize)} />
+            <div className="show-racecard-details">
+              <Racecard
+                names={event.names.slice(0, event.fieldSize)}
+                history={event.history}
+                lanes={lanes}
+                raceNo={nextRaceNo}
+                sponsor={sponsor}
+                compact={event.fieldSize > 12}
+              />
+            </div>
           </div>
         </section>
       ) : null}
       {phase === 'market' ? (
         <Market
           lanes={lanes}
-          potCents={potCents}
+          totalChips={totalChips}
           nextRaceNo={nextRaceNo}
           fieldSize={event.fieldSize}
           names={event.names}
@@ -187,7 +197,7 @@ function Lobby({ event, donateUrl, playUrl }: { event: EventState; donateUrl: st
 
 function Market({
   lanes,
-  potCents,
+  totalChips,
   nextRaceNo,
   fieldSize,
   names,
@@ -196,8 +206,8 @@ function Market({
   marketLockAt,
   open,
 }: {
-  lanes: LanePool[];
-  potCents: number;
+  lanes: FunChipLane[];
+  totalChips: number;
   nextRaceNo: number;
   fieldSize: number;
   names: string[];
@@ -250,7 +260,7 @@ function Market({
             </p>
           </div>
           <div className="show-panel">
-            <ToteBoard lanes={lanes} potCents={potCents} fieldSize={fieldSize} raceNo={nextRaceNo} showOdds />
+            <ToteBoard lanes={lanes} totalChips={totalChips} fieldSize={fieldSize} raceNo={nextRaceNo} showOdds />
           </div>
         </div>
 

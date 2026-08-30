@@ -3,10 +3,11 @@
 import { useCallback, useState } from 'react';
 import QRCode from 'qrcode';
 import { useEvent } from '@/lib/event-store';
-import { HAS_API } from '@/lib/deployment';
+import { HAS_API, HAS_LIVE_API, liveApiUrl } from '@/lib/deployment';
 import { audioState, voicesReady } from '@/lib/sound';
 import { validatePack } from '@/lib/race-pack';
 import { hasPackFile } from '@/lib/pack-files';
+import { fetchWithTimeout } from '@/lib/network';
 import type { DonationsResponse } from '@/lib/types';
 
 /**
@@ -96,10 +97,13 @@ export function Preflight() {
       add('QR generation', 'attention', 'QR generation failed; the join and donate codes will not display.');
     }
 
-    /* Server, donations, Phone Play. */
+    /* Donations and Phone Play can use different deployment services. */
     if (HAS_API) {
       try {
-        const res = await fetch(`/api/donations?eventId=${encodeURIComponent(event.eventId)}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(
+          `/api/donations?eventId=${encodeURIComponent(event.eventId)}`,
+          { cache: 'no-store' },
+        );
         const body = (await res.json()) as DonationsResponse & { mode?: 'test' | 'live' };
         if (!body.configured) {
           add('Stripe donations', 'attention', 'STRIPE_SECRET_KEY is not set: cash-only night. Card donations need the server configured.');
@@ -111,17 +115,35 @@ export function Preflight() {
       } catch {
         add('Stripe donations', 'attention', 'The donations API did not answer; check the server.');
       }
+    } else {
+      add(
+        'Stripe donations',
+        'attention',
+        'This static site has no card-donation API. Use the event desk or an approved server deployment.',
+      );
+    }
+
+    if (HAS_LIVE_API) {
       try {
-        const res = await fetch('/api/live/state?code=PREFLT', { cache: 'no-store' });
+        const res = await fetchWithTimeout(liveApiUrl('/api/live/health'), { cache: 'no-store' });
+        const body = (await res.json()) as unknown;
+        const healthy =
+          res.ok &&
+          typeof body === 'object' &&
+          body !== null &&
+          !Array.isArray(body) &&
+          (body as Record<string, unknown>).ok === true &&
+          (body as Record<string, unknown>).service === 'snailrace-live' &&
+          (body as Record<string, unknown>).schema === 1;
         add(
           'Phone Play server',
-          res.status === 404 || res.status === 400 ? 'pass' : 'attention',
-          res.status === 404 || res.status === 400
-            ? 'The live event API answers.'
-            : `Unexpected answer (${res.status}) from the live event API.`,
+          healthy ? 'pass' : 'attention',
+          healthy
+            ? 'The live event service confirms identity and schema 1.'
+            : `The configured endpoint is not the expected live event service (HTTP ${res.status}).`,
         );
       } catch {
-        add('Phone Play server', 'attention', 'The live event API did not answer; phones cannot join.');
+        add('Phone Play server', 'attention', 'The live event service did not return a valid health response; phones cannot join.');
       }
       add(
         'Phone join',
@@ -131,7 +153,11 @@ export function Preflight() {
           : 'Open a Phone Play session and scan the join QR with one phone.',
       );
     } else {
-      add('Server mode', 'pass', 'Static build: cash and chips only, zero API calls by design. Phone Play and card donations are truthfully unavailable.');
+      add(
+        'Phone Play server',
+        'attention',
+        'No live event service is configured. Big-screen racing still works, but phones cannot join.',
+      );
     }
 
     /* Recorded mode. */

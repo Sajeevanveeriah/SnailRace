@@ -7,6 +7,7 @@ import {
   type IntensityId,
   eventLine,
   freshSeed,
+  instantiateLockedRace,
   leadChangeLine,
   ordinal,
   rankSnails,
@@ -20,12 +21,13 @@ import {
   type DrawnRace,
   WEATHER_CALL,
   type EventTone,
+  type EventSound,
   type RaceEvent,
   type SnailRun,
   type Weather,
 } from './race-engine';
 import { say, setCrowdLevel, setIntensity, sfx, silence, startTrack } from './sound';
-import type { RaceHighlight, RaceResult } from './types';
+import type { LockedRacePlan, RaceHighlight, RaceResult } from './types';
 
 /** How much race-time the photo-finish slow-motion covers, at 0.3x speed. */
 const SLOWMO_RACE_MS = 620;
@@ -48,12 +50,15 @@ const MOMENT_UNTIL = 0.82;
  */
 const LEAD_CHANGE_FROM = 0.12;
 
+/** Maximum real-time confirmation beat after the locked winner crosses. */
+export const FINISH_CONFIRM_MS = 450;
+
 /**
  * The live lifecycle: READY, COUNTDOWN, RUNNING, FINISHED, VOID. `idle` is
  * READY and `done` is FINISHED; the stage banner translates. VOID is reached
  * only through the moderator's void action and always leaves an audit entry.
  */
-export type RacePhase = 'idle' | 'countdown' | 'running' | 'done' | 'void';
+export type RacePhase = 'idle' | 'countdown' | 'running' | 'confirming' | 'done' | 'void';
 
 export type MomentTone = 'good' | 'bad' | 'hot';
 
@@ -155,6 +160,8 @@ export interface RaceController {
     laps?: number,
     intensity?: IntensityId,
   ) => void;
+  /** Start a race that was completely drawn and hashed before countdown. */
+  startLocked: (plan: LockedRacePlan) => void;
   reset: () => void;
   /**
    * Abandon the race in progress: no result, no settlement. The countdown or
@@ -195,6 +202,10 @@ interface LiveRace extends DrawnRace {
   inPhoto: boolean;
   results: RaceResult[];
   highlights: RaceHighlight[];
+  /** Next immutable event cue to deliver in a locked race. */
+  cueIndex: number;
+  /** Guards the first-finisher path against duplicate frames. */
+  confirming: boolean;
 }
 
 /**
@@ -339,7 +350,33 @@ export function useRace(
   const finish = useCallback(() => {
     const race = raceRef.current;
     stop();
-    if (!race) return;
+    if (!race || race.confirming) return;
+
+    if (race.lockedPlan) {
+      race.confirming = true;
+      const ordered = race.lockedPlan.results
+        .slice()
+        .sort((a, b) => a.place - b.place);
+      const winner = ordered[0];
+      setResults(ordered);
+      setPhase('confirming');
+      setStatus(winner ? `${winner.name} wins!` : 'Race over');
+      if (winner) call(`${winner.name} wins!`, 'big');
+      startTrack('winner');
+      setCrowdLevel(1);
+      sfx.fanfare();
+
+      /* The winner is already visible and the animation is already stopped.
+         This short real-time beat confirms the line before the result card. */
+      timersRef.current.push(
+        window.setTimeout(() => {
+          if (raceRef.current !== race) return;
+          setPhase('done');
+          finishRef.current(race, ordered, race.highlights);
+        }, FINISH_CONFIRM_MS),
+      );
+      return;
+    }
 
     /*
      * A snail can still be short of the line if the loop hit `tMax` first,
@@ -374,11 +411,16 @@ export function useRace(
     setPhase('done');
     setStatus(ordered[0] ? `${ordered[0].name} wins!` : 'Race over');
     if (ordered[0]) {
-      const margin = ordered[1] ? ordered[1].finishMs - ordered[0].finishMs : 0;
+      const first = ordered[0];
+      const second = ordered[1];
+      const margin =
+        second && typeof second.finishMs === 'number' && typeof first.finishMs === 'number'
+          ? second.finishMs - first.finishMs
+          : 0;
       call(
         margin && margin < 200
-          ? `${ordered[0].name} wins it on the line!`
-          : `${ordered[0].name} wins!`,
+          ? `${first.name} wins it on the line!`
+          : `${first.name} wins!`,
         'big',
       );
     }
@@ -398,9 +440,13 @@ export function useRace(
       race.last = now;
       if (dt > 100) dt = 100; // survive GC pauses and tab returns
       race.raceT += dt * race.slow;
+      if (race.lockedPlan) race.raceT = Math.min(race.raceT, race.lockedPlan.stopAtMs);
 
       const { crossed, fired } = stepRace(race.snails, race.raceT, dt, race.placed);
-      const leadP = race.snails.reduce((m, s) => (s.done ? 1 : Math.max(m, s.p)), 0);
+      const leadP = race.snails.reduce(
+        (m, s) => (s.done && !s.retired ? 1 : Math.max(m, s.p)),
+        0,
+      );
       const quiet = leadP > MOMENT_UNTIL;
       if (quiet) hushMoment();
 
@@ -416,6 +462,38 @@ export function useRace(
        * six surprises, it is a stutter.
        */
       const shouted = new Set<string>();
+
+      if (race.lockedPlan) {
+        const cues = race.lockedPlan.cues;
+        while (race.cueIndex < cues.length && cues[race.cueIndex].atMs <= race.raceT) {
+          const cue = cues[race.cueIndex++];
+          const event = race.lockedPlan.events.find((candidate) => candidate.id === cue.eventId);
+          race.commentaryAt = race.raceT;
+          if (cue.phase === 'warning') {
+            if (!quiet) announce(cue.text, 'hot', cue.big);
+            sfx.event((cue.sound ?? 'siren') as EventSound);
+          } else if (cue.phase === 'reveal') {
+            if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big);
+          } else if (cue.phase === 'effect') {
+            if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big);
+            sfx.event((cue.sound ?? event?.sound ?? 'weird') as EventSound);
+            if (event) {
+              for (const lane of event.targetLanes) {
+                race.highlights.push({
+                  atMs: event.effectAtMs,
+                  lane,
+                  name: race.snails[lane]?.name ?? `Lane ${lane + 1}`,
+                  kind: event.kind,
+                  label: event.label,
+                });
+              }
+            }
+          } else {
+            call(cue.text, 'big');
+          }
+        }
+      }
+
       for (const { event, snail } of fired) {
         race.highlights.push({
           atMs: Math.round(race.raceT),
@@ -635,7 +713,9 @@ export function useRace(
         const rows: BoardRow[] = ranked.map((s, i) => ({
           lane: s.lane,
           place: i + 1,
-          gapText: s.done
+          gapText: s.retired
+            ? 'RET'
+            : s.done
             ? `${(s.finishMs / 1000).toFixed(1)}s`
             : i === 0
               ? 'leader'
@@ -681,6 +761,18 @@ export function useRace(
         );
       }
 
+      /* A locked race is over on the first active crossing. Paint that exact
+         frame, publish its already locked classification, and never request
+         another animation frame for the trailing or retired runners. */
+      if (
+        race.lockedPlan &&
+        (crossed.some((snail) => snail.lane === race.lockedPlan!.winnerLane) ||
+          race.raceT >= race.lockedPlan.stopAtMs)
+      ) {
+        finish();
+        return;
+      }
+
       if (race.placed < race.snails.length && race.raceT < race.tMax) {
         rafRef.current = requestAnimationFrame((t) => frameRef.current(t));
       } else {
@@ -694,13 +786,12 @@ export function useRace(
     frameRef.current = frame;
   }, [frame]);
 
-  const start = useCallback(
-    (names: string[], durationMs: number, surprises = true, laps = 1, intensity: IntensityId = 'standard') => {
-      if (phase === 'countdown' || phase === 'running') return;
+  const startDrawn = useCallback(
+    (drawn: DrawnRace, laps = 1) => {
+      if (phase === 'countdown' || phase === 'running' || phase === 'confirming') return;
       reset();
       painterRef.current?.measure();
 
-      const drawn = drawRace(freshSeed(), names, durationMs, surprises, intensity);
       lapsRef.current = Math.max(1, laps);
       raceRef.current = {
         ...drawn,
@@ -724,6 +815,8 @@ export function useRace(
         inPhoto: false,
         results: [],
         highlights: [],
+        cueIndex: 0,
+        confirming: false,
       };
       setSeedHex(drawn.seedHex);
       setEvents(drawn.events);
@@ -768,6 +861,20 @@ export function useRace(
     [call, phase, reset],
   );
 
+  const start = useCallback(
+    (names: string[], durationMs: number, surprises = true, laps = 1, intensity: IntensityId = 'standard') => {
+      startDrawn(drawRace(freshSeed(), names, durationMs, surprises, intensity), laps);
+    },
+    [startDrawn],
+  );
+
+  const startLocked = useCallback(
+    (plan: LockedRacePlan) => {
+      startDrawn(instantiateLockedRace(plan), plan.laps);
+    },
+    [startDrawn],
+  );
+
   const voidRace = useCallback(() => {
     if (phase !== 'countdown' && phase !== 'running') return;
     stop();
@@ -805,6 +912,7 @@ export function useRace(
     onBoard,
     setPainter,
     start,
+    startLocked,
     reset,
     voidRace,
   };

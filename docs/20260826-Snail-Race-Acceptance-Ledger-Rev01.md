@@ -1,5 +1,12 @@
 # Snail Race Fundraiser - Acceptance Ledger
 
+> **Historical snapshot - superseded 30 August 2026.** This file is preserved
+> unchanged below as evidence for an earlier build. Its runner counts, surprise
+> semantics, finish lifecycle, chip-pricing/hosting descriptions and quoted
+> test results are not evidence for the current consequential eight-runner
+> release. Use the repository `README.md` and
+> `docs/20260830-Operator-Runbook-Rev01.md` for current behaviour.
+
 Date: 26 August 2026, verified 27 August 2026. Revision: Rev01. Each row is a requirement from Master
 Prompt 3, its acceptance test, and its status. Status values: PASS (fresh evidence
 this session), BLOCKED (external boundary, stated), DEVIATION (built differently,

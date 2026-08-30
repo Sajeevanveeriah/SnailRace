@@ -1,39 +1,37 @@
 'use client';
 
 import { laneColour } from '@/lib/palette';
-import { money, moneyShort } from '@/lib/money';
-import type { LanePool } from '@/lib/tote';
+import type { FunChipLane } from '@/lib/tote';
 
 /**
- * The tote board.
+ * The room's free fun-chip board.
  *
- * The prices here are parimutuel - they come from what the room has backed,
- * exactly as a real tote works. They are not a prediction and never could be:
- * the draw is a uniform shuffle, so every snail is a 1-in-N chance whatever
- * the board says. The footnote states that in the room rather than burying it
- * in a README.
+ * It never receives money or donations. Prices are the same fair fixed price
+ * for every equal-chance runner; the bars show only valueless audience chips.
  */
 export function ToteBoard({
   lanes,
-  potCents,
+  totalChips,
   fieldSize,
   raceNo,
   showOdds,
 }: {
-  lanes: LanePool[];
-  potCents: number;
+  lanes: FunChipLane[];
+  totalChips: number;
   fieldSize: number;
   raceNo: number;
   showOdds: boolean;
 }) {
-  const leader = Math.max(1, ...lanes.map((l) => l.cents));
-  const ranked = lanes.slice().sort((a, b) => b.cents - a.cents || a.lane - b.lane);
+  const leader = Math.max(1, ...lanes.map((lane) => lane.chips));
+  const ranked = lanes.slice().sort((a, b) => b.chips - a.chips || a.lane - b.lane);
 
   return (
-    <aside className="glass glass-strong p-5 sm:p-6 flex flex-col gap-4" aria-label="Tote board">
+    <aside className="glass glass-strong p-5 sm:p-6 flex flex-col gap-4" aria-label="Free fun-chip picks">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="eyebrow">Race {raceNo} tote</h2>
-        <span className="num money-ink text-2xl font-bold">{moneyShort(potCents)}</span>
+        <h2 className="eyebrow">Race {raceNo} fun-chip picks</h2>
+        <span className="num text-2xl font-bold text-(--gold)">
+          {totalChips.toLocaleString('en-AU')} chips
+        </span>
       </div>
 
       <ol className="flex flex-col gap-2.5">
@@ -64,7 +62,7 @@ export function ToteBoard({
               </div>
 
               <div className="text-right">
-                <p className="num font-semibold leading-tight">{money(lane.cents)}</p>
+                <p className="num font-semibold leading-tight">{lane.chips} chips</p>
                 {showOdds ? (
                   <p key={lane.odds} className="odds-flip num text-[11px] text-(--gold)">
                     {lane.odds.toFixed(2)} for 1
@@ -76,7 +74,7 @@ export function ToteBoard({
                 className="tote-bar col-span-3 h-1.5 rounded-full bg-(--tx)/8 overflow-hidden"
                 aria-hidden="true"
               >
-                <i style={{ '--w': (lane.cents / leader) * 100 } as React.CSSProperties} />
+                <i style={{ '--w': (lane.chips / leader) * 100 } as React.CSSProperties} />
               </span>
             </li>
           );
@@ -84,10 +82,9 @@ export function ToteBoard({
       </ol>
 
       <p className="text-[11px] leading-snug text-(--tx)/45">
-        Every snail has the same 1-in-{fieldSize} chance. Prices show what the room has backed, not
-        form, and donations never influence the result. Odds settle{' '}
-        <b className="text-(--tx)/70">fun chips only - no monetary value</b>; a donation is not a
-        wager and has no return.
+        Every snail has the same 1-in-{fieldSize} chance and the same fixed {fieldSize.toFixed(2)}
+        -for-1 play price. These are <b className="text-(--tx)/70">free fun chips with no monetary
+        value</b>. Donations are recorded separately and cannot alter a price or return.
       </p>
     </aside>
   );

@@ -1,5 +1,12 @@
 # Snail Race Fundraiser - Readiness, Rev01
 
+> **Historical snapshot - superseded 30 August 2026.** This file is preserved
+> unchanged below as evidence for an earlier build. Its runner counts, surprise
+> semantics, finish lifecycle, chip-pricing/hosting descriptions and quoted
+> test results are not evidence for the current consequential eight-runner
+> release. Use the repository `README.md` and
+> `docs/20260830-Operator-Runbook-Rev01.md` for current behaviour.
+
 Date: 28 August 2026. Covers the Master Prompt 4 change set (v4: run of show,
 Phone Play, recorded Race Packs, surprise director, audit hash chain, cockpit,
 preflight, night archive) on top of the shipped v3.

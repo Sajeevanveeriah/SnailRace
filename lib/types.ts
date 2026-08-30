@@ -41,15 +41,106 @@ export interface RaceResult {
   lane: number;
   name: string;
   place: number;
-  finishMs: number;
+  /**
+   * Wall-clock race time at which this runner crossed the line. New
+   * first-finisher races leave this null for runners that were merely
+   * classified when the winner crossed, and for runners that retired.
+   */
+  finishMs: number | null;
+  /** Missing on legacy results, where every stored row was a finisher. */
+  status?: 'finished' | 'classified' | 'retired';
+  /** Progress, 0 to 1, at the instant the winner ended the race. */
+  progressAtStop?: number;
+  retiredAtMs?: number;
+  retirementCode?: string;
+  retirementLabel?: string;
+}
+
+/* ── Locked consequential races ─────────────────────────────────────── */
+
+export type RaceCuePhase = 'warning' | 'reveal' | 'effect' | 'commentary';
+export type RaceConsequence = 'advance' | 'delay' | 'retire';
+
+/** One deterministic audience-facing beat in a surprise sequence. */
+export interface LockedRaceCue {
+  id: string;
+  eventId: string;
+  phase: RaceCuePhase;
+  atMs: number;
+  text: string;
+  lane?: number;
+  tone?: 'good' | 'bad' | 'wild';
+  sound?: string;
+  big?: boolean;
+}
+
+/** One surprise and its complete, pre-race consequence. */
+export interface LockedRaceEvent {
+  id: string;
+  kind: string;
+  label: string;
+  tone: 'good' | 'bad' | 'wild';
+  sound: string;
+  targetLanes: number[];
+  consequence: RaceConsequence;
+  warningAtMs: number;
+  revealAtMs: number;
+  effectAtMs: number;
+  commentaryAtMs: number;
+  effectEndMs: number;
+  /** Signed persistent race-clock shift per affected lane. */
+  clockDeltaMsByLane: Record<number, number>;
+  warningText: string;
+  revealText: string;
+  commentaryText: string;
+  retirementCode?: string;
+  retirementLabel?: string;
+}
+
+/** Immutable inputs for one runner in a locked race. */
+export interface LockedRaceRunner {
+  lane: number;
+  name: string;
+  baseFinishMs: number;
+  A: number;
+  w1: number;
+  w2: number;
+  ph1: number;
+  ph2: number;
+}
+
+/**
+ * The complete race, drawn and hashed before countdown. Runtime animation
+ * clones this value; it never adds decisions to it.
+ */
+export interface LockedRacePlan {
+  schema: 1;
+  engine: 'consequential-eight-v1';
+  seed: number;
+  seedHex: string;
+  names: string[];
+  durationMs: number;
+  laps: number;
+  surprises: boolean;
+  intensity: SurpriseIntensity;
+  trackShape: 'lanes' | 'circuit';
+  weather: 'clear' | 'drizzle' | 'downpour';
+  photoFinish: boolean;
+  runners: LockedRaceRunner[];
+  events: LockedRaceEvent[];
+  cues: LockedRaceCue[];
+  results: RaceResult[];
+  winnerLane: number;
+  /** Race-time of the first active runner crossing. */
+  stopAtMs: number;
 }
 
 /**
  * A surprise that landed during a race: a turbo boost, a shell slip, a nap.
  *
- * Theatre only. Every one of these is drawn from the race seed after the
- * finishing order has already been settled, so the highlight reel explains
- * what the room saw without any of it having changed who won.
+ * In a legacy race this records decorative seeded theatre. In a locked race
+ * it records one of the already committed consequential events, so the reel
+ * explains both what the room saw and why the classification changed.
  */
 export interface RaceHighlight {
   /** Race-time the surprise landed, in milliseconds. */
@@ -231,6 +322,10 @@ export interface RaceHistoryEntry {
   streaksBefore?: Record<string, number>;
   /** Surprises that landed, oldest first. Absent on nights from an older build. */
   highlights?: RaceHighlight[];
+  /** Complete immutable plan for consequential races. Absent on legacy races. */
+  racePlan?: LockedRacePlan;
+  /** SHA-256 over the canonical complete plan, published before countdown. */
+  planHash?: string;
 }
 
 /** A free-to-play wager. No real money, no cash payout. */
@@ -247,6 +342,47 @@ export interface Bet {
   settled: boolean;
   won?: boolean;
   returned?: number;
+}
+
+/**
+ * Durable local recovery intent for a race void whose Phone Play void/rearm
+ * acknowledgement is still uncertain. It survives a moderator-page reload,
+ * preventing a different plan from being drawn over the held attempt.
+ */
+export interface VoidRecoveryState {
+  raceNo: number;
+  planHash: string;
+  reason: string;
+  openShow: import('./live/store').LiveShow | null;
+}
+
+/**
+ * The exact race held across an uncertain Phone Play LOCK/RUN acknowledgement.
+ *
+ * This remains durable until the local race records its result (or the attempt
+ * moves into the explicit void/rearm recovery path). A moderator-page reload
+ * can therefore retry the same hashes and animation plan instead of drawing a
+ * different result over a room that may already be RUNNING.
+ */
+export interface HeldRaceStartState {
+  raceNo: number;
+  lockedAt: number;
+  startedAt: number;
+  config: {
+    raceNo: number;
+    raceType: string;
+    fieldSize: number;
+    names: string[];
+    durationMs: number;
+    laps: number;
+    surprises: boolean;
+    trackShape: 'lanes' | 'circuit';
+    intensity: SurpriseIntensity;
+  };
+  oddsAtLock: Record<number, number>;
+  commitHash: string;
+  planHash: string;
+  plan: LockedRacePlan;
 }
 
 export interface EventState {
@@ -280,6 +416,10 @@ export interface EventState {
   packCurrent?: string | null;
   /** Phone Play session, when the server mode has one open. */
   phonePlay?: { code: string; operatorKey: string; pin?: string } | null;
+  /** Exact plan retained until its local result stands or it enters void recovery. */
+  heldRaceStart: HeldRaceStartState | null;
+  /** Persisted until the same void/rearm commands are acknowledged or the room is ended. */
+  voidRecovery: VoidRecoveryState | null;
   fieldSize: number;
   names: string[];
   goalCents: number;

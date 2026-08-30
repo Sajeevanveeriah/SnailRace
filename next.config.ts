@@ -33,6 +33,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
     NEXT_PUBLIC_STATIC_EXPORT: isPages ? '1' : '',
+    NEXT_PUBLIC_LIVE_API_ORIGIN: process.env.NEXT_PUBLIC_LIVE_API_ORIGIN ?? '',
   },
   ...(isPages
     ? {

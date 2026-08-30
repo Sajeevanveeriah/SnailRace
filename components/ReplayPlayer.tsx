@@ -280,7 +280,13 @@ export function ReplayPlayer({
                     <span className="num w-9 shrink-0 font-bold text-(--tx)/60">{ordinal(r.place)}</span>
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: laneColour(r.lane).shell }} aria-hidden="true" />
                     <span className="truncate font-medium">{r.name}</span>
-                    <span className="num ml-auto text-(--tx)/45">{(r.finishMs / 1000).toFixed(2)}s</span>
+                    <span className="num ml-auto text-(--tx)/45">
+                      {r.finishMs !== null
+                        ? `${(r.finishMs / 1000).toFixed(2)}s`
+                        : r.status === 'retired'
+                          ? 'RET'
+                          : `${Math.round((r.progressAtStop ?? 0) * 100)}% at line`}
+                    </span>
                   </li>
                 ))}
             </ol>

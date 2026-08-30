@@ -1,4 +1,4 @@
-import type { AuditEntry, RaceResult } from './types';
+import type { AuditEntry, LockedRacePlan, RaceResult } from './types';
 
 /**
  * The audit trail and its hashes.
@@ -61,19 +61,143 @@ export const commitmentInput = (seedHex: string, config: RaceConfig): string => 
 export const commitmentOf = (seedHex: string, config: RaceConfig): Promise<string> =>
   sha256Hex(commitmentInput(seedHex, config));
 
-/** The canonical string the result hash covers. */
-export const resultInput = (seedHex: string, results: RaceResult[]): string =>
-  [
-    'ndcc-race-result-v1',
-    seedHex.toUpperCase(),
-    ...results
-      .slice()
-      .sort((a, b) => a.place - b.place)
-      .map((r) => `${r.place}:${r.lane}:${r.name}:${r.finishMs}`),
-  ].join('|');
+/**
+ * True only for result rows written before first-finisher classification.
+ * Keeping this selection narrow preserves every v1 canonical string while
+ * ensuring a partially migrated or status-bearing result is hashed as v2.
+ */
+const isLegacyResult = (r: RaceResult): boolean =>
+  r.finishMs !== null &&
+  r.status === undefined &&
+  r.progressAtStop === undefined &&
+  r.retiredAtMs === undefined &&
+  r.retirementCode === undefined &&
+  r.retirementLabel === undefined;
+
+/** An unambiguous ordered row for status-aware result and plan hashes. */
+const canonicalResultV2Row = (r: RaceResult): readonly unknown[] => [
+  r.place,
+  r.lane,
+  r.name,
+  r.finishMs,
+  r.status ?? null,
+  r.progressAtStop ?? null,
+  r.retiredAtMs ?? null,
+  r.retirementCode ?? null,
+  r.retirementLabel ?? null,
+];
+
+/**
+ * The canonical string the result hash covers.
+ *
+ * Legacy all-finisher rows retain the byte-for-byte v1 representation.
+ * Results carrying first-finisher classification use v2, which also binds
+ * progress-at-stop and retirement metadata. JSON tuples make names and
+ * labels containing punctuation unambiguous.
+ */
+export const resultInput = (seedHex: string, results: RaceResult[]): string => {
+  if (results.every(isLegacyResult)) {
+    return [
+      'ndcc-race-result-v1',
+      seedHex.toUpperCase(),
+      ...results
+        .slice()
+        .sort((a, b) => a.place - b.place)
+        .map((r) => `${r.place}:${r.lane}:${r.name}:${r.finishMs}`),
+    ].join('|');
+  }
+
+  const rows = results
+    .slice()
+    .sort((a, b) => a.place - b.place || a.lane - b.lane)
+    .map(canonicalResultV2Row);
+  return ['ndcc-race-result-v2', seedHex.toUpperCase(), JSON.stringify(rows)].join('|');
+};
 
 export const resultHashOf = (seedHex: string, results: RaceResult[]): Promise<string> =>
   sha256Hex(resultInput(seedHex, results));
+
+/* ── The immutable consequential race plan ───────────────────────────── */
+
+/**
+ * Canonicalise a complete locked plan without relying on object key order.
+ * Arrays remain ordered because their order is part of the runtime plan;
+ * numeric record keys are sorted explicitly so construction order is not.
+ */
+export const canonicalRacePlan = (plan: LockedRacePlan): string => {
+  const runners = plan.runners.map((r) => [
+    r.lane,
+    r.name,
+    r.baseFinishMs,
+    r.A,
+    r.w1,
+    r.w2,
+    r.ph1,
+    r.ph2,
+  ]);
+
+  const events = plan.events.map((event) => [
+    event.id,
+    event.kind,
+    event.label,
+    event.tone,
+    event.sound,
+    event.targetLanes,
+    event.consequence,
+    event.warningAtMs,
+    event.revealAtMs,
+    event.effectAtMs,
+    event.commentaryAtMs,
+    event.effectEndMs,
+    Object.entries(event.clockDeltaMsByLane)
+      .map(([lane, delta]) => [Number(lane), delta])
+      .sort((a, b) => a[0] - b[0]),
+    event.warningText,
+    event.revealText,
+    event.commentaryText,
+    event.retirementCode ?? null,
+    event.retirementLabel ?? null,
+  ]);
+
+  const cues = plan.cues.map((cue) => [
+    cue.id,
+    cue.eventId,
+    cue.phase,
+    cue.atMs,
+    cue.text,
+    cue.lane ?? null,
+    cue.tone ?? null,
+    cue.sound ?? null,
+    cue.big ?? null,
+  ]);
+
+  const results = plan.results.map(canonicalResultV2Row);
+  const canonical = [
+    plan.schema,
+    plan.engine,
+    plan.seed,
+    plan.seedHex.toUpperCase(),
+    plan.names,
+    plan.durationMs,
+    plan.laps,
+    plan.surprises,
+    plan.intensity,
+    plan.trackShape,
+    plan.weather,
+    plan.photoFinish,
+    runners,
+    events,
+    cues,
+    results,
+    plan.winnerLane,
+    plan.stopAtMs,
+  ];
+
+  return `ndcc-race-plan-v1|${JSON.stringify(canonical)}`;
+};
+
+export const planHashOf = (plan: LockedRacePlan): Promise<string> =>
+  sha256Hex(canonicalRacePlan(plan));
 
 /* ── The audit hash chain ──────────────────────────────────────────────── */
 

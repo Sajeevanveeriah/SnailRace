@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { addAudit, auditChainSettled, currentState, hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
-import { commitmentOf, resultHashOf, shortHash, verifyAuditChain, type RaceConfig } from '@/lib/audit';
+import { commitmentOf, planHashOf, resultHashOf, shortHash, verifyAuditChain, type RaceConfig } from '@/lib/audit';
 import { archiveNight, listNights, removeNight, verifyNight, type ArchivedNight } from '@/lib/event-archive';
 import { PhonePlayPanel } from './PhonePlayPanel';
 import { PackManager } from './PackManager';
@@ -11,10 +11,10 @@ import { Preflight } from './Preflight';
 import type { usePhonePlay } from '@/lib/use-phone-play';
 import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { MAX_FIELD, MIN_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
+import { MAX_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
 import { LAP_LEN } from '@/lib/broadcast';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
-import { INTENSITY_FACTOR, eventBudget, verifyDraw } from '@/lib/race-engine';
+import { INTENSITY_FACTOR, LOCKED_RACE_FIELD_SIZE, eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import {
   initVoice,
@@ -279,6 +279,48 @@ export function ControlDrawer({
     const past = event.history.find(
       (h) => h.seedHex.toUpperCase() === seedInput.trim().toUpperCase(),
     );
+    if (past?.racePlan) {
+      const planned = past.racePlan.results
+        .slice()
+        .sort((a, b) => a.place - b.place)
+        .map((r) => r.lane);
+      const actual = past.results
+        .slice()
+        .sort((a, b) => a.place - b.place)
+        .map((r) => r.lane);
+      const replay = planned.map((lane, i) => `${i + 1}. lane ${lane + 1}`).join('  ');
+      const matches =
+        past.racePlan.seedHex.toUpperCase() === seedInput.trim().toUpperCase() &&
+        actual.length === planned.length &&
+        actual.every((lane, i) => lane === planned[i]);
+      setVerifyOut(
+        matches
+          ? `Match. Race ${past.raceNo} matches its complete locked plan: ${replay}`
+          : `Mismatch against the complete locked plan for race ${past.raceNo}.`,
+      );
+      void (async () => {
+        const lines: string[] = [];
+        if (past.planHash) {
+          const ph = await planHashOf(past.racePlan!);
+          lines.push(
+            ph === past.planHash
+              ? `Plan hash ${shortHash(ph)}… verifies every runner, surprise, cue and classification.`
+              : 'PLAN HASH MISMATCH: the locked race plan has been altered.',
+          );
+        }
+        if (past.resultHash) {
+          const rh = await resultHashOf(past.seedHex, past.results);
+          lines.push(
+            rh === past.resultHash
+              ? `Result hash ${shortHash(rh)}… verifies.`
+              : 'RESULT HASH MISMATCH: the recorded classification has been altered.',
+          );
+        }
+        if (lines.length) setVerifyOut((prev) => `${prev} ${lines.join(' ')}`);
+      })();
+      return;
+    }
+
     const order = verifyDraw(seedInput, past?.fieldSize ?? event.fieldSize);
     if (!order) {
       setVerifyOut('That is not a readable seed. Copy it exactly as printed on the stage.');
@@ -311,6 +353,7 @@ export function ControlDrawer({
             laps: past.laps,
             surprises: past.surprises,
             trackShape: past.trackShape ?? 'circuit',
+            intensity: past.intensity,
           };
           const commit = await commitmentOf(past.seedHex, config);
           lines.push(
@@ -375,7 +418,7 @@ export function ControlDrawer({
   /** Race audit block plus the trail, in one reconciliation-friendly file. */
   const exportAuditCsv = () => {
     const rows = [
-      ['section', 'race', 'kind', 'timestamp', 'seed', 'commit_sha256', 'result_sha256', 'detail'],
+      ['section', 'race', 'kind', 'timestamp', 'seed', 'commit_sha256', 'plan_sha256', 'result_sha256', 'detail'],
       ...event.history
         .slice()
         .reverse()
@@ -386,6 +429,7 @@ export function ControlDrawer({
           new Date(h.at).toISOString(),
           h.seedHex,
           h.commitHash ?? '',
+          h.planHash ?? '',
           h.resultHash ?? '',
           h.void
             ? (h.voidReason ?? 'void')
@@ -394,7 +438,7 @@ export function ControlDrawer({
       ...event.audit
         .slice()
         .reverse()
-        .map((a) => ['audit', a.raceNo, a.kind, new Date(a.at).toISOString(), '', '', '', a.detail]),
+        .map((a) => ['audit', a.raceNo, a.kind, new Date(a.at).toISOString(), '', '', '', '', a.detail]),
     ];
     download(
       `${dateStamp()}-Snail-Race-Audit-Rev00.csv`,
@@ -761,17 +805,11 @@ export function ControlDrawer({
                 <label className="fld">
                   <span>Number of racers</span>
                   <select
-                    value={event.fieldSize}
-                    disabled={locked}
-                    onChange={(e) => setState({ fieldSize: Number(e.target.value) })}
+                    value={LOCKED_RACE_FIELD_SIZE}
+                    disabled
+                    aria-describedby="fixed-field-note"
                   >
-                    {Array.from({ length: MAX_FIELD - MIN_FIELD + 1 }, (_, i) => MIN_FIELD + i).map(
-                      (n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ),
-                    )}
+                    <option value={LOCKED_RACE_FIELD_SIZE}>{LOCKED_RACE_FIELD_SIZE}</option>
                   </select>
                 </label>
                 <label className="fld">
@@ -791,6 +829,10 @@ export function ControlDrawer({
                 {event.trackShape === 'circuit'
                   ? `${event.laps} ${event.laps === 1 ? 'lap' : 'laps'} at ${Math.round(lapMs / 1000)}s = a ${raceLength} race, at about ${pace} body-lengths a second. A snail reads as a snail at about one; much above two and it looks like a beetle.`
                   : `A ${raceLength} race.`}
+              </p>
+              <p id="fixed-field-note" className="mt-2 text-[11px] leading-snug text-(--tx)/50">
+                The live club show uses one fixed eight-runner card, matching the projector, phone
+                play and locked-result format.
               </p>
 
               <label className="mt-3 flex items-center gap-2 text-sm">
@@ -822,7 +864,7 @@ export function ControlDrawer({
               </label>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 {event.surprises
-                  ? `About ${eventBudget(event.raceDurationMs, event.fieldSize)} turbo boosts, shell slips and naps per race, marked on the track before they land. They are drawn from the race seed after the finishing order is settled, so they change the drama and never the result.`
+                  ? `About ${eventBudget(event.raceDurationMs, event.fieldSize)} boosts, delays and authored course set-pieces per race. Each warning, effect and lasting consequence is drawn and hash-locked before the countdown, so it can change the running order without changing after the start.`
                   : 'Surprises are off. The field runs on wobble alone.'}
               </p>
             </section>
@@ -871,9 +913,9 @@ export function ControlDrawer({
               </div>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 {`About ${eventBudget(event.raceDurationMs, event.fieldSize, INTENSITY_FACTOR[event.intensity])} surprises a race at this setting. `}
-                Presets change only how much drama is drawn - every surprise still comes from
-                the race seed after the finishing order is settled, and every envelope closes
-                to zero at the line, so the preset can never change a result.
+                Presets change how much consequential drama is drawn. The complete plan - including
+                every surprise, lasting delay or boost, rare retirement and first-finisher
+                classification - is hash-locked before the countdown and cannot change mid-race.
               </p>
               <label className="mt-3 flex items-center gap-2 text-sm">
                 <input
@@ -919,6 +961,8 @@ export function ControlDrawer({
                 session={phonePlay.session}
                 summary={phonePlay.summary}
                 online={phonePlay.online}
+                controlReady={phonePlay.controlReady}
+                controlError={phonePlay.controlError}
                 playUrl={playUrl}
                 onStart={phonePlay.start}
                 onEnd={phonePlay.end}
@@ -1290,6 +1334,7 @@ export function ControlDrawer({
                       <p className="num text-[11px] text-(--tx)/40">
                         seed {h.seedHex}
                         {h.commitHash ? ` - commit ${shortHash(h.commitHash)}` : ''}
+                        {h.planHash ? ` - plan ${shortHash(h.planHash)}` : ''}
                         {h.resultHash ? ` - result ${shortHash(h.resultHash)}` : ''}
                         {h.photoFinish ? ' - photo finish' : ''}
                         {h.highlights?.length

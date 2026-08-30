@@ -4,8 +4,7 @@ import { useMemo } from 'react';
 import { laneColour } from '@/lib/palette';
 import { standingsFrom } from '@/lib/standings';
 import { ordinal } from '@/lib/race-engine';
-import { money } from '@/lib/money';
-import type { LanePool } from '@/lib/tote';
+import type { FunChipLane } from '@/lib/tote';
 import type { RaceHistoryEntry } from '@/lib/types';
 
 /**
@@ -58,7 +57,7 @@ export function Racecard({
 }: {
   names: string[];
   history: RaceHistoryEntry[];
-  lanes: LanePool[];
+  lanes: FunChipLane[];
   raceNo: number;
   sponsor?: string;
   /** Projector mode trims the flavour column below twelve-lane fields. */
@@ -127,7 +126,7 @@ export function Racecard({
                 </td>
                 <td className="num py-2 pr-2 text-right">{standing?.points ?? 0}</td>
                 <td className="num py-2 pr-2 text-right">
-                  {pool && pool.cents > 0 ? money(pool.cents) : '-'}
+                  {pool && pool.chips > 0 ? `${pool.chips} chips` : '-'}
                 </td>
                 <td className="num py-2 text-right text-(--gold)">
                   {(pool?.odds ?? names.length).toFixed(2)}
@@ -139,9 +138,9 @@ export function Racecard({
       </table>
 
       <p className="mt-3 text-[11px] leading-snug text-(--tx)/45">
-        Tonight and Points are real results from this event. Backed shows donations, which never
-        influence any race. The runner lines are for fun. Every snail wins with the same
-        1-in-{names.length} chance.
+        Tonight and Points are real results from this event. Backed shows free fun chips only.
+        Donations live in a separate ledger and cannot change a price or result. The runner lines
+        are for fun. Every snail wins with the same 1-in-{names.length} chance.
       </p>
     </div>
   );

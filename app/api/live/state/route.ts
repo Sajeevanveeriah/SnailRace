@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { playerState, updateShow, type LiveShow } from '@/lib/live/store';
-import { readBody, respond } from '../util';
+import { playerState, updateShow } from '@/lib/live/store';
+import { operatorKeyOf, parseLiveShow, readBody, respond } from '../util';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,12 +11,16 @@ export async function GET(request: Request) {
   const code = (url.searchParams.get('code') ?? '').toUpperCase();
   const since = url.searchParams.get('since');
   const playerId = url.searchParams.get('playerId') ?? undefined;
-  const token = url.searchParams.get('token') ?? undefined;
+  const token = operatorKeyOf(request) ?? undefined;
+  const parsedSince = since === null ? undefined : Number(since);
+  if (parsedSince !== undefined && (!Number.isSafeInteger(parsedSince) || parsedSince < 0)) {
+    return NextResponse.json({ ok: false, error: 'Malformed revision.' }, { status: 400 });
+  }
   const result = await playerState(
     code,
     playerId,
     token,
-    since === null ? undefined : Number(since),
+    parsedSince,
   );
   return respond(result);
 }
@@ -26,10 +30,20 @@ export async function POST(request: Request) {
   const body = await readBody(request);
   if (body instanceof NextResponse) return body;
 
-  const show = body.show as LiveShow | undefined;
-  if (!show || !Array.isArray(show.names) || typeof show.raceNo !== 'number') {
+  const show = parseLiveShow(body.show);
+  if (!show || typeof body.commandId !== 'string' || !/^[A-Za-z0-9:_-]{8,128}$/.test(body.commandId)) {
     return NextResponse.json({ ok: false, error: 'Malformed show state.' }, { status: 400 });
   }
-  const result = await updateShow(String(body.code ?? '').toUpperCase(), body.operatorKey, show);
+  const expected = body.expectedShowRevision;
+  if (!Number.isSafeInteger(expected) || Number(expected) < 1) {
+    return NextResponse.json({ ok: false, error: 'Malformed show revision.' }, { status: 400 });
+  }
+  const result = await updateShow(
+    String(body.code ?? '').toUpperCase(),
+    operatorKeyOf(request),
+    show,
+    body.commandId,
+    Number(expected),
+  );
   return respond(result);
 }

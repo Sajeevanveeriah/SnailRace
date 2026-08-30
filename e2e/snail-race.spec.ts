@@ -16,6 +16,19 @@ const advanceToRace = async (page: Page) => {
   await expect(page.locator('.show-screen')).toHaveCount(0);
 };
 
+const setSprintRace = async (page: Page) => {
+  await page.getByRole('button', { name: /Controls/i }).click();
+  const controls = page.getByRole('region', {
+    name: 'Moderator controls',
+    includeHidden: true,
+  });
+  await expect(controls).toBeVisible();
+  await controls.getByLabel('Lap length').selectOption('7000');
+  await controls.getByLabel('Laps').selectOption('1');
+  await controls.getByRole('button', { name: /Hide/i }).click();
+  await expect(controls).toHaveAttribute('aria-hidden', 'true');
+};
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
@@ -26,6 +39,16 @@ test.beforeEach(async ({ page }) => {
 test('show flow isolates the hidden stage and remains accessible', async ({ page }) => {
   const welcome = page.getByRole('region', { name: 'WELCOME screen' });
   await expect(welcome).toBeVisible();
+  const brand = welcome.locator('.club-brand').first();
+  const crest = brand.locator('.club-brand-logo');
+  await expect(brand).toContainText(/Newcomb.*District/i);
+  await expect(crest).toBeVisible();
+  await expect(crest).toHaveAttribute('alt', '');
+  await expect(crest).toHaveAttribute(
+    'src',
+    /\/brand\/20260403-NDCC-Logo-Bg-Removed-Rev00\.png$/,
+  );
+  await expect.poll(() => crest.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
   await expect(page.locator('.stage-shell')).toHaveAttribute('inert', '');
   await expect(page.locator('.stage-shell')).toHaveAttribute('aria-hidden', 'true');
   await assertNoSeriousAxeFindings(page);
@@ -47,11 +70,65 @@ test('race uses production art and commentary avoids monetary language', async (
   await page.getByRole('button', { name: /Start race/i }).click();
 
   await expect(page.locator('.tv-art-background')).toBeVisible();
-  await expect(page.locator('.tv-snail-sprite')).toHaveCount(6);
-  await expect(page.locator('.tv-strap-line')).toContainText(/away|conditions|leads|from/i, { timeout: 10_000 });
-  await expect(page.locator('.tv-strap-line')).not.toContainText(/\b(money|cash|ticket|wager|punter)\b/i);
+  await expect(page.locator('.tv-snail-sprite')).toHaveCount(8);
+  const hud = page.locator('.race-hud');
+  await expect(hud).toHaveAttribute('aria-label', 'Race 1 status');
+  await expect(hud.locator('.tv-clock')).toHaveAttribute('role', 'timer');
+  const commentary = page.locator('.tv-strap-line');
+  await expect(commentary).toHaveAttribute('role', 'status');
+  await expect(commentary).toHaveAttribute('aria-live', 'polite');
+  await expect(commentary).toHaveAttribute('aria-atomic', 'true');
+  await expect(commentary).toContainText(/away|conditions|leads|from/i, { timeout: 10_000 });
+  await expect(commentary).not.toContainText(/\b(money|cash|ticket|wager|punter)\b/i);
   await assertNoSeriousAxeFindings(page);
   await page.screenshot({ path: testInfo.outputPath('race-projector.png'), fullPage: true });
+});
+
+test('first finisher freezes the field and opens one result within one second', async ({ page }) => {
+  await setSprintRace(page);
+  await advanceToRace(page);
+  await page.getByRole('button', { name: /Start race/i }).click();
+  await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
+
+  const confirming = page.locator('.race-broadcast[data-race-phase="confirming"]');
+  await expect(confirming).toBeVisible({ timeout: 10_000 });
+  const confirmingAt = Date.now();
+  const field = page.locator('.tv-runner');
+  await expect(field).toHaveCount(8);
+  expect(await page.locator('.tv-runner.finished').count()).toBeLessThan(8);
+  const frozen = await field.evaluateAll((runners) =>
+    runners.map((runner) => runner.getAttribute('transform')),
+  );
+  await page.waitForTimeout(200);
+  expect(
+    await field.evaluateAll((runners) =>
+      runners.map((runner) => runner.getAttribute('transform')),
+    ),
+  ).toEqual(frozen);
+
+  const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
+  await expect(winner).toBeVisible({ timeout: 1_000 });
+  expect(Date.now() - confirmingAt).toBeLessThanOrEqual(1_000);
+  await expect(winner).toHaveCount(1);
+
+  const recordedOnce = () =>
+    page.evaluate(() => {
+      const raw = localStorage.getItem('ndcc-snailrace-v3');
+      if (!raw) return { results: 0, finishEvents: 0 };
+      const saved = JSON.parse(raw) as {
+        history: { raceNo: number; void?: boolean }[];
+        audit: { kind: string; raceNo: number }[];
+      };
+      return {
+        results: saved.history.filter((entry) => entry.raceNo === 1 && !entry.void).length,
+        finishEvents: saved.audit.filter(
+          (entry) => entry.kind === 'race_finished' && entry.raceNo === 1,
+        ).length,
+      };
+    });
+  await expect.poll(recordedOnce).toEqual({ results: 1, finishEvents: 1 });
+  await page.waitForTimeout(200);
+  expect(await recordedOnce()).toEqual({ results: 1, finishEvents: 1 });
 });
 
 test('200 percent zoom does not create horizontal page overflow', async ({ page }) => {
@@ -65,7 +142,11 @@ test('200 percent zoom does not create horizontal page overflow', async ({ page 
 
 test('reduced motion disables decorative race and surprise animation', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await setSprintRace(page);
   await advanceToRace(page);
+  await page.getByRole('button', { name: /Start race/i }).click();
+  await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-reduced-motion', 'true');
   const sprite = page.locator('.tv-snail-sprite').first();
   await expect(sprite).toBeVisible();
   await expect(sprite).toHaveCSS('animation-name', 'none');

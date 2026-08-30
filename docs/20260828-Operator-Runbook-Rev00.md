@@ -1,5 +1,11 @@
 # Snail Race Night - Operator Runbook
 
+> **Historical runbook - superseded 30 August 2026.** Keep this Rev00 script as
+> evidence of the earlier show only. Do not use it to run the current build;
+> use `docs/20260830-Operator-Runbook-Rev01.md`, which covers eight runners,
+> consequential locked surprises, immediate first-finisher classification,
+> fixed free-chip prices and durable Phone Play recovery.
+
 Rev00, 28 August 2026. One volunteer, one laptop, one projector. Everything in this
 runbook is driven from the stage (`/`) and its console (press **M**), and the whole
 night advances on one button: **Space**, or the forward button of a presentation

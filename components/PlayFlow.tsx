@@ -4,9 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
-import { HAS_API } from '@/lib/deployment';
+import { ClubBrand } from './brand/ClubBrand';
+import { HAS_LIVE_API, liveApiUrl } from '@/lib/deployment';
 import { laneColour } from '@/lib/palette';
+import { runnerArtForLane } from '@/lib/presentation/runner-art';
 import { ordinal } from '@/lib/race-engine';
+import { newId } from '@/lib/ids';
+import { fetchWithTimeout } from '@/lib/network';
 import type { LivePick, LiveShow } from '@/lib/live/store';
 
 /**
@@ -20,13 +24,12 @@ import type { LivePick, LiveShow } from '@/lib/live/store';
 
 const STAKES = [10, 25, 50, 100];
 const POLL_MS = 2000;
-const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
-function PlayerSnailArt() {
+function PlayerSnailArt({ lane = 0, className = '' }: { lane?: number; className?: string }) {
   return (
     <span
-      className="player-snail-art"
-      style={{ backgroundImage: `url(${ART_BASE}/snails/speedy.png)` }}
+      className={`player-snail-art ${className}`}
+      style={{ backgroundImage: `url(${runnerArtForLane(lane).src})` }}
       aria-hidden="true"
     />
   );
@@ -47,6 +50,27 @@ interface Identity {
   playerId: string;
   token: string;
   name: string;
+}
+
+function restoredIdentity(value: unknown): Identity | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.playerId !== 'string' ||
+    !/^pl[A-Za-z0-9_-]{8,64}$/.test(candidate.playerId) ||
+    typeof candidate.token !== 'string' ||
+    !/^[A-Za-z0-9_-]{16,128}$/.test(candidate.token) ||
+    typeof candidate.name !== 'string' ||
+    !candidate.name.trim() ||
+    candidate.name.length > 24
+  ) {
+    return null;
+  }
+  return {
+    playerId: candidate.playerId,
+    token: candidate.token,
+    name: candidate.name.trim(),
+  };
 }
 
 const REACTIONS: { kind: string; glyph: string; label: string }[] = [
@@ -72,6 +96,7 @@ export function PlayFlow() {
   const [snap, setSnap] = useState<StateResponse | null>(null);
   const [online, setOnline] = useState(true);
   const revisionRef = useRef(0);
+  const pollInFlightRef = useRef(false);
 
   const storeKey = code ? `ndcc-play-${code}` : '';
 
@@ -82,7 +107,11 @@ export function PlayFlow() {
     const id = window.setTimeout(() => {
       try {
         const saved = localStorage.getItem(storeKey);
-        if (saved) setIdentity(JSON.parse(saved) as Identity);
+        if (saved) {
+          const restored = restoredIdentity(JSON.parse(saved) as unknown);
+          if (restored) setIdentity(restored);
+          else localStorage.removeItem(storeKey);
+        }
       } catch {
         /* no storage: joining again is fine */
       }
@@ -94,7 +123,7 @@ export function PlayFlow() {
     setError('');
     setJoining(true);
     try {
-      const res = await fetch('/api/live/join', {
+      const res = await fetchWithTimeout(liveApiUrl('/api/live/join'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, name, ...(pin ? { pin } : {}) }),
@@ -128,14 +157,17 @@ export function PlayFlow() {
   /* The poll. Every phone asks a couple of times a second in aggregate;
      the server answers `unchanged` from its revision when nothing moved. */
   const poll = useCallback(async () => {
-    if (!code || code.length !== 6) return;
+    if (!code || code.length !== 6 || pollInFlightRef.current) return;
+    pollInFlightRef.current = true;
     try {
       const query = new URLSearchParams({ code, since: String(revisionRef.current) });
       if (identity) {
         query.set('playerId', identity.playerId);
-        query.set('token', identity.token);
       }
-      const res = await fetch(`/api/live/state?${query}`, { cache: 'no-store' });
+      const res = await fetchWithTimeout(liveApiUrl(`/api/live/state?${query}`), {
+        cache: 'no-store',
+        ...(identity ? { headers: { Authorization: `Bearer ${identity.token}` } } : {}),
+      });
       const body = (await res.json()) as StateResponse;
       if (!body.ok) {
         setOnline(res.status < 500);
@@ -147,15 +179,28 @@ export function PlayFlow() {
       }
       setOnline(true);
       if (body.unchanged) return;
+      if (identity && body.you === null) {
+        setIdentity(null);
+        setSnap(null);
+        setError('Your saved phone session expired. Rejoin with the room code.');
+        try {
+          localStorage.removeItem(storeKey);
+        } catch {
+          /* fine */
+        }
+        return;
+      }
       revisionRef.current = body.revision;
       setSnap(body);
     } catch {
       setOnline(false);
+    } finally {
+      pollInFlightRef.current = false;
     }
-  }, [code, identity]);
+  }, [code, identity, storeKey]);
 
   useEffect(() => {
-    if (!HAS_API || !identity) return;
+    if (!HAS_LIVE_API || !identity) return;
     revisionRef.current = 0;
     void poll();
     const timer = window.setInterval(() => void poll(), POLL_MS);
@@ -188,7 +233,7 @@ export function PlayFlow() {
     setSending(true);
     setPickError('');
     try {
-      const res = await fetch('/api/live/pick', {
+      const res = await fetchWithTimeout(liveApiUrl('/api/live/pick'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,7 +243,7 @@ export function PlayFlow() {
           raceNo: show.raceNo,
           lane,
           chips: stake,
-          nonce: crypto.randomUUID(),
+          nonce: newId('pick'),
         }),
       });
       const body = (await res.json()) as { ok: boolean; error?: string };
@@ -232,7 +277,7 @@ export function PlayFlow() {
       if (!identity || Date.now() - reactedAt < 1500) return;
       setReactedAt(Date.now());
       try {
-        await fetch('/api/live/react', {
+        await fetchWithTimeout(liveApiUrl('/api/live/react'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, playerId: identity.playerId, token: identity.token, kind }),
@@ -254,14 +299,20 @@ export function PlayFlow() {
 
   /* ── Static build: the truth, with zero API calls ──────────────────── */
 
-  if (!HAS_API) {
+  if (!HAS_LIVE_API) {
     return (
-      <main className="sheet grid min-h-dvh place-items-center p-6">
+      <main className="sheet phone-race-shell grid min-h-dvh place-items-center p-6">
         <div className="fixed right-4 top-4 z-30">
           <ThemeToggle />
         </div>
         <div className="card play-fallback reveal max-w-md p-8 text-center">
-          <PlayerSnailArt />
+          <ClubBrand
+            className="club-brand phone-join-brand"
+            imageClassName="club-brand-logo phone-club-logo"
+            nameClassName="phone-club-name"
+            priority
+          />
+          <PlayerSnailArt lane={7} />
           <h1 className="display mt-4 text-3xl">Phone Play needs the event server</h1>
           <p className="mt-3 text-sm text-(--tx)/60">
             This copy of the site is the offline build, which runs the races and fun chips on
@@ -280,11 +331,17 @@ export function PlayFlow() {
 
   if (!identity || !show) {
     return (
-      <main className="sheet grid min-h-dvh place-items-center p-6">
+      <main className="sheet phone-race-shell grid min-h-dvh place-items-center p-6">
         <div className="fixed right-4 top-4 z-30">
           <ThemeToggle />
         </div>
         <div className="card reveal w-full max-w-sm p-8">
+          <ClubBrand
+            className="club-brand phone-join-brand"
+            imageClassName="club-brand-logo phone-club-logo"
+            nameClassName="phone-club-name"
+            priority
+          />
           <PlayerSnailArt />
           <h1 className="display mt-4 text-center text-3xl">Join the races</h1>
           <p className="fun-chip-banner mx-auto mt-3 w-fit" role="note">
@@ -354,17 +411,23 @@ export function PlayFlow() {
   const result = show.result;
 
   return (
-    <main className="sheet min-h-dvh pb-36">
-      <div className="mx-auto max-w-md px-5 pt-6">
-        <header className="reveal">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-(--tx)/45">
-              {show.clubName}
-            </p>
-            <ThemeToggle />
+    <main className="sheet phone-race-shell min-h-dvh pb-36">
+      <div className="phone-race-inner mx-auto max-w-md px-5 pt-6">
+        <header className="phone-race-header reveal">
+          <div className="phone-race-brand-row flex items-start justify-between gap-3">
+            <ClubBrand
+              className="club-brand phone-club-brand"
+              imageClassName="club-brand-logo phone-club-logo"
+              nameClassName="phone-club-name"
+              priority
+            />
+            <ThemeToggle className="phone-theme-toggle" />
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <h1 className="display text-3xl text-(--tx)">Race {show.raceNo}</h1>
+          <div className="phone-race-title-row mt-2 flex flex-wrap items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="phone-event-name truncate">{show.eventName}</p>
+              <h1 className="display text-3xl text-(--tx)">Race {show.raceNo}</h1>
+            </div>
             {show.rehearsal ? (
               <span className="rounded-full bg-(--bad)/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-(--bad)">
                 Rehearsal
@@ -381,23 +444,21 @@ export function PlayFlow() {
               {online ? 'Live' : 'Reconnecting…'}
             </span>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="fun-chip-banner" role="note">
-              FUN CHIPS - NO MONETARY VALUE
-            </span>
-            <span className="num rounded-full bg-(--gold)/15 px-3 py-1 text-xs font-bold text-(--gold)">
-              {you?.chips ?? 0} chips
-            </span>
+          <div className="phone-balance-card mt-3" role="note">
+            <span className="phone-chip-icon" aria-hidden="true">★</span>
+            <strong className="num">{you?.chips ?? 0}</strong>
+            <span><b>Fun chips</b><small>Your balance - no monetary value</small></span>
           </div>
         </header>
 
         {/* ── Market ────────────────────────────────────────────────── */}
         {marketOpen ? (
-          <section className="reveal mt-6" aria-label="Pick a snail">
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-(--tx)/45">
-              The market is open - pick your snail
-            </h2>
-            <div className="flex flex-col gap-2">
+          <section className="phone-pick-market reveal mt-6" aria-label="Pick a snail">
+            <div className="phone-market-heading mb-3">
+              <h2>The market is open</h2>
+              <p>Choose one of {show.names.length} runners, then set your fun chips.</p>
+            </div>
+            <div className="phone-runner-list flex flex-col gap-2">
               {show.names.map((n, i) => {
                 const c = laneColour(i);
                 const picked = lane === i;
@@ -418,7 +479,8 @@ export function PlayFlow() {
                       } as React.CSSProperties
                     }
                   >
-                    <span className="num w-7 shrink-0 text-sm font-bold text-(--tx)/50">{i + 1}</span>
+                    <span className="phone-lane-number num">{i + 1}</span>
+                    <PlayerSnailArt lane={i} className="phone-runner-thumb" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold text-(--tx)">{n}</span>
                       <span className="block text-xs text-(--tx)/50">
@@ -439,7 +501,7 @@ export function PlayFlow() {
                 );
               })}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Chips to play">
+            <div className="phone-chip-choices mt-3 flex flex-wrap gap-2" role="group" aria-label="Chips to play">
               {STAKES.map((s) => (
                 <button
                   key={s}
@@ -459,7 +521,7 @@ export function PlayFlow() {
             ) : null}
             <button
               type="button"
-              className="btn btn-sheet mt-3 w-full"
+              className="btn btn-sheet phone-lock-pick mt-3 w-full"
               disabled={sending || lane === null}
               onClick={() => void submitPick()}
             >
@@ -500,7 +562,7 @@ export function PlayFlow() {
               Result - race {result.raceNo}
             </h2>
             <ol className="flex flex-col gap-1.5">
-              {result.order.slice(0, 6).map((r) => (
+              {result.order.slice(0, 8).map((r) => (
                 <li
                   key={r.lane}
                   className="flex items-center gap-2.5 rounded-xl bg-(--tx)/5 px-3 py-2 text-sm"
@@ -553,7 +615,7 @@ export function PlayFlow() {
       </div>
 
       {/* ── Reactions: always in thumb reach ─────────────────────────── */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-(--tx)/10 bg-(--card)/85 px-5 pb-[max(0.9rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+      <div className="phone-reactions fixed inset-x-0 bottom-0 z-20 border-t border-(--tx)/10 bg-(--card)/85 px-5 pb-[max(0.9rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between gap-2">
           {REACTIONS.map((r) => (
             <button

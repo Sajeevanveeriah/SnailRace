@@ -2066,13 +2066,26 @@ kbd {
   white-space: nowrap;
 }
 .state-idle { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.state-preparing,
 .state-countdown,
-.state-running {
+.state-running,
+.state-confirming {
   color: #fff;
   background: #b3141c;
   border-color: rgba(255, 255, 255, 0.28);
 }
 .state-done { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+.state-held {
+  color: #1b1204;
+  background: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 75%, #000);
+}
+.state-recovery {
+  color: #1b1204;
+  background: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 75%, #000);
+}
+.state-voiding,
 .state-void {
   color: #fff;
   background: color-mix(in srgb, var(--bad) 70%, #000);
