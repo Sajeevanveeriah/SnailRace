@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { laneColour } from '@/lib/palette';
 import { CHIP_START } from '@/lib/money';
 import { sfx } from '@/lib/sound';
-import type { LanePool } from '@/lib/tote';
+import type { FunChipLane } from '@/lib/tote';
 import type { Bet } from '@/lib/types';
 
 const STAKES = [10, 25, 50, 100];
@@ -17,9 +17,8 @@ const STAKES = [10, 25, 50, 100];
  * is a donation to the club with no return attached, which is what keeps the
  * night a fundraiser rather than a wagering service.
  *
- * The odds a bet locks in are the tote price at the moment it was placed, so
- * a punter who backs an unfancied snail early keeps the long price even after
- * the room piles in behind it.
+ * Every equal-chance runner has the same fixed play price. Donations and even
+ * the room's other chip picks cannot move it.
  */
 export function BetSlip({
   lanes,
@@ -30,7 +29,7 @@ export function BetSlip({
   open,
   onPlace,
 }: {
-  lanes: LanePool[];
+  lanes: FunChipLane[];
   raceNo: number;
   bets: Bet[];
   chipBank: Record<string, number>;

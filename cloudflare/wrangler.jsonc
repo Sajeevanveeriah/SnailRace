@@ -1,0 +1,30 @@
+{
+  "name": "snailrace-live",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-30",
+  "workers_dev": true,
+
+  // Safe development default. Replace this exact-origin allowlist at deploy
+  // time; a GitHub Pages project path is not part of an Origin.
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:3000"
+  },
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "RACE_ROOM", "class_name": "RaceRoom" },
+      { "name": "RATE_GATE", "class_name": "RateGate" }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RaceRoom", "RateGate"]
+    }
+  ],
+
+  "observability": {
+    "enabled": false
+  }
+}

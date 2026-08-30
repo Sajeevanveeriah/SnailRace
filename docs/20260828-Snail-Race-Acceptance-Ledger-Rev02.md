@@ -1,5 +1,12 @@
 # Snail Race Fundraiser - Acceptance Ledger
 
+> **Historical snapshot - superseded 30 August 2026.** This file is preserved
+> unchanged below as evidence for an earlier build. Its runner counts, surprise
+> semantics, finish lifecycle, chip-pricing/hosting descriptions and quoted
+> test results are not evidence for the current consequential eight-runner
+> release. Use the repository `README.md` and
+> `docs/20260830-Operator-Runbook-Rev01.md` for current behaviour.
+
 Date: 28 August 2026. Revision: Rev02 (Master Prompt 4). Every status is from fresh
 evidence gathered this session against the v4 build: 71 unit checks, 48 API checks
 (18 Stripe/security + 30 Phone Play abuse), 68 v3-preservation browser E2E checks,

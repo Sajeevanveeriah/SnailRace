@@ -1,53 +1,54 @@
-import type { Bet, Donation } from './types';
+import type { Bet } from './types';
 
 /**
- * Tote maths.
+ * Free fun-chip maths.
  *
- * The odds on the board are PARIMUTUEL: they are computed from what the room
- * has actually backed, exactly as a real tote works. They are not a
- * prediction. Every snail wins with probability exactly 1/N because the draw
- * is a uniform shuffle that never reads this file. The board says so out
- * loud, and `fairChance()` below is the number that is actually true.
- *
- * Deliberately no house margin: this is a fundraiser, and shading the odds
- * would only confuse the reconciliation at the end of the night.
+ * Donations never enter this module. Every runner carries the same fixed,
+ * fair N-for-1 play price and the only pool shown is the room's free chips.
+ * That separation is structural: changing a donation can neither change a
+ * chip return nor make the race resemble a cash wagering product.
  */
 
-export interface LanePool {
+export interface FunChipLane {
   lane: number;
   name: string;
-  cents: number;
+  chips: number;
   backers: number;
   /** Decimal odds: the return per 1 unit staked, including the stake. */
   odds: number;
-  /** Share of the pot backed on this lane, 0 to 1. */
+  /** Share of the free-chip picks on this lane, 0 to 1. */
   share: number;
 }
 
 export const fairChance = (fieldSize: number): number => 1 / Math.max(1, fieldSize);
 
-export function poolsFor(
-  donations: Donation[],
+/** The fixed free-chip return for an equal-chance field. */
+export const fairFunChipOdds = (fieldSize: number): number =>
+  round2(Math.max(1.01, fieldSize));
+
+export function funChipPoolsFor(
+  bets: Bet[],
   names: string[],
   raceNo: number,
-): { lanes: LanePool[]; potCents: number } {
-  const live = donations.filter((d) => !d.void && d.raceNo === raceNo);
-  const potCents = live.reduce((sum, d) => sum + d.cents, 0);
+): { lanes: FunChipLane[]; totalChips: number } {
+  const live = bets.filter((bet) => !bet.settled && bet.raceNo === raceNo);
+  const totalChips = live.reduce((sum, bet) => sum + bet.chips, 0);
+  const odds = fairFunChipOdds(names.length);
 
-  const lanes: LanePool[] = names.map((name, lane) => {
-    const mine = live.filter((d) => d.lane === lane);
-    const cents = mine.reduce((sum, d) => sum + d.cents, 0);
+  const lanes: FunChipLane[] = names.map((name, lane) => {
+    const mine = live.filter((bet) => bet.lane === lane);
+    const chips = mine.reduce((sum, bet) => sum + bet.chips, 0);
     return {
       lane,
       name,
-      cents,
+      chips,
       backers: mine.length,
-      share: potCents > 0 ? cents / potCents : 0,
-      odds: oddsFor(cents, potCents, names.length),
+      share: totalChips > 0 ? chips / totalChips : 0,
+      odds,
     };
   });
 
-  return { lanes, potCents };
+  return { lanes, totalChips };
 }
 
 /**
@@ -58,12 +59,6 @@ export function poolsFor(
  * shown as infinity, because a five-digit price on a projector reads as a
  * bug rather than as a bargain.
  */
-export function oddsFor(laneCents: number, potCents: number, fieldSize: number): number {
-  if (potCents <= 0) return round2(fieldSize);
-  if (laneCents <= 0) return round2(Math.min(fieldSize * 5, 40));
-  return round2(Math.max(1.01, potCents / laneCents));
-}
-
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /** Settle every open bet on `raceNo` against the winning lane. */

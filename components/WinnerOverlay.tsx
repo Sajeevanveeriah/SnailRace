@@ -142,7 +142,11 @@ export function WinnerOverlay({
               />
               <span className="truncate font-medium">{r.name}</span>
               <span className="num ml-auto text-(--tx)/45">
-                {(r.finishMs / 1000).toFixed(2)}s
+                {r.finishMs !== null
+                  ? `${(r.finishMs / 1000).toFixed(2)}s`
+                  : r.status === 'retired'
+                    ? 'RET'
+                    : `${Math.round((r.progressAtStop ?? 0) * 100)}% at line`}
               </span>
             </li>
           ))}

@@ -1,5 +1,12 @@
 # Snail Race Fundraiser - Threat Model
 
+> **Historical snapshot - superseded 30 August 2026.** This file is preserved
+> unchanged below as evidence for an earlier build. Its runner counts, surprise
+> semantics, finish lifecycle, chip-pricing/hosting descriptions and quoted
+> test results are not evidence for the current consequential eight-runner
+> release. Use the repository `README.md` and
+> `docs/20260830-Operator-Runbook-Rev01.md` for current behaviour.
+
 Date: 28 August 2026. Revision: Rev01 (supersedes Rev00, which remains in `docs/`
 for history). Scope adds the v4 surfaces: the run-of-show screens, the Phone Play
 server (`lib/live/store.ts` + `/api/live/*`), recorded Race Packs, the audit hash

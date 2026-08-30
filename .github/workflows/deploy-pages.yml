@@ -50,6 +50,9 @@ jobs:
       - name: Unit and invariant tests
         run: npm test
 
+      - name: Cloudflare live-service contract
+        run: npm run test:cloudflare
+
       - name: Build production server bundle
         run: npm run build
 
@@ -83,6 +86,10 @@ jobs:
         run: npm run build
         env:
           GITHUB_PAGES: 'true'
+          NEXT_PUBLIC_SITE_URL: https://sajeevanveeriah.github.io/SnailRace
+          # Optional repository variable pointing at the Cloudflare Durable
+          # Object worker, e.g. https://snail-race-live.example.workers.dev.
+          NEXT_PUBLIC_LIVE_API_ORIGIN: ${{ vars.NEXT_PUBLIC_LIVE_API_ORIGIN }}
 
       # Next writes its assets into _next, and anything beginning with an
       # underscore is invisible to Jekyll. The Actions deploy path does not run
@@ -95,6 +102,7 @@ jobs:
         run: |
           test -f out/index.html || { echo "::error::out/index.html missing"; exit 1; }
           test -d out/_next || { echo "::error::out/_next missing"; exit 1; }
+          ! grep -Rqs 'localhost:3000' out --include='*.html' || { echo "::error::localhost metadata leaked into static export"; exit 1; }
           echo "Export contains $(find out -type f | wc -l) files."
 
       - name: Configure Pages

@@ -1,5 +1,12 @@
 # Snail Race Fundraiser - Threat Model
 
+> **Historical snapshot - superseded 30 August 2026.** This file is preserved
+> unchanged below as evidence for an earlier build. Its runner counts, surprise
+> semantics, finish lifecycle, chip-pricing/hosting descriptions and quoted
+> test results are not evidence for the current consequential eight-runner
+> release. Use the repository `README.md` and
+> `docs/20260830-Operator-Runbook-Rev01.md` for current behaviour.
+
 Date: 26 August 2026. Revision: Rev00. Scope: the Next.js app in this repository,
 its GitHub Pages static export, a server deployment with Stripe, and the club-night
 operating model (projector stage, moderator console, donor phones).

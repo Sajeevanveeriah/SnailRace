@@ -156,6 +156,7 @@ export function Archive() {
                         {Math.round(h.durationMs / 1000)}s · pot {moneyShort(h.potCents)} · seed{' '}
                         {h.seedHex}
                         {h.commitHash ? ` · commit ${shortHash(h.commitHash)}` : ' · no commitment (older build)'}
+                        {h.planHash ? ` · plan ${shortHash(h.planHash)}` : ''}
                         {h.resultHash ? ` · result ${shortHash(h.resultHash)}` : ''}
                         {h.media ? ' · recording fingerprinted' : ''}
                         {h.void && h.voidReason ? ` · ${h.voidReason}` : ''}
@@ -177,9 +178,10 @@ export function Archive() {
       )}
 
       <p className="text-[11px] leading-snug text-(--tx)/40">
-        Replays are reconstructed deterministically from each race&apos;s printed seed and locked
-        configuration, so they always match the announced result; the moderator console&apos;s
-        Verify draw panel proves it. Attached recordings are verified by SHA-256 before playback.
+        New races replay their complete hash-locked plan through the same consequential engine;
+        older races fall back to their printed seed and locked configuration. The moderator
+        console verifies the applicable plan, commitment and result hashes. Attached recordings
+        are verified by SHA-256 before playback.
       </p>
     </main>
   );

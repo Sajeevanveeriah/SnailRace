@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { drawRace, hexToSeed, rankSnails, stepRace, type DrawnRace } from './race-engine';
+import {
+  drawRace,
+  hexToSeed,
+  instantiateLockedRace,
+  rankSnails,
+  stepRace,
+  type DrawnRace,
+} from './race-engine';
 import type { BoardRow, RaceController, RaceMoment, RacePainter } from './use-race';
 import type { RaceHistoryEntry } from './types';
 
@@ -42,11 +49,15 @@ export interface ReplayController extends RaceController {
 /** How often the running-order board refreshes during a replay, in ms. */
 const BOARD_EVERY = 140;
 
-const noMoment: RaceMoment | null = null;
+const REPLAY_MOMENT_MS = 1800;
+
+const cueTone = (tone: 'good' | 'bad' | 'wild' | undefined): RaceMoment['tone'] =>
+  tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : 'hot';
 
 export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
   const names = useMemo(
     () =>
+      entry?.racePlan?.names ??
       entry?.names ??
       entry?.results
         .slice()
@@ -59,6 +70,7 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
   /** Rebuild the race from the seed, exactly as the night drew it. */
   const rebuild = useCallback((): DrawnRace | null => {
     if (!entry || names.length === 0) return null;
+    if (entry.racePlan) return instantiateLockedRace(entry.racePlan);
     const seed = hexToSeed(entry.seedHex);
     if (seed === null) return null;
     /* Intensity is part of what the seed drew (v2 commitments bind it), so a
@@ -76,6 +88,8 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
+  const [commentary, setCommentary] = useState('');
+  const [moment, setMoment] = useState<RaceMoment | null>(null);
 
   const painterRef = useRef<RacePainter | null>(null);
   const drawnRef = useRef<DrawnRace | null>(null);
@@ -86,6 +100,7 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
   const boardAtRef = useRef(-1);
   /* The loop reads the clock through a ref so seeks land mid-flight. */
   const tRef = useRef(0);
+  const cueStateRef = useRef({ commentary: '', momentId: 0 });
 
   const tMax = tape?.tMax ?? 0;
 
@@ -104,7 +119,10 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
       if (crossed.length) placedRef.current = crossed[crossed.length - 1].place;
 
       const info = rankSnails(race.snails);
-      const leadP = race.snails.reduce((m, s) => (s.done ? 1 : Math.max(m, s.p)), 0);
+      const leadP = race.snails.reduce(
+        (m, s) => (s.done && !s.retired ? 1 : Math.max(m, s.p)),
+        0,
+      );
       painterRef.current?.paint(race.snails, {
         ...info,
         leadP,
@@ -114,6 +132,41 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
         justFinished: crossed,
       });
 
+      const cues = entry?.racePlan?.cues ?? [];
+      const lastCueIndex = cues.findLastIndex((cue) => cue.atMs <= ms);
+      const lastCue = lastCueIndex >= 0 ? cues[lastCueIndex] : null;
+      const spoken =
+        lastCueIndex >= 0
+          ? [...cues]
+              .slice(0, lastCueIndex + 1)
+              .reverse()
+              .find((cue) => cue.phase === 'commentary')?.text ?? lastCue?.text ?? ''
+          : '';
+      if (cueStateRef.current.commentary !== spoken) {
+        cueStateRef.current.commentary = spoken;
+        setCommentary(spoken);
+      }
+      const visualCue =
+        lastCue &&
+        lastCue.phase !== 'commentary' &&
+        ms - lastCue.atMs < REPLAY_MOMENT_MS
+          ? lastCue
+          : null;
+      const momentId = visualCue ? lastCueIndex + 1 : 0;
+      if (cueStateRef.current.momentId !== momentId) {
+        cueStateRef.current.momentId = momentId;
+        setMoment(
+          visualCue
+            ? {
+                id: momentId,
+                text: visualCue.text,
+                tone: cueTone(visualCue.tone),
+                big: visualCue.big,
+              }
+            : null,
+        );
+      }
+
       if (Math.abs(ms - boardAtRef.current) > BOARD_EVERY && boardRef.current.size) {
         boardAtRef.current = ms;
         const perP = race.durationMs / 1000;
@@ -121,8 +174,10 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
         const rows: BoardRow[] = info.ranked.map((s, i) => ({
           lane: s.lane,
           place: i + 1,
-          gapText: s.done
-            ? `${(s.finishMs / 1000).toFixed(1)}s`
+          gapText: s.retired
+            ? 'RET'
+            : s.done
+              ? `${(s.finishMs / 1000).toFixed(1)}s`
             : i === 0
               ? 'leader'
               : `+${Math.min(99, ((leader?.p ?? 0) - s.p) * perP).toFixed(1)}s`,
@@ -130,7 +185,7 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
         boardRef.current.forEach((cb) => cb(rows));
       }
     },
-    [rebuild],
+    [entry?.racePlan?.cues, rebuild],
   );
 
   const stopLoop = useCallback(() => {
@@ -262,16 +317,17 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
       : playing
         ? 'Replay'
         : 'Replay paused',
-    commentary: '',
+    commentary,
     seedHex: entry?.seedHex ?? '',
     photoFinish: false,
     results: entry?.results ?? [],
     events: tape?.events ?? [],
-    moment: noMoment,
+    moment,
     weather: tape?.weather ?? 'clear',
     onBoard,
     setPainter,
     start: play,
+    startLocked: () => play(),
     reset: restart,
     voidRace: () => {},
     /* Transport. */

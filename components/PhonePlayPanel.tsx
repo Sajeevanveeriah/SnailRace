@@ -13,6 +13,8 @@ export function PhonePlayPanel({
   session,
   summary,
   online,
+  controlReady,
+  controlError,
   playUrl,
   onStart,
   onEnd,
@@ -21,6 +23,8 @@ export function PhonePlayPanel({
   session: { code: string; pin?: string } | null;
   summary: RoomSummary;
   online: boolean;
+  controlReady: boolean;
+  controlError: string;
   playUrl: string;
   onStart: (pin?: string) => Promise<string | null>;
   onEnd: () => void;
@@ -72,8 +76,8 @@ export function PhonePlayPanel({
         <span className="num rounded-xl bg-(--tx)/8 px-4 py-2 text-2xl font-bold tracking-[0.2em]">
           {session.code}
         </span>
-        <span className={`text-xs font-semibold ${online ? 'text-(--ok)' : 'text-(--bad)'}`} role="status">
-          {online ? 'Server live' : 'Server unreachable'}
+        <span className={`text-xs font-semibold ${online && controlReady ? 'text-(--ok)' : 'text-(--bad)'}`} role="status">
+          {online && controlReady ? 'Server live' : controlError || 'Restoring server control…'}
         </span>
         <span className="num text-xs text-(--tx)/55">
           {summary.players} {summary.players === 1 ? 'phone' : 'phones'} joined

@@ -1,0 +1,1060 @@
+/*
+ * Club race-night presentation.
+ *
+ * This stylesheet is deliberately isolated from the operator console. The
+ * race, show cards and audience phone share the same crest, maroon, gold and
+ * teal scene language without turning the existing global stylesheet into a
+ * second monolith.
+ */
+
+.race-broadcast,
+.show-screen,
+.phone-race-shell {
+  --race-maroon: var(--ndcc-maroon, #b3141c);
+  /* Dark maroon and teal are sampled from the supplied approved crest. */
+  --race-maroon-deep: #601d29;
+  --race-gold: var(--ndcc-gold, #e8b55e);
+  --race-teal: #81c3c1;
+  --race-cream: #fff9ed;
+  --race-ink: color-mix(in srgb, var(--race-maroon-deep) 70%, #000 30%);
+}
+
+/* ── Projector race ─────────────────────────────────────────────────── */
+
+.race-broadcast {
+  isolation: isolate;
+  min-height: min(72vh, 900px);
+  background: color-mix(in srgb, var(--race-maroon-deep) 30%, #000 70%);
+}
+
+.race-broadcast .tv {
+  min-height: 100%;
+  object-fit: cover;
+}
+
+.race-broadcast .tv-art-background {
+  opacity: 0.9;
+  filter: saturate(1.06) contrast(1.03);
+}
+
+.race-broadcast .race-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.race-broadcast .tv-top {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 4;
+  display: flex;
+  min-height: clamp(68px, 7.2vw, 112px);
+  gap: clamp(6px, 0.85vw, 16px);
+  padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1.4vw, 24px);
+  align-items: center;
+  color: #fff;
+  background:
+    linear-gradient(100deg, var(--race-maroon-deep), var(--race-maroon) 64%, var(--race-maroon-deep));
+  border-bottom: clamp(3px, 0.32vw, 5px) solid var(--race-gold);
+  box-shadow: 0 8px 28px rgb(30 5 13 / 0.35);
+}
+
+.race-broadcast .tv-club-brand {
+  flex: 0 1 clamp(220px, 28vw, 460px);
+  gap: clamp(8px, 1vw, 18px);
+  min-width: 0;
+}
+
+.race-broadcast .tv-club-logo {
+  width: auto;
+  height: clamp(54px, 6.2vw, 96px);
+  max-width: clamp(78px, 8vw, 126px);
+  object-fit: contain;
+  filter: drop-shadow(0 5px 6px rgb(0 0 0 / 0.3));
+}
+
+.race-broadcast .tv-club-name {
+  color: #fff;
+  font-size: clamp(0.72rem, 1.3vw, 1.5rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: 0.06em;
+  text-wrap: balance;
+}
+
+.race-broadcast .tv-live,
+.race-broadcast .tv-race-chip,
+.race-broadcast .tv-title,
+.race-broadcast .tv-lap,
+.race-broadcast .tv-clock,
+.race-broadcast .tv-shot {
+  flex: none;
+  display: inline-flex;
+  min-height: clamp(35px, 3.4vw, 54px);
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgb(255 255 255 / 0.22);
+  border-radius: clamp(6px, 0.6vw, 10px);
+  padding-inline: clamp(0.55rem, 1vw, 1.05rem);
+  color: #fff;
+  background: color-mix(in srgb, var(--race-maroon-deep) 84%, transparent);
+  font-size: clamp(0.68rem, 1vw, 1.15rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  backdrop-filter: none;
+}
+
+.race-broadcast .tv-live {
+  gap: 0.55em;
+  border-color: var(--race-gold);
+  background: var(--race-maroon-deep);
+}
+
+.race-broadcast .tv-live i {
+  width: 0.7em;
+  height: 0.7em;
+  background: var(--race-gold);
+}
+
+.race-broadcast .tv-race-chip {
+  border-color: var(--race-gold);
+  color: var(--race-ink);
+  background: var(--race-gold);
+}
+
+.race-broadcast .tv-title {
+  flex: 1 1 260px;
+  min-width: 130px;
+  border: 0;
+  background: transparent;
+  font-size: clamp(1rem, 2vw, 2.35rem);
+  letter-spacing: 0.045em;
+  text-shadow: 0 3px 8px rgb(0 0 0 / 0.32);
+}
+
+.race-broadcast .tv-clock {
+  margin-left: 0;
+  background: color-mix(in srgb, var(--race-maroon-deep) 68%, transparent);
+}
+
+.race-broadcast .tv-lap,
+.race-broadcast .tv-shot {
+  color: var(--race-gold);
+}
+
+.race-broadcast .race-standings {
+  position: absolute;
+  top: clamp(80px, 8.5vw, 132px);
+  right: clamp(10px, 1.4vw, 24px);
+  z-index: 5;
+  width: clamp(226px, 20.5vw, 352px);
+  overflow: hidden;
+  border: 2px solid var(--race-cream);
+  border-radius: clamp(8px, 0.8vw, 14px);
+  background: color-mix(in srgb, var(--race-maroon-deep) 95%, transparent);
+  box-shadow: 0 14px 34px rgb(25 3 9 / 0.44);
+}
+
+.race-broadcast .race-standings h3 {
+  margin: 0;
+  padding: 0.52em 0.8em;
+  color: var(--race-ink);
+  background: var(--race-cream);
+  font-size: clamp(0.72rem, 1.05vw, 1.2rem);
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.race-broadcast .tv-order {
+  position: static;
+  width: auto;
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  font-size: clamp(0.64rem, 0.92vw, 1.02rem);
+}
+
+.race-broadcast .tv-order-row {
+  min-height: clamp(30px, 3.15vw, 50px);
+  gap: 0.58em;
+  padding: 0.34em 0.7em;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  background: linear-gradient(90deg, var(--race-maroon-deep), var(--race-maroon));
+}
+
+.race-broadcast .tv-order-row:first-child {
+  color: var(--race-ink);
+  background: linear-gradient(90deg, var(--race-gold), color-mix(in srgb, var(--race-gold) 74%, #fff 26%));
+}
+
+.race-broadcast .tv-order-row:first-child .tv-order-name,
+.race-broadcast .tv-order-row:first-child .tv-order-pos,
+.race-broadcast .tv-order-row:first-child .tv-order-gap {
+  color: var(--race-ink);
+}
+
+.race-broadcast .tv-order-pos {
+  display: grid;
+  width: 1.8em;
+  height: 1.8em;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.45);
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(255 255 255 / 0.08);
+  text-align: center;
+}
+
+.race-broadcast .tv-order-dot {
+  width: 0.8em;
+  height: 0.8em;
+  border: 1px solid rgb(255 255 255 / 0.72);
+}
+
+.race-broadcast .tv-order-name {
+  color: #fff;
+  font-weight: 850;
+}
+
+.race-broadcast .tv-order-gap {
+  color: rgb(255 255 255 / 0.76);
+  font-weight: 750;
+}
+
+.race-broadcast .tv-strap {
+  position: absolute;
+  inset: auto clamp(12px, 1.8vw, 30px) clamp(12px, 1.4vw, 24px);
+  z-index: 6;
+  display: flex;
+  min-height: clamp(62px, 6.8vw, 104px);
+  overflow: hidden;
+  align-items: stretch;
+  border: 2px solid var(--race-cream);
+  border-radius: clamp(10px, 0.9vw, 16px);
+  background: rgb(255 249 237 / 0.98);
+  box-shadow: 0 12px 32px rgb(25 3 9 / 0.38);
+  backdrop-filter: none;
+}
+
+.race-broadcast .tv-strap::before {
+  content: '\1F399';
+  display: grid;
+  width: clamp(54px, 5.6vw, 92px);
+  flex: none;
+  place-items: center;
+  border-right: 3px solid var(--race-gold);
+  color: var(--race-gold);
+  background: var(--race-maroon-deep);
+  font-size: clamp(1.3rem, 2.3vw, 2.5rem);
+}
+
+.race-broadcast .tv-strap-badge {
+  min-width: clamp(110px, 12vw, 194px);
+  justify-content: center;
+  padding-inline: clamp(0.8rem, 1.5vw, 1.6rem);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+  color: var(--race-ink);
+  background: var(--race-gold);
+  font-size: clamp(0.62rem, 0.9vw, 1rem);
+}
+
+.race-broadcast .tv-strap-line {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0.55em clamp(0.75rem, 1.6vw, 1.6rem);
+  color: var(--race-ink);
+  font-size: clamp(0.9rem, 1.55vw, 1.9rem);
+  font-weight: 750;
+}
+
+.race-broadcast .race-surprise {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.race-broadcast .tv-surprise-art {
+  right: clamp(14rem, 24vw, 28rem);
+  bottom: clamp(7rem, 12vw, 13rem);
+  width: clamp(110px, 15vw, 270px);
+  aspect-ratio: 1;
+  animation-duration: 1.8s;
+}
+
+.race-broadcast .race-surprise-roll .tv-surprise-art {
+  animation-name: race-roll-through;
+}
+
+.race-broadcast .race-surprise-dash .tv-surprise-art,
+.race-broadcast .race-surprise-cross .tv-surprise-art {
+  animation-name: race-dash-through;
+}
+
+.race-broadcast .race-surprise-swoop .tv-surprise-art {
+  animation-name: race-swoop-through;
+}
+
+.race-broadcast .tv-flash {
+  left: clamp(14px, 1.6vw, 28px);
+  right: auto;
+  bottom: clamp(88px, 9vw, 150px);
+  max-width: min(58rem, 64vw);
+  margin: 0;
+  border: 3px solid var(--race-maroon-deep);
+  border-left: 7px solid var(--race-gold);
+  border-radius: 4px 14px 14px 4px;
+  color: var(--race-ink);
+  background: var(--race-cream);
+  box-shadow: 0 12px 28px rgb(25 3 9 / 0.35);
+  font-size: clamp(0.78rem, 1.25vw, 1.45rem);
+}
+
+.race-broadcast .tv-flash b {
+  color: var(--race-maroon);
+}
+
+.race-broadcast .race-finish-confirmation {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 20;
+  display: grid;
+  min-width: min(560px, calc(100vw - 2rem));
+  overflow: hidden;
+  border: 4px solid var(--race-gold);
+  border-radius: 14px;
+  translate: -50% -50%;
+  color: #fff;
+  background: var(--race-maroon-deep);
+  box-shadow: 0 20px 80px rgb(0 0 0 / 0.66);
+  text-align: center;
+  animation: race-confirm-in 140ms ease-out both;
+}
+
+.race-broadcast .race-finish-confirmation span {
+  padding: 0.38em 1em;
+  color: var(--race-ink);
+  background: var(--race-gold);
+  font-size: clamp(0.78rem, 1.2vw, 1.15rem);
+  font-weight: 950;
+  letter-spacing: 0.22em;
+}
+
+.race-broadcast .race-finish-confirmation b {
+  padding: 0.58em 1em 0.7em;
+  font-size: clamp(1.5rem, 3.8vw, 4.6rem);
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.race-broadcast.race-confirming .tv-snail-sprite,
+.race-broadcast.race-confirming .tv-runner,
+.race-broadcast.race-confirming .tv-layer {
+  animation-play-state: paused !important;
+}
+
+.track-wrap.race-confirming:not(.race-broadcast) .token .sn,
+.track-wrap.race-confirming:not(.race-broadcast) .lane,
+.track-wrap.race-confirming:not(.race-broadcast) .trail {
+  animation-play-state: paused !important;
+}
+
+.track-wrap:not(.race-broadcast) .race-finish-confirmation-lanes {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 20;
+  display: grid;
+  min-width: min(520px, calc(100% - 2rem));
+  overflow: hidden;
+  border: 4px solid var(--race-gold, #e8b55e);
+  border-radius: 14px;
+  translate: -50% -50%;
+  color: #fff;
+  background: var(--race-maroon-deep, #601d29);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 0.62);
+  text-align: center;
+  animation: race-confirm-in 140ms ease-out both;
+}
+
+.track-wrap:not(.race-broadcast) .race-finish-confirmation-lanes span {
+  padding: 0.4em 1em;
+  color: color-mix(in srgb, var(--race-maroon-deep, #601d29) 70%, #000 30%);
+  background: var(--race-gold, #e8b55e);
+  font-size: clamp(0.72rem, 1.2vw, 1rem);
+  font-weight: 950;
+  letter-spacing: 0.2em;
+}
+
+.track-wrap:not(.race-broadcast) .race-finish-confirmation-lanes b {
+  padding: 0.55em 1em 0.7em;
+  font-size: clamp(1.3rem, 3.5vw, 3.4rem);
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+@keyframes race-roll-through {
+  0% { opacity: 0; transform: translateX(45vw) rotate(0); }
+  12%, 82% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-48vw) rotate(-560deg); }
+}
+
+@keyframes race-dash-through {
+  0% { opacity: 0; transform: translateX(38vw) scale(0.9); }
+  14%, 84% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-48vw) scale(1); }
+}
+
+@keyframes race-swoop-through {
+  0% { opacity: 0; transform: translate(35vw, -25vh) rotate(-12deg); }
+  18%, 80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-38vw, 24vh) rotate(8deg); }
+}
+
+@keyframes race-confirm-in {
+  from { opacity: 0; scale: 0.96; }
+  to { opacity: 1; scale: 1; }
+}
+
+/* ── Projector show screens ─────────────────────────────────────────── */
+
+.show-screen .show-top {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.9fr) minmax(120px, 1.3fr) auto auto;
+  min-height: clamp(76px, 8.2vw, 124px);
+  gap: clamp(0.6rem, 1.6vw, 1.6rem);
+  padding: clamp(0.4rem, 0.7vw, 0.75rem) clamp(1rem, 3vw, 2.75rem);
+  align-items: center;
+}
+
+.show-screen .show-club-brand {
+  min-width: 0;
+  gap: clamp(0.55rem, 1vw, 1rem);
+}
+
+.show-screen .show-club-logo {
+  width: auto;
+  height: clamp(58px, 7vw, 102px);
+  max-width: clamp(84px, 9vw, 136px);
+  filter: drop-shadow(0 5px 6px rgb(0 0 0 / 0.25));
+}
+
+.show-screen .show-club {
+  font-size: clamp(0.68rem, 1.2vw, 1.35rem);
+  line-height: 1.04;
+  letter-spacing: 0.08em;
+}
+
+.show-screen .show-event-block {
+  min-width: 0;
+}
+
+.show-screen .show-event {
+  font-size: clamp(0.95rem, 1.75vw, 2rem);
+  font-weight: 850;
+}
+
+.show-screen .show-panel {
+  border-color: rgb(232 181 94 / 0.5);
+  border-left-color: var(--race-teal);
+}
+
+.show-screen .show-racecard-panel {
+  display: grid;
+  gap: clamp(0.8rem, 1.5vh, 1.25rem);
+}
+
+.show-screen .show-runner-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1vw, 0.9rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.show-screen .show-runner-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(54px, 9vh) auto;
+  overflow: hidden;
+  align-items: center;
+  border: 2px solid rgb(255 249 237 / 0.82);
+  border-radius: 12px;
+  color: var(--race-ink);
+  background:
+    radial-gradient(circle at 65% 38%, color-mix(in srgb, var(--shell) 18%, transparent), transparent 55%),
+    var(--race-cream);
+  box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--shell) 72%, #000 28%);
+}
+
+.show-screen .show-runner-number {
+  display: grid;
+  z-index: 1;
+  width: clamp(30px, 2.8vw, 44px);
+  height: clamp(30px, 2.8vw, 44px);
+  margin-left: 0.55rem;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--shell-dk);
+  font-weight: 950;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+}
+
+.show-screen .show-runner-art {
+  height: 100%;
+  min-width: 0;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 5px 5px rgb(0 0 0 / 0.18));
+}
+
+.show-screen .show-runner-name {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  padding: 0.35rem 0.5rem 0.55rem;
+  font-size: clamp(0.66rem, 1vw, 1rem);
+  font-weight: 950;
+  letter-spacing: 0.045em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.show-screen .show-racecard-details {
+  min-height: 0;
+}
+
+.show-screen .show-countdown {
+  display: inline-block;
+  min-width: 2.6em;
+  border: 2px solid var(--race-gold);
+  border-radius: 8px;
+  padding: 0.1em 0.35em;
+  color: #fff;
+  background: var(--race-maroon-deep);
+  text-align: center;
+}
+
+/* ── Audience phone ─────────────────────────────────────────────────── */
+
+.phone-race-shell {
+  --phone-paper: color-mix(in srgb, var(--bg) 92%, var(--race-gold) 8%);
+  --phone-panel: var(--card);
+  min-width: 0;
+  background:
+    radial-gradient(circle at 50% -10%, rgb(232 181 94 / 0.15), transparent 34rem),
+    var(--phone-paper);
+}
+
+.phone-race-shell .phone-race-inner {
+  padding-top: 0;
+}
+
+.phone-race-shell .phone-race-header {
+  margin-inline: -1.25rem;
+  padding: calc(0.8rem + env(safe-area-inset-top)) 1.25rem 1.15rem;
+  border-bottom: 4px solid var(--race-gold);
+  color: #fff;
+  background:
+    radial-gradient(circle at 85% 20%, rgb(255 255 255 / 0.1), transparent 42%),
+    linear-gradient(115deg, var(--race-maroon-deep), var(--race-maroon) 72%, var(--race-maroon-deep));
+}
+
+.phone-race-shell .phone-club-brand {
+  gap: 0.7rem;
+  max-width: calc(100% - 3.5rem);
+}
+
+.phone-race-shell .phone-club-logo {
+  width: auto;
+  height: 52px;
+  max-width: 68px;
+  filter: drop-shadow(0 4px 5px rgb(0 0 0 / 0.28));
+}
+
+.phone-race-shell .phone-club-name {
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.05;
+  letter-spacing: 0.07em;
+}
+
+.phone-race-shell .phone-theme-toggle {
+  --tx: #fff;
+  --card: var(--race-maroon-deep);
+  --hairline: rgb(255 255 255 / 0.18);
+  --hairline-strong: rgb(255 255 255 / 0.34);
+  flex: none;
+}
+
+.phone-race-shell .phone-theme-toggle button {
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 0.55rem;
+}
+
+.phone-race-shell .phone-race-title-row {
+  align-items: end;
+}
+
+.phone-race-shell .phone-race-header h1,
+.phone-race-shell .phone-event-name {
+  color: #fff;
+}
+
+.phone-race-shell .phone-event-name {
+  margin: 0 0 0.12rem;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.phone-race-shell .phone-balance-card {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.7rem;
+  min-height: 72px;
+  padding: 0.72rem 0.9rem;
+  align-items: center;
+  border: 2px solid rgb(232 181 94 / 0.72);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--race-maroon-deep) 58%, transparent);
+}
+
+.phone-race-shell .phone-chip-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 4px dashed var(--race-gold);
+  border-radius: 50%;
+  color: var(--race-gold);
+  font-size: 1rem;
+}
+
+.phone-race-shell .phone-balance-card > strong {
+  color: #fff;
+  font-size: clamp(2.2rem, 10vw, 3.3rem);
+  line-height: 0.9;
+}
+
+.phone-race-shell .phone-balance-card > span:last-child {
+  display: grid;
+  align-content: center;
+  color: var(--race-gold);
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.phone-race-shell .phone-balance-card small {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgb(255 255 255 / 0.72);
+  font-size: 0.55rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+
+.phone-race-shell .phone-market-heading {
+  text-align: center;
+}
+
+.phone-race-shell .phone-market-heading h2 {
+  margin: 0;
+  color: var(--tx);
+  font-size: clamp(1.35rem, 7vw, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.phone-race-shell .phone-market-heading p {
+  margin: 0.25rem 0 0;
+  color: color-mix(in srgb, var(--tx) 66%, transparent);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.phone-race-shell .phone-runner-list {
+  overflow: hidden;
+  gap: 0;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 16px;
+  background: var(--phone-panel);
+}
+
+.phone-race-shell .pick {
+  min-height: 72px;
+  gap: 0.65rem;
+  padding: 0.42rem 0.7rem;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.phone-race-shell .pick:last-child {
+  border-bottom: 0;
+}
+
+.phone-race-shell .pick:hover {
+  transform: none;
+  box-shadow: inset 4px 0 0 var(--shell);
+}
+
+.phone-race-shell .pick[aria-pressed='true'] {
+  z-index: 1;
+  border: 2px solid var(--race-gold);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--race-gold) 10%, var(--phone-panel));
+  box-shadow: inset 5px 0 0 var(--race-maroon), 0 5px 18px rgb(58 7 22 / 0.12);
+}
+
+.phone-race-shell .phone-lane-number {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border: 2px solid rgb(255 255 255 / 0.82);
+  border-radius: 50%;
+  color: #fff;
+  background: var(--shell-dk);
+  box-shadow: 0 2px 7px rgb(0 0 0 / 0.2);
+  font-size: 1rem;
+  font-weight: 900;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+}
+
+.phone-race-shell .player-snail-art.phone-runner-thumb {
+  width: 68px;
+  height: 54px;
+  flex: none;
+  aspect-ratio: auto;
+  margin: 0;
+  background-position: center bottom;
+  filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.18));
+}
+
+.phone-race-shell .phone-chip-choices {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.phone-race-shell .chip-amount {
+  min-height: 44px;
+  padding: 0.55rem 0.4rem;
+  border-radius: 10px;
+  font-size: 0.74rem;
+}
+
+.phone-race-shell .chip-amount[aria-pressed='true'] {
+  border-color: var(--race-gold);
+  color: #fff;
+  background: var(--race-maroon-deep);
+  box-shadow: inset 0 0 0 1px var(--race-gold);
+}
+
+.phone-race-shell .phone-lock-pick {
+  min-height: 58px;
+  border: 2px solid var(--race-gold);
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(110deg, var(--race-maroon-deep), var(--race-maroon));
+  box-shadow: 0 9px 22px rgb(65 7 24 / 0.22);
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+}
+
+.phone-race-shell .phone-reactions {
+  border-top: 3px solid var(--race-gold);
+}
+
+.phone-race-shell .phone-join-brand {
+  justify-content: center;
+  margin: 0 auto 0.75rem;
+  color: var(--tx);
+  text-align: left;
+}
+
+.phone-race-shell .phone-join-brand .phone-club-name {
+  color: var(--tx);
+}
+
+/* ── Responsive and motion policy ───────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .race-broadcast {
+    min-height: clamp(420px, 62vh, 680px);
+  }
+
+  .race-broadcast .tv-top {
+    min-height: 64px;
+    gap: 6px;
+    padding: 5px 8px;
+  }
+
+  .race-broadcast .tv-club-brand {
+    flex-basis: 185px;
+  }
+
+  .race-broadcast .tv-club-logo {
+    height: 50px;
+  }
+
+  .race-broadcast .tv-club-name {
+    font-size: 0.64rem;
+  }
+
+  .race-broadcast .tv-title {
+    max-width: none;
+    font-size: clamp(0.85rem, 2.2vw, 1.25rem);
+  }
+
+  .race-broadcast .tv-shot,
+  .race-broadcast .tv-lap {
+    display: none;
+  }
+
+  .race-broadcast .race-standings {
+    top: 76px;
+    width: min(42vw, 252px);
+  }
+
+  .race-broadcast .tv-order-row:nth-child(n + 6) {
+    display: none;
+  }
+
+  .race-broadcast .tv-surprise-art {
+    right: 24vw;
+    width: clamp(84px, 18vw, 160px);
+  }
+
+  .show-screen .show-top {
+    grid-template-columns: minmax(190px, 1fr) minmax(100px, 1fr) auto auto;
+    min-height: 68px;
+  }
+
+  .show-screen .show-club-logo {
+    height: 54px;
+  }
+
+  .show-screen .show-club {
+    font-size: 0.64rem;
+  }
+
+  .show-screen .show-runner-card {
+    grid-template-rows: minmax(44px, 7vh) auto;
+  }
+
+  .show-screen .show-racecard-details {
+    overflow: hidden;
+    max-height: 35vh;
+  }
+}
+
+@media (max-width: 600px) {
+  .race-broadcast .tv-top {
+    min-height: 56px;
+  }
+
+  .race-broadcast .tv-club-brand {
+    flex: 0 0 auto;
+  }
+
+  .race-broadcast .tv-club-logo {
+    height: 43px;
+    max-width: 54px;
+  }
+
+  .race-broadcast .tv-club-name,
+  .race-broadcast .tv-title,
+  .race-broadcast .tv-clock,
+  .race-broadcast .tv-live i {
+    display: none;
+  }
+
+  .race-broadcast .tv-live,
+  .race-broadcast .tv-race-chip {
+    min-height: 34px;
+    padding-inline: 0.58rem;
+    font-size: 0.66rem;
+  }
+
+  .race-broadcast .race-standings {
+    top: 66px;
+    right: 8px;
+    display: block;
+    width: min(47vw, 214px);
+  }
+
+  .race-broadcast .race-standings h3 {
+    padding-block: 0.4em;
+    font-size: 0.61rem;
+  }
+
+  .race-broadcast .tv-order {
+    display: block;
+    font-size: 0.62rem;
+  }
+
+  .race-broadcast .tv-order-row {
+    min-height: 26px;
+    padding: 0.24em 0.5em;
+  }
+
+  .race-broadcast .tv-order-row:nth-child(n + 4) {
+    display: none;
+  }
+
+  .race-broadcast .tv-order-gap {
+    display: none;
+  }
+
+  .race-broadcast .tv-strap {
+    inset-inline: 7px;
+    bottom: 7px;
+    min-height: 48px;
+  }
+
+  .race-broadcast .tv-strap::before {
+    display: none;
+  }
+
+  .race-broadcast .tv-strap-badge {
+    min-width: 74px;
+    padding-inline: 0.5rem;
+    font-size: 0.5rem;
+  }
+
+  .race-broadcast .tv-strap-line {
+    padding: 0.35em 0.55rem;
+    font-size: clamp(0.67rem, 3.2vw, 0.84rem);
+  }
+
+  .race-broadcast .tv-flash {
+    left: 7px;
+    bottom: 62px;
+    max-width: calc(100vw - 14px);
+  }
+
+  .race-broadcast .race-finish-confirmation {
+    min-width: calc(100vw - 1rem);
+  }
+
+  .show-screen .show-top {
+    display: flex;
+    min-height: 62px;
+    gap: 0.45rem;
+    padding-inline: 0.7rem;
+  }
+
+  .show-screen .show-club-logo {
+    height: 45px;
+    max-width: 58px;
+  }
+
+  .show-screen .show-club {
+    display: none;
+  }
+
+  .show-screen .show-runner-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .show-screen .show-runner-card {
+    grid-template-rows: 42px auto;
+  }
+
+  .show-screen .show-racecard-details {
+    display: none;
+  }
+
+  .show-screen .show-event-block {
+    flex: 1;
+  }
+
+  .show-screen .show-phase,
+  .show-screen .show-rehearsal {
+    padding-inline: 0.6rem;
+    font-size: 0.58rem;
+  }
+
+  .phone-race-shell .phone-race-inner {
+    max-width: none;
+  }
+
+  .phone-race-shell .phone-club-logo {
+    height: 46px;
+  }
+
+  .phone-race-shell .phone-club-name {
+    max-width: 13rem;
+    font-size: 0.68rem;
+  }
+
+  .phone-race-shell .phone-balance-card {
+    grid-template-columns: auto auto 1fr;
+    gap: 0.55rem;
+    padding-inline: 0.65rem;
+  }
+
+  .phone-race-shell .phone-chip-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .phone-race-shell .player-snail-art.phone-runner-thumb {
+    width: 58px;
+  }
+
+  .phone-race-shell .phone-lane-number {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+.race-motion-reduced .tv-snail-sprite,
+.race-motion-reduced .tv-layer,
+.race-motion-reduced .tv-rain,
+.race-motion-reduced .tv-live i,
+.race-motion-reduced .tv-surprise-art,
+.race-motion-reduced .tv-flash,
+.race-motion-reduced .race-finish-confirmation {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-broadcast .tv-snail-sprite,
+  .race-broadcast .tv-layer,
+  .race-broadcast .tv-rain,
+  .race-broadcast .tv-live i,
+  .race-broadcast .tv-surprise-art,
+  .race-broadcast .tv-flash,
+  .race-broadcast .race-finish-confirmation,
+  .track-wrap .race-finish-confirmation-lanes,
+  .show-screen .show-countdown-hot,
+  .phone-race-shell .pick,
+  .phone-race-shell .chip-amount {
+    animation: none !important;
+    transition: none !important;
+  }
+}

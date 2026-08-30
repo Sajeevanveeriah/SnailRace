@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createSession, type LiveShow } from '@/lib/live/store';
-import { readBody, respond } from '../util';
+import { createSession } from '@/lib/live/store';
+import { parseLiveShow, readBody, respond } from '../util';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,17 +14,14 @@ export async function POST(request: Request) {
   const body = await readBody(request);
   if (body instanceof NextResponse) return body;
 
-  const show = body.show as LiveShow | undefined;
-  if (
-    !show ||
-    typeof show.eventName !== 'string' ||
-    !Array.isArray(show.names) ||
-    show.names.length < 2 ||
-    show.names.length > 20
-  ) {
+  const show = parseLiveShow(body.show);
+  if (!show) {
     return NextResponse.json({ ok: false, error: 'Malformed show state.' }, { status: 400 });
   }
-  const pin = typeof body.pin === 'string' && body.pin.trim() ? body.pin.trim().slice(0, 12) : undefined;
+  const pin = typeof body.pin === 'string' && body.pin.trim() ? body.pin.trim() : undefined;
+  if (pin && !/^\d{4,12}$/.test(pin)) {
+    return NextResponse.json({ ok: false, error: 'The optional PIN must be 4 to 12 digits.' }, { status: 400 });
+  }
   const created = await createSession(show, pin);
   return respond({ ok: true, ...created });
 }

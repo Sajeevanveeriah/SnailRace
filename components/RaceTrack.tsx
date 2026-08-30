@@ -50,6 +50,8 @@ interface LaneNodes {
 
 export function RaceTrack({ names, race, surface }: Props) {
   const { setPainter } = race;
+  const phase = race.phase as string;
+  const confirming = phase === 'confirming';
   const lanesRef = useRef<Map<number, LaneNodes>>(new Map());
   const trackRef = useRef<HTMLDivElement | null>(null);
   const flashRef = useRef<HTMLDivElement | null>(null);
@@ -217,7 +219,18 @@ export function RaceTrack({ names, race, surface }: Props) {
   }, [painter, setPainter]);
 
   return (
-    <div ref={trackRef} className="track-wrap" data-surface={surface}>
+    <div
+      ref={trackRef}
+      className={`track-wrap ${confirming ? 'race-confirming' : ''}`}
+      data-surface={surface}
+      data-race-phase={phase}
+    >
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {confirming || phase === 'done' || phase === 'void'
+          ? race.status
+          : race.commentary || race.status}
+      </p>
+
       <div
         className="lanes"
         role="list"
@@ -296,6 +309,13 @@ export function RaceTrack({ names, race, surface }: Props) {
       {race.countdown ? (
         <div className="countdown" aria-hidden="true">
           <span key={race.countdown}>{race.countdown}</span>
+        </div>
+      ) : null}
+
+      {confirming ? (
+        <div className="race-finish-confirmation race-finish-confirmation-lanes" aria-hidden="true">
+          <span>FINISH</span>
+          <b>{race.status}</b>
         </div>
       ) : null}
 

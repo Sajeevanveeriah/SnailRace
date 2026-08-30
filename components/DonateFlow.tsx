@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Snail } from './Snail';
 import { ThemeToggle } from './ThemeToggle';
 import { decodeLineup } from '@/lib/lineup';
 import { laneColour } from '@/lib/palette';
 import { money, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { poolsFor } from '@/lib/tote';
-import type { Donation, DonationsResponse } from '@/lib/types';
+import { HAS_API } from '@/lib/deployment';
+import { checkoutCommandFor, type PendingCheckoutCommand } from '@/lib/checkout-command';
 
 const PRESETS = [500, 1000, 2000, 5000];
 
@@ -16,10 +16,8 @@ const PRESETS = [500, 1000, 2000, 5000];
  * The donor's phone.
  *
  * Everything this page knows about the race comes out of the QR code it was
- * opened from, so it works with no database call and no shared session. It
- * still reads the tote so a punter can see where the room's money is going
- * before choosing, but that read is decorative: the page is fully usable if
- * the fetch fails.
+ * opened from. Donations are deliberately not read back as a pool or price:
+ * choosing a snail is a dedication attached to a gift, never a wager.
  */
 export function DonateFlow() {
   const params = useSearchParams();
@@ -32,39 +30,39 @@ export function DonateFlow() {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [donations, setDonations] = useState<Donation[]>([]);
+  const pendingCheckoutRef = useRef<PendingCheckoutCommand | null>(null);
 
   const names = useMemo(() => lineup?.n ?? [], [lineup]);
   const raceNo = lineup?.r ?? 1;
 
-  useEffect(() => {
-    if (!lineup?.e) return;
-    let cancel = false;
-    void (async () => {
-      try {
-        const res = await fetch(`/api/donations?eventId=${encodeURIComponent(lineup.e)}`, {
-          cache: 'no-store',
-        });
-        const body = (await res.json()) as DonationsResponse;
-        if (!cancel && body.ok) setDonations(body.donations);
-      } catch {
-        /* The tote is a nicety. Donating does not depend on it. */
-      }
-    })();
-    return () => {
-      cancel = true;
-    };
-  }, [lineup?.e]);
-
-  const { lanes } = useMemo(
-    () => poolsFor(donations, names, raceNo),
-    [donations, names, raceNo],
-  );
-
   const cents = custom.trim() ? parseAmountToCents(custom) : preset;
+
+  const checkoutFingerprint = JSON.stringify({
+    eventId: lineup?.e ?? '',
+    raceNo,
+    lane,
+    snailName: lane === null ? '' : (names[lane] ?? ''),
+    backerName: name.trim(),
+    cents,
+  });
+
+  /* A retry of the same logical donation reuses its command ID. Any material
+     input change begins a new logical checkout and therefore clears it. */
+  useEffect(() => {
+    if (
+      pendingCheckoutRef.current &&
+      pendingCheckoutRef.current.fingerprint !== checkoutFingerprint
+    ) {
+      pendingCheckoutRef.current = null;
+    }
+  }, [checkoutFingerprint]);
 
   const submit = async () => {
     setError('');
+    if (!HAS_API) {
+      setError('Card donations are unavailable on this demonstration site. Please donate at the event desk.');
+      return;
+    }
     if (lane === null) {
       setError('Pick a snail to back.');
       return;
@@ -78,6 +76,8 @@ export function DonateFlow() {
 
     setBusy(true);
     try {
+      const pending = checkoutCommandFor(pendingCheckoutRef.current, checkoutFingerprint);
+      pendingCheckoutRef.current = pending;
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,6 +88,7 @@ export function DonateFlow() {
           snailName: names[lane],
           backerName: name.trim(),
           cents,
+          commandId: pending.commandId,
         }),
       });
       const body = (await res.json()) as { ok: boolean; url?: string; error?: string };
@@ -96,6 +97,7 @@ export function DonateFlow() {
         setBusy(false);
         return;
       }
+      pendingCheckoutRef.current = null;
       window.location.href = body.url;
     } catch {
       setError('Could not reach the payment page. Check your connection and try again.');
@@ -119,6 +121,29 @@ export function DonateFlow() {
             next race. Point your camera at the screen and try again.
           </p>
         </div>
+      </main>
+    );
+  }
+
+  if (!HAS_API) {
+    return (
+      <main className="sheet grid min-h-dvh place-items-center p-6">
+        <div className="fixed right-4 top-4 z-30">
+          <ThemeToggle />
+        </div>
+        <section className="card reveal max-w-md p-8 text-center" aria-labelledby="static-donation-title">
+          <div className="mx-auto w-24">
+            <Snail />
+          </div>
+          <h1 id="static-donation-title" className="display mt-4 text-3xl">
+            Donate at the event desk
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-(--tx)/60">
+            Card donations are not available on this demonstration site. No payment request has
+            been sent. Please use the club&apos;s event desk or the official live-event link provided by
+            the organiser.
+          </p>
+        </section>
       </main>
     );
   }
@@ -154,7 +179,6 @@ export function DonateFlow() {
           <div className="flex flex-col gap-2.5">
             {names.map((n, i) => {
               const c = laneColour(i);
-              const pool = lanes[i];
               const picked = lane === i;
               return (
                 <button
@@ -178,10 +202,7 @@ export function DonateFlow() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-(--tx)">{n}</span>
                     <span className="block text-xs text-(--tx)/50">
-                      Lane {i + 1}
-                      {pool && pool.cents > 0
-                        ? ` - ${money(pool.cents)} backed by ${pool.backers}`
-                        : ' - no backers yet'}
+                      Lane {i + 1} - donation dedication only
                     </span>
                   </span>
                   <span

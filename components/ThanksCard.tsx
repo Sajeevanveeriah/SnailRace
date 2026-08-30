@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Snail } from './Snail';
 import { ThemeToggle } from './ThemeToggle';
 import { money } from '@/lib/money';
+import { HAS_API } from '@/lib/deployment';
 
 interface SessionSummary {
   ok: boolean;
@@ -33,7 +34,7 @@ export function ThanksCard() {
   const missing = !id;
 
   useEffect(() => {
-    if (!id) return;
+    if (!HAS_API || !id) return;
     let cancel = false;
     void (async () => {
       try {
@@ -63,7 +64,12 @@ export function ThanksCard() {
 
         <h1 className="display mt-5 text-4xl text-(--tx)">Thank you.</h1>
 
-        {summary ? (
+        {!HAS_API ? (
+          <p className="mt-4 text-[15px] leading-relaxed text-(--tx)/65">
+            This demonstration site does not process card donations, so there is no payment to
+            confirm here. Please use the official live-event link supplied by the organiser.
+          </p>
+        ) : summary ? (
           <>
             {summary.direct ? (
               <p className="mt-4 text-[15px] leading-relaxed text-(--tx)/65">
@@ -102,12 +108,14 @@ export function ThanksCard() {
           <p className="mt-4 text-[15px] text-(--tx)/50">Confirming with Stripe...</p>
         )}
 
-        <p className="mt-8 text-[11px] leading-relaxed text-(--tx)/40">
-          A receipt has been emailed to you by Stripe.
-          {summary?.direct
-            ? ' Every dollar goes to the club.'
-            : ' Every snail has the same chance and the finishing order was drawn before the race began.'}
-        </p>
+        {HAS_API ? (
+          <p className="mt-8 text-[11px] leading-relaxed text-(--tx)/40">
+            A receipt has been emailed to you by Stripe.
+            {summary?.direct
+              ? ' The donation goes to the club.'
+              : ' Fun-chip picks and donations are separate; donations never influence the race.'}
+          </p>
+        ) : null}
       </div>
     </main>
   );

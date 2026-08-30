@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chipsAfter, oddsFor, poolsFor, settleBets } from '../lib/tote';
+import {
+  chipsAfter,
+  fairFunChipOdds,
+  funChipPoolsFor,
+  settleBets,
+} from '../lib/tote';
 import type { Bet, Donation } from '../lib/types';
 
 const donation = (over: Partial<Donation>): Donation => ({
@@ -15,27 +20,6 @@ const donation = (over: Partial<Donation>): Donation => ({
   ...over,
 });
 
-/* Defect class: odds outside sane bounds, or infinity on an unbacked lane. */
-test('odds are bounded and open at the fair price', () => {
-  assert.equal(oddsFor(0, 0, 6), 6);
-  assert.equal(oddsFor(0, 10_000, 6), 30); // capped, not infinite
-  assert.equal(oddsFor(10_000, 10_000, 6), 1.01);
-  assert.equal(oddsFor(2_500, 10_000, 6), 4);
-});
-
-/* Defect class: refunded or voided money still steering the pot. */
-test('poolsFor excludes void donations and other races', () => {
-  const donations = [
-    donation({ lane: 0, cents: 1000 }),
-    donation({ lane: 0, cents: 500, void: true }),
-    donation({ lane: 1, cents: 2000, raceNo: 2 }),
-  ];
-  const { lanes, potCents } = poolsFor(donations, ['A', 'B'], 1);
-  assert.equal(potCents, 1000);
-  assert.equal(lanes[0].cents, 1000);
-  assert.equal(lanes[1].cents, 0);
-});
-
 const bet = (over: Partial<Bet>): Bet => ({
   id: Math.random().toString(36),
   raceNo: 1,
@@ -46,6 +30,59 @@ const bet = (over: Partial<Bet>): Bet => ({
   odds: 4,
   settled: false,
   ...over,
+});
+
+/* Prices follow only the equal-chance field size, never the amount on a lane. */
+test('fun-chip odds are fixed at the fair N-for-1 price', () => {
+  assert.equal(fairFunChipOdds(8), 8);
+  assert.equal(fairFunChipOdds(6), 6);
+  assert.equal(fairFunChipOdds(1), 1.01);
+});
+
+test('fun-chip pools include only open picks from the current race', () => {
+  const book = [
+    bet({ lane: 0, chips: 10 }),
+    bet({ lane: 0, chips: 50, settled: true }),
+    bet({ lane: 1, chips: 20, raceNo: 2 }),
+  ];
+  const { lanes, totalChips } = funChipPoolsFor(book, ['A', 'B'], 1);
+  assert.equal(totalChips, 10);
+  assert.equal(lanes[0].chips, 10);
+  assert.equal(lanes[1].chips, 0);
+  assert.deepEqual(lanes.map((lane) => lane.odds), [2, 2]);
+});
+
+type DonationCannotEnterFunChipPools = Donation extends Parameters<typeof funChipPoolsFor>[0][number]
+  ? false
+  : true;
+
+test('donation amounts cannot change fun-chip odds or returns', () => {
+  const structuralGuard: DonationCannotEnterFunChipPools = true;
+  assert.equal(structuralGuard, true);
+
+  const names = ['Speedy', 'Turbo', 'Lightning', 'Flash', 'Rocket', 'Bolt', 'Comet', 'Dasher'];
+  const book = [bet({ lane: 0, chips: 25, odds: 8 })];
+  const donations = [donation({ lane: 0, cents: 100 })];
+  const before = funChipPoolsFor(book, names, 1);
+
+  donations[0].cents = 100_000_000;
+  donations.push(donation({ lane: 7, cents: 900_000_000 }));
+  const after = funChipPoolsFor(book, names, 1);
+
+  assert.deepEqual(after, before);
+  assert.ok(before.lanes.every((lane) => lane.odds === 8));
+  const beforeReturn = settleBets(
+    [bet({ chips: 25, odds: before.lanes[0].odds })],
+    1,
+    0,
+  )[0].returned;
+  const afterReturn = settleBets(
+    [bet({ chips: 25, odds: after.lanes[0].odds })],
+    1,
+    0,
+  )[0].returned;
+  assert.equal(beforeReturn, 200);
+  assert.equal(afterReturn, beforeReturn);
 });
 
 /* Defect class: double settlement. Settling twice must be a no-op, and the

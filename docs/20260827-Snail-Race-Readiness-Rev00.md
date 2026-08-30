@@ -1,5 +1,12 @@
 # Snail Race Fundraiser - Readiness Conclusions
 
+> **Historical snapshot - superseded 30 August 2026.** This file is preserved
+> unchanged below as evidence for an earlier build. Its runner counts, surprise
+> semantics, finish lifecycle, chip-pricing/hosting descriptions and quoted
+> test results are not evidence for the current consequential eight-runner
+> release. Use the repository `README.md` and
+> `docs/20260830-Operator-Runbook-Rev01.md` for current behaviour.
+
 Date: 27 August 2026. Revision: Rev00. Basis: the acceptance ledger
 (20260826-Snail-Race-Acceptance-Ledger-Rev01.md), the threat model
 (20260826-Snail-Race-Threat-Model-Rev00.md), 30 unit tests, 18 API security

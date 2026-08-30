@@ -1,14 +1,22 @@
 /**
  * Race engine.
  *
- * HOW THE RACE IS DECIDED - read this before anyone asks you on the night.
+ * HOW A RACE IS DECIDED - read this before anyone asks you on the night.
  *
- * The finishing order is drawn by a seeded shuffle the instant Start is
- * pressed, before a single snail moves. The seed is printed on screen. The
- * animation that follows is decorative: it cannot change the result, and the
- * draw never reads the donations or the bets.
+ * There are two deliberately versioned paths in this file:
  *
- * Fairness, in four lines:
+ * - `drawRace` is the legacy all-finisher engine. Its seeded shuffle fixes the
+ *   complete order and its surprises are decorative position envelopes.
+ * - `drawLockedRacePlan` is the consequential eight-runner engine. It draws
+ *   the runners, every four-beat surprise, every persistent clock consequence
+ *   and the complete first-finisher classification before countdown. Its
+ *   surprises can change who wins, but runtime animation cannot change the
+ *   pre-drawn plan. The first active runner across ends the race; trailing
+ *   runners are classified at that instant and safe retirements rank last.
+ *
+ * Both paths are seeded and replayable, and neither reads donations or bets.
+ *
+ * Legacy `drawRace` fairness, in four lines:
  *   1. The finishing order is one Fisher-Yates shuffle of the lane indices,
  *      seeded by `seed` and nothing else.
  *   2. Each snail i is given a finish time T[i]; T is a strictly increasing
@@ -21,14 +29,23 @@
  *   4. Therefore arrival order == shuffle order, and every lane wins with
  *      probability exactly 1/N.
  *
- * The turbo boosts, shell slips and naps added in `drawEvents` are drawn from
- * the same seeded stream AFTER the shuffle has already been taken, so they
- * are replayable, they are visible in the printed seed, and they cannot
- * reorder a field that was decided before they were generated.
+ * The turbo boosts, shell slips and naps added to the legacy engine by
+ * `drawEvents` are drawn from the same seeded stream AFTER its shuffle has
+ * already been taken. The locked engine instead turns seeded events into
+ * bounded persistent clock shifts and stores their result and audience cues
+ * in the plan that the audit module can hash before the gates open.
  *
  * This module is deliberately free of DOM and React so the same code can be
  * unit-checked, replayed from a seed, and driven by the animation loop.
  */
+
+import type {
+  LockedRaceCue,
+  LockedRaceEvent,
+  LockedRacePlan,
+  LockedRaceRunner,
+  RaceResult,
+} from './types';
 
 /** mulberry32: small, fast, fully deterministic from a 32-bit seed. */
 export function mulberry32(a: number): () => number {
@@ -83,7 +100,8 @@ export type RaceEventKind =
   | 'wander'
   | 'chaos'
   | 'swoop'
-  | 'plague';
+  | 'plague'
+  | 'retire';
 
 /**
  * `wild` is neither good nor bad: the magnitude is drawn either side of zero,
@@ -140,8 +158,10 @@ export interface EventSpec {
  * for, and the club's own sport is in there because a cricket club laughs
  * hardest at itself.
  *
- * None of this can move a finishing position - see the module header. Every
- * bump rides an envelope that is exactly zero at the line.
+ * In the legacy engine these are visual envelopes and cannot move a finishing
+ * position. In the locked eight-runner engine the same authored set pieces
+ * become bounded, persistent clock effects drawn into the pre-race plan, so
+ * they can change the winner without runtime randomness.
  */
 export const EVENT_SPECS: EventSpec[] = [
   /* ── Good ─────────────────────────────────────────────────────────── */
@@ -785,6 +805,15 @@ export interface SnailRun {
   events: RaceEvent[];
   /** Which surprise is currently dressing the lane, if any. */
   effect: RaceEventKind | null;
+  /** New locked races use a persistent race clock rather than zero-sum bumps. */
+  lockedMotion?: {
+    baseFinishMs: number;
+    events: LockedRaceEvent[];
+  };
+  retired?: boolean;
+  retiredAtMs?: number;
+  retiredP?: number;
+  lockedPlace?: number;
 }
 
 /**
@@ -815,6 +844,8 @@ export interface DrawnRace {
   durationMs: number;
   /** Hard stop for the animation loop. */
   tMax: number;
+  /** Present only for the versioned consequential engine. */
+  lockedPlan?: LockedRacePlan;
 }
 
 export function drawRace(
@@ -902,6 +933,452 @@ export function drawRace(
   };
 }
 
+/* ── Versioned consequential eight-runner engine ────────────────────── */
+
+export const LOCKED_RACE_FIELD_SIZE = 8;
+export const RETIREMENT_CHANCE_DENOMINATOR = 32;
+
+/**
+ * Club-safe retirement mechanisms. They echo familiar cricket-ground
+ * mishaps without copying another race product's titles, scripts or art.
+ * Every line says that the runner is safe and out of the race.
+ */
+export const RETIREMENT_SPECS = [
+  {
+    code: 'groundskeeper-boot-scare',
+    label: 'GROUNDSKEEPER BOOT SCARE',
+    reveal: '{a} has pulled into the safe lane as the groundskeeper\'s boot steps across.',
+    commentary: '{a} is safely with the marshal after that boot scare, but their race is over.',
+  },
+  {
+    code: 'boundary-bee-scare',
+    label: 'BOUNDARY BEE SCARE',
+    reveal: 'A boundary bee has startled {a}, and the marshal is moving in.',
+    commentary: '{a} is safely off the course after that sting scare, but their race is over.',
+  },
+  {
+    code: 'roller-obstruction',
+    label: 'ROLLER OBSTRUCTION',
+    reveal: 'The pitch roller has blocked {a}\'s lane. The marshal is there.',
+    commentary: '{a} has been escorted safely around the roller obstruction, but their race is over.',
+  },
+  {
+    code: 'loose-cricket-ball',
+    label: 'LOOSE CRICKET BALL',
+    reveal: 'A loose cricket ball has rolled into {a}\'s lane.',
+    commentary: '{a} has pulled up safely while the ball is cleared, but their race is over.',
+  },
+  {
+    code: 'sprinkler-stop',
+    label: 'SPRINKLER STOP',
+    reveal: 'The sprinklers have caught {a}, and the marshal has called them in.',
+    commentary: '{a} is safe and drying off beside the course, but their race is over.',
+  },
+] as const;
+
+const clamp = (value: number, low: number, high: number): number =>
+  Math.min(high, Math.max(low, value));
+
+const fillRunner = (line: string, name: string): string => line.replace(/\{a\}/g, name);
+
+/** Persistent clock shift contributed by one locked event. */
+function lockedShiftAt(event: LockedRaceEvent, lane: number, raceT: number): number {
+  const delta = event.clockDeltaMsByLane[lane] ?? 0;
+  if (delta === 0 || raceT <= event.effectAtMs) return 0;
+  const elapsed = raceT - event.effectAtMs;
+  if (delta < 0) {
+    /* One millisecond of race clock is withheld per millisecond. The runner
+       can stop, but the effective clock can never run backwards. */
+    return -Math.min(-delta, elapsed);
+  }
+  const span = Math.max(1, event.effectEndMs - event.effectAtMs);
+  const x = clamp(elapsed / span, 0, 1);
+  const eased = x * x * (3 - 2 * x);
+  return delta * eased;
+}
+
+function retirementFor(events: LockedRaceEvent[], lane: number): LockedRaceEvent | undefined {
+  return events.find((event) => event.consequence === 'retire' && event.targetLanes.includes(lane));
+}
+
+function effectiveClockAt(
+  runner: LockedRaceRunner,
+  events: LockedRaceEvent[],
+  raceT: number,
+): number {
+  const retirement = retirementFor(events, runner.lane);
+  const t = retirement && raceT >= retirement.effectAtMs ? retirement.effectAtMs : raceT;
+  let clock = t;
+  for (const event of events) {
+    if (!event.targetLanes.includes(runner.lane) || event.consequence === 'retire') continue;
+    clock += lockedShiftAt(event, runner.lane, t);
+  }
+  return Math.max(0, clock);
+}
+
+function progressForLockedRunner(
+  runner: LockedRaceRunner,
+  events: LockedRaceEvent[],
+  raceT: number,
+): number {
+  const u = clamp(effectiveClockAt(runner, events, raceT) / runner.baseFinishMs, 0, 1);
+  return u * u * (3 - 2 * u);
+}
+
+/** Pure progress lookup used by generation, animation, replay and verification. */
+export function lockedProgressAt(plan: LockedRacePlan, lane: number, raceT: number): number {
+  const runner = plan.runners.find((candidate) => candidate.lane === lane);
+  if (!runner) return 0;
+  const progress = progressForLockedRunner(runner, plan.events, raceT);
+  return lane === plan.winnerLane && raceT < plan.stopAtMs && progress >= 1
+    ? 1 - Number.EPSILON
+    : progress;
+}
+
+function lockedCrossingTime(runner: LockedRaceRunner, events: LockedRaceEvent[]): number | null {
+  if (retirementFor(events, runner.lane)) return null;
+  let low = 0;
+  let high = Math.ceil(runner.baseFinishMs + 5000);
+  while (effectiveClockAt(runner, events, high) < runner.baseFinishMs) high *= 2;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (effectiveClockAt(runner, events, mid) >= runner.baseFinishMs) high = mid;
+    else low = mid + 1;
+  }
+  return low;
+}
+
+function consequenceFor(delta: number): LockedRaceEvent['consequence'] {
+  return delta >= 0 ? 'advance' : 'delay';
+}
+
+/**
+ * Draw the entire consequential race before countdown. The returned value is
+ * plain immutable data: result, event wording and every cue are already fixed.
+ */
+export function drawLockedRacePlan(
+  seed: number,
+  names: string[],
+  durationMs: number,
+  surprises = true,
+  intensity: IntensityId = 'standard',
+  laps = 1,
+  trackShape: 'lanes' | 'circuit' = 'circuit',
+): LockedRacePlan {
+  if (names.length !== LOCKED_RACE_FIELD_SIZE) {
+    throw new RangeError(`The consequential race requires exactly ${LOCKED_RACE_FIELD_SIZE} runners.`);
+  }
+  if (!Number.isFinite(durationMs) || durationMs < 1000) {
+    throw new RangeError('Race duration must be at least 1000ms.');
+  }
+
+  /* Reuse the established seeded cast and surprise book as source material.
+     The legacy result remains available for old histories; the plan below
+     gives those surprises persistent consequences and draws a new result. */
+  const source = drawRace(seed, names, durationMs, surprises, intensity);
+  /* Keep the fourth beat before even the earliest mechanically possible
+     finish (84% after the cumulative consequence cap). At normal show
+     lengths this remains the familiar quarter-second commentary beat. */
+  const commentaryDelayMs = Math.max(1, Math.min(250, Math.round(durationMs * 0.015)));
+  const runners: LockedRaceRunner[] = source.snails.map((snail) => ({
+    lane: snail.lane,
+    name: snail.name,
+    baseFinishMs: Math.round(snail.T),
+    A: snail.A,
+    w1: snail.w1,
+    w2: snail.w2,
+    ph1: snail.ph1,
+    ph2: snail.ph2,
+  }));
+
+  const grouped = new Map<string, LockedRaceEvent>();
+  for (const event of source.events) {
+    if (event.id.startsWith('fin-')) continue;
+    const effectAtMs = Math.round(event.at * durationMs);
+    /* Leave enough course for the complete four-beat sequence and the
+       consequence to be read before the first possible finish. */
+    if (effectAtMs > durationMs * 0.72) continue;
+    const key = event.group ?? event.id;
+    const cap = Math.round(durationMs * 0.06);
+    let delta = clamp(Math.round(event.mag * durationMs * 0.55), -cap, cap);
+    const minimum = Math.max(50, Math.round(durationMs * 0.004));
+    if (Math.abs(delta) < minimum) delta = (event.mag < 0 ? -1 : 1) * minimum;
+
+    const hit = grouped.get(key);
+    if (hit) {
+      if (!hit.targetLanes.includes(event.lane)) hit.targetLanes.push(event.lane);
+      hit.clockDeltaMsByLane[event.lane] = delta;
+      hit.effectAtMs = Math.min(hit.effectAtMs, effectAtMs);
+      hit.effectEndMs = Math.max(
+        hit.effectEndMs,
+        effectAtMs + Math.max(Math.round(event.span * durationMs), Math.abs(delta)),
+      );
+      continue;
+    }
+
+    grouped.set(key, {
+      id: key,
+      kind: event.kind,
+      label: event.groupLabel ?? event.label,
+      tone: event.tone,
+      sound: event.sound,
+      targetLanes: [event.lane],
+      consequence: consequenceFor(delta),
+      warningAtMs: Math.max(0, effectAtMs - 1400),
+      revealAtMs: Math.max(1, effectAtMs - 700),
+      effectAtMs,
+      commentaryAtMs: effectAtMs + commentaryDelayMs,
+      effectEndMs:
+        effectAtMs + Math.max(Math.round(event.span * durationMs), Math.abs(delta), 350),
+      clockDeltaMsByLane: { [event.lane]: delta },
+      warningText: 'Something is developing on the course.',
+      revealText: '',
+      commentaryText: event.groupCall ?? event.call,
+    });
+  }
+
+  const events = [...grouped.values()].sort(
+    (a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id),
+  );
+
+  /* Bound the sum per lane. Intensity may deal more events, but it cannot turn
+     one runner's clock into an implausible teleport or an endless stop. */
+  const totals = new Array<number>(LOCKED_RACE_FIELD_SIZE).fill(0);
+  const totalCap = Math.round(durationMs * 0.16);
+  for (const event of events) {
+    event.targetLanes.sort((a, b) => a - b);
+    for (const lane of event.targetLanes) {
+      const wanted = event.clockDeltaMsByLane[lane] ?? 0;
+      const next = clamp(totals[lane] + wanted, -totalCap, totalCap);
+      event.clockDeltaMsByLane[lane] = next - totals[lane];
+      totals[lane] = next;
+    }
+    const firstDelta = event.clockDeltaMsByLane[event.targetLanes[0]] ?? 0;
+    event.consequence = consequenceFor(firstDelta);
+    const targetNames = event.targetLanes.map((lane) => names[lane]);
+    event.revealText =
+      targetNames.length === 1
+        ? `${targetNames[0]}: ${event.label}`
+        : `${event.label}: ${targetNames.join(', ')}`;
+    event.commentaryText = fillRunner(event.commentaryText, targetNames[0]);
+    event.revealAtMs = Math.max(event.warningAtMs + 1, event.revealAtMs);
+  }
+
+  /* Retirement is a race-level rarity, never multiplied by the intensity
+     preset and never more than one of the eight runners. */
+  const retirementRnd = mulberry32(seed ^ 0x52455431);
+  if (surprises && retirementRnd() < 1 / RETIREMENT_CHANCE_DENOMINATOR) {
+    const spec = RETIREMENT_SPECS[Math.floor(retirementRnd() * RETIREMENT_SPECS.length)];
+    const lane = Math.floor(retirementRnd() * LOCKED_RACE_FIELD_SIZE);
+    const effectAtMs = Math.round(durationMs * (0.38 + retirementRnd() * 0.2));
+    const name = names[lane];
+    events.push({
+      id: 'ret-0',
+      kind: 'retire',
+      label: spec.label,
+      tone: 'bad',
+      sound: 'down',
+      targetLanes: [lane],
+      consequence: 'retire',
+      warningAtMs: Math.max(0, effectAtMs - 1400),
+      revealAtMs: Math.max(1, effectAtMs - 700),
+      effectAtMs,
+      commentaryAtMs: effectAtMs + commentaryDelayMs,
+      effectEndMs: effectAtMs + 900,
+      clockDeltaMsByLane: { [lane]: 0 },
+      warningText: 'Course marshals are watching something near the boundary.',
+      revealText: fillRunner(spec.reveal, name),
+      commentaryText: fillRunner(spec.commentary, name),
+      retirementCode: spec.code,
+      retirementLabel: spec.label,
+    });
+    events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
+  }
+
+  const phaseOrder: Record<LockedRaceCue['phase'], number> = {
+    warning: 0,
+    reveal: 1,
+    effect: 2,
+    commentary: 3,
+  };
+  const cues: LockedRaceCue[] = events.flatMap((event) => [
+    {
+      id: `${event.id}-warning`, eventId: event.id, phase: 'warning' as const,
+      atMs: event.warningAtMs, text: event.warningText, tone: 'wild' as const,
+      sound: 'siren', big: event.targetLanes.length > 1,
+    },
+    {
+      id: `${event.id}-reveal`, eventId: event.id, phase: 'reveal' as const,
+      atMs: event.revealAtMs, text: event.revealText, lane: event.targetLanes[0],
+      tone: event.tone, big: event.targetLanes.length > 1,
+    },
+    {
+      id: `${event.id}-effect`, eventId: event.id, phase: 'effect' as const,
+      atMs: event.effectAtMs, text: event.label, lane: event.targetLanes[0],
+      tone: event.tone, sound: event.sound, big: event.targetLanes.length > 1,
+    },
+    {
+      id: `${event.id}-commentary`, eventId: event.id, phase: 'commentary' as const,
+      atMs: event.commentaryAtMs, text: event.commentaryText, lane: event.targetLanes[0],
+      tone: event.tone, big: event.targetLanes.length > 1,
+    },
+  ]).sort(
+    (a, b) =>
+      a.atMs - b.atMs ||
+      phaseOrder[a.phase] - phaseOrder[b.phase] ||
+      a.eventId.localeCompare(b.eventId),
+  );
+
+  /* Make integer crossing times unique. A frame may contain more than one
+     crossing, but the locked first crossing always belongs to one runner. */
+  const priority = new Map(source.order.map((lane, index) => [lane, index]));
+  let crossings = runners
+    .map((runner) => ({ runner, at: lockedCrossingTime(runner, events) }))
+    .filter((row): row is { runner: LockedRaceRunner; at: number } => row.at !== null)
+    .sort((a, b) => a.at - b.at || (priority.get(a.runner.lane)! - priority.get(b.runner.lane)!));
+  for (let i = 1; i < crossings.length; i++) {
+    if (crossings[i].at > crossings[i - 1].at) continue;
+    crossings[i].runner.baseFinishMs += crossings[i - 1].at - crossings[i].at + 1;
+    crossings[i].at = lockedCrossingTime(crossings[i].runner, events)!;
+  }
+  crossings = crossings.sort(
+    (a, b) => a.at - b.at || (priority.get(a.runner.lane)! - priority.get(b.runner.lane)!),
+  );
+
+  const winnerLane = crossings[0].runner.lane;
+  const stopAtMs = crossings[0].at;
+  const active = runners
+    .filter((runner) => !retirementFor(events, runner.lane))
+    .sort((a, b) => {
+      if (a.lane === winnerLane) return -1;
+      if (b.lane === winnerLane) return 1;
+      const dp = progressForLockedRunner(b, events, stopAtMs) - progressForLockedRunner(a, events, stopAtMs);
+      return dp || (priority.get(a.lane)! - priority.get(b.lane)!);
+    });
+  const retired = runners
+    .filter((runner) => retirementFor(events, runner.lane))
+    .sort((a, b) => a.lane - b.lane);
+  const classified = [...active, ...retired];
+  const results: RaceResult[] = classified.map((runner, index) => {
+    const retirement = retirementFor(events, runner.lane);
+    const progress = progressForLockedRunner(runner, events, stopAtMs);
+    if (retirement) {
+      return {
+        lane: runner.lane,
+        name: runner.name,
+        place: index + 1,
+        finishMs: null,
+        status: 'retired',
+        progressAtStop: Number(progress.toFixed(6)),
+        retiredAtMs: retirement.effectAtMs,
+        retirementCode: retirement.retirementCode,
+        retirementLabel: retirement.retirementLabel,
+      };
+    }
+    return {
+      lane: runner.lane,
+      name: runner.name,
+      place: index + 1,
+      finishMs: runner.lane === winnerLane ? stopAtMs : null,
+      status: runner.lane === winnerLane ? 'finished' : 'classified',
+      progressAtStop: Number(progress.toFixed(6)),
+    };
+  });
+
+  const secondAt = crossings[1]?.at ?? Number.POSITIVE_INFINITY;
+  return {
+    schema: 1,
+    engine: 'consequential-eight-v1',
+    seed: seed >>> 0,
+    seedHex: seedToHex(seed),
+    names: names.slice(),
+    durationMs: Math.round(durationMs),
+    laps: Math.max(1, Math.round(laps)),
+    surprises,
+    intensity,
+    trackShape,
+    weather: source.weather,
+    photoFinish: secondAt - stopAtMs <= durationMs * 0.015,
+    runners,
+    events,
+    cues: cues.filter((cue) => cue.atMs < stopAtMs),
+    results,
+    winnerLane,
+    stopAtMs,
+  };
+}
+
+/** Build mutable animation state without mutating the stored locked plan. */
+export function instantiateLockedRace(plan: LockedRacePlan): DrawnRace {
+  if (plan.engine !== 'consequential-eight-v1' || plan.names.length !== LOCKED_RACE_FIELD_SIZE) {
+    throw new RangeError('Unsupported locked race plan.');
+  }
+  const runtimeEvents: RaceEvent[] = plan.events.flatMap((event) =>
+    event.targetLanes.map((lane) => ({
+      id: `${event.id}-${lane}`,
+      lane,
+      kind: (event.consequence === 'retire' ? 'retire' : event.kind) as RaceEventKind,
+      label: event.label,
+      call: event.commentaryText,
+      tone: event.tone,
+      sound: event.sound as EventSound,
+      at: event.effectAtMs / Math.max(1, plan.durationMs),
+      span: (event.effectEndMs - event.effectAtMs) / Math.max(1, plan.durationMs),
+      mag: (event.clockDeltaMsByLane[lane] ?? 0) / Math.max(1, plan.durationMs),
+      fired: false,
+      ...(event.targetLanes.length > 1
+        ? {
+            group: event.id,
+            groupLabel: event.label,
+            groupCall: event.commentaryText,
+          }
+        : {}),
+    })),
+  ).sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+
+  const resultByLane = new Map(plan.results.map((result) => [result.lane, result]));
+  const snails: SnailRun[] = plan.runners.map((runner) => {
+    const result = resultByLane.get(runner.lane)!;
+    return {
+      lane: runner.lane,
+      name: runner.name,
+      T: result.finishMs ?? runner.baseFinishMs,
+      A: runner.A,
+      w1: runner.w1,
+      w2: runner.w2,
+      ph1: runner.ph1,
+      ph2: runner.ph2,
+      p: 0,
+      prevP: 0,
+      rate: 0,
+      done: false,
+      place: 0,
+      finishMs: 0,
+      events: runtimeEvents.filter((event) => event.lane === runner.lane),
+      effect: null,
+      lockedMotion: {
+        baseFinishMs: runner.baseFinishMs,
+        events: plan.events,
+      },
+      retired: false,
+      lockedPlace: result.place,
+    };
+  });
+
+  return {
+    seed: plan.seed,
+    seedHex: plan.seedHex,
+    snails,
+    order: plan.results.slice().sort((a, b) => a.place - b.place).map((result) => result.lane),
+    photoFinish: plan.photoFinish,
+    events: runtimeEvents,
+    weather: plan.weather,
+    durationMs: plan.durationMs,
+    tMax: plan.stopAtMs,
+    lockedPlan: plan,
+  };
+}
+
 /**
  * Advance every snail to race-time `raceT`.
  *
@@ -923,6 +1400,62 @@ export function stepRace(
 
   for (const s of snails) {
     if (s.done) continue;
+
+    if (s.lockedMotion) {
+      const runner: LockedRaceRunner = {
+        lane: s.lane,
+        name: s.name,
+        baseFinishMs: s.lockedMotion.baseFinishMs,
+        A: s.A,
+        w1: s.w1,
+        w2: s.w2,
+        ph1: s.ph1,
+        ph2: s.ph2,
+      };
+      const retirement = retirementFor(s.lockedMotion.events, s.lane);
+      let p = progressForLockedRunner(runner, s.lockedMotion.events, raceT);
+      if (!retirement && raceT < s.T && p >= 1) p = 1 - Number.EPSILON;
+      const activeEvent = s.lockedMotion.events.find(
+        (event) =>
+          event.targetLanes.includes(s.lane) &&
+          raceT >= event.effectAtMs &&
+          raceT < event.effectEndMs,
+      );
+      s.effect = activeEvent
+        ? ((activeEvent.consequence === 'retire' ? 'retire' : activeEvent.kind) as RaceEventKind)
+        : null;
+      s.p = Math.max(s.p, p);
+      s.rate = (s.p - s.prevP) / (dt || 16);
+      s.prevP = s.p;
+
+      if (retirement && raceT >= retirement.effectAtMs) {
+        s.retired = true;
+        s.retiredAtMs = retirement.effectAtMs;
+        s.retiredP = s.p;
+        s.done = true;
+        s.effect = 'retire';
+        s.place = s.lockedPlace ?? 0;
+        continue;
+      }
+
+      /* Crossing times in the locked plan are integer race milliseconds.
+         The easing can reach the mathematical line a fraction earlier, but
+         the published stop frame - and therefore every trailing coordinate
+         in the complete result - is authoritative. */
+      if (
+        raceT >= s.T &&
+        effectiveClockAt(runner, s.lockedMotion.events, raceT) >= runner.baseFinishMs
+      ) {
+        s.p = 1;
+        s.prevP = 1;
+        s.done = true;
+        s.effect = null;
+        s.place = s.lockedPlace ?? 0;
+        s.finishMs = Math.round(s.T);
+        crossed.push(s);
+      }
+      continue;
+    }
 
     const u = Math.min(raceT / s.T, 1);
     const base = u * u * (3 - 2 * u); // smoothstep
@@ -977,8 +1510,13 @@ export function stepRace(
   crossed.sort((a, b) => a.T - b.T);
   let nextPlace = placed;
   for (const s of crossed) {
-    s.place = ++nextPlace;
-    s.finishMs = Math.round(raceT);
+    if (s.lockedMotion) {
+      s.place = s.lockedPlace ?? ++nextPlace;
+      s.finishMs = Math.round(s.T);
+    } else {
+      s.place = ++nextPlace;
+      s.finishMs = Math.round(raceT);
+    }
   }
 
   return { crossed, fired };
@@ -991,12 +1529,19 @@ export function stepRace(
  * an order that contradicts the announced result.
  */
 export function rankSnails(snails: SnailRun[]): { byPosition: SnailRun[]; ranked: SnailRun[] } {
-  const byPosition = snails.slice().sort((a, b) => b.p - a.p);
+  const byPosition = snails.slice().sort((a, b) => {
+    if (a.retired && !b.retired) return 1;
+    if (!a.retired && b.retired) return -1;
+    return b.p - a.p || a.lane - b.lane;
+  });
   const ranked = snails.slice().sort((a, b) => {
+    if (a.retired && b.retired) return (a.lockedPlace ?? a.place) - (b.lockedPlace ?? b.place);
+    if (a.retired) return 1;
+    if (b.retired) return -1;
     if (a.done && b.done) return a.place - b.place;
     if (a.done) return -1;
     if (b.done) return 1;
-    return b.p - a.p;
+    return b.p - a.p || a.lane - b.lane;
   });
   return { byPosition, ranked };
 }

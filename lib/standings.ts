@@ -49,11 +49,16 @@ export function standingsFrom(history: RaceHistoryEntry[]): Standing[] {
         table.get(name) ??
         { name, points: 0, races: 0, wins: 0, podiums: 0, best: Number.POSITIVE_INFINITY };
 
-      row.points += pointsForPlace(result.place);
       row.races += 1;
-      if (result.place === 1) row.wins += 1;
-      if (result.place <= 3) row.podiums += 1;
-      if (result.place < row.best) row.best = result.place;
+      /* A retirement remains a race appearance, but a runner that was safely
+         taken out of the race cannot score or improve championship form.
+         Missing status is the legacy all-finisher format. */
+      if (result.status !== 'retired') {
+        row.points += pointsForPlace(result.place);
+        if (result.place === 1) row.wins += 1;
+        if (result.place <= 3) row.podiums += 1;
+        if (result.place < row.best) row.best = result.place;
+      }
 
       table.set(name, row);
     }

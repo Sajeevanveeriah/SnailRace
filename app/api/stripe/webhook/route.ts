@@ -5,6 +5,14 @@ import { bustCache } from '@/lib/donation-cache';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const MAX_WEBHOOK_BODY_BYTES = 128 * 1024;
+
+const webhookError = (error: string, status: number): NextResponse =>
+  NextResponse.json(
+    { ok: false, error },
+    { status, headers: { 'Cache-Control': 'no-store' } },
+  );
+
 /**
  * The webhook is an accelerator, not the source of truth.
  *
@@ -21,25 +29,35 @@ export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!stripe || !secret) {
-    return NextResponse.json(
-      { ok: false, error: 'Webhook is not configured.' },
-      { status: 503 },
-    );
+    return webhookError('Webhook is not configured.', 503);
   }
 
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
-    return NextResponse.json({ ok: false, error: 'Missing signature.' }, { status: 400 });
+    return webhookError('Missing signature.', 400);
   }
 
-  const raw = await request.text();
+  const statedLength = request.headers.get('content-length');
+  if (statedLength !== null) {
+    const length = Number(statedLength);
+    if (!Number.isSafeInteger(length) || length < 0) return webhookError('Invalid request length.', 400);
+    if (length > MAX_WEBHOOK_BODY_BYTES) return webhookError('Request too large.', 413);
+  }
+
+  let raw: Buffer;
+  try {
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength > MAX_WEBHOOK_BODY_BYTES) return webhookError('Request too large.', 413);
+    raw = Buffer.from(bytes);
+  } catch {
+    return webhookError('Malformed request.', 400);
+  }
 
   let event;
   try {
     event = await stripe.webhooks.constructEventAsync(raw, signature, secret);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Signature check failed.';
-    return NextResponse.json({ ok: false, error: message }, { status: 400 });
+  } catch {
+    return webhookError('Signature check failed.', 400);
   }
 
   switch (event.type) {
@@ -55,5 +73,8 @@ export async function POST(request: Request) {
       break;
   }
 
-  return NextResponse.json({ ok: true, received: event.type });
+  return NextResponse.json(
+    { ok: true, received: event.type },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }

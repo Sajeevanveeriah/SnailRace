@@ -15,21 +15,26 @@ import { WinnerOverlay } from './WinnerOverlay';
 import { ControlDrawer } from './ControlDrawer';
 import { ThemeToggle } from './ThemeToggle';
 import { addAudit, hydrate, useEvent, setState } from '@/lib/event-store';
-import { commitmentOf, shortHash, type RaceConfig } from '@/lib/audit';
+import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
 import { hostLineFor, marketWarning, nextShowPhase, showPhaseSpec } from '@/lib/show';
 import { usePhonePlay } from '@/lib/use-phone-play';
 import { ShowOverlay } from './ShowScreens';
 import { PackRunner } from './PackRunner';
 import type { LiveShow } from '@/lib/live/store';
-import type { PackRace, ShowPhase } from '@/lib/types';
+import type {
+  HeldRaceStartState,
+  PackRace,
+  ShowPhase,
+  VoidRecoveryState,
+} from '@/lib/types';
 import { useOrigin } from '@/lib/use-origin';
-import { HAS_API } from '@/lib/deployment';
+import { HAS_API, HAS_LIVE_API, withBasePath } from '@/lib/deployment';
 import { useCanSpeak } from '@/lib/use-can-speak';
 import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace } from '@/lib/use-race';
-import { poolsFor } from '@/lib/tote';
+import { funChipPoolsFor } from '@/lib/tote';
 import { sponsorFor } from '@/lib/standings';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
@@ -51,7 +56,12 @@ import {
   stopTrack,
 } from '@/lib/sound';
 import type { Bet, Donation, RaceHighlight, RaceHistoryEntry, RaceResult } from '@/lib/types';
-import type { DrawnRace } from '@/lib/race-engine';
+import {
+  drawLockedRacePlan,
+  freshSeed,
+  LOCKED_RACE_FIELD_SIZE,
+  type DrawnRace,
+} from '@/lib/race-engine';
 
 export function Stage() {
   const event = useEvent();
@@ -113,37 +123,53 @@ export function Stage() {
     [liveDonations],
   );
 
-  const { lanes, potCents } = useMemo(
-    () => poolsFor(allDonations, names, nextRaceNo),
-    [allDonations, names, nextRaceNo],
+  const raceDonationCents = useMemo(
+    () =>
+      liveDonations
+        .filter((donation) => donation.raceNo === nextRaceNo)
+        .reduce((sum, donation) => sum + donation.cents, 0),
+    [liveDonations, nextRaceNo],
+  );
+
+  const { lanes, totalChips } = useMemo(
+    () => funChipPoolsFor(event.bets, names, nextRaceNo),
+    [event.bets, names, nextRaceNo],
   );
 
   /* ── Race lifecycle ──────────────────────────────────────────────────── */
 
   const [highlights, setHighlights] = useState<RaceHighlight[]>([]);
+  const [preparingRace, setPreparingRace] = useState(false);
+  const [heldRaceStart, setHeldRaceStart] = useState(false);
+  const [voidingRace, setVoidingRace] = useState(false);
+  const voidRecovery = event.voidRecovery;
+  const [startError, setStartError] = useState('');
 
   /*
    * The armed race: everything the audit block needs, captured at lock so a
    * mid-race rename or setting change cannot rewrite what was committed to.
    */
-  const armedRef = useRef<{
-    raceNo: number;
-    lockedAt: number;
-    startedAt: number;
-    config: RaceConfig;
-    oddsAtLock: Record<number, number>;
-    commitHash: string;
-  } | null>(null);
+  const armedRef = useRef<HeldRaceStartState | null>(null);
 
   /** Set once Phone Play mounts; onFinish settles the room through it. */
   const phonePlayRef = useRef<((raceNo: number, results: RaceResult[]) => Promise<void>) | null>(
     null,
   );
+  const phoneLockRef = useRef<
+    ((raceNo: number, show: LiveShow, planHash: string) => Promise<boolean>) | null
+  >(null);
+  const phoneVoidRef = useRef<
+    ((raceNo: number, planHash: string, reason: string) => Promise<boolean>) | null
+  >(null);
+  const phoneRearmRef = useRef<
+    ((raceNo: number, show: LiveShow) => Promise<boolean>) | null
+  >(null);
+  const liveShowRef = useRef<LiveShow | null>(null);
 
   const onFinish = useCallback(
     (drawn: DrawnRace, results: RaceResult[], reel: RaceHighlight[]) => {
-      const raceNo = nextRaceNo;
       const armed = armedRef.current;
+      const raceNo = armed?.raceNo ?? nextRaceNo;
       const finishedAt = nowMs();
 
       /*
@@ -154,13 +180,13 @@ export function Stage() {
        */
       const { recorded } = recordRaceResult({
         raceNo,
-        raceType: event.raceType,
+        raceType: armed?.config.raceType ?? event.raceType,
         seedHex: drawn.seedHex,
-        fieldSize: names.length,
-        durationMs: event.raceDurationMs,
+        fieldSize: armed?.config.fieldSize ?? names.length,
+        durationMs: armed?.config.durationMs ?? event.raceDurationMs,
         at: finishedAt,
         results,
-        potCents,
+        potCents: raceDonationCents,
         photoFinish: drawn.photoFinish,
         highlights: reel,
         sponsor,
@@ -168,26 +194,63 @@ export function Stage() {
         names: armed?.config.names ?? names,
         laps: armed?.config.laps,
         surprises: armed?.config.surprises,
-        trackShape: event.trackShape,
-        intensity: event.intensity,
+        trackShape: armed?.config.trackShape ?? event.trackShape,
+        intensity: armed?.config.intensity ?? event.intensity,
         lockedAt: armed?.lockedAt,
         startedAt: armed?.startedAt,
         finishedAt,
         oddsAtLock: armed?.oddsAtLock,
         commitHash: armed?.commitHash,
+        planHash: armed?.planHash,
+        racePlan: armed?.plan,
       });
-      if (!recorded) return;
+      if (!recorded) {
+        /* A crash can land after the standing result was persisted but before
+           this recovery record was cleared. The exactly-once guard proves the
+           local completion already stands, so the held plan is now spent. */
+        void phonePlayRef.current?.(raceNo, results);
+        armedRef.current = null;
+        setHeldRaceStart(false);
+        setState({ heldRaceStart: null });
+        setPreparingRace(false);
+        return;
+      }
 
       void phonePlayRef.current?.(raceNo, results);
       armedRef.current = null;
+      setState({ heldRaceStart: null });
+      setPreparingRace(false);
+      setHeldRaceStart(false);
+      setStartError('');
       setHighlights(reel);
       setOverlayOpen(true);
       setConfettiKey((k) => k + 1);
     },
-    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, names, nextRaceNo, potCents, sponsor],
+    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, names, nextRaceNo, raceDonationCents, sponsor],
   );
 
   const race = useRace(onFinish);
+
+  /* Re-arm the exact durable plan after hydration or a storage event. The
+     engine itself is intentionally in-memory; only an idle controller needs
+     to enter retry mode, while an already running instance keeps its banner. */
+  useEffect(() => {
+    const held = event.heldRaceStart;
+    if (!held || armedRef.current?.planHash === held.planHash) return;
+    armedRef.current = held;
+    if (race.phase === 'idle' || race.phase === 'done' || race.phase === 'void') {
+      const id = window.setTimeout(() => {
+        if (armedRef.current?.planHash !== held.planHash) return;
+        setPreparingRace(false);
+        setHeldRaceStart(true);
+        setStartError(
+          'Recovered the exact held race plan. Selections stay closed; retry the same Phone Play lock without redrawing.',
+        );
+        if (event.bettingOpen) setState({ bettingOpen: false });
+      }, 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [event.heldRaceStart, event.bettingOpen, race.phase]);
 
   /*
    * Audio waits for the room to touch something.
@@ -246,69 +309,260 @@ export function Stage() {
     if (event.music && race.phase === 'idle') startTrack('lobby');
   }, [primed, event.sound, event.music, race.phase]);
 
-  const startRace = useCallback(() => {
+  const startRace = useCallback(async () => {
+    if (
+      preparingRace ||
+      voidingRace ||
+      voidRecovery !== null ||
+      race.phase === 'countdown' ||
+      race.phase === 'running' ||
+      race.phase === 'confirming'
+    ) {
+      return;
+    }
     primeAudio();
     setOverlayOpen(false);
+    setStartError('');
+
+    const lockedShowFor = (armed: HeldRaceStartState, currentShow: LiveShow): LiveShow => ({
+      ...currentShow,
+      raceNo: armed.raceNo,
+      phase: 'race',
+      marketOpen: false,
+      names: armed.config.names.slice(),
+      odds: { ...armed.oddsAtLock },
+    });
+
+    const beginArmedRace = (armed: HeldRaceStartState) => {
+      const started: HeldRaceStartState = { ...armed, startedAt: nowMs() };
+      armedRef.current = started;
+      /* Retain the complete plan through the local run. If the moderator tab
+         reloads before its standing result is durable, it restarts this exact
+         plan and the server reconciles the same LOCK/RUN command identities. */
+      setState({ bettingOpen: false, heldRaceStart: started });
+      addAudit({
+        kind: 'race_locked',
+        raceNo: started.raceNo,
+        detail: `Race ${started.raceNo} locked: eight selections closed, odds snapshotted, and complete plan ${shortHash(started.planHash)}… acknowledged before countdown.`,
+      });
+      addAudit({
+        kind: 'race_started',
+        raceNo: started.raceNo,
+        detail: `Race ${started.raceNo} starts from seed ${started.plan.seedHex}. Commitment ${shortHash(started.commitHash)}… binds the set-up; plan ${shortHash(started.planHash)}… binds every consequential cue and the first-finisher classification.`,
+      });
+      setPreparingRace(false);
+      setHeldRaceStart(false);
+      setStartError('');
+      race.startLocked(started.plan);
+    };
+
+    if (heldRaceStart || event.heldRaceStart) {
+      const held = armedRef.current ?? event.heldRaceStart;
+      if (!held?.planHash || !held.commitHash) {
+        setHeldRaceStart(true);
+        setState({ bettingOpen: false });
+        setStartError('The held race plan is incomplete. Selections remain closed; restore a valid backup before continuing.');
+        return;
+      }
+      armedRef.current = held;
+      setPreparingRace(true);
+      setHeldRaceStart(false);
+
+      try {
+        const [commitHash, planHash] = await Promise.all([
+          commitmentOf(held.plan.seedHex, held.config),
+          planHashOf(held.plan),
+        ]);
+        if (armedRef.current !== held) return;
+        if (commitHash !== held.commitHash || planHash !== held.planHash) {
+          setPreparingRace(false);
+          setHeldRaceStart(true);
+          setState({ bettingOpen: false, heldRaceStart: held });
+          setStartError(
+            'The recovered race plan failed its integrity check. Selections remain closed; do not draw another plan.',
+          );
+          return;
+        }
+
+        const lockPhoneRoom = phoneLockRef.current;
+        if (event.phonePlay && !lockPhoneRoom) {
+          setPreparingRace(false);
+          setHeldRaceStart(true);
+          setState({ bettingOpen: false, heldRaceStart: held });
+          setStartError('Phone Play control is still restoring. The exact plan remains held; retry when the server is live.');
+          return;
+        }
+        if (!lockPhoneRoom) {
+          beginArmedRace(held);
+          return;
+        }
+        const currentShow = liveShowRef.current;
+        if (!currentShow) {
+          setPreparingRace(false);
+          setHeldRaceStart(true);
+          setStartError('The Phone Play snapshot is not ready. The same plan remains held.');
+          return;
+        }
+        const acknowledged = await lockPhoneRoom(
+          held.raceNo,
+          lockedShowFor(held, currentShow),
+          held.planHash,
+        );
+        if (armedRef.current !== held) return;
+        if (acknowledged) {
+          beginArmedRace(held);
+        } else {
+          setPreparingRace(false);
+          setHeldRaceStart(true);
+          setState({ bettingOpen: false, heldRaceStart: held });
+          setStartError(
+            'Phone Play lock acknowledgement is uncertain. The same plan is held and selections stay closed; retry the lock without redrawing.',
+          );
+        }
+      } catch {
+        if (armedRef.current !== held) return;
+        setPreparingRace(false);
+        setHeldRaceStart(true);
+        setState({ bettingOpen: false, heldRaceStart: held });
+        setStartError('The held race could not be verified. The exact plan remains closed for a safe retry.');
+      }
+      return;
+    }
+
+    if (names.length !== LOCKED_RACE_FIELD_SIZE) {
+      setStartError(`The live race needs exactly ${LOCKED_RACE_FIELD_SIZE} runners.`);
+      setState({ fieldSize: LOCKED_RACE_FIELD_SIZE, bettingOpen: true });
+      return;
+    }
 
     const laps = event.trackShape === 'circuit' ? event.laps : 1;
     const lockedAt = nowMs();
     const oddsAtLock: Record<number, number> = {};
-    for (const l of lanes) oddsAtLock[l.lane] = l.odds;
+    for (const lane of lanes) oddsAtLock[lane.lane] = lane.odds;
 
-    armedRef.current = {
+    const plan = drawLockedRacePlan(
+      freshSeed(),
+      names,
+      event.raceDurationMs,
+      event.surprises,
+      event.intensity,
+      laps,
+      event.trackShape,
+    );
+    const config: HeldRaceStartState['config'] = {
+      raceNo: nextRaceNo,
+      raceType: event.raceType,
+      fieldSize: names.length,
+      names: names.slice(),
+      durationMs: event.raceDurationMs,
+      laps,
+      surprises: event.surprises,
+      trackShape: event.trackShape,
+      intensity: event.intensity,
+    };
+    const armedDraft: HeldRaceStartState = {
       raceNo: nextRaceNo,
       lockedAt,
       startedAt: lockedAt,
-      config: {
-        raceNo: nextRaceNo,
-        raceType: event.raceType,
-        fieldSize: names.length,
-        names: names.slice(),
-        durationMs: event.raceDurationMs,
-        laps,
-        surprises: event.surprises,
-        trackShape: event.trackShape,
-      },
+      config,
       oddsAtLock,
       commitHash: '',
+      planHash: '',
+      plan,
     };
-
+    armedRef.current = armedDraft;
+    setPreparingRace(true);
     setState({ bettingOpen: false });
-    addAudit({
-      kind: 'race_locked',
-      raceNo: nextRaceNo,
-      detail: `Race ${nextRaceNo} locked: selections closed, odds snapshotted for ${names.length} lanes. Set-up is frozen until the race finishes or is voided.`,
-    });
-    race.start(names, event.raceDurationMs, event.surprises, laps);
-  }, [names, lanes, nextRaceNo, event.raceDurationMs, event.raceType, event.surprises, event.trackShape, event.laps, race]);
 
-  /*
-   * The seed exists only once the draw is taken inside `race.start`, so the
-   * commitment - SHA-256 over seed plus the locked configuration - is
-   * published the moment the seed lands rather than in the click handler.
-   */
-  useEffect(() => {
-    const armed = armedRef.current;
-    if (!race.seedHex || !armed || armed.commitHash) return;
-    if (race.phase !== 'countdown' && race.phase !== 'running') return;
-    armed.startedAt = nowMs();
-    void commitmentOf(race.seedHex, armed.config).then((hash) => {
+    let armed = armedDraft;
+    const phoneLockRequired = Boolean(event.phonePlay);
+    try {
+      const [commitHash, planHash] = await Promise.all([
+        commitmentOf(plan.seedHex, config),
+        planHashOf(plan),
+      ]);
+      if (armedRef.current !== armedDraft) return;
+      armed = { ...armedDraft, commitHash, planHash };
+      armedRef.current = armed;
+      /* This write is synchronous and precedes the first remote request. */
+      setState({ bettingOpen: false, heldRaceStart: armed });
+
+      const lockPhoneRoom = phoneLockRef.current;
+      if (phoneLockRequired) {
+        if (!lockPhoneRoom) throw new Error('Phone Play control is still restoring.');
+        const currentShow = liveShowRef.current;
+        if (!currentShow) throw new Error('The Phone Play snapshot is not ready.');
+        const acknowledged = await lockPhoneRoom(
+          armed.raceNo,
+          lockedShowFor(armed, currentShow),
+          planHash,
+        );
+        if (!acknowledged) throw new Error('Phone Play did not acknowledge the market lock.');
+      }
       if (armedRef.current !== armed) return;
-      armed.commitHash = hash;
+      beginArmedRace(armed);
+    } catch (error) {
+      if (armedRef.current !== armed) return;
+      setPreparingRace(false);
+      const message = error instanceof Error ? error.message : 'The race could not be locked.';
+      if (phoneLockRequired && armed.planHash) {
+        setHeldRaceStart(true);
+        setState({ bettingOpen: false, heldRaceStart: armed });
+        setStartError(
+          `${message} The same plan is held and selections stay closed; retry the lock without redrawing.`,
+        );
+      } else {
+        armedRef.current = null;
+        setHeldRaceStart(false);
+        setState({ bettingOpen: true, heldRaceStart: null });
+        setStartError(`${message} Selections have reopened; no race started.`);
+      }
       addAudit({
-        kind: 'race_started',
+        kind: 'note',
         raceNo: armed.raceNo,
-        detail: `Race ${armed.raceNo} started. Seed ${race.seedHex}, commitment ${shortHash(hash)}… binds seed to field of ${armed.config.fieldSize}, ${armed.config.laps} lap(s), ${Math.round(armed.config.durationMs / 1000)}s, surprises ${armed.config.surprises ? 'on' : 'off'}.`,
+        detail: phoneLockRequired
+          ? `Race start held before countdown: ${message} The same plan remains held and selections stay closed pending an idempotent retry.`
+          : `Race start held before countdown: ${message} Selections reopened; no settlement path ran.`,
       });
-    });
-  }, [race.seedHex, race.phase]);
+    }
+  }, [
+    preparingRace,
+    heldRaceStart,
+    voidingRace,
+    voidRecovery,
+    race,
+    names,
+    lanes,
+    nextRaceNo,
+    event.raceDurationMs,
+    event.raceType,
+    event.surprises,
+    event.intensity,
+    event.trackShape,
+    event.laps,
+    event.phonePlay,
+    event.heldRaceStart,
+  ]);
 
   const resetRace = useCallback(() => {
+    if (
+      preparingRace ||
+      heldRaceStart ||
+      event.heldRaceStart !== null ||
+      voidingRace ||
+      voidRecovery !== null ||
+      race.phase === 'countdown' ||
+      race.phase === 'running' ||
+      race.phase === 'confirming'
+    ) {
+      return;
+    }
     race.reset();
     setOverlayOpen(false);
     armedRef.current = null;
-    setState({ bettingOpen: true });
-  }, [race]);
+    setStartError('');
+    setState({ bettingOpen: true, heldRaceStart: null });
+  }, [preparingRace, heldRaceStart, event.heldRaceStart, voidingRace, voidRecovery, race]);
 
   /* A brand-new event replaces the night in the store, but the engine's last
      running order lives in this component - clear it so the fresh night does
@@ -322,49 +576,166 @@ export function Stage() {
     const id = window.setTimeout(() => {
       race.reset();
       setOverlayOpen(false);
-      armedRef.current = null;
+      armedRef.current = event.heldRaceStart;
+      setPreparingRace(false);
+      setHeldRaceStart(Boolean(event.heldRaceStart));
+      setVoidingRace(false);
+      setStartError(
+        event.heldRaceStart
+          ? 'Recovered the exact held race plan. Selections stay closed; retry the same Phone Play lock without redrawing.'
+          : '',
+      );
+      if (event.heldRaceStart && event.bettingOpen) setState({ bettingOpen: false });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [event.eventId, race]);
+  }, [event.eventId, event.heldRaceStart, event.bettingOpen, race]);
+
+  const acknowledgeVoidAndRearm = useCallback(
+    async (recovery: VoidRecoveryState): Promise<boolean> => {
+      /* With no active phone room, the local void is already complete. If a
+         room exists, both durable acknowledgements are mandatory. */
+      if (!event.phonePlay) return true;
+      const voidPhoneRoom = phoneVoidRef.current;
+      const rearmPhoneRoom = phoneRearmRef.current;
+      if (!voidPhoneRoom || !rearmPhoneRoom || !recovery.planHash || !recovery.openShow) {
+        return false;
+      }
+      const voided = await voidPhoneRoom(
+        recovery.raceNo,
+        recovery.planHash,
+        recovery.reason,
+      );
+      if (!voided) return false;
+      return rearmPhoneRoom(recovery.raceNo, recovery.openShow);
+    },
+    [event.phonePlay],
+  );
 
   /** Declare the race in progress void: no result, no settlement, re-run. */
-  const voidCurrentRace = useCallback(() => {
+  const voidCurrentRace = useCallback(async () => {
     if (race.phase !== 'countdown' && race.phase !== 'running') return;
     const armed = armedRef.current;
     const raceNo = armed?.raceNo ?? nextRaceNo;
+    const reason = 'Declared void by the moderator before the first finisher.';
+    const currentShow = liveShowRef.current;
+    const recovery: VoidRecoveryState = {
+      raceNo,
+      planHash: armed?.planHash ?? '',
+      reason,
+      openShow: currentShow
+        ? {
+            ...currentShow,
+            raceNo,
+            phase: 'race',
+            marketOpen: true,
+            result: currentShow.result?.raceNo === raceNo ? null : currentShow.result,
+          }
+        : null,
+    };
     race.voidRace();
+    setVoidingRace(true);
+    const voidEntry: RaceHistoryEntry = {
+      raceNo,
+      raceType: armed?.config.raceType ?? event.raceType,
+      seedHex: race.seedHex || '--------',
+      fieldSize: armed?.config.fieldSize ?? names.length,
+      durationMs: armed?.config.durationMs ?? event.raceDurationMs,
+      at: nowMs(),
+      results: [],
+      potCents: raceDonationCents,
+      photoFinish: false,
+      sponsor,
+      names: armed?.config.names ?? names,
+      lockedAt: armed?.lockedAt,
+      startedAt: armed?.startedAt,
+      commitHash: armed?.commitHash || undefined,
+      planHash: armed?.planHash || undefined,
+      racePlan: armed?.plan,
+      oddsAtLock: armed?.oddsAtLock,
+      void: true,
+      voidReason: `${reason} Phone Play recovery is pending; selections remain closed.`,
+    };
+    /* Persist the compensating entry and recovery intent before the first
+       network await. A reload cannot lose the local VOID or resurrect this
+       held plan while its remote acknowledgement is uncertain. */
+    setState((state) => ({
+      bettingOpen: false,
+      heldRaceStart: null,
+      voidRecovery: recovery,
+      history: [voidEntry, ...state.history],
+    }));
+
+    const phoneReady = await acknowledgeVoidAndRearm(recovery);
+
     setState((s) => ({
-      bettingOpen: true,
-      history: [
-        {
-          raceNo,
-          raceType: event.raceType,
-          seedHex: race.seedHex || '--------',
-          fieldSize: names.length,
-          durationMs: event.raceDurationMs,
-          at: nowMs(),
-          results: [],
-          potCents,
-          photoFinish: false,
-          sponsor,
-          names: armed?.config.names ?? names,
-          lockedAt: armed?.lockedAt,
-          startedAt: armed?.startedAt,
-          commitHash: armed?.commitHash || undefined,
-          oddsAtLock: armed?.oddsAtLock,
-          void: true,
-          voidReason: 'Declared void by the moderator before the finish. Bets reopened for the re-run.',
-        } satisfies RaceHistoryEntry,
-        ...s.history,
-      ],
+      bettingOpen: phoneReady,
+      voidRecovery: phoneReady ? null : recovery,
+      history: s.history.map((entry) =>
+        entry.at === voidEntry.at && entry.raceNo === raceNo && entry.void
+          ? {
+              ...entry,
+              voidReason: phoneReady
+                ? `${reason} Picks were released and selections reopened for the re-run.`
+                : `${reason} Phone Play did not acknowledge a safe rearm; selections remain closed.`,
+            }
+          : entry,
+      ),
     }));
     addAudit({
       kind: 'race_void',
       raceNo,
-      detail: `Race ${raceNo} declared VOID before the finish (seed ${race.seedHex || 'not yet drawn'}). No settlement occurred; bets reopened for the re-run.`,
+      detail: `Race ${raceNo} declared VOID before the finish (seed ${race.seedHex || 'not yet drawn'}). No settlement occurred; ${phoneReady ? 'Phone Play acknowledged the void and rearm, so selections reopened.' : 'Phone Play did not acknowledge a safe rearm, so selections remain closed.'}`,
+    });
+    setHeldRaceStart(false);
+    setVoidingRace(false);
+    if (phoneReady) {
+      armedRef.current = null;
+    }
+    setStartError(
+      phoneReady
+        ? ''
+        : 'Race voided locally, but Phone Play recovery is held. Retry the same void and rearm commands; no new race plan can be drawn.',
+    );
+  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, names, raceDonationCents, sponsor, acknowledgeVoidAndRearm]);
+
+  /** Retry only the stable void/rearm commands; never redraw the held race. */
+  const retryVoidRecovery = useCallback(async () => {
+    if (!voidRecovery || voidingRace) return;
+    setVoidingRace(true);
+    setStartError('Retrying the same Phone Play void and rearm commands…');
+    const phoneReady = await acknowledgeVoidAndRearm(voidRecovery);
+    if (!phoneReady) {
+      setVoidingRace(false);
+      setState({ bettingOpen: false });
+      setStartError(
+        'Phone Play recovery is still unacknowledged. Selections stay closed and the same commands remain safe to retry.',
+      );
+      return;
+    }
+
+    setState((state) => ({
+      bettingOpen: true,
+      voidRecovery: null,
+      history: state.history.map((entry) =>
+        entry.void &&
+        entry.raceNo === voidRecovery.raceNo &&
+        entry.planHash === voidRecovery.planHash
+          ? {
+              ...entry,
+              voidReason: `${voidRecovery.reason} Phone Play later acknowledged the void and rearm; selections reopened for the re-run.`,
+            }
+          : entry,
+      ),
+    }));
+    addAudit({
+      kind: 'note',
+      raceNo: voidRecovery.raceNo,
+      detail: `Phone Play recovery acknowledged for void race ${voidRecovery.raceNo}. The same attempt was refunded and rearmed before selections reopened.`,
     });
     armedRef.current = null;
-  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, names, potCents, sponsor]);
+    setVoidingRace(false);
+    setStartError('');
+  }, [voidRecovery, voidingRace, acknowledgeVoidAndRearm]);
 
   /* ── The run of show ─────────────────────────────────────────────────── */
 
@@ -474,7 +845,15 @@ export function Stage() {
 
   const liveShow = useMemo<LiveShow>(() => {
     const standing = event.history.find((h) => !h.void);
-    const isRacing = race.phase === 'countdown' || race.phase === 'running';
+    const isRacing =
+      preparingRace ||
+      heldRaceStart ||
+      event.heldRaceStart !== null ||
+      voidingRace ||
+      voidRecovery !== null ||
+      race.phase === 'countdown' ||
+      race.phase === 'running' ||
+      race.phase === 'confirming';
     /* While the show sits on the results, the phones stay on the race that
        just ran - jumping the room to race N+1 the instant N settles would
        hide every result and outcome from the very people who picked. */
@@ -500,15 +879,32 @@ export function Stage() {
           : null,
       rehearsal: event.rehearsal,
     };
-  }, [event.history, event.eventName, event.clubName, event.showPhase, event.bettingOpen, event.rehearsal, race.phase, nextRaceNo, names, lanes]);
+  }, [event.history, event.eventName, event.clubName, event.showPhase, event.bettingOpen, event.rehearsal, event.heldRaceStart, preparingRace, heldRaceStart, voidingRace, voidRecovery, race.phase, nextRaceNo, names, lanes]);
 
-  const phonePlay = usePhonePlay(HAS_API ? liveShow : null);
   useEffect(() => {
-    phonePlayRef.current = phonePlay.settle;
-  }, [phonePlay.settle]);
+    liveShowRef.current = liveShow;
+  }, [liveShow]);
+
+  const phonePlay = usePhonePlay(HAS_LIVE_API ? liveShow : null);
+  useEffect(() => {
+    const active = HAS_LIVE_API && Boolean(phonePlay.session);
+    phonePlayRef.current = active ? phonePlay.settle : null;
+    phoneLockRef.current = active ? phonePlay.lockRace : null;
+    phoneVoidRef.current = active ? phonePlay.voidRace : null;
+    phoneRearmRef.current = active ? phonePlay.rearmRace : null;
+  }, [
+    phonePlay.session,
+    phonePlay.lockRace,
+    phonePlay.voidRace,
+    phonePlay.rearmRace,
+    phonePlay.settle,
+  ]);
 
   const playUrl = useMemo(
-    () => (origin && phonePlay.session ? `${origin}/play?c=${phonePlay.session.code}` : ''),
+    () =>
+      HAS_LIVE_API && origin && phonePlay.session
+        ? `${origin}${withBasePath('/play')}?c=${phonePlay.session.code}`
+        : '',
     [origin, phonePlay.session],
   );
 
@@ -551,7 +947,7 @@ export function Stage() {
         durationMs: packRace.durationMs,
         at: finishedAt,
         results,
-        potCents,
+        potCents: raceDonationCents,
         photoFinish: false,
         sponsor: packRace.sponsor ?? sponsor,
         source: 'pack',
@@ -568,7 +964,7 @@ export function Stage() {
       setOverlayOpen(true);
       setConfettiKey((k) => k + 1);
     },
-    [nextRaceNo, event.raceType, event.racePack?.packId, event.packCommit, potCents, sponsor, lanes],
+    [nextRaceNo, event.raceType, event.racePack?.packId, event.packCommit, raceDonationCents, sponsor, lanes],
   );
 
   const onPackVoid = useCallback(
@@ -585,7 +981,7 @@ export function Stage() {
             durationMs: packRace.durationMs,
             at: nowMs(),
             results: [],
-            potCents,
+            potCents: raceDonationCents,
             photoFinish: false,
             sponsor: packRace.sponsor ?? sponsor,
             source: 'pack',
@@ -604,7 +1000,7 @@ export function Stage() {
         detail: `Recorded race ${packRace.raceId} ("${packRace.title}") declared VOID: ${reason}`,
       });
     },
-    [nextRaceNo, event.raceType, event.racePack?.packId, potCents, sponsor],
+    [nextRaceNo, event.raceType, event.racePack?.packId, raceDonationCents, sponsor],
   );
 
   /* ── Fun bets ────────────────────────────────────────────────────────── */
@@ -684,7 +1080,11 @@ export function Stage() {
         /* Recorded mode: the pack runner's own draw and play buttons drive
            playback, so a stray clicker press cannot start an engine race. */
         if (event.eventMode === 'recorded') return;
-        if (race.phase === 'idle' || race.phase === 'done' || race.phase === 'void') startRace();
+        if (voidRecovery) {
+          void retryVoidRecovery();
+        } else if (race.phase === 'idle' || race.phase === 'done' || race.phase === 'void') {
+          void startRace();
+        }
         return;
       }
       if (back) {
@@ -726,7 +1126,7 @@ export function Stage() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [drawerOpen, overlayOpen, race.phase, startRace, resetRace, advanceShow, backShow, event.showPhase, event.eventMode, event.calm, event.sound, event.music, event.caller]);
+  }, [drawerOpen, overlayOpen, race.phase, startRace, retryVoidRecovery, voidRecovery, resetRace, advanceShow, backShow, event.showPhase, event.eventMode, event.calm, event.sound, event.music, event.caller]);
 
   /* ── Direct-pay link ─────────────────────────────────────────────────── */
 
@@ -764,7 +1164,7 @@ export function Stage() {
   /* ── Donor link ──────────────────────────────────────────────────────── */
 
   const donateUrl = useMemo(() => {
-    if (!origin) return '';
+    if (!origin || !HAS_API) return '';
     const token = encodeLineup({
       v: 1,
       e: event.eventId,
@@ -772,17 +1172,19 @@ export function Stage() {
       c: event.clubName,
       n: names,
     });
-    return `${origin}/donate?e=${token}`;
+    return `${origin}${withBasePath('/donate')}?e=${token}`;
   }, [origin, event.eventId, event.clubName, nextRaceNo, names]);
 
-  const racing = race.phase === 'running' || race.phase === 'countdown';
+  const voidable = race.phase === 'running' || race.phase === 'countdown';
+  const racing = preparingRace || heldRaceStart || event.heldRaceStart !== null || voidingRace || voidRecovery !== null || voidable || race.phase === 'confirming';
+  const startDisabled = preparingRace || voidingRace || voidable || race.phase === 'confirming';
   /*
    * Cinema mode. A projector at the back of a hall wants the race, not the
    * furniture: while one is on, the course goes full bleed and everything a
    * moderator reads between races gets out of the way. Measured on a 1080p
    * screen the course went from under half of it to nearly all of it.
    */
-  const cinema = racing || race.phase === 'done';
+  const cinema = voidable || race.phase === 'confirming' || race.phase === 'done';
   const winnerColour = race.results[0] ? laneColour(race.results[0].lane).shell : '#ffb020';
 
   return (
@@ -916,8 +1318,22 @@ export function Stage() {
             <div className="stage-bar glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
                 <div className="flex items-baseline gap-3">
-                  <StateBanner phase={race.phase} />
-                  <p className="text-lg font-semibold">{race.status}</p>
+                  <StateBanner
+                    phase={
+                      voidingRace
+                        ? 'voiding'
+                        : voidRecovery
+                          ? 'recovery'
+                          : preparingRace
+                          ? 'preparing'
+                          : heldRaceStart
+                            ? 'held'
+                            : race.phase
+                    }
+                  />
+                  <p className="text-lg font-semibold">
+                    {preparingRace ? 'Locking the complete race plan…' : startError || race.status}
+                  </p>
                   {race.seedHex ? (
                     <span
                       className="num text-[11px] text-(--tx)/35"
@@ -937,18 +1353,29 @@ export function Stage() {
                 <button
                   type="button"
                   className={`btn btn-go ${!racing ? 'btn-pulse' : ''}`}
-                  onClick={startRace}
-                  disabled={racing}
+                  onClick={() => {
+                    if (voidRecovery) void retryVoidRecovery();
+                    else void startRace();
+                  }}
+                  disabled={startDisabled}
                 >
-                  {race.phase === 'done'
-                    ? 'Next race'
-                    : race.phase === 'void'
-                      ? 'Re-run race'
-                      : 'Start race'}{' '}
+                  {voidingRace
+                    ? 'Recovering…'
+                    : voidRecovery
+                      ? 'Retry void/rearm'
+                      : preparingRace
+                    ? 'Locking…'
+                    : heldRaceStart
+                      ? 'Retry lock'
+                    : race.phase === 'done'
+                      ? 'Next race'
+                      : race.phase === 'void'
+                        ? 'Re-run race'
+                        : 'Start race'}{' '}
                   <kbd>Space</kbd>
                 </button>
                 ) : null}
-                {racing && event.eventMode === 'live' ? (
+                {voidable && event.eventMode === 'live' ? (
                   <button
                     type="button"
                     className="btn btn-ghost !text-(--bad)"
@@ -965,7 +1392,7 @@ export function Stage() {
                     Void race
                   </button>
                 ) : null}
-                <button type="button" className="btn btn-ghost" onClick={resetRace}>
+                <button type="button" className="btn btn-ghost" onClick={resetRace} disabled={racing}>
                   Reset
                 </button>
                 <button
@@ -992,7 +1419,7 @@ export function Stage() {
           <div className="stage-side flex flex-col gap-4">
             <ToteBoard
               lanes={lanes}
-              potCents={potCents}
+              totalChips={totalChips}
               fieldSize={names.length}
               raceNo={nextRaceNo}
               showOdds
@@ -1058,7 +1485,7 @@ export function Stage() {
       <ShowOverlay
         event={event}
         lanes={lanes}
-        potCents={potCents}
+        totalChips={totalChips}
         nightCents={nightCents}
         nextRaceNo={nextRaceNo}
         sponsor={sponsor}
@@ -1193,20 +1620,22 @@ export function Stage() {
 /* ── Small presentational pieces ──────────────────────────────────────── */
 
 /**
- * The live lifecycle, said out loud: READY, COUNTDOWN, RUNNING, FINISHED,
- * VOID. One glance from the back of a hall answers "can I still bet?".
+ * The live lifecycle, said out loud from local lock through the official result.
  */
 function StateBanner({ phase }: { phase: string }) {
-  const label =
-    phase === 'idle'
-      ? 'READY'
-      : phase === 'countdown'
-        ? 'COUNTDOWN'
-        : phase === 'running'
-          ? 'RUNNING'
-          : phase === 'done'
-            ? 'FINISHED'
-            : 'VOID';
+  const labels: Record<string, string> = {
+    idle: 'READY',
+    preparing: 'LOCKING',
+    held: 'HELD',
+    recovery: 'RECOVERY HELD',
+    voiding: 'VOIDING',
+    countdown: 'COUNTDOWN',
+    running: 'RUNNING',
+    confirming: 'FINISH',
+    done: 'FINISHED',
+    void: 'VOID',
+  };
+  const label = labels[phase] ?? 'VOID';
   return <span className={`state-banner state-${phase}`}>{label}</span>;
 }
 
@@ -1217,7 +1646,7 @@ function FeedPill({ status, lastOk }: { status: string; lastOk: number }) {
       : status === 'offline'
         ? 'Stripe offline'
         : status === 'unconfigured'
-          ? 'Cash only'
+          ? 'Card donations off'
           : 'Connecting';
 
   const tone =
