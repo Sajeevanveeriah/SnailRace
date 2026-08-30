@@ -1,6 +1,20 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
+interface FirstFinisherProbe {
+  confirmingAt: number | null;
+  resultAt: number | null;
+  finishedCount: number | null;
+  transforms: Array<string | null> | null;
+}
+
+declare global {
+  interface Window {
+    __firstFinisherObserver?: MutationObserver;
+    __firstFinisherProbe?: FirstFinisherProbe;
+  }
+}
+
 const assertNoSeriousAxeFindings = async (page: Page) => {
   const result = await new AxeBuilder({ page }).analyze();
   const serious = result.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
@@ -28,6 +42,51 @@ const setSprintRace = async (page: Page) => {
   await controls.getByRole('button', { name: /Hide/i }).click();
   await expect(controls).toHaveAttribute('aria-hidden', 'true');
 };
+
+const armFirstFinisherProbe = async (page: Page) => {
+  await page.evaluate(() => {
+    window.__firstFinisherObserver?.disconnect();
+
+    const probe: FirstFinisherProbe = {
+      confirmingAt: null,
+      resultAt: null,
+      finishedCount: null,
+      transforms: null,
+    };
+    window.__firstFinisherProbe = probe;
+
+    const capture = () => {
+      const broadcast = document.querySelector<HTMLElement>('.race-broadcast');
+      if (probe.confirmingAt === null && broadcast?.dataset.racePhase === 'confirming') {
+        probe.confirmingAt = performance.now();
+        probe.finishedCount = document.querySelectorAll('.tv-runner.finished').length;
+        probe.transforms = Array.from(document.querySelectorAll('.tv-runner'), (runner) =>
+          runner.getAttribute('transform'),
+        );
+      }
+
+      if (probe.confirmingAt !== null && probe.resultAt === null) {
+        const result = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]')).find(
+          (dialog) => /Race 1 winner/i.test(dialog.textContent ?? '') && dialog.getClientRects().length > 0,
+        );
+        if (result) probe.resultAt = performance.now();
+      }
+    };
+
+    const observer = new MutationObserver(capture);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['aria-hidden', 'class', 'data-race-phase', 'open', 'role'],
+      childList: true,
+      subtree: true,
+    });
+    window.__firstFinisherObserver = observer;
+    capture();
+  });
+};
+
+const readFirstFinisherProbe = (page: Page) =>
+  page.evaluate(() => window.__firstFinisherProbe ?? null);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -91,28 +150,36 @@ test('first finisher freezes the field and opens one result within one second', 
 
   await setSprintRace(page);
   await advanceToRace(page);
+  await armFirstFinisherProbe(page);
   await page.getByRole('button', { name: /Start race/i }).click();
   await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
 
-  const confirming = page.locator('.race-broadcast[data-race-phase="confirming"]');
-  await expect(confirming).toBeVisible({ timeout: 10_000 });
-  const confirmingAt = Date.now();
+  await expect
+    .poll(async () => (await readFirstFinisherProbe(page))?.confirmingAt ?? null, { timeout: 15_000 })
+    .not.toBeNull();
+  const lineSnapshot = await readFirstFinisherProbe(page);
+  expect(lineSnapshot?.finishedCount).toBe(1);
+  expect(lineSnapshot?.transforms).toHaveLength(8);
+
   const field = page.locator('.tv-runner');
   await expect(field).toHaveCount(8);
-  expect(await page.locator('.tv-runner.finished').count()).toBeLessThan(8);
-  const frozen = await field.evaluateAll((runners) =>
-    runners.map((runner) => runner.getAttribute('transform')),
-  );
   await page.waitForTimeout(200);
   expect(
     await field.evaluateAll((runners) =>
       runners.map((runner) => runner.getAttribute('transform')),
     ),
-  ).toEqual(frozen);
+  ).toEqual(lineSnapshot?.transforms);
+
+  await expect
+    .poll(async () => (await readFirstFinisherProbe(page))?.resultAt ?? null, { timeout: 2_000 })
+    .not.toBeNull();
+  const resultSnapshot = await readFirstFinisherProbe(page);
+  expect(resultSnapshot?.resultAt).not.toBeNull();
+  expect(resultSnapshot?.confirmingAt).not.toBeNull();
+  expect(resultSnapshot!.resultAt! - resultSnapshot!.confirmingAt!).toBeLessThanOrEqual(1_000);
 
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
-  await expect(winner).toBeVisible({ timeout: 1_000 });
-  expect(Date.now() - confirmingAt).toBeLessThanOrEqual(1_000);
+  await expect(winner).toBeVisible();
   await expect(winner).toHaveCount(1);
 
   const recordedOnce = () =>
