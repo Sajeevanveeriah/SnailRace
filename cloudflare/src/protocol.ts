@@ -1,4 +1,5 @@
-export const FIELD_SIZE = 8;
+export const MIN_FIELD_SIZE = 8;
+export const MAX_FIELD_SIZE = 20;
 export const LIVE_CHIP_START = 100;
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_BODY_BYTES = 16 * 1024;
@@ -182,7 +183,11 @@ export function parseLiveShow(value: unknown): LiveShow | null {
   if (!Number.isSafeInteger(raceNo) || Number(raceNo) < 1 || Number(raceNo) > 10_000) return null;
   if (typeof phase !== 'string' || !SHOW_PHASES.has(phase)) return null;
   if (typeof raw.marketOpen !== 'boolean' || typeof raw.rehearsal !== 'boolean') return null;
-  if (!Array.isArray(raw.names) || raw.names.length !== FIELD_SIZE) return null;
+  if (
+    !Array.isArray(raw.names) ||
+    raw.names.length < MIN_FIELD_SIZE ||
+    raw.names.length > MAX_FIELD_SIZE
+  ) return null;
 
   const names: string[] = [];
   for (const supplied of raw.names) {
@@ -194,7 +199,8 @@ export function parseLiveShow(value: unknown): LiveShow | null {
 
   if (!raw.odds || typeof raw.odds !== 'object' || Array.isArray(raw.odds)) return null;
   const odds: Record<number, number> = {};
-  for (let lane = 0; lane < FIELD_SIZE; lane += 1) {
+  const fieldSize = names.length;
+  for (let lane = 0; lane < fieldSize; lane += 1) {
     const odd = Number((raw.odds as Record<string, unknown>)[String(lane)]);
     if (!Number.isFinite(odd) || odd <= 0 || odd > 10_000) return null;
     odds[lane] = odd;
@@ -210,9 +216,9 @@ export function parseLiveShow(value: unknown): LiveShow | null {
       Number(supplied.raceNo) > Number(raceNo) ||
       !Number.isSafeInteger(supplied.winnerLane) ||
       Number(supplied.winnerLane) < 0 ||
-      Number(supplied.winnerLane) >= FIELD_SIZE ||
+      Number(supplied.winnerLane) >= fieldSize ||
       !Array.isArray(supplied.order) ||
-      supplied.order.length !== FIELD_SIZE
+      supplied.order.length !== fieldSize
     ) {
       return null;
     }
@@ -225,10 +231,10 @@ export function parseLiveShow(value: unknown): LiveShow | null {
         !item ||
         !Number.isSafeInteger(item.lane) ||
         Number(item.lane) < 0 ||
-        Number(item.lane) >= FIELD_SIZE ||
+        Number(item.lane) >= fieldSize ||
         !Number.isSafeInteger(item.place) ||
         Number(item.place) < 1 ||
-        Number(item.place) > FIELD_SIZE ||
+        Number(item.place) > fieldSize ||
         typeof item.name !== 'string'
       ) {
         return null;

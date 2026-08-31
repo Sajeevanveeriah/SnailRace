@@ -11,10 +11,10 @@ import { Preflight } from './Preflight';
 import type { usePhonePlay } from '@/lib/use-phone-play';
 import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { MAX_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
+import { MAX_FIELD, MIN_LIVE_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
 import { LAP_LEN } from '@/lib/broadcast';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
-import { INTENSITY_FACTOR, LOCKED_RACE_FIELD_SIZE, eventBudget, verifyDraw } from '@/lib/race-engine';
+import { INTENSITY_FACTOR, eventBudget, verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import {
   initVoice,
@@ -806,11 +806,14 @@ export function ControlDrawer({
                 <label className="fld">
                   <span>Number of racers</span>
                   <select
-                    value={LOCKED_RACE_FIELD_SIZE}
-                    disabled
-                    aria-describedby="fixed-field-note"
+                    value={event.fieldSize}
+                    disabled={locked}
+                    aria-describedby="field-range-note"
+                    onChange={(e) => setState({ fieldSize: Number(e.target.value) })}
                   >
-                    <option value={LOCKED_RACE_FIELD_SIZE}>{LOCKED_RACE_FIELD_SIZE}</option>
+                    {Array.from({ length: MAX_FIELD - MIN_LIVE_FIELD + 1 }, (_, index) => MIN_LIVE_FIELD + index).map((size) => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
                   </select>
                 </label>
                 <label className="fld">
@@ -831,9 +834,8 @@ export function ControlDrawer({
                   ? `${event.laps} ${event.laps === 1 ? 'lap' : 'laps'} at ${Math.round(lapMs / 1000)}s = a ${raceLength} race, at about ${pace} body-lengths a second. A snail reads as a snail at about one; much above two and it looks like a beetle.`
                   : `A ${raceLength} race.`}
               </p>
-              <p id="fixed-field-note" className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                The live club show uses one fixed eight-runner card, matching the projector, phone
-                play and locked-result format.
+              <p id="field-range-note" className="mt-2 text-[11px] leading-snug text-(--tx)/50">
+                Choose {MIN_LIVE_FIELD} to {MAX_FIELD} runners. The projector, Phone Play and locked result all use this field.
               </p>
 
               <label className="mt-3 flex items-center gap-2 text-sm">

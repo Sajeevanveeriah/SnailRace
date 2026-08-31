@@ -76,3 +76,9 @@ export function runnerArtForLane(lane: number): RunnerArtAsset {
     RUNNER_ART_MANIFEST.length;
   return RUNNER_ART_MANIFEST[index];
 }
+
+/** Extra fields reuse the approved silhouettes with a distinct colourway. */
+export function runnerHueRotation(lane: number): number {
+  const integerLane = Number.isFinite(lane) ? Math.max(0, Math.trunc(lane)) : 0;
+  return Math.floor(integerLane / RUNNER_ART_MANIFEST.length) * 72;
+}

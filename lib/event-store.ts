@@ -1,7 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { DEFAULT_NAMES, MAX_FIELD } from './palette';
+import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 import { normaliseCourseId } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import type {
@@ -154,8 +154,10 @@ function syncFromStorage() {
 const clamp01 = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
 
-const LOCKED_FIELD_SIZE = 8;
 const HEX_64 = /^[a-f0-9]{64}$/i;
+
+const validLiveFieldSize = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && Number(value) >= MIN_LIVE_FIELD && Number(value) <= MAX_FIELD;
 
 /**
  * Accept only a complete consequential plan as a reloadable start. A partial
@@ -189,9 +191,9 @@ function validHeldRaceStart(value: unknown): HeldRaceStartState | null {
     config.raceNo !== held.raceNo ||
     typeof config.raceType !== 'string' ||
     !config.raceType.trim() ||
-    config.fieldSize !== LOCKED_FIELD_SIZE ||
+    !validLiveFieldSize(config.fieldSize) ||
     !Array.isArray(names) ||
-    names.length !== LOCKED_FIELD_SIZE ||
+    names.length !== config.fieldSize ||
     names.some((name) => typeof name !== 'string' || !name.trim()) ||
     !Number.isFinite(config.durationMs) ||
     config.durationMs <= 0 ||
@@ -210,13 +212,13 @@ function validHeldRaceStart(value: unknown): HeldRaceStartState | null {
     typeof plan.seedHex !== 'string' ||
     !/^[a-f0-9]{8}$/i.test(plan.seedHex) ||
     !Array.isArray(plan.names) ||
-    plan.names.length !== LOCKED_FIELD_SIZE ||
+    plan.names.length !== config.fieldSize ||
     !Array.isArray(plan.runners) ||
-    plan.runners.length !== LOCKED_FIELD_SIZE ||
+    plan.runners.length !== config.fieldSize ||
     !Array.isArray(plan.events) ||
     !Array.isArray(plan.cues) ||
     !Array.isArray(plan.results) ||
-    plan.results.length !== LOCKED_FIELD_SIZE ||
+    plan.results.length !== config.fieldSize ||
     plan.durationMs !== config.durationMs ||
     plan.laps !== config.laps ||
     plan.surprises !== config.surprises ||
@@ -226,14 +228,14 @@ function validHeldRaceStart(value: unknown): HeldRaceStartState | null {
     plan.names.some((name, lane) => name !== names[lane]) ||
     !Number.isSafeInteger(plan.winnerLane) ||
     plan.winnerLane < 0 ||
-    plan.winnerLane >= LOCKED_FIELD_SIZE ||
+    plan.winnerLane >= config.fieldSize ||
     !Number.isFinite(plan.stopAtMs) ||
     plan.stopAtMs <= 0
   ) {
     return null;
   }
 
-  const lanes = Array.from({ length: LOCKED_FIELD_SIZE }, (_, lane) => lane);
+  const lanes = Array.from({ length: config.fieldSize }, (_, lane) => lane);
   if (
     lanes.some(
       (lane) =>
@@ -278,7 +280,7 @@ function merge(raw: string | null): EventState {
       recoveryShow.raceNo === recoveryValue.raceNo &&
       recoveryShow.marketOpen === true &&
       Array.isArray(recoveryShow.names) &&
-      recoveryShow.names.length === 8
+      validLiveFieldSize(recoveryShow.names.length)
         ? recoveryValue
         : null;
     return {
@@ -313,10 +315,7 @@ function merge(raw: string | null): EventState {
       heldRaceStart,
       voidRecovery,
       names,
-      /* The club format is intentionally one fixed eight-runner card. Older
-         saved nights may carry the previous 3-20 lane setting; keeping that
-         value would make the consequential engine refuse the race at Start. */
-      fieldSize: 8,
+      fieldSize: validLiveFieldSize(parsed.fieldSize) ? parsed.fieldSize : base.fieldSize,
       courseId: normaliseCourseId(parsed.courseId),
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],

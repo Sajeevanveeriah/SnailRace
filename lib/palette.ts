@@ -40,6 +40,8 @@ export const laneColour = (lane: number): LaneColour =>
   lane < 0 ? NEUTRAL : PALETTE[lane % PALETTE.length];
 
 export const MIN_FIELD = 3;
+/** The audited live-show format supports fields from eight to twenty. */
+export const MIN_LIVE_FIELD = 8;
 export const MAX_FIELD = 20;
 
 /** One default name per possible lane, so padding a saved night is total. */

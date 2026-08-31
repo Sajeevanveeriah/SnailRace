@@ -145,6 +145,40 @@ test('race uses production art and commentary avoids monetary language', async (
   await page.screenshot({ path: testInfo.outputPath('race-projector.png'), fullPage: true });
 });
 
+test('a twenty-runner field stays inside the unobscured ultra-wide telecast', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'projector', 'Ultra-wide projector regression');
+  await page.setViewportSize({ width: 2048, height: 593 });
+  await page.getByRole('button', { name: /Controls/i }).click();
+  const controls = page.getByRole('region', { name: 'Moderator controls', includeHidden: true });
+  const fieldSize = controls.getByLabel('Number of racers');
+  await expect(fieldSize).toBeEnabled();
+  await fieldSize.selectOption('20');
+  await expect(controls.getByLabel('Lane 20 name')).toBeVisible();
+  await controls.getByRole('button', { name: /Hide/i }).click();
+
+  await advanceToRace(page);
+  await page.getByRole('button', { name: /Start race/i }).click();
+  await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
+  await expect(page.locator('.tv-snail-sprite')).toHaveCount(20);
+  await expect(page.getByRole('complementary', { name: 'Running order for 20 runners' })).toBeVisible();
+
+  await expect.poll(async () => {
+    const standings = await page.locator('.race-standings').boundingBox();
+    const broadcast = await page.locator('.race-broadcast').boundingBox();
+    const sprites = await page.locator('.tv-snail-sprite').all();
+    if (!standings || !broadcast || !sprites.length) return false;
+    const boxes = await Promise.all(sprites.map((sprite) => sprite.boundingBox()));
+    return boxes.every(
+      (box) =>
+        box !== null &&
+        box.x >= broadcast.x - 1 &&
+        box.x + box.width <= standings.x + 1,
+    );
+  }).toBe(true);
+
+  await page.screenshot({ path: testInfo.outputPath('twenty-runner-ultrawide.png'), fullPage: true });
+});
+
 test('surprises announce warning, reveal and effect with a visible prop or symbol', async ({ page }) => {
   test.setTimeout(35_000);
   await setSprintRace(page);

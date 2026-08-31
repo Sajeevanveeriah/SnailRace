@@ -6,6 +6,8 @@ import {
   instantiateLockedRace,
   lockedProgressAt,
   LOCKED_RACE_FIELD_SIZE,
+  MAX_LOCKED_RACE_FIELD_SIZE,
+  MIN_LOCKED_RACE_FIELD_SIZE,
   RETIREMENT_CHANCE_DENOMINATOR,
   RETIREMENT_SPECS,
   stepRace,
@@ -13,10 +15,22 @@ import {
 
 const names = Array.from({ length: LOCKED_RACE_FIELD_SIZE }, (_, lane) => `Runner ${lane + 1}`);
 
-test('locked races require exactly eight runners', () => {
-  assert.throws(() => drawLockedRacePlan(1, names.slice(0, 7), 12_000), /exactly 8/);
-  assert.throws(() => drawLockedRacePlan(1, [...names, 'Runner 9'], 12_000), /exactly 8/);
-  assert.equal(drawLockedRacePlan(1, names, 12_000).runners.length, 8);
+test('locked races support every field from eight to twenty runners', () => {
+  const field = (size: number) => Array.from({ length: size }, (_, lane) => `Runner ${lane + 1}`);
+  assert.throws(
+    () => drawLockedRacePlan(1, field(MIN_LOCKED_RACE_FIELD_SIZE - 1), 12_000),
+    /8 to 20/,
+  );
+  assert.throws(
+    () => drawLockedRacePlan(1, field(MAX_LOCKED_RACE_FIELD_SIZE + 1), 12_000),
+    /8 to 20/,
+  );
+  for (const size of [8, 12, 20]) {
+    const plan = drawLockedRacePlan(1, field(size), 12_000);
+    assert.equal(plan.runners.length, size);
+    assert.equal(plan.results.length, size);
+    assert.equal(instantiateLockedRace(plan).snails.length, size);
+  }
 });
 
 /* Defect class: a replay redrawing any consequence, cue or classification

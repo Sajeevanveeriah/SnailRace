@@ -101,12 +101,12 @@ function RunningOrder({
 
   useEffect(() => onBoard(setRows), [onBoard]);
 
-  const shown = (race.phase as string) === 'idle' ? [] : rows.slice(0, 8);
+  const shown = (race.phase as string) === 'idle' ? [] : rows;
   if (!open || !shown.length) return null;
 
   return (
-    <aside className="race-standings" aria-label="Running order">
-      <h3>STANDINGS</h3>
+    <aside className={`race-standings ${shown.length > 8 ? 'race-standings-dense' : ''}`} aria-label={`Running order for ${shown.length} runners`}>
+      <h3>STANDINGS <span>{shown.length} RUNNERS</span></h3>
       <ol className="tv-order" aria-live="off">
         {shown.map((row) => (
           <li key={row.lane} className="tv-order-row">

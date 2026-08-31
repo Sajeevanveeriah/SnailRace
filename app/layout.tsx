@@ -22,12 +22,12 @@ export const metadata: Metadata = {
   metadataBase,
   title: 'Dino Snail Race Night | Newcomb & District Cricket Club',
   description:
-    'An original eight-runner cartoon snail race night for Newcomb & District Cricket Club, with free fun chips, live commentary and seeded surprise theatre.',
+    'An original 8-to-20-runner cartoon snail race night for Newcomb & District Cricket Club, with free fun chips, live commentary and seeded surprise theatre.',
   applicationName: 'NDCC Snail Race',
   openGraph: {
     title: 'Dino Snail Race Night',
     description:
-      'Eight original club snails, live commentary and surprise-filled race-night theatre.',
+      'Up to twenty original club snails, live commentary and surprise-filled race-night theatre.',
     type: 'website',
     images: [{ url: clubLogo, width: 1184, height: 896, alt: 'Newcomb and District Cricket Club crest' }],
   },

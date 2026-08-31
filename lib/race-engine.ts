@@ -7,7 +7,7 @@
  *
  * - `drawRace` is the legacy all-finisher engine. Its seeded shuffle fixes the
  *   complete order and its surprises are decorative position envelopes.
- * - `drawLockedRacePlan` is the consequential eight-runner engine. It draws
+ * - `drawLockedRacePlan` is the consequential live-field engine. It draws
  *   the runners, every four-beat surprise, every persistent clock consequence
  *   and the complete first-finisher classification before countdown. Its
  *   surprises can change who wins, but runtime animation cannot change the
@@ -47,6 +47,7 @@ import type {
   RaceResult,
 } from './types';
 import type { CourseId } from './courses';
+import { MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 
 /** mulberry32: small, fast, fully deterministic from a 32-bit seed. */
 export function mulberry32(a: number): () => number {
@@ -934,10 +935,18 @@ export function drawRace(
   };
 }
 
-/* ── Versioned consequential eight-runner engine ────────────────────── */
+/* ── Versioned consequential live-field engine ─────────────────────── */
 
+/** Kept as the default and for old integrations that imported this symbol. */
 export const LOCKED_RACE_FIELD_SIZE = 8;
+export const MIN_LOCKED_RACE_FIELD_SIZE = MIN_LIVE_FIELD;
+export const MAX_LOCKED_RACE_FIELD_SIZE = MAX_FIELD;
 export const RETIREMENT_CHANCE_DENOMINATOR = 32;
+
+export const validLockedRaceFieldSize = (size: number): boolean =>
+  Number.isSafeInteger(size) &&
+  size >= MIN_LOCKED_RACE_FIELD_SIZE &&
+  size <= MAX_LOCKED_RACE_FIELD_SIZE;
 
 /**
  * Club-safe retirement mechanisms. They echo familiar cricket-ground
@@ -1067,8 +1076,10 @@ export function drawLockedRacePlan(
   trackShape: 'lanes' | 'circuit' = 'circuit',
   courseId: CourseId = 'boundary-oval',
 ): LockedRacePlan {
-  if (names.length !== LOCKED_RACE_FIELD_SIZE) {
-    throw new RangeError(`The consequential race requires exactly ${LOCKED_RACE_FIELD_SIZE} runners.`);
+  if (!validLockedRaceFieldSize(names.length)) {
+    throw new RangeError(
+      `The consequential race requires ${MIN_LOCKED_RACE_FIELD_SIZE} to ${MAX_LOCKED_RACE_FIELD_SIZE} runners.`,
+    );
   }
   if (!Number.isFinite(durationMs) || durationMs < 1000) {
     throw new RangeError('Race duration must be at least 1000ms.');
@@ -1145,7 +1156,7 @@ export function drawLockedRacePlan(
 
   /* Bound the sum per lane. Intensity may deal more events, but it cannot turn
      one runner's clock into an implausible teleport or an endless stop. */
-  const totals = new Array<number>(LOCKED_RACE_FIELD_SIZE).fill(0);
+  const totals = new Array<number>(names.length).fill(0);
   const totalCap = Math.round(durationMs * 0.16);
   for (const event of events) {
     event.targetLanes.sort((a, b) => a - b);
@@ -1167,11 +1178,11 @@ export function drawLockedRacePlan(
   }
 
   /* Retirement is a race-level rarity, never multiplied by the intensity
-     preset and never more than one of the eight runners. */
+     preset and never more than one runner. */
   const retirementRnd = mulberry32(seed ^ 0x52455431);
   if (surprises && retirementRnd() < 1 / RETIREMENT_CHANCE_DENOMINATOR) {
     const spec = RETIREMENT_SPECS[Math.floor(retirementRnd() * RETIREMENT_SPECS.length)];
-    const lane = Math.floor(retirementRnd() * LOCKED_RACE_FIELD_SIZE);
+    const lane = Math.floor(retirementRnd() * names.length);
     const effectAtMs = Math.round(durationMs * (0.38 + retirementRnd() * 0.2));
     const name = names[lane];
     events.push({
@@ -1313,7 +1324,7 @@ export function drawLockedRacePlan(
 
 /** Build mutable animation state without mutating the stored locked plan. */
 export function instantiateLockedRace(plan: LockedRacePlan): DrawnRace {
-  if (plan.engine !== 'consequential-eight-v1' || plan.names.length !== LOCKED_RACE_FIELD_SIZE) {
+  if (plan.engine !== 'consequential-eight-v1' || !validLockedRaceFieldSize(plan.names.length)) {
     throw new RangeError('Unsupported locked race plan.');
   }
   const runtimeEvents: RaceEvent[] = plan.events.flatMap((event) =>

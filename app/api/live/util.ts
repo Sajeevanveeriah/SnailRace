@@ -82,7 +82,7 @@ export function parseLiveShow(value: unknown): LiveShow | null {
   if (!Number.isSafeInteger(raceNo) || Number(raceNo) < 1 || Number(raceNo) > 10_000) return null;
   if (typeof phase !== 'string' || !SHOW_PHASES.has(phase)) return null;
   if (typeof raw.marketOpen !== 'boolean' || typeof raw.rehearsal !== 'boolean') return null;
-  if (!Array.isArray(raw.names) || raw.names.length < 2 || raw.names.length > 20) return null;
+  if (!Array.isArray(raw.names) || raw.names.length < 8 || raw.names.length > 20) return null;
 
   const names: string[] = [];
   for (const value of raw.names) {
@@ -114,8 +114,7 @@ export function parseLiveShow(value: unknown): LiveShow | null {
       Number(supplied.winnerLane) < 0 ||
       Number(supplied.winnerLane) >= names.length ||
       !Array.isArray(supplied.order) ||
-      supplied.order.length < 2 ||
-      supplied.order.length > names.length
+      supplied.order.length !== names.length
     ) {
       return null;
     }
