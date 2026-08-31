@@ -353,6 +353,7 @@ export function ControlDrawer({
             laps: past.laps,
             surprises: past.surprises,
             trackShape: past.trackShape ?? 'circuit',
+            courseId: past.courseId ?? past.racePlan?.courseId,
             intensity: past.intensity,
           };
           const commit = await commitmentOf(past.seedHex, config);

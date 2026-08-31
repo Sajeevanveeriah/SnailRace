@@ -37,12 +37,18 @@ export interface RaceConfig {
    * which this field's absence selects.
    */
   intensity?: string;
+  /** Broadcast course, bound from the multi-course release onward. */
+  courseId?: string;
 }
 
 /** The canonical string the commitment hashes. Stated so it can be replayed. */
 export const commitmentInput = (seedHex: string, config: RaceConfig): string => {
   const base = [
-    config.intensity === undefined ? 'ndcc-race-commit-v1' : 'ndcc-race-commit-v2',
+    config.courseId !== undefined
+      ? 'ndcc-race-commit-v3'
+      : config.intensity === undefined
+        ? 'ndcc-race-commit-v1'
+        : 'ndcc-race-commit-v2',
     seedHex.toUpperCase(),
     config.raceNo,
     config.raceType,
@@ -55,6 +61,7 @@ export const commitmentInput = (seedHex: string, config: RaceConfig): string => 
     config.trackShape,
   ];
   if (config.intensity !== undefined) base.push(config.intensity);
+  if (config.courseId !== undefined) base.push(config.courseId);
   return base.join('|');
 };
 
@@ -183,6 +190,7 @@ export const canonicalRacePlan = (plan: LockedRacePlan): string => {
     plan.surprises,
     plan.intensity,
     plan.trackShape,
+    ...(plan.courseId === undefined ? [] : [plan.courseId]),
     plan.weather,
     plan.photoFinish,
     runners,
@@ -193,7 +201,7 @@ export const canonicalRacePlan = (plan: LockedRacePlan): string => {
     plan.stopAtMs,
   ];
 
-  return `ndcc-race-plan-v1|${JSON.stringify(canonical)}`;
+  return `ndcc-race-plan-v${plan.courseId === undefined ? 1 : 2}|${JSON.stringify(canonical)}`;
 };
 
 export const planHashOf = (plan: LockedRacePlan): Promise<string> =>

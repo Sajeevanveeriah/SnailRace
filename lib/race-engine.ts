@@ -46,6 +46,7 @@ import type {
   LockedRaceRunner,
   RaceResult,
 } from './types';
+import type { CourseId } from './courses';
 
 /** mulberry32: small, fast, fully deterministic from a 32-bit seed. */
 export function mulberry32(a: number): () => number {
@@ -1064,6 +1065,7 @@ export function drawLockedRacePlan(
   intensity: IntensityId = 'standard',
   laps = 1,
   trackShape: 'lanes' | 'circuit' = 'circuit',
+  courseId: CourseId = 'boundary-oval',
 ): LockedRacePlan {
   if (names.length !== LOCKED_RACE_FIELD_SIZE) {
     throw new RangeError(`The consequential race requires exactly ${LOCKED_RACE_FIELD_SIZE} runners.`);
@@ -1131,7 +1133,7 @@ export function drawLockedRacePlan(
       effectEndMs:
         effectAtMs + Math.max(Math.round(event.span * durationMs), Math.abs(delta), 350),
       clockDeltaMsByLane: { [event.lane]: delta },
-      warningText: 'Something is developing on the course.',
+      warningText: `${event.groupLabel ?? event.label} is approaching the course.`,
       revealText: '',
       commentaryText: event.groupCall ?? event.call,
     });
@@ -1297,6 +1299,7 @@ export function drawLockedRacePlan(
     surprises,
     intensity,
     trackShape,
+    courseId,
     weather: source.weather,
     photoFinish: secondAt - stopAtMs <= durationMs * 0.015,
     runners,

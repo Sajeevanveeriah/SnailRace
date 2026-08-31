@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_NAMES, MAX_FIELD } from './palette';
+import { normaliseCourseId } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import type {
   AuditEntry,
@@ -76,7 +77,7 @@ export function freshState(): EventState {
      */
     raceDurationMs: 120_000,
     trackShape: 'circuit',
-    courseId: 'oval',
+    courseId: 'boundary-oval',
     laps: 3,
     chaseCam: true,
     surprises: true,
@@ -198,6 +199,7 @@ function validHeldRaceStart(value: unknown): HeldRaceStartState | null {
     config.laps < 1 ||
     typeof config.surprises !== 'boolean' ||
     !trackShapes.includes(config.trackShape) ||
+    (config.courseId !== undefined && normaliseCourseId(config.courseId) !== config.courseId) ||
     !intensities.includes(config.intensity) ||
     !odds ||
     typeof odds !== 'object' ||
@@ -219,6 +221,7 @@ function validHeldRaceStart(value: unknown): HeldRaceStartState | null {
     plan.laps !== config.laps ||
     plan.surprises !== config.surprises ||
     plan.trackShape !== config.trackShape ||
+    plan.courseId !== config.courseId ||
     plan.intensity !== config.intensity ||
     plan.names.some((name, lane) => name !== names[lane]) ||
     !Number.isSafeInteger(plan.winnerLane) ||
@@ -314,6 +317,7 @@ function merge(raw: string | null): EventState {
          saved nights may carry the previous 3-20 lane setting; keeping that
          value would make the consequential engine refuse the race at Start. */
       fieldSize: 8,
+      courseId: normaliseCourseId(parsed.courseId),
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],

@@ -74,6 +74,22 @@ test('the commitment binds seed and configuration', async () => {
   );
 });
 
+test('new commitments and plans bind the selected broadcast course', async () => {
+  const withCourse: RaceConfig = { ...config, intensity: 'standard', courseId: 'boundary-oval' };
+  assert.match(commitmentInput('8F2A31C0', withCourse), /^ndcc-race-commit-v3\|/);
+  assert.notEqual(
+    await commitmentOf('8F2A31C0', withCourse),
+    await commitmentOf('8F2A31C0', { ...withCourse, courseId: 'pavilion-chicane' }),
+  );
+
+  const first = structuredClone(lockedPlan);
+  first.courseId = 'boundary-oval';
+  const second = structuredClone(first);
+  second.courseId = 'floodlight-eight';
+  assert.match(canonicalRacePlan(first), /^ndcc-race-plan-v2\|/);
+  assert.notEqual(await planHashOf(first), await planHashOf(second));
+});
+
 /* Defect class: a result hash that misses a change to the finishing order. */
 test('the result hash fingerprints the finishing order', async () => {
   const results = [

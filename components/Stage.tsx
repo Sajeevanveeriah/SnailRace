@@ -39,6 +39,7 @@ import { sponsorFor } from '@/lib/standings';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour } from '@/lib/palette';
+import { courseById, courseForRace } from '@/lib/courses';
 import {
   audioState,
   initVoice,
@@ -106,6 +107,12 @@ export function Stage() {
     [event.names, event.fieldSize],
   );
   const nextRaceNo = event.raceNumber + 1;
+  const finishedCourseId = event.showPhase === 'results'
+    ? event.history.find((entry) => entry.raceNo === event.raceNumber && !entry.void)?.courseId
+    : undefined;
+  const activeCourse = courseById(
+    event.heldRaceStart?.plan.courseId ?? finishedCourseId ?? courseForRace(nextRaceNo).id,
+  );
   const sponsor = useMemo(
     () => sponsorFor(event.sponsors, nextRaceNo),
     [event.sponsors, nextRaceNo],
@@ -195,6 +202,7 @@ export function Stage() {
         laps: armed?.config.laps,
         surprises: armed?.config.surprises,
         trackShape: armed?.config.trackShape ?? event.trackShape,
+        courseId: armed?.config.courseId ?? activeCourse.id,
         intensity: armed?.config.intensity ?? event.intensity,
         lockedAt: armed?.lockedAt,
         startedAt: armed?.startedAt,
@@ -226,7 +234,7 @@ export function Stage() {
       setOverlayOpen(true);
       setConfettiKey((k) => k + 1);
     },
-    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, names, nextRaceNo, raceDonationCents, sponsor],
+    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
   );
 
   const race = useRace(onFinish);
@@ -448,6 +456,7 @@ export function Stage() {
       event.intensity,
       laps,
       event.trackShape,
+      activeCourse.id,
     );
     const config: HeldRaceStartState['config'] = {
       raceNo: nextRaceNo,
@@ -458,6 +467,7 @@ export function Stage() {
       laps,
       surprises: event.surprises,
       trackShape: event.trackShape,
+      courseId: activeCourse.id,
       intensity: event.intensity,
     };
     const armedDraft: HeldRaceStartState = {
@@ -539,6 +549,7 @@ export function Stage() {
     event.surprises,
     event.intensity,
     event.trackShape,
+    activeCourse.id,
     event.laps,
     event.phonePlay,
     event.heldRaceStart,
@@ -1310,6 +1321,7 @@ export function Stage() {
                 calm={event.calm}
                 clubName={event.clubName}
                 raceNo={nextRaceNo}
+                courseId={activeCourse.id}
               />
             ) : (
               <RaceTrack names={names} race={race} surface={event.stageTheme} />

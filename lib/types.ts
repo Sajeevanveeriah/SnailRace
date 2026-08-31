@@ -7,6 +7,8 @@
  * Any value crossing the network boundary is in cents.
  */
 
+import type { CourseId } from './courses';
+
 export type DonationSource = 'stripe' | 'cash';
 
 export interface Racer {
@@ -124,6 +126,8 @@ export interface LockedRacePlan {
   surprises: boolean;
   intensity: SurpriseIntensity;
   trackShape: 'lanes' | 'circuit';
+  /** Authored broadcast course. Optional only for pre-course-plan archives. */
+  courseId?: CourseId;
   weather: 'clear' | 'drizzle' | 'downpour';
   photoFinish: boolean;
   runners: LockedRaceRunner[];
@@ -292,6 +296,7 @@ export interface RaceHistoryEntry {
   laps?: number;
   surprises?: boolean;
   trackShape?: 'lanes' | 'circuit';
+  courseId?: CourseId;
   /** Surprise Director preset the race ran under. Part of the commitment. */
   intensity?: SurpriseIntensity;
   lockedAt?: number;
@@ -377,6 +382,7 @@ export interface HeldRaceStartState {
     laps: number;
     surprises: boolean;
     trackShape: 'lanes' | 'circuit';
+    courseId?: CourseId;
     intensity: SurpriseIntensity;
   };
   oddsAtLock: Record<number, number>;
@@ -428,7 +434,7 @@ export interface EventState {
   /** Which renderer the stage uses: straight lanes, or laps of a circuit. */
   trackShape: 'lanes' | 'circuit';
   /** Which circuit, when trackShape is 'circuit'. */
-  courseId: string;
+  courseId: CourseId;
   /** Laps of the circuit. Total race time is lap length times laps. */
   laps: number;
   /** Let the camera director cut between shots, or hold the whole course. */
