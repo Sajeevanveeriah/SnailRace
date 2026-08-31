@@ -107,8 +107,11 @@ export function Stage() {
     [event.names, event.fieldSize],
   );
   const nextRaceNo = event.raceNumber + 1;
+  const finishedCourseId = event.showPhase === 'results'
+    ? event.history.find((entry) => entry.raceNo === event.raceNumber && !entry.void)?.courseId
+    : undefined;
   const activeCourse = courseById(
-    event.heldRaceStart?.plan.courseId ?? courseForRace(nextRaceNo).id,
+    event.heldRaceStart?.plan.courseId ?? finishedCourseId ?? courseForRace(nextRaceNo).id,
   );
   const sponsor = useMemo(
     () => sponsorFor(event.sponsors, nextRaceNo),
