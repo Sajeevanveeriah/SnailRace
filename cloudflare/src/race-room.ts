@@ -1,7 +1,7 @@
 import type { DurableObjectState, DurableObjectStorage, WorkerEnv } from './platform';
 import {
-  FIELD_SIZE,
   LIVE_CHIP_START,
+  MAX_FIELD_SIZE,
   MAX_PLAYERS,
   MAX_PICK_COMMANDS_PER_PLAYER,
   MAX_PLAYER_RECEIPTS,
@@ -423,7 +423,7 @@ export class RaceRoom {
       if (meta.race.status !== 'OPEN' || !meta.show.marketOpen) {
         return fail('The market is locked for this race.', 409);
       }
-      if (Number(lane) < 0 || Number(lane) >= FIELD_SIZE) {
+      if (Number(lane) < 0 || Number(lane) >= meta.show.names.length) {
         return fail('Pick a snail that is in the field.', 400);
       }
       if (Number(chips) <= 0 || Number(chips) > LIVE_CHIP_START) {
@@ -843,7 +843,7 @@ export class RaceRoom {
       !Number.isSafeInteger(raceNo) ||
       !Number.isSafeInteger(winnerLane) ||
       Number(winnerLane) < 0 ||
-      Number(winnerLane) >= FIELD_SIZE ||
+      Number(winnerLane) >= MAX_FIELD_SIZE ||
       !validCommandId(commandId)
     ) {
       return fail('Malformed settlement request.', 400);
@@ -855,6 +855,9 @@ export class RaceRoom {
       const availability = activeError(meta);
       if (availability) return availability;
       if (!this.operatorAuthorised(meta, request)) return fail('Not the operator.', 403);
+      if (Number(winnerLane) >= meta.show.names.length) {
+        return fail('The winner is not in the current field.', 400);
+      }
       const replay = await this.replay(transaction, 'operator', commandId, 'settle', requestHash);
       if (replay) return replay;
       const capacity = this.receiptCapacity(meta, 'operator');

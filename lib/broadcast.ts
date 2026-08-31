@@ -154,6 +154,9 @@ export interface BroadcastInput {
   leadP: number;
   finalStraight: boolean;
   photoFinish: boolean;
+  /** Unobscured horizontal window in authored SVG units. */
+  safeLeft?: number;
+  safeRight?: number;
 }
 
 export interface Framing {
@@ -163,15 +166,53 @@ export interface Framing {
   zoom: number;
   shot: ShotId;
   label: string;
+  safeLeft: number;
+  safeRight: number;
 }
 
-/** Never so tight that the field runs out of the frame, never so wide it is ants. */
-const ZOOM_MIN = 0.2;
+/** Wide enough for a twenty-runner finish on a portrait phone if required. */
+const ZOOM_MIN = 0.025;
 const ZOOM_MAX = 0.62;
-/** How much screen the field should occupy at rest. */
-const FIT_PX = 1000;
 /** Elbow room either side of the runners, in world units. */
 const PAD_WORLD = 260;
+
+export interface RunnerSafeFrame {
+  left: number;
+  right: number;
+}
+
+/**
+ * Reserve the right-hand graphics area and a sprite-width at both edges.
+ * The values are derived from the actual SVG viewBox, so ultra-wide and
+ * portrait screens protect the same visible part of the picture.
+ */
+export function runnerSafeFrame(viewX: number, viewWidth: number): RunnerSafeFrame {
+  const width = Math.max(1, viewWidth);
+  const inset = Math.min(90, width * 0.08);
+  const graphicsShare = width < 650 ? 0.52 : width < 1100 ? 0.42 : 0.26;
+  const left = viewX + inset;
+  const right = Math.max(left + 100, viewX + width * (1 - graphicsShare) - inset);
+  return { left, right };
+}
+
+/** Keep an eased pan inside a frame that the selected zoom can contain. */
+export function clampCameraX(
+  camX: number,
+  zoom: number,
+  worldByPosition: number[],
+  safe: RunnerSafeFrame,
+): number {
+  if (!worldByPosition.length || !Number.isFinite(zoom) || zoom <= 0) return camX;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const world of worldByPosition) {
+    lo = Math.min(lo, world);
+    hi = Math.max(hi, world);
+  }
+  const minCam = hi + (VIEW_W / 2 - safe.right) / zoom;
+  const maxCam = lo + (VIEW_W / 2 - safe.left) / zoom;
+  return minCam <= maxCam ? Math.min(maxCam, Math.max(minCam, camX)) : camX;
+}
 
 /** How long each shot runs before the director looks for another, in ms. */
 const HOLD: Record<ShotId, number> = {
@@ -239,22 +280,28 @@ export class Broadcaster {
     }
 
     const all = input.worldByPosition;
+    const safeLeft = Number.isFinite(input.safeLeft) ? input.safeLeft! : 100;
+    const safeRight = Number.isFinite(input.safeRight) ? input.safeRight! : 1100;
+    const safeWidth = Math.max(100, safeRight - safeLeft);
     if (!all.length) {
-      return { camX: 0, zoom: this.zoom, shot: this.shot, label: SHOT_LABEL[this.shot] };
+      return {
+        camX: 0,
+        zoom: this.zoom,
+        shot: this.shot,
+        label: SHOT_LABEL[this.shot],
+        safeLeft,
+        safeRight,
+      };
     }
 
     /*
      * Which runners the shot is obliged to contain.
      *
-     * The finish shot follows the front of the race, not the whole field. Made
-     * to contain everybody, it had to keep widening as the tail strung out
-     * behind the leader - a slow continuous zoom-out over the last ten seconds,
-     * exactly when the picture most needs to be still.
+     * Every shot contains every runner. A leader shot may still change the
+     * lens and label, but never at the cost of a club member's snail leaving
+     * the visible picture or disappearing behind the running-order panel.
      */
-    const group =
-      this.shot === 'leaders' || this.shot === 'finish'
-        ? all.slice(0, Math.min(4, all.length))
-        : all;
+    const group = this.shot === 'finish' ? [...all, input.finishWorld] : all;
     let lo = Infinity;
     let hi = -Infinity;
     for (const w of group) {
@@ -270,8 +317,8 @@ export class Broadcaster {
      * whole point: between these two bounds the lens does not move at all.
      */
     const onScreen = span * this.zoom;
-    const mustWiden = onScreen > FIT_PX * 1.2;
-    const wastingFrame = onScreen < FIT_PX * 0.4 && held > 7000;
+    const mustWiden = onScreen > safeWidth;
+    const wastingFrame = onScreen < safeWidth * 0.4 && held > 7000;
 
     /*
      * The finish camera is locked the moment it is taken. Nothing that happens
@@ -281,13 +328,16 @@ export class Broadcaster {
      */
     const locked = this.shot === 'finish' && !changed;
     if (!locked && (changed || mustWiden || wastingFrame || input.tMs < 3000)) {
-      let want = FIT_PX / span;
-      if (this.shot === 'low') want *= 1.2;
+      let want = safeWidth / span;
       /* Quantised, so a re-zoom is a deliberate step rather than a nudge that
          will need another nudge two seconds later. */
       want = Math.round(want / 0.03) * 0.03;
       this.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, want));
     }
+
+    /* A held lens is allowed to stay wide, never too tight. This immediate
+       cap is the invariant that prevents a trailing runner leaving frame. */
+    this.zoom = Math.min(this.zoom, safeWidth / span);
 
     /*
      * Sit the field slightly left of centre so there is track ahead of the
@@ -295,15 +345,18 @@ export class Broadcaster {
      * have been as where they are going, which reads as a lens pointed
      * backwards.
      */
-    let camX = (lo + hi) / 2 + span * 0.06;
+    const middle = (lo + hi) / 2;
+    const safeCentre = (safeLeft + safeRight) / 2;
+    const camX = middle + (VIEW_W / 2 - safeCentre) / this.zoom;
 
-    if (this.shot === 'finish') {
-      /* Hold the line at the right of frame with the field running into it. */
-      const lead = all[0];
-      camX = Math.max(lead, input.finishWorld - 300 / this.zoom);
-    }
-
-    return { camX, zoom: this.zoom, shot: this.shot, label: SHOT_LABEL[this.shot] };
+    return {
+      camX,
+      zoom: this.zoom,
+      shot: this.shot,
+      label: SHOT_LABEL[this.shot],
+      safeLeft,
+      safeRight,
+    };
   }
 }
 

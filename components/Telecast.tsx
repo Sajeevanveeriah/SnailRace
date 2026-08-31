@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ordinal, type SnailRun } from '@/lib/race-engine';
 import { ClubBrand } from './brand/ClubBrand';
-import { runnerArtForLane } from '@/lib/presentation/runner-art';
+import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
 import { courseById, courseRide, type CourseId } from '@/lib/courses';
 import { BroadcastHud } from './race-broadcast/BroadcastHud';
 import { SurpriseLayer } from './race-broadcast/SurpriseLayer';
@@ -12,6 +12,7 @@ import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import {
   BLEED,
   Broadcaster,
+  clampCameraX,
   clockText,
   FLOOR_H,
   HOARD_H,
@@ -20,6 +21,7 @@ import {
   LAP_LEN,
   laneBands,
   MARK_EVERY,
+  runnerSafeFrame,
   SNAIL_H,
   TRACK_BOTTOM,
   TRACK_TOP,
@@ -224,6 +226,18 @@ export function Telecast({
       });
     };
 
+    const wideCamera = () => {
+      const vb = vbRef.current;
+      const safe = runnerSafeFrame(vb.x, vb.w);
+      const z = (safe.right - safe.left) / (totalWorld + 520);
+      const centre = (safe.left + safe.right) / 2;
+      return {
+        x: totalWorld / 2 + (VIEW_W / 2 - centre) / z,
+        z,
+        safe,
+      };
+    };
+
     return {
       measure: () => {
         /*
@@ -260,8 +274,9 @@ export function Telecast({
         clock.running = false;
         /* Reduced motion holds one wide camera. Runner translation remains
            essential race information; camera travel and parallax do not. */
-        cam.x = reduceMotion ? totalWorld / 2 : 260;
-        cam.z = reduceMotion ? (VIEW_W - 200) / totalWorld : 0.5;
+        const wide = wideCamera();
+        cam.x = reduceMotion ? wide.x : 260;
+        cam.z = reduceMotion ? wide.z : 0.5;
         write();
         placeAll(() => 0);
         nodesRef.current.forEach((n) => {
@@ -352,6 +367,7 @@ export function Telecast({
         /* Where to point. With the camera off, hold the whole race in frame. */
         let targetX: number;
         let targetZ: number;
+        let safeFrame = runnerSafeFrame(vbRef.current.x, vbRef.current.w);
         if (chase && !reduceMotion) {
           const framing = directorRef.current.update({
             tMs: clock.ms,
@@ -360,15 +376,20 @@ export function Telecast({
             leadP: info.leadP,
             finalStraight: info.finalStraight,
             photoFinish: info.photoFinish,
+            safeLeft: safeFrame.left,
+            safeRight: safeFrame.right,
           });
           targetX = framing.camX;
           targetZ = framing.zoom;
+          safeFrame = { left: framing.safeLeft, right: framing.safeRight };
           if (shotRef.current && shotRef.current.textContent !== framing.label) {
             shotRef.current.textContent = framing.label;
           }
         } else {
-          targetX = totalWorld / 2;
-          targetZ = (VIEW_W - 200) / totalWorld;
+          const wide = wideCamera();
+          targetX = wide.x;
+          targetZ = wide.z;
+          safeFrame = wide.safe;
           if (shotRef.current) shotRef.current.textContent = 'WIDE';
         }
 
@@ -377,7 +398,14 @@ export function Telecast({
           cam.z = targetZ;
         } else {
           cam.x += (targetX - cam.x) * PAN_EASE;
-          cam.z += (targetZ - cam.z) * ZOOM_EASE;
+          /* Widen immediately; only a decorative zoom-in is eased. */
+          cam.z = targetZ < cam.z ? targetZ : cam.z + (targetZ - cam.z) * ZOOM_EASE;
+
+          /* Pan easing may not temporarily strand the first or last runner.
+             Clamp the eased camera to the current unobscured window. */
+          const positions = info.byPosition.map((snail) => snail.p * totalWorld);
+          if (info.finalStraight) positions.push(totalWorld);
+          cam.x = clampCameraX(cam.x, cam.z, positions, safeFrame);
         }
         write();
       },
@@ -783,6 +811,7 @@ export function Telecast({
                     '--shell-dk': c.dark,
                     '--body': c.body,
                     '--glow': c.glow,
+                    '--runner-hue': `${runnerHueRotation(lane)}deg`,
                   } as React.CSSProperties
                 }
               >

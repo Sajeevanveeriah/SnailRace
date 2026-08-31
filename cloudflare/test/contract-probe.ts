@@ -15,6 +15,7 @@ registerHooks({
 });
 
 const { default: worker, RaceRoom, RateGate } = await import('../src/index');
+const { parseLiveShow } = await import('../src/protocol');
 
 const clone = <T>(value: T): T => structuredClone(value);
 
@@ -170,6 +171,19 @@ const show = (over: Record<string, unknown> = {}) => ({
   rehearsal: true,
   ...over,
 });
+
+const names12 = Array.from({ length: 12 }, (_, lane) => `Runner ${lane + 1}`);
+const names20 = Array.from({ length: 20 }, (_, lane) => `Runner ${lane + 1}`);
+assert.equal(
+  parseLiveShow(show({ names: names12, odds: Object.fromEntries(names12.map((_, lane) => [lane, 12])) }))?.names.length,
+  12,
+);
+assert.equal(
+  parseLiveShow(show({ names: names20, odds: Object.fromEntries(names20.map((_, lane) => [lane, 20])) }))?.names.length,
+  20,
+);
+assert.equal(parseLiveShow(show({ names: names.slice(0, 7) })), null);
+assert.equal(parseLiveShow(show({ names: [...names20, 'Runner 21'] })), null);
 
 const health = await worker.fetch(
   new Request('https://worker.example/api/live/health', {

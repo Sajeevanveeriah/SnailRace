@@ -118,7 +118,7 @@
    geometry as the previous code-drawn field. */
 .tv-art-background { pointer-events: none; }
 .tv-snail-sprite {
-  filter: drop-shadow(0 7px 5px rgb(0 0 0 / 0.38));
+  filter: hue-rotate(var(--runner-hue, 0deg)) drop-shadow(0 7px 5px rgb(0 0 0 / 0.38));
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
@@ -126,10 +126,10 @@
   animation: broadcast-crawl 1.35s ease-in-out infinite;
 }
 .tv-runner.surging .tv-snail-sprite {
-  filter: drop-shadow(0 0 11px rgb(var(--glow) / 0.82)) drop-shadow(0 7px 5px rgb(0 0 0 / 0.38));
+  filter: hue-rotate(var(--runner-hue, 0deg)) drop-shadow(0 0 11px rgb(var(--glow) / 0.82)) drop-shadow(0 7px 5px rgb(0 0 0 / 0.38));
 }
-.tv-runner.fx-down .tv-snail-sprite { filter: grayscale(0.2) brightness(0.82); }
-.tv-runner.finished .tv-snail-sprite { filter: drop-shadow(0 0 15px var(--ndcc-gold)); }
+.tv-runner.fx-down .tv-snail-sprite { filter: hue-rotate(var(--runner-hue, 0deg)) grayscale(0.2) brightness(0.82); }
+.tv-runner.finished .tv-snail-sprite { filter: hue-rotate(var(--runner-hue, 0deg)) drop-shadow(0 0 15px var(--ndcc-gold)); }
 
 @keyframes broadcast-crawl {
   0%, 100% { transform: translateY(0) rotate(0deg); }

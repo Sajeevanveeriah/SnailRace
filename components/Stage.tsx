@@ -38,7 +38,7 @@ import { funChipPoolsFor } from '@/lib/tote';
 import { sponsorFor } from '@/lib/standings';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
-import { laneColour } from '@/lib/palette';
+import { laneColour, MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
 import { courseById, courseForRace } from '@/lib/courses';
 import {
   audioState,
@@ -60,7 +60,6 @@ import type { Bet, Donation, RaceHighlight, RaceHistoryEntry, RaceResult } from 
 import {
   drawLockedRacePlan,
   freshSeed,
-  LOCKED_RACE_FIELD_SIZE,
   type DrawnRace,
 } from '@/lib/race-engine';
 
@@ -351,7 +350,7 @@ export function Stage() {
       addAudit({
         kind: 'race_locked',
         raceNo: started.raceNo,
-        detail: `Race ${started.raceNo} locked: eight selections closed, odds snapshotted, and complete plan ${shortHash(started.planHash)}… acknowledged before countdown.`,
+        detail: `Race ${started.raceNo} locked: ${started.config.fieldSize} selections closed, odds snapshotted, and complete plan ${shortHash(started.planHash)}… acknowledged before countdown.`,
       });
       addAudit({
         kind: 'race_started',
@@ -437,9 +436,8 @@ export function Stage() {
       return;
     }
 
-    if (names.length !== LOCKED_RACE_FIELD_SIZE) {
-      setStartError(`The live race needs exactly ${LOCKED_RACE_FIELD_SIZE} runners.`);
-      setState({ fieldSize: LOCKED_RACE_FIELD_SIZE, bettingOpen: true });
+    if (names.length < MIN_LIVE_FIELD || names.length > MAX_FIELD) {
+      setStartError(`The live race needs ${MIN_LIVE_FIELD} to ${MAX_FIELD} runners.`);
       return;
     }
 

@@ -22,7 +22,7 @@ The enforced lifecycle is:
 
 `LOCKED`, `RUNNING` or `DRAWN` may instead move to `VOID`; only an explicit
 `rearm` moves that same race to a new `OPEN` attempt. A new race number is
-accepted only after `SETTLED` or `VOID`. The field is exactly eight runners,
+accepted only after `SETTLED` or `VOID`. The field supports 8 to 20 runners,
 players start with 100 fun chips, each pick is capped at 100, and submitted
 display odds are snapshotted at pick time. Neither this service nor its state
 has monetary value.

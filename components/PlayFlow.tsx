@@ -7,7 +7,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { ClubBrand } from './brand/ClubBrand';
 import { HAS_LIVE_API, liveApiUrl } from '@/lib/deployment';
 import { laneColour } from '@/lib/palette';
-import { runnerArtForLane } from '@/lib/presentation/runner-art';
+import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
 import { ordinal } from '@/lib/race-engine';
 import { newId } from '@/lib/ids';
 import { fetchWithTimeout } from '@/lib/network';
@@ -29,7 +29,10 @@ function PlayerSnailArt({ lane = 0, className = '' }: { lane?: number; className
   return (
     <span
       className={`player-snail-art ${className}`}
-      style={{ backgroundImage: `url(${runnerArtForLane(lane).src})` }}
+      style={{
+        backgroundImage: `url(${runnerArtForLane(lane).src})`,
+        filter: `hue-rotate(${runnerHueRotation(lane)}deg)`,
+      }}
       aria-hidden="true"
     />
   );
@@ -562,7 +565,7 @@ export function PlayFlow() {
               Result - race {result.raceNo}
             </h2>
             <ol className="flex flex-col gap-1.5">
-              {result.order.slice(0, 8).map((r) => (
+              {result.order.map((r) => (
                 <li
                   key={r.lane}
                   className="flex items-center gap-2.5 rounded-xl bg-(--tx)/5 px-3 py-2 text-sm"

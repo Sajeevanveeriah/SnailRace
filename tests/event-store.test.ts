@@ -20,12 +20,12 @@ test('freshState carries the audit trail and every ledger', () => {
    drawing a different plan over the already locked Phone Play room. */
 test('a held start restores the exact locked plan and rejects a partial hash', async () => {
   const state = freshState();
-  const names = state.names.slice(0, 8);
+  const names = state.names.slice(0, 12);
   const plan = drawLockedRacePlan(0x51a11, names, 12_000, true, 'chaos', 3, 'circuit');
   const config: HeldRaceStartState['config'] = {
     raceNo: 1,
     raceType: 'Heat',
-    fieldSize: 8,
+    fieldSize: 12,
     names,
     durationMs: 12_000,
     laps: 3,
@@ -39,7 +39,7 @@ test('a held start restores the exact locked plan and rejects a partial hash', a
     lockedAt: 1_800_000_000_000,
     startedAt: 1_800_000_000_100,
     config,
-    oddsAtLock: Object.fromEntries(names.map((_, lane) => [lane, 8])),
+    oddsAtLock: Object.fromEntries(names.map((_, lane) => [lane, 12])),
     commitHash: await commitmentOf(plan.seedHex, config),
     planHash: await planHashOf(plan),
     plan,
@@ -65,10 +65,8 @@ test('a held start restores the exact locked plan and rejects a partial hash', a
   assert.equal(currentState().heldRaceStart, null);
 });
 
-/* The projector, racecard and Phone Play market must all begin from the
-   same eight-runner field. Keep this as a literal acceptance vector so a
-   shared constant changing cannot make the requirement silently move. */
-test('freshState opens with the approved eight-runner field', () => {
+/* Eight stays the practical default even though the live format can expand. */
+test('freshState opens with the approved eight-runner default', () => {
   const s = freshState();
   assert.equal(s.fieldSize, 8);
   assert.deepEqual(s.names.slice(0, s.fieldSize), [

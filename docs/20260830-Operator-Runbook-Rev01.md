@@ -1,14 +1,14 @@
 # NDCC Snail Race Night - Operator Runbook
 
 Rev01, 30 August 2026 (AEST). This is the current volunteer script for the
-consequential eight-runner release. It supersedes Rev00.
+consequential 8-to-20-runner release. It supersedes Rev00.
 
 The two rules that never bend:
 
 - **Fun chips have no monetary value.** They are free, cannot be bought or
   cashed out, and never become a prize of value.
 - **Donations never enter the race or chip maths.** Stripe and cash are gifts
-  to the club. Every one of the eight lanes has the same fixed 8.00-for-1 chip
+  to the club. Every lane has the same fixed N.00-for-1 chip
   price regardless of donations or the room's other picks.
 
 ## 1. Choose the hosting shape
@@ -29,8 +29,8 @@ the repository does not mean either service is deployed.
 
 1. Open the projector stage at `/`, press **M**, and enter the event name,
    venue, date, sponsors and fundraising goal.
-2. Confirm exactly eight runner names. A live race will refuse any other field
-   size.
+2. Choose and confirm 8 to 20 runner names. A live race will refuse any field
+   outside that range.
 3. Choose live animated or a rights-cleared recorded pack. For a recorded pack,
    reattach and fingerprint-check its media after any browser reload.
 4. Run **Preflight** and resolve every `BLOCKED` item. Test sound, the presenter
@@ -47,7 +47,7 @@ the repository does not mean either service is deployed.
 This order matters. Do not tell the room that a race has started until the stage
 has moved beyond any `LOCKING` or `HELD` state.
 
-1. The stage draws one fresh seed and creates the complete eight-runner locked
+1. The stage draws one fresh seed and creates the complete locked
    plan before countdown.
 2. The plan already contains every warning, reveal, effect, commentary cue,
    persistent advance or delay, any rare safe retirement, the first finisher,
@@ -72,8 +72,8 @@ race is running.
 | Stage | What the room sees | Operator action |
 | --- | --- | --- |
 | Lobby | NDCC crest, event information, rules, join/donation access where available | Welcome the room and say that chips are free and donations have no return |
-| Racecard | Eight named runners | Introduce the runners and sponsor |
-| Market | Free-chip pick bars and the same fixed 8.00 price on every lane | Open or count down the market; do not describe donations as stakes or a pool |
+| Racecard | Every named runner | Introduce the runners and sponsor |
+| Market | Free-chip pick bars and the same fixed N.00 price on every lane | Open or count down the market; do not describe donations as stakes or a pool |
 | Locking | Selections closed while the plan and any remote lifecycle are acknowledged | Wait; do not restart or change the field |
 | Countdown | Locked runners and committed plan | Call the start |
 | Race | Broadcast field, running order and four-beat surprises | Let warning, reveal, effect and commentary land in sequence |
@@ -88,7 +88,7 @@ card follows after no more than 450 ms. Active trailing runners are classified
 by progress at the freeze frame. A safe retirement is marked `RET` with its
 reason and ranks after active runners.
 
-Never wait for all eight runners to reach the line, and never manually infer a
+Never wait for all runners to reach the line, and never manually infer a
 second result from later animation: there is no later animation.
 
 ## 5. Consequential surprise theatre

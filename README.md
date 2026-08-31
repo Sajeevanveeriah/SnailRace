@@ -1,6 +1,6 @@
 # NDCC Snail Race
 
-An eight-runner, club-branded snail-race fundraiser for Newcomb & District
+An 8-to-20-runner, club-branded snail-race fundraiser for Newcomb & District
 Cricket Club. It combines a projector telecast, free fun-chip picks, optional
 Phone Play, separate Stripe or cash donations, audit and replay tools, and a
 one-volunteer run of show.
@@ -8,11 +8,11 @@ one-volunteer run of show.
 This repository implements an original NDCC production. It uses its own club
 crest, runner art, copy, commentary and cricket-ground surprises.
 
-## Current release - consequential eight-runner races
+## Current release - consequential live-field races
 
 The current live engine is `consequential-eight-v1`:
 
-- Every live race has exactly eight runners.
+- Every live race supports a configurable field of 8 to 20 runners.
 - Before countdown, one seed draws the complete immutable race plan: runner
   motion, all surprise targets and timings, warning/reveal/effect/commentary
   cues, persistent clock consequences, any rare safe retirement, the winner,
@@ -26,7 +26,7 @@ The current live engine is `consequential-eight-v1`:
 - The instant the first active runner crosses, the animation freezes on that
   authoritative frame. The winner is shown immediately, then the result card
   opens after a confirmation beat capped at 450 ms. The show never waits for
-  the other seven runners to crawl home.
+  the remaining runners to crawl home.
 - Active trailing runners are classified by their progress at the stop frame.
   A safely retired runner is marked `RET`, carries a reason, and ranks after
   active runners.
@@ -35,15 +35,15 @@ The current live engine is `consequential-eight-v1`:
   older decorative-surprise model.
 
 Legacy all-finisher records remain readable. New live races use the locked
-eight-runner path.
+8-to-20-runner path.
 
 ## Money and free chips are structurally separate
 
 Stripe and cash entries are donations to the club with no return. Fun chips are
 free play counters with no monetary value, no purchase path and no cash-out.
 
-Every runner carries the same fixed fair play price: `8.00 for 1` in an
-eight-runner race, including the returned stake. The room's pick bars show only
+Every runner carries the same fixed fair play price: `N.00 for 1` in an
+N-runner race, including the returned stake. The room's pick bars show only
 free chips. A donation amount, supported lane or change in total raised cannot
 alter the displayed price or a chip return; donation data is not passed to the
 fun-chip maths.
@@ -56,7 +56,7 @@ must obtain any event-specific regulatory advice it needs.
 The stage is built as an NDCC cricket-night broadcast:
 
 - the supplied transparent club crest and its maroon, gold and blue palette;
-- eight distinct runner sprites and a full-field timing tower;
+- eight approved runner silhouettes, with distinct colourways for larger fields, and a full-field timing tower;
 - a side-on moving telecast, circuit or straight-lane presentation, race clock,
   lap/sector calls, commentary strap and optional spoken caller;
 - deterministic weather, photo-finish treatment and authored surprise theatre;
