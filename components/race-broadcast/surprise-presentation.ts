@@ -8,10 +8,12 @@ export type SurpriseArtId =
   | 'lettuce-crate'
   | 'magpie'
   | 'groundskeeper-boot'
-  | 'boundary-bee';
+  | 'boundary-bee'
+  | 'plague-cloud';
 
 export interface SurprisePresentation {
   art: SurpriseArtId | null;
+  symbol: string;
   cue: 'roll' | 'spray' | 'cross' | 'dash' | 'drop' | 'swoop' | 'burst';
 }
 
@@ -25,15 +27,28 @@ const PRESENTATIONS: ReadonlyArray<{
   matches: readonly string[];
   value: SurprisePresentation;
 }> = [
-  { matches: ['CRICKET BALL'], value: { art: 'cricket-ball', cue: 'roll' } },
-  { matches: ['SPRINKLER'], value: { art: 'sprinkler', cue: 'spray' } },
-  { matches: ['PITCH ROLLER'], value: { art: 'pitch-roller', cue: 'cross' } },
-  { matches: ['DOG ON THE TRACK', 'CLUB DOG'], value: { art: 'club-dog', cue: 'dash' } },
-  { matches: ['LETTUCE'], value: { art: 'lettuce-crate', cue: 'drop' } },
-  { matches: ['MAGPIE', 'SWOOP'], value: { art: 'magpie', cue: 'swoop' } },
-  { matches: ['GROUNDSKEEPER'], value: { art: 'groundskeeper-boot', cue: 'cross' } },
-  { matches: ['BOUNDARY BEE'], value: { art: 'boundary-bee', cue: 'swoop' } },
-  { matches: ['PLAGUE', 'FALSE START'], value: { art: null, cue: 'burst' } },
+  { matches: ['CRICKET BALL'], value: { art: 'cricket-ball', symbol: '●', cue: 'roll' } },
+  { matches: ['SPRINKLER'], value: { art: 'sprinkler', symbol: '💦', cue: 'spray' } },
+  { matches: ['PITCH ROLLER'], value: { art: 'pitch-roller', symbol: '⚙', cue: 'cross' } },
+  { matches: ['DOG ON THE TRACK', 'CLUB DOG'], value: { art: 'club-dog', symbol: '🐕', cue: 'dash' } },
+  { matches: ['LETTUCE'], value: { art: 'lettuce-crate', symbol: '🥬', cue: 'drop' } },
+  { matches: ['MAGPIE', 'SWOOP'], value: { art: 'magpie', symbol: '🐦', cue: 'swoop' } },
+  { matches: ['GROUNDSKEEPER'], value: { art: 'groundskeeper-boot', symbol: '🥾', cue: 'cross' } },
+  { matches: ['BOUNDARY BEE'], value: { art: 'boundary-bee', symbol: '🐝', cue: 'swoop' } },
+  { matches: ['PLAGUE'], value: { art: 'plague-cloud', symbol: '☣', cue: 'burst' } },
+  { matches: ['BANANA'], value: { art: null, symbol: '🍌', cue: 'drop' } },
+  { matches: ['ESPRESSO'], value: { art: null, symbol: '☕', cue: 'burst' } },
+  { matches: ['MICRO-NAP', 'STAGE FRIGHT'], value: { art: null, symbol: '💤', cue: 'drop' } },
+  { matches: ['SNAIL MAIL'], value: { art: null, symbol: '✉', cue: 'drop' } },
+  { matches: ['WRONG WAY'], value: { art: null, symbol: '↩', cue: 'cross' } },
+  { matches: ['SNAIL ROMANCE'], value: { art: null, symbol: '♥', cue: 'burst' } },
+  { matches: ['THIRD UMPIRE'], value: { art: null, symbol: '☝', cue: 'burst' } },
+  { matches: ['SLEDGED', 'CROWD LIFT'], value: { art: null, symbol: '📣', cue: 'burst' } },
+  { matches: ['SHELL SWAP'], value: { art: null, symbol: '⇄', cue: 'cross' } },
+  { matches: ['TURBO', 'SECOND WIND', 'SLIPSTREAM', 'DOWNHILL', 'FRESH WAX'], value: { art: null, symbol: '⚡', cue: 'burst' } },
+  { matches: ['SHELL SLIP', 'GRAVEL', 'CRAMP', 'BOGGED'], value: { art: null, symbol: '⚠', cue: 'drop' } },
+  { matches: ['MYSTERY SLIME'], value: { art: null, symbol: '◉', cue: 'burst' } },
+  { matches: ['FALSE START'], value: { art: null, symbol: '✋', cue: 'burst' } },
 ];
 
 /**
@@ -47,6 +62,7 @@ export function presentationForMoment(moment: RaceMoment | null): SurprisePresen
   const haystack = `${presentable.kind ?? ''} ${presentable.label ?? ''} ${moment.text}`.toUpperCase();
   return PRESENTATIONS.find((entry) => entry.matches.some((term) => haystack.includes(term)))?.value ?? {
     art: null,
+    symbol: '!',
     cue: moment.big ? 'burst' : 'drop',
   };
 }

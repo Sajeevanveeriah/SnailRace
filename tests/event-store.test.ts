@@ -31,6 +31,7 @@ test('a held start restores the exact locked plan and rejects a partial hash', a
     laps: 3,
     surprises: true,
     trackShape: 'circuit',
+    courseId: 'boundary-oval',
     intensity: 'chaos',
   };
   const held: HeldRaceStartState = {

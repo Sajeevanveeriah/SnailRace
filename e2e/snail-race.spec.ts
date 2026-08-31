@@ -130,6 +130,8 @@ test('race uses production art and commentary avoids monetary language', async (
 
   await expect(page.locator('.tv-art-background')).toBeVisible();
   await expect(page.locator('.tv-snail-sprite')).toHaveCount(8);
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-course', 'boundary-oval');
+  await expect(page.getByRole('complementary', { name: /Boundary Oval course map/i })).toBeVisible();
   const hud = page.locator('.race-hud');
   await expect(hud).toHaveAttribute('aria-label', 'Race 1 status');
   await expect(hud.locator('.tv-clock')).toHaveAttribute('role', 'timer');
@@ -141,6 +143,25 @@ test('race uses production art and commentary avoids monetary language', async (
   await expect(commentary).not.toContainText(/\b(money|cash|ticket|wager|punter)\b/i);
   await assertNoSeriousAxeFindings(page);
   await page.screenshot({ path: testInfo.outputPath('race-projector.png'), fullPage: true });
+});
+
+test('surprises announce warning, reveal and effect with a visible prop or symbol', async ({ page }) => {
+  test.setTimeout(35_000);
+  await setSprintRace(page);
+  await page.getByRole('button', { name: /Controls/i }).click();
+  const controls = page.getByRole('region', { name: 'Moderator controls', includeHidden: true });
+  await controls.getByLabel('Surprise director').selectOption('chaos');
+  await controls.getByRole('button', { name: /Hide/i }).click();
+  await advanceToRace(page);
+  await page.getByRole('button', { name: /Start race/i }).click();
+
+  const signal = page.locator('.surprise-signal');
+  await expect(signal).toBeVisible({ timeout: 15_000 });
+  await expect(signal.locator('header strong')).not.toHaveText(/Something is developing/i);
+  await expect(signal.locator('li')).toHaveCount(3);
+  await expect(signal.locator('li.active')).toHaveCount(1);
+  await expect(page.locator('.tv-surprise-art, .tv-surprise-symbol')).toBeVisible();
+  await expect(page.locator('.race-surprise[role="status"]')).toHaveAttribute('aria-live', 'assertive');
 });
 
 test('first finisher freezes the field and opens one result within one second', async ({ page }) => {

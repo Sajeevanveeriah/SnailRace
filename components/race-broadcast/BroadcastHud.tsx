@@ -9,6 +9,7 @@ interface BroadcastHudProps {
   race: RaceController;
   names: string[];
   raceNo: number;
+  courseName: string;
   replay: boolean;
   confirming: boolean;
   running: boolean;
@@ -31,6 +32,7 @@ export function BroadcastHud({
   race,
   names,
   raceNo,
+  courseName,
   replay,
   confirming,
   running,
@@ -54,7 +56,7 @@ export function BroadcastHud({
           <i aria-hidden="true" /> {label}
         </span>
         <span className="tv-race-chip num">RACE {raceNo}</span>
-        <span className="tv-title">THE DINO DASH</span>
+        <span className="tv-title">{courseName.toUpperCase()}</span>
         <span ref={lapRef} className="tv-lap num" />
         {replay ? null : (
           <span ref={clockRef} className="tv-clock num" role="timer" aria-label="Elapsed race time">

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Telecast } from './Telecast';
+import { courseForRace } from '@/lib/courses';
 import { RaceTrack } from './RaceTrack';
 import { useReplay } from '@/lib/use-replay';
 import { clockText } from '@/lib/broadcast';
@@ -210,6 +211,7 @@ export function ReplayPlayer({
             calm={event.calm}
             clubName={event.clubName}
             raceNo={entry.raceNo}
+            courseId={entry.courseId ?? entry.racePlan?.courseId ?? courseForRace(entry.raceNo).id}
             replay
           />
         ) : (

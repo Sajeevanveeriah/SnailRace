@@ -5,6 +5,7 @@ import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ordinal, type SnailRun } from '@/lib/race-engine';
 import { ClubBrand } from './brand/ClubBrand';
 import { runnerArtForLane } from '@/lib/presentation/runner-art';
+import { courseById, courseRide, type CourseId } from '@/lib/courses';
 import { BroadcastHud } from './race-broadcast/BroadcastHud';
 import { SurpriseLayer } from './race-broadcast/SurpriseLayer';
 import { useReducedMotion } from './race-broadcast/useReducedMotion';
@@ -59,6 +60,7 @@ interface Props {
   calm: boolean;
   clubName: string;
   raceNo: number;
+  courseId: CourseId;
   /**
    * Recorded mode. The coverage is identical; the chrome must not lie about
    * it, so the badge reads REPLAY and the live clock stands down in favour
@@ -119,6 +121,7 @@ export function Telecast({
   calm,
   clubName,
   raceNo,
+  courseId,
   replay = false,
 }: Props) {
   const { setPainter } = race;
@@ -136,6 +139,8 @@ export function Telecast({
   const clockRef = useRef<HTMLSpanElement | null>(null);
   const lapRef = useRef<HTMLSpanElement | null>(null);
   const shotRef = useRef<HTMLSpanElement | null>(null);
+  const mapPathRef = useRef<SVGPathElement | null>(null);
+  const mapLeaderRef = useRef<SVGCircleElement | null>(null);
 
   /**
    * The visible slice of the authored frame.
@@ -155,6 +160,7 @@ export function Telecast({
   const timeRef = useRef({ ms: 0, last: 0, running: false });
 
   const bands = useMemo(() => laneBands(names.length), [names.length]);
+  const course = useMemo(() => courseById(courseId), [courseId]);
   const totalWorld = Math.max(1, laps) * LAP_LEN;
   /** Past a dozen lanes a band is thinner than a name, so names are rationed. */
   const compact = names.length > 12;
@@ -213,7 +219,7 @@ export function Telecast({
         const sx = VIEW_W / 2 - cam.x * cam.z;
         n.g.setAttribute(
           'transform',
-          `translate(${(sx + fn(lane) * cam.z).toFixed(1)} ${groundY(b).toFixed(1)})`,
+          `translate(${(sx + fn(lane) * cam.z).toFixed(1)} ${(groundY(b) + courseRide(course.id, 0) * 10).toFixed(1)})`,
         );
       });
     };
@@ -283,7 +289,8 @@ export function Telecast({
           if (!n || !b) continue;
 
           const x = sx + s.p * totalWorld * cam.z;
-          n.g.setAttribute('transform', `translate(${x.toFixed(1)} ${groundY(b).toFixed(1)})`);
+          const bendY = courseRide(course.id, s.p) * 10;
+          n.g.setAttribute('transform', `translate(${x.toFixed(1)} ${(groundY(b) + bendY).toFixed(1)})`);
 
           n.g.classList.toggle(
             'surging',
@@ -333,6 +340,15 @@ export function Telecast({
           if (lapRef.current.textContent !== text) lapRef.current.textContent = text;
         }
 
+        const mapPath = mapPathRef.current;
+        const mapLeader = mapLeaderRef.current;
+        if (mapPath && mapLeader) {
+          const length = mapPath.getTotalLength();
+          const point = mapPath.getPointAtLength(length * Math.min(0.999, info.leadP));
+          mapLeader.setAttribute('cx', point.x.toFixed(1));
+          mapLeader.setAttribute('cy', point.y.toFixed(1));
+        }
+
         /* Where to point. With the camera off, hold the whole race in frame. */
         let targetX: number;
         let targetZ: number;
@@ -366,7 +382,7 @@ export function Telecast({
         write();
       },
     };
-  }, [bands, chase, compact, laps, reduceMotion, totalWorld]);
+  }, [bands, chase, compact, course.id, laps, reduceMotion, totalWorld]);
 
   useEffect(() => {
     setPainter(painter);
@@ -480,6 +496,7 @@ export function Telecast({
       data-race-phase={phase}
       data-reduced-motion={reduceMotion ? 'true' : 'false'}
       data-weather={race.phase === 'idle' ? 'clear' : race.weather}
+      data-course={course.id}
     >
       <svg
         ref={svgRef}
@@ -670,6 +687,36 @@ export function Telecast({
           aria-hidden="true"
         />
 
+        <g className={`tv-course-features tv-course-features-${course.id}`} aria-hidden="true">
+          {course.id === 'boundary-oval' ? (
+            <>
+              <path className="tv-boundary-rope" d={`M-40 ${VERGE_TOP + 14} Q ${VIEW_W / 2} ${VERGE_TOP - 8} ${VIEW_W + 40} ${VERGE_TOP + 14}`} />
+              {[140, 510, 880, 1250, 1620].map((x) => <path key={x} className="tv-boundary-flag" d={`M${x} ${VERGE_TOP + 10} v-54 l28 10 -28 11`} />)}
+            </>
+          ) : null}
+          {course.id === 'pavilion-chicane' ? (
+            <>
+              {[260, 450, 640, 830, 1020, 1210].map((x, i) => (
+                <path key={x} className="tv-chicane-chevron" d={`M${x} ${VERGE_TOP - 36} l${i % 2 ? -34 : 34} 24 l${i % 2 ? 34 : -34} 24`} />
+              ))}
+              <text className="tv-course-feature-label" x={VIEW_W / 2} y={VERGE_TOP - 46} textAnchor="middle">PAVILION CHICANE</text>
+            </>
+          ) : null}
+          {course.id === 'floodlight-eight' ? (
+            <>
+              <path className="tv-crossover" d={`M${VIEW_W * 0.35} ${TRACK_TOP + 20} L${VIEW_W * 0.65} ${TRACK_BOTTOM - 20} M${VIEW_W * 0.65} ${TRACK_TOP + 20} L${VIEW_W * 0.35} ${TRACK_BOTTOM - 20}`} />
+              <text className="tv-course-feature-label" x={VIEW_W / 2} y={VERGE_TOP - 46} textAnchor="middle">FLOODLIGHT CROSSOVER</text>
+            </>
+          ) : null}
+          {course.id === 'practice-nets' ? (
+            <>
+              {[180, 500, 820, 1140, 1460, 1780].map((x) => <path key={x} className="tv-net-post" d={`M${x} ${VERGE_TOP - 110} V${TRACK_BOTTOM}`} />)}
+              <path className="tv-net-mesh" d={`M180 ${VERGE_TOP - 100} H1780 M180 ${VERGE_TOP - 62} H1780 M180 ${VERGE_TOP - 24} H1780`} />
+              <text className="tv-course-feature-label" x={VIEW_W / 2} y={VERGE_TOP - 120} textAnchor="middle">PRACTICE NETS SWITCHBACK</text>
+            </>
+          ) : null}
+        </g>
+
         {/* Cross marks painted on the surface. These are the speed. */}
         <g ref={marksRef} className="tv-marks" aria-hidden="true">
           {marks.map((w, i) => (
@@ -802,6 +849,16 @@ export function Telecast({
 
       {/* ── Broadcast graphics ──────────────────────────────────────────── */}
 
+      <aside className="race-course-map" aria-label={`${course.name} course map`}>
+        <span>COURSE</span>
+        <strong>{course.name}</strong>
+        <svg viewBox="0 0 120 72" role="img" aria-label={`${course.name}: ${course.description}`}>
+          <path className="course-map-shadow" d={course.mapPath} />
+          <path ref={mapPathRef} className="course-map-line" d={course.mapPath} style={{ stroke: course.accent }} />
+          <circle ref={mapLeaderRef} className="course-map-leader" cx="18" cy="36" r="5" />
+        </svg>
+      </aside>
+
       <BroadcastHud
         brand={
           <ClubBrand
@@ -814,6 +871,7 @@ export function Telecast({
         race={race}
         names={names}
         raceNo={raceNo}
+        courseName={course.name}
         replay={replay}
         confirming={confirming}
         running={running}
@@ -828,7 +886,7 @@ export function Telecast({
         </div>
       ) : null}
 
-      <SurpriseLayer race={race} />
+      <SurpriseLayer race={race} names={names} />
 
       {race.photoFinish && race.phase === 'running' ? (
         <p className="photo-banner">PHOTO FINISH</p>

@@ -61,6 +61,7 @@ export const FINISH_CONFIRM_MS = 450;
 export type RacePhase = 'idle' | 'countdown' | 'running' | 'confirming' | 'done' | 'void';
 
 export type MomentTone = 'good' | 'bad' | 'hot';
+export type SurprisePhase = 'warning' | 'reveal' | 'effect';
 
 /**
  * A `wild` surprise gets the hot banner. Its magnitude is drawn either side
@@ -82,6 +83,13 @@ export interface RaceMoment {
    * different size of news from "Gary is having a nap".
    */
   big?: boolean;
+  phase?: SurprisePhase;
+  eventId?: string;
+  label?: string;
+  kind?: string;
+  targetLanes?: number[];
+  consequence?: 'advance' | 'delay' | 'retire';
+  deltaMs?: number;
 }
 
 /**
@@ -294,9 +302,14 @@ export function useRace(
    * stack two cards on top of each other, and the newer moment is always the
    * one the room is looking at.
    */
-  const announce = useCallback((text: string, tone: MomentTone, big = false) => {
+  const announce = useCallback((
+    text: string,
+    tone: MomentTone,
+    big = false,
+    detail: Omit<Partial<RaceMoment>, 'id' | 'text' | 'tone' | 'big'> = {},
+  ) => {
     momentIdRef.current += 1;
-    setMoment({ id: momentIdRef.current, text, tone, big });
+    setMoment({ id: momentIdRef.current, text, tone, big, ...detail });
     window.clearTimeout(momentTimerRef.current);
     momentTimerRef.current = window.setTimeout(() => {
       momentTimerRef.current = 0;
@@ -468,14 +481,23 @@ export function useRace(
         while (race.cueIndex < cues.length && cues[race.cueIndex].atMs <= race.raceT) {
           const cue = cues[race.cueIndex++];
           const event = race.lockedPlan.events.find((candidate) => candidate.id === cue.eventId);
+          const detail: Omit<Partial<RaceMoment>, 'id' | 'text' | 'tone' | 'big'> = event ? {
+            eventId: event.id,
+            phase: cue.phase === 'commentary' ? undefined : cue.phase as SurprisePhase,
+            label: event.label,
+            kind: event.kind,
+            targetLanes: event.targetLanes,
+            consequence: event.consequence,
+            deltaMs: event.clockDeltaMsByLane[event.targetLanes[0]] ?? 0,
+          } : {};
           race.commentaryAt = race.raceT;
           if (cue.phase === 'warning') {
-            if (!quiet) announce(cue.text, 'hot', cue.big);
+            if (!quiet) announce(cue.text, 'hot', cue.big, detail);
             sfx.event((cue.sound ?? 'siren') as EventSound);
           } else if (cue.phase === 'reveal') {
-            if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big);
+            if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big, detail);
           } else if (cue.phase === 'effect') {
-            if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big);
+            if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big, detail);
             sfx.event((cue.sound ?? event?.sound ?? 'weird') as EventSound);
             if (event) {
               for (const lane of event.targetLanes) {
@@ -510,7 +532,10 @@ export function useRace(
           race.swarms.add(event.group);
           call(event.groupCall ?? event.label, 'big');
           race.commentaryAt = race.raceT;
-          if (!quiet) announce(event.groupLabel ?? event.label, momentTone(event.tone), true);
+          if (!quiet) announce(event.groupLabel ?? event.label, momentTone(event.tone), true, {
+            phase: 'effect', label: event.groupLabel ?? event.label, kind: event.kind,
+            targetLanes: race.snails.filter((candidate) => candidate.events.some((item) => item.group === event.group)).map((candidate) => candidate.lane),
+          });
           sfx.event(event.sound);
           race.reactAt = race.raceT + 1700;
           race.reactTone = event.tone;
@@ -519,7 +544,9 @@ export function useRace(
 
         call(eventLine(event, snail.name));
         race.commentaryAt = race.raceT;
-        if (!quiet) announce(`${snail.name}: ${event.label}`, momentTone(event.tone));
+        if (!quiet) announce(`${snail.name}: ${event.label}`, momentTone(event.tone), false, {
+          phase: 'effect', label: event.label, kind: event.kind, targetLanes: [snail.lane],
+        });
         sfx.event(event.sound);
         race.reactAt = race.raceT + 1500;
         race.reactTone = event.tone;
