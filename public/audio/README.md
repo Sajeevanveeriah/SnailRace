@@ -1,8 +1,15 @@
 # Your own audio (all optional)
 
-The app ships with **no audio files**. Every sound is synthesised in the browser by
-`lib/audio/`, so it needs no licence, no download and no connection - which matters when
-the night is projected in a hall on a laptop with borrowed wifi.
+The app includes 28 generated English commentary clips in `commentary/`. They use
+HeyGen's public Dynamic Derek voice, generated on 2026-09-05. Text is documented in
+`lib/audio/voice-cues.ts`. No API key or speech service is called during a race.
+
+Natural race caller is the default. Clips describe actual race events while captions
+identify the runners. A device voice can be selected in Controls to speak custom names.
+Only one line plays at a time; stale calls are dropped and the finish cancels prior audio.
+The clips are generated speech, not a live human commentator.
+
+Music and effects are synthesised by `lib/audio/` unless replacement files are supplied.
 
 If you would rather use real recordings, drop them in this folder and rebuild. Each file
 found replaces its synthesised cue; anything missing falls back automatically, so you can

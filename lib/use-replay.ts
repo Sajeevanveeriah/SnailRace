@@ -125,6 +125,7 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
       );
       painterRef.current?.paint(race.snails, {
         ...info,
+        raceTimeMs: ms,
         leadP,
         meanRate: 0,
         photoFinish: false,

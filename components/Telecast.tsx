@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ordinal, type SnailRun } from '@/lib/race-engine';
 import { ClubBrand } from './brand/ClubBrand';
@@ -20,9 +20,9 @@ import {
   HORIZON,
   LAP_LEN,
   laneBands,
+  lapProgress,
   MARK_EVERY,
   runnerSafeFrame,
-  SNAIL_H,
   TRACK_BOTTOM,
   TRACK_TOP,
   VERGE_TOP,
@@ -127,9 +127,16 @@ export function Telecast({
   replay = false,
 }: Props) {
   const { setPainter } = race;
+  const [courseView, setCourseView] = useState(false);
+  const courseViewRef = useRef(false);
+  const overviewRef = useRef<SVGGElement | null>(null);
+  const overviewPathRef = useRef<SVGPathElement | null>(null);
+  const snapshotRef = useRef<{ snails: SnailRun[]; info: PaintInfo } | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = calm || prefersReducedMotion;
 
+  const momentRef = useRef(race.moment);
+  useEffect(() => { momentRef.current = race.moment; }, [race.moment]);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const nodesRef = useRef<Map<number, RunnerNodes>>(new Map());
@@ -159,7 +166,7 @@ export function Telecast({
 
   const directorRef = useRef(new Broadcaster());
   const camRef = useRef({ x: 0, z: 0.5 });
-  const timeRef = useRef({ ms: 0, last: 0, running: false });
+  const timeRef = useRef({ ms: 0 });
 
   const bands = useMemo(() => laneBands(names.length), [names.length]);
   const course = useMemo(() => courseById(courseId), [courseId]);
@@ -263,15 +270,16 @@ export function Telecast({
       start: () => {
         svgRef.current?.classList.add('racing');
         clock.ms = 0;
-        clock.last = performance.now();
-        clock.running = true;
       },
 
       reset: () => {
+        snapshotRef.current = null;
+        courseViewRef.current = false;
+        setCourseView(false);
         svgRef.current?.classList.remove('racing', 'photo', 'run-home');
         directorRef.current.reset();
         clock.ms = 0;
-        clock.running = false;
+
         /* Reduced motion holds one wide camera. Runner translation remains
            essential race information; camera travel and parallax do not. */
         const wide = wideCamera();
@@ -280,7 +288,7 @@ export function Telecast({
         write();
         placeAll(() => 0);
         nodesRef.current.forEach((n) => {
-          n.g.classList.remove('finished', 'surging', 'fx-up', 'fx-down', 'named');
+          n.g.classList.remove('finished', 'surging', 'fx-up', 'fx-down', 'named', 'retired');
           n.tag.textContent = '';
           n.pos.textContent = '';
         });
@@ -290,28 +298,20 @@ export function Telecast({
       },
 
       paint: (snails: SnailRun[], info: PaintInfo) => {
-        const now = performance.now();
-        if (clock.running) {
-          const dt = Math.min(100, now - clock.last);
-          clock.last = now;
-          clock.ms += dt;
-        }
-
-        const sx = VIEW_W / 2 - cam.x * cam.z;
+        snapshotRef.current = { snails, info };
+        clock.ms = info.raceTimeMs;
         for (const s of snails) {
           const n = nodesRef.current.get(s.lane);
           const b = bands[s.lane];
           if (!n || !b) continue;
 
-          const x = sx + s.p * totalWorld * cam.z;
-          const bendY = courseRide(course.id, s.p) * 10;
-          n.g.setAttribute('transform', `translate(${x.toFixed(1)} ${(groundY(b) + bendY).toFixed(1)})`);
-
           n.g.classList.toggle(
             'surging',
             !s.done && info.meanRate > 0 && s.rate > info.meanRate * 1.15,
           );
-          const up = s.effect === 'boost' || s.effect === 'surge';
+          n.g.classList.toggle('retired', Boolean(s.retired));
+          const activeEvent = s.lockedMotion?.events.find((event) => event.targetLanes.includes(s.lane) && info.raceTimeMs >= event.effectAtMs && info.raceTimeMs < event.effectEndMs);
+          const up = activeEvent ? activeEvent.consequence === 'advance' : s.effect === 'boost' || s.effect === 'surge';
           const down = s.effect !== null && !up;
           n.g.classList.toggle('fx-up', up);
           n.g.classList.toggle('fx-down', down);
@@ -323,7 +323,7 @@ export function Telecast({
            * is the same stutter the commentary was fixed for.
            */
           const live = s.effect ? s.events.find((e) => e.kind === s.effect) : undefined;
-          const tag = live && !live.group ? live.label : '';
+          const tag = activeEvent ? (activeEvent.targetLanes.length === 1 ? activeEvent.label : '') : live && !live.group ? live.label : '';
           if (n.tag.textContent !== tag) n.tag.textContent = tag;
         }
 
@@ -359,7 +359,7 @@ export function Telecast({
         const mapLeader = mapLeaderRef.current;
         if (mapPath && mapLeader) {
           const length = mapPath.getTotalLength();
-          const point = mapPath.getPointAtLength(length * Math.min(0.999, info.leadP));
+          const point = mapPath.getPointAtLength(length * lapProgress(info.leadP, laps));
           mapLeader.setAttribute('cx', point.x.toFixed(1));
           mapLeader.setAttribute('cy', point.y.toFixed(1));
         }
@@ -408,9 +408,58 @@ export function Telecast({
           cam.x = clampCameraX(cam.x, cam.z, positions, safeFrame);
         }
         write();
+        // Paint runners and scenery through the same final camera transform.
+        const sx = VIEW_W / 2 - cam.x * cam.z;
+        const overview = courseViewRef.current;
+        const path = overviewPathRef.current;
+        const safe = runnerSafeFrame(vbRef.current.x, vbRef.current.w);
+        const vb = vbRef.current;
+        const portrait = vb.w < vb.h;
+        const left = portrait ? vb.x + 24 : safe.left;
+        const availableWidth = portrait ? vb.w - 48 : safe.right - safe.left;
+        const top = vb.y + (portrait ? 240 : 180);
+        const availableHeight = Math.max(100, VIEW_H - top - 150);
+        const courseScale = Math.min(availableWidth / 120, availableHeight / 72);
+        const ow = 120 * courseScale;
+        const oh = 72 * courseScale;
+        const ox = left + (availableWidth - ow) / 2;
+        const oy = top + (availableHeight - oh) / 2;
+        const laneSpacing = Math.min(22, courseScale * 9 / names.length);
+        overviewRef.current?.setAttribute('transform', `translate(${ox} ${oy}) scale(${courseScale})`);
+        const pathLength = path?.getTotalLength() ?? 0;
+        for (const snail of snails) {
+          const node = nodesRef.current.get(snail.lane);
+          const band = bands[snail.lane];
+          if (!node || !band) continue;
+          let x = sx + snail.p * totalWorld * cam.z;
+          let y = groundY(band) + courseRide(course.id, snail.p) * 10;
+          let facing = 1;
+          if (overview && path && pathLength > 0) {
+            const distance = lapProgress(snail.p, laps) * pathLength;
+            const point = path.getPointAtLength(distance);
+            const before = path.getPointAtLength(Math.max(0, distance - 0.2));
+            const after = path.getPointAtLength(Math.min(pathLength, distance + 0.2));
+            const dx = (after.x - before.x) * ow / 120;
+            const dy = (after.y - before.y) * oh / 72;
+            const magnitude = Math.hypot(dx, dy) || 1;
+            const offset = (snail.lane - (names.length - 1) / 2) * laneSpacing;
+            x = ox + point.x * ow / 120 - dy / magnitude * offset;
+            y = oy + point.y * oh / 72 + dx / magnitude * offset;
+            facing = dx < 0 ? -1 : 1;
+          }
+          node.g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+          if (momentRef.current?.targetLanes?.[0] === snail.lane) {
+            wrapRef.current?.style.setProperty('--surprise-x', `${Math.max(15, Math.min(70, (x - vbRef.current.x) / vbRef.current.w * 100))}%`);
+            wrapRef.current?.style.setProperty('--surprise-y', `${Math.max(28, Math.min(76, (y - vbRef.current.y) / vbRef.current.h * 100))}%`);
+          }
+          const art = node.g.querySelector('.tv-art');
+          node.g.querySelector('.tv-course-number')?.setAttribute('transform', `scale(${laneSpacing / 22})`);
+          const size = overview ? Math.min(0.42, ow / 1200) : band.scale;
+          art?.setAttribute('transform', `scale(${size * facing} ${size})`);
+        }
       },
     };
-  }, [bands, chase, compact, course.id, laps, reduceMotion, totalWorld]);
+  }, [bands, chase, compact, course.id, laps, names.length, reduceMotion, totalWorld]);
 
   useEffect(() => {
     setPainter(painter);
@@ -525,6 +574,7 @@ export function Telecast({
       data-reduced-motion={reduceMotion ? 'true' : 'false'}
       data-weather={race.phase === 'idle' ? 'clear' : race.weather}
       data-course={course.id}
+      data-camera={courseView ? 'course' : 'trackside'}
     >
       <svg
         ref={svgRef}
@@ -793,13 +843,21 @@ export function Telecast({
           ))}
         </g>
 
+        <g className="tv-course-overview" aria-hidden="true">
+          <rect x={-BLEED} y={0} width={VIEW_W + BLEED * 2} height={VIEW_H} fill="#123c30" />
+          <g ref={overviewRef}>
+            <path d={course.mapPath} fill="none" stroke="#f4e5bf" strokeWidth="13" strokeLinejoin="round" strokeLinecap="round" />
+            <path ref={overviewPathRef} d={course.mapPath} fill="none" stroke="#b77948" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={course.mapPath} fill="none" stroke="#ead29c" strokeWidth="0.4" strokeDasharray="2 2" />
+          </g>
+        </g>
+
         {/* The runners. */}
         <g className="tv-runners">
           {order.map((lane) => {
             const c = laneColour(lane);
             const b = bands[lane];
             const s = b?.scale ?? 1;
-            const top = -(SNAIL_H * s);
             return (
               <g
                 key={lane}
@@ -832,9 +890,13 @@ export function Telecast({
                   />
                 </g>
 
+                <g className="tv-course-number" aria-hidden="true">
+                  <circle cx="0" cy="0" r="10" fill={c.dark} stroke="#fff" strokeWidth="1.5" />
+                  <text x="0" y="4" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="700">{lane + 1}</text>
+                </g>
                 {/* Name super. Lanes are separated vertically, so two runners
                     level with each other can never print over one another. */}
-                <g className="tv-super" transform={`translate(0 ${(top - 12).toFixed(1)})`}>
+                <g className="tv-super" transform={`translate(${(76 * s + 8).toFixed(1)} ${(-24 * s).toFixed(1)})`}>
                   <text className="tv-pos num" x={-8} y={0} textAnchor="end" />
                   <text className="tv-name" x={0} y={0} textAnchor="start">
                     {names[lane]}
@@ -878,6 +940,15 @@ export function Telecast({
 
       {/* ── Broadcast graphics ──────────────────────────────────────────── */}
 
+      <button type="button" className="race-camera-toggle" aria-pressed={courseView} disabled={phase === 'idle' || phase === 'countdown'}
+        onClick={() => {
+          courseViewRef.current = !courseViewRef.current;
+          setCourseView(courseViewRef.current);
+          const snapshot = snapshotRef.current;
+          if (snapshot) painter.paint(snapshot.snails, snapshot.info);
+        }}>
+        {courseView ? 'Trackside view' : 'Full course view'}
+      </button>
       <aside className="race-course-map" aria-label={`${course.name} course map`}>
         <span>COURSE</span>
         <strong>{course.name}</strong>

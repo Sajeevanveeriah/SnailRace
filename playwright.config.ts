@@ -9,9 +9,10 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://127.0.0.1:3000',
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } } : {}),
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: process.env.PLAYWRIGHT_VIDEO === 'off' ? 'off' : 'retain-on-failure',
   },
   projects: [
     {
@@ -24,7 +25,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI
+    command: (process.env.CI || process.env.PLAYWRIGHT_PRODUCTION)
       ? 'npm start -- --hostname 127.0.0.1'
       : 'npm run dev -- --hostname 127.0.0.1',
     url: 'http://127.0.0.1:3000',

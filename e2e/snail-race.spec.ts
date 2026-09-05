@@ -289,3 +289,31 @@ test('phone route has a useful, non-overflowing fallback without a live room', a
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2)).toBe(true);
   await assertNoSeriousAxeFindings(page);
 });
+
+test('full course view changes geometry without restarting the race', async ({ page }, testInfo) => {
+  await advanceToRace(page);
+  await page.getByRole('button', { name: /Start race/i }).click();
+  await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6000 });
+  const clock = page.locator('.tv-clock');
+  await expect(clock).not.toHaveText('0:00.0');
+  await page.getByRole('button', { name: 'Full course view', exact: true }).click();
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'course');
+  await expect(page.locator('.tv-course-overview')).toBeVisible();
+  await expect(page.locator('.tv-course-number')).toHaveCount(8);
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-race-phase', 'running');
+  await page.screenshot({ path: testInfo.outputPath('full-course.png') });
+  await page.getByRole('button', { name: 'Trackside view', exact: true }).click();
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'trackside');
+  await expect(page.locator('.tv-course-overview')).toBeHidden();
+  await expect(clock).not.toHaveText('0:00.0');
+});
+
+test('natural commentary preview loads a bundled audio clip', async ({ page }) => {
+  await page.getByRole('button', { name: /Controls/i }).click();
+  const controls = page.getByRole('region', { name: 'Moderator controls', includeHidden: true });
+  await controls.getByLabel('Commentary voice').selectOption('recorded');
+  const response = page.waitForResponse((response) => response.url().endsWith('/audio/commentary/ready.mp3'));
+  await controls.getByRole('button', { name: 'Preview commentator', exact: true }).click();
+  expect((await response).ok()).toBe(true);
+  await expect(controls.getByLabel('Spoken race caller')).toBeEnabled();
+});

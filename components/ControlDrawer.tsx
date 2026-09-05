@@ -1116,7 +1116,7 @@ export function ControlDrawer({
                       Preview commentator
                     </button>
                     <p className="text-[11px] leading-snug text-(--tx)/50">
-                      Natural or enhanced Australian voices are preferred when this device provides them.
+                      Natural race caller uses bundled narration. Runner names appear in the live captions. Choose a device voice to hear custom names.
                     </p>
                   </div>
                 ) : null}
@@ -1163,8 +1163,8 @@ export function ControlDrawer({
                     Your own audio
                   </p>
                   <p className="text-[11px] leading-snug text-(--tx)/50">
-                    Everything is synthesised in the browser, so it needs no files, no
-                    licence and no connection. To use real recordings instead, drop them
+                    Commentary uses bundled recordings. Music and effects are
+                    synthesised in the browser. To use your own music and effects, drop them
                     into <span className="num">public/audio/</span> and rebuild - each one
                     found replaces its synthesised cue.
                   </p>

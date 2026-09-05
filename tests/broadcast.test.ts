@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Broadcaster, clampCameraX, runnerSafeFrame, type BroadcastInput } from '../lib/broadcast';
+import { Broadcaster, clampCameraX, runnerSafeFrame, lapProgress, resultGapText, type BroadcastInput } from '../lib/broadcast';
 
 const visibleAnchors = (input: BroadcastInput, times: number[]) => {
   const director = new Broadcaster();
@@ -61,4 +61,20 @@ test('pan easing is clamped before it can strand a runner', () => {
   const anchors = worlds.map((world) => 800 + (world - camera) * zoom);
   assert.ok(Math.min(...anchors) >= safe.left);
   assert.ok(Math.max(...anchors) <= safe.right);
+});
+
+test('course marker follows each lap and stays at the final finish', () => {
+  assert.equal(lapProgress(0, 3), 0);
+  assert.equal(lapProgress(0.25, 3), 0.75);
+  assert.equal(lapProgress(0.5, 3), 0.5);
+  assert.equal(lapProgress(1, 3), 1);
+  assert.equal(lapProgress(-1, 3), 0);
+  assert.equal(lapProgress(2, 3), 1);
+});
+
+test('final timing distinguishes finishers, classified runners and retirees', () => {
+  const runner = { lane: 0, name: 'Speedy', place: 1 };
+  assert.equal(resultGapText({ ...runner, finishMs: 12340 }), '12.3s');
+  assert.equal(resultGapText({ ...runner, finishMs: null, status: 'classified' }), 'CLASSIFIED');
+  assert.equal(resultGapText({ ...runner, finishMs: null, status: 'retired' }), 'RET');
 });

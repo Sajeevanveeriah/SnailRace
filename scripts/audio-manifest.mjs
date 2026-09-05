@@ -30,5 +30,5 @@ await writeFile(
 console.log(
   files.length
     ? `audio: ${files.length} drop-in file(s) - ${files.join(', ')}`
-    : 'audio: none supplied, everything synthesised',
+    : 'music/effects: no drop-in files; using synthesis',
 );
