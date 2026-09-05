@@ -1342,11 +1342,6 @@
 /* Keep names beside correctly sized artwork, with positions in the timing tower. */
 .race-broadcast .tv-pos { display: none; }
 .race-broadcast .tv-runner.retired .tv-art { opacity: 0.45; filter: grayscale(1); }
-.race-broadcast .tv-course-overview { display: none; }
-.race-broadcast[data-camera="course"] .tv > :not(defs):not(.tv-runners):not(.tv-course-overview) { display: none; }
-.race-broadcast[data-camera="course"] .tv-course-overview { display: block; }
-.race-broadcast[data-camera="course"] .tv-super { display: none; }
-.race-broadcast[data-camera="course"] .tv-art { display: none; }
 .race-camera-toggle {
   position: absolute; z-index: 21; left: 22px; top: 266px;
   padding: 0.55rem 0.85rem; border: 1px solid #e8b55e; border-radius: 6px;
@@ -1382,8 +1377,6 @@
   .race-broadcast .surprise-signal li i { display: none; }
 }
 
-.race-broadcast .tv-course-number { display: none; }
-.race-broadcast[data-camera="course"] .tv-course-number { display: block; }
 .race-broadcast .tv-surprise-art,
 .race-broadcast .tv-surprise-symbol {
   left: var(--surprise-x, 50%); top: var(--surprise-y, 52%);
@@ -1393,3 +1386,91 @@
 .race-broadcast .tv-surprise-plague-cloud { width: clamp(120px, 18vw, 300px); }
 
 .race-camera-toggle:disabled { opacity: 0.55; cursor: default; }
+
+/* The circuit is a reserved stage, not scenery underneath floating graphics. */
+.course-broadcast { --tower-width: clamp(210px, 19vw, 300px); background: #13382d; }
+.course-broadcast .course-scene { position: absolute; inset: 108px calc(var(--tower-width) + 28px) 112px 12px; overflow: hidden; border: 1px solid #ffffff20; border-radius: 12px; background: #245b46; }
+.course-broadcast .course-scene .tv { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; max-height: none; }
+.course-broadcast .tv-top { height: 72px; min-height: 72px; padding: 6px 16px; gap: 10px; border-bottom-width: 3px; }
+.course-broadcast .tv-club-brand { flex: 0 1 265px; }
+.course-broadcast .tv-club-logo { height: 57px; }
+.course-broadcast .tv-club-name { font-size: 13px; }
+.course-broadcast .tv-title { font-size: clamp(14px, 1.7vw, 27px); }
+.course-broadcast .tv-live,.course-broadcast .tv-race-chip,.course-broadcast .tv-lap,.course-broadcast .tv-clock,.course-broadcast .tv-shot { min-height: 32px; font-size: 12px; padding-inline: 9px; }
+.course-broadcast .race-standings { top: 108px; right: 12px; bottom: 112px; width: var(--tower-width); max-height: none; border: 1px solid #ffffff40; border-radius: 10px; box-shadow: none; display: flex; flex-direction: column; }
+.course-broadcast .race-standings h3 { font-size: 13px; padding: 9px; }
+.course-broadcast .race-standings .tv-order { flex: 1; display: flex; flex-direction: column; overflow-y: auto; pointer-events: auto; font-size: clamp(10px, .85vw, 15px); }
+.course-broadcast .race-standings .tv-order-row { flex: 1; min-height: 18px; padding: 2px 8px; gap: 5px; }
+.course-broadcast .tv-strap { inset: auto 12px 8px; height: 55px; min-height: 0; border-radius: 8px; padding: 0; }
+.course-broadcast .tv-strap-line { margin: 0; font-size: clamp(13px, 1.35vw, 22px); padding: 8px 14px; line-height: 1.3; }
+.course-broadcast .tv-strap-badge { font-size: 10px; padding: 0 16px; }
+.course-broadcast .course-director-bar { position: absolute; top: 78px; left: 16px; right: 16px; height: 24px; display: flex; align-items: center; justify-content: space-between; color: #f5deb2; font: 700 10px/1.2 Arial, sans-serif; letter-spacing: .09em; }
+.course-broadcast .race-camera-toggle { position: static; padding: 4px 9px; font-size: 11px; border-color: #ffffff50; background: #173f34; }
+.course-broadcast .course-event-ticker { position: absolute; inset: auto 12px 69px; height: 34px; width: auto; display: flex; align-items: center; gap: 12px; padding: 0 12px; margin: 0; background: #f4d495; color: #3f1822; border: 0; border-radius: 6px; box-shadow: none; transform: none; animation: none; overflow: hidden; font: 700 12px/1.2 Arial, sans-serif; z-index: 15; }
+.course-event-phase { font-size: 10px; flex: none; padding-right: 12px; border-right: 1px solid #3f182240; }
+.course-event-ticker strong { flex: none; }
+.course-event-affected { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.course-broadcast .tv-art-background { opacity: 1; filter: none; }
+.course-broadcast[data-camera] .tv > .course-world,.course-broadcast[data-camera] .tv > .tv-art-background,.course-broadcast[data-camera] .tv-art { display: block; }
+.course-broadcast .tv-snail-sprite { animation: none; transform: none; }
+.course-broadcast .tv-runner { transition: none; }
+.course-broadcast .tv-runner.fx-up .tv-art { filter: drop-shadow(0 0 4px #ffdf86); }
+.course-broadcast .course-club-mark { font: 900 42px/1 Arial, sans-serif; fill: #fff9ed; opacity: .65; letter-spacing: .06em; }
+.course-broadcast .course-production-mark { font: 700 12px/1 Arial, sans-serif; fill: #fff9ed; opacity: .7; letter-spacing: .12em; }
+.course-prop { pointer-events: none; }
+.course-prop[data-phase="warning"] { opacity: .5; }
+.course-prop .course-impact { opacity: 0; }
+.course-prop[data-phase="effect"] .course-impact { opacity: 1; }
+.course-prop[data-phase="reveal"] .course-prop-motion { animation: course-prop-arrive .6s ease-out both; }
+.course-prop[data-phase="effect"] .course-prop-motion { animation: course-prop-react .8s ease-in-out 2; }
+@keyframes course-prop-arrive { from { transform: translate(0,-45px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
+@keyframes course-prop-react { 50% { transform: translate(0,-7px) rotate(-8deg); } }
+.course-broadcast.race-motion-reduced .course-prop-motion { animation: none !important; }
+.course-broadcast .race-finish-confirmation { display: none; }
+@media(max-width: 900px) {
+  .course-broadcast .tv-club-brand { flex-basis: 150px; }
+  .course-broadcast .tv-club-name { font-size: 10px; }
+  .course-broadcast .tv-shot { display: none; }
+  .course-broadcast .tv-title { min-width: 0; }
+}
+@media(max-width: 600px) {
+  .course-broadcast .tv-top { height: 64px; min-height: 64px; padding: 4px 8px; gap: 5px; flex-wrap: nowrap; }
+  .course-broadcast .tv-club-brand { flex: 0 0 42px; }
+  .course-broadcast .tv-club-logo { height: 48px; }
+  .course-broadcast .tv-club-name,.course-broadcast .tv-live,.course-broadcast .tv-title { display: none; }
+  .course-broadcast .tv-race-chip,.course-broadcast .tv-lap,.course-broadcast .tv-clock { font-size: 10px; padding-inline: 7px; }
+  .course-broadcast .tv-clock { margin-left: auto; }
+  .course-broadcast .course-director-bar { top: 69px; left: 8px; right: 8px; }
+  .course-broadcast .course-director-bar > span { max-width: 55%; overflow: hidden; white-space: nowrap; font-size: 8px; }
+  .course-broadcast .race-standings { top: 100px; left: 8px; right: 8px; bottom: auto; width: auto; height: 76px; border-radius: 6px; }
+  .course-broadcast .race-standings h3 { padding: 3px 8px; font-size: 9px; text-align: left; }
+  .course-broadcast .race-standings h3 span { display: inline; margin-left: 8px; }
+  .course-broadcast .race-standings .tv-order { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .course-broadcast .race-standings .tv-order-row { flex: 0 0 140px; min-height: 0; display: grid; grid-template-columns: 17px 8px 1fr; gap: 2px; padding: 3px 6px; font-size: 10px; }
+  .course-broadcast .tv-order-gap { grid-column: 3; }
+  .course-broadcast .course-scene { inset: 183px 8px 112px; }
+  .course-broadcast .tv-strap { left: 8px; right: 8px; }
+  .course-broadcast .tv-strap-badge { display: none; }
+  .course-broadcast .course-event-ticker { left: 8px; right: 8px; gap: 7px; padding: 0 8px; font-size: 10px; }
+  .course-event-phase { font-size: 8px; padding-right: 7px; }
+  .course-event-affected { display: none; }
+}
+
+.course-broadcast .tv-order-dot { width: 17px; height: 17px; border-radius: 50%; display: inline-grid; place-items: center; flex: none; color: #fff; font: 800 10px/1 Arial,sans-serif; border: 1px solid #ffffff70; }
+@media(max-width:600px) { .course-broadcast .race-standings .tv-order-row { grid-template-columns: 17px 17px 1fr; } }
+.course-broadcast .tv.racing .tv-runner:not(.finished) .tv-snail-sprite { animation: none; transform: none; }
+.course-broadcast .race-standings-dense .tv-order-row { min-height: 14px; padding-block: 0; font-size: clamp(9px, 1.5vh, 13px); line-height: 1; }
+.course-broadcast .race-standings-dense .tv-order-pos,.course-broadcast .race-standings-dense .tv-order-dot { width: 13px; height: 13px; font-size: 9px; }
+/* Each set piece acts locally: balls roll, dogs cross, birds swoop, boots land. */
+.course-prop-roll[data-phase="reveal"] .course-prop-motion { animation: course-ball-roll .7s ease-out both; }
+.course-prop-dash[data-phase="reveal"] .course-prop-motion { animation: course-dog-cross .7s ease-out both; }
+.course-prop-swoop[data-phase="reveal"] .course-prop-motion { animation: course-bird-swoop .9s ease-out both; }
+.course-prop-cross[data-phase="effect"] .course-prop-motion { animation: course-boot-stomp .7s ease-in-out 2; }
+.course-prop-spray[data-phase="effect"] .course-prop-motion { animation: course-sprinkler .9s ease-in-out 2; }
+.course-prop-burst[data-phase="effect"] .course-prop-motion { animation: course-cloud .9s ease-in-out 2; }
+@keyframes course-ball-roll { from { transform: translate(-55px,0) rotate(-110deg); opacity: 0; } to { transform: translate(0,0) rotate(0); opacity: 1; } }
+@keyframes course-dog-cross { from { transform: translate(-65px,0); opacity: 0; } 60% { transform: translate(-15px,-8px); opacity: 1; } to { transform: translate(0,0); } }
+@keyframes course-bird-swoop { from { transform: translate(-40px,-55px) rotate(-25deg); opacity: 0; } to { transform: translate(0,0) rotate(0); opacity: 1; } }
+@keyframes course-boot-stomp { 35% { transform: translate(0,-16px); } 60% { transform: translate(0,2px) scale(1.04,.96); } }
+@keyframes course-sprinkler { 30% { transform: rotate(-12deg); } 70% { transform: rotate(12deg); } }
+@keyframes course-cloud { 50% { transform: scale(1.12); opacity: .65; } }
