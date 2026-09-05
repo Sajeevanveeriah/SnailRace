@@ -236,6 +236,8 @@ test('first finisher freezes the field and opens one result within one second', 
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
   await expect(winner).toBeVisible();
   await expect(winner).toHaveCount(1);
+  await expect(page.locator('.race-broadcast [aria-label="Race 1 status"]')).toHaveCount(1);
+  await expect(page.locator('.tv-lap')).toHaveText('LAP 1/1');
 
   const recordedOnce = () =>
     page.evaluate(() => {
