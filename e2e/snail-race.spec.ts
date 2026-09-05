@@ -179,6 +179,7 @@ test('race uses production art and commentary avoids monetary language', async (
   const hud = page.locator('.race-hud');
   await expect(hud).toHaveAttribute('aria-label', 'Race 1 status');
   await expect(hud.locator('.tv-clock')).toHaveAttribute('role', 'timer');
+  await expect(hud.locator('.tv-clock')).toBeVisible();
   const commentary = page.locator('.tv-strap-line');
   await expect(commentary).toHaveAttribute('role', 'status');
   await expect(commentary).toHaveAttribute('aria-live', 'polite');
@@ -541,3 +542,11 @@ for (const [raceNumber, courseId] of [
     await page.screenshot({ path: testInfo.outputPath(`${courseId}.png`) });
   });
 }
+
+test('initial page hydration has no React errors', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.reload();
+  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  expect(errors).toEqual([]);
+});
