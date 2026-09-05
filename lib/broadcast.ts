@@ -1,3 +1,5 @@
+import type { RaceResult } from './types';
+
 /**
  * The telecast.
  *
@@ -71,7 +73,7 @@ export const LAP_LEN = 4000;
 export const MARK_EVERY = 100;
 
 /** Roughly how tall a snail is drawn at scale 1, ground to eye stalk. */
-export const SNAIL_H = 52;
+export const SNAIL_H = 84;
 
 /* ── Lanes ─────────────────────────────────────────────────────────────── */
 
@@ -95,7 +97,7 @@ const DEPTH_SHRINK = 0.34;
  * so a near one overlapping the lane behind it reads as depth rather than as a
  * mistake - and at twenty lanes, a snail confined to its band would be a speck.
  */
-const OVERLAP = 1.55;
+const OVERLAP = 0.95;
 const MAX_SCALE = 1.2;
 
 /**
@@ -369,4 +371,17 @@ export function clockText(ms: number): string {
   const s = Math.floor((t % 60000) / 1000);
   const d = Math.floor((t % 1000) / 100);
   return `${m}:${String(s).padStart(2, '0')}.${d}`;
+}
+
+/** Final classification is not a fabricated crossing time or a retirement. */
+export function resultGapText(result: RaceResult): string {
+  if (result.status === 'retired') return 'RET';
+  if (result.finishMs != null) return `${(result.finishMs / 1000).toFixed(1)}s`;
+  return 'CLASSIFIED';
+}
+
+/** Position around the current lap, with the final finish kept at the line. */
+export function lapProgress(progress: number, laps: number): number {
+  const p = Math.max(0, Math.min(1, progress));
+  return p === 1 ? 1 : (p * Math.max(1, laps)) % 1;
 }

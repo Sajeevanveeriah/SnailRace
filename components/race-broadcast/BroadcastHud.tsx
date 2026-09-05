@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
+import { resultGapText } from '@/lib/broadcast';
 import { laneColour } from '@/lib/palette';
 import type { BoardRow, RaceController } from '@/lib/use-race';
 
@@ -101,7 +102,16 @@ function RunningOrder({
 
   useEffect(() => onBoard(setRows), [onBoard]);
 
-  const shown = (race.phase as string) === 'idle' ? [] : rows;
+  const phase = race.phase as string;
+  const shown: BoardRow[] = phase === 'idle' || phase === 'countdown'
+    ? []
+    : phase === 'done' || phase === 'confirming'
+      ? race.results.map((result) => ({
+          lane: result.lane,
+          place: result.place,
+          gapText: resultGapText(result),
+        }))
+      : rows;
   if (!open || !shown.length) return null;
 
   return (

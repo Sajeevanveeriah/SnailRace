@@ -1338,3 +1338,58 @@
 
 .race-motion-reduced .surprise-signal,
 .race-motion-reduced .tv-surprise-symbol { animation: none !important; transition: none !important; }
+
+/* Keep names beside correctly sized artwork, with positions in the timing tower. */
+.race-broadcast .tv-pos { display: none; }
+.race-broadcast .tv-runner.retired .tv-art { opacity: 0.45; filter: grayscale(1); }
+.race-broadcast .tv-course-overview { display: none; }
+.race-broadcast[data-camera="course"] .tv > :not(defs):not(.tv-runners):not(.tv-course-overview) { display: none; }
+.race-broadcast[data-camera="course"] .tv-course-overview { display: block; }
+.race-broadcast[data-camera="course"] .tv-super { display: none; }
+.race-broadcast[data-camera="course"] .tv-art { display: none; }
+.race-camera-toggle {
+  position: absolute; z-index: 21; left: 22px; top: 266px;
+  padding: 0.55rem 0.85rem; border: 1px solid #e8b55e; border-radius: 6px;
+  color: #fff; background: #30131b; font: 700 14px/1.2 Arial, sans-serif;
+  cursor: pointer;
+}
+.race-camera-toggle:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.race-broadcast .race-surprise { background: none; }
+.race-broadcast .surprise-ledger { display: none; }
+.race-broadcast .surprise-signal {
+  top: 136px; bottom: auto; left: calc(28vw + 44px); width: min(32%, 440px);
+  border-width: 1px; border-radius: 6px; box-shadow: none;
+}
+.race-broadcast .surprise-signal header { padding: 0.55rem 0.75rem; }
+.race-broadcast .surprise-signal header strong { font-size: clamp(0.9rem, 1.2vw, 1.35rem); line-height: 1.2; }
+.race-broadcast .surprise-signal li { min-height: 28px; font-size: 10px; }
+.race-broadcast .surprise-signal > p { font-size: 12px; line-height: 1.4; max-height: 5em; overflow: hidden; }
+.race-broadcast .surprise-phase-warning .tv-surprise-art,
+.race-broadcast .surprise-phase-warning .tv-surprise-symbol,
+.race-broadcast .surprise-phase-reveal .tv-surprise-art,
+.race-broadcast .surprise-phase-reveal .tv-surprise-symbol { animation: none; }
+.race-broadcast .tv-strap::before { content: none; display: none; }
+@media (max-width: 900px) {
+  .race-camera-toggle { top: 210px; left: 12px; font-size: 12px; }
+  .race-broadcast .surprise-signal { top: 250px; left: 12px; width: 42%; }
+}
+@media (max-width: 600px) {
+  .race-camera-toggle { top: 132px; left: 8px; font-size: 11px; padding: 0.4rem 0.6rem; }
+  .race-broadcast .surprise-signal { top: 170px; left: 8px; width: 48%; }
+  .race-broadcast .surprise-signal header span { display: none; }
+  .race-broadcast .surprise-signal ol { display: flex; }
+  .race-broadcast .surprise-signal li { flex: 1; font-size: 8px; gap: 2px; }
+  .race-broadcast .surprise-signal li i { display: none; }
+}
+
+.race-broadcast .tv-course-number { display: none; }
+.race-broadcast[data-camera="course"] .tv-course-number { display: block; }
+.race-broadcast .tv-surprise-art,
+.race-broadcast .tv-surprise-symbol {
+  left: var(--surprise-x, 50%); top: var(--surprise-y, 52%);
+  right: auto; bottom: auto; translate: -50% -80%;
+  width: clamp(72px, 10vw, 170px);
+}
+.race-broadcast .tv-surprise-plague-cloud { width: clamp(120px, 18vw, 300px); }
+
+.race-camera-toggle:disabled { opacity: 0.55; cursor: default; }

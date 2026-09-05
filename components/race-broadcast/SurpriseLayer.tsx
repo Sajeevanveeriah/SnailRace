@@ -26,11 +26,11 @@ export function SurpriseLayer({ race, names }: { race: RaceController; names: st
     .map((lane) => names[lane] ?? `Lane ${lane + 1}`)
     .join(', ');
   const eventLabel = moment.label ?? moment.text;
-  const consequence = consequenceText(moment.deltaMs, moment.consequence);
+  const consequence = surprisePhase === 'warning' ? 'APPROACHING' : surprisePhase === 'reveal' ? 'IMPACT IMMINENT' : consequenceText(moment.deltaMs, moment.consequence);
 
   return (
     <div
-      key={moment.id}
+      key={moment.eventId ?? moment.id}
       className={`race-surprise race-surprise-${presentation.cue} surprise-phase-${surprisePhase} ${moment.big ? 'race-surprise-field' : ''}`}
       role="status"
       aria-live="assertive"
@@ -60,7 +60,7 @@ export function SurpriseLayer({ race, names }: { race: RaceController; names: st
             </li>
           ))}
         </ol>
-        <p>{moment.text}</p>
+        <p>{affected ? `${affected}. ` : ''}{moment.text}</p>
       </section>
 
       <aside className="surprise-ledger" aria-hidden="true">

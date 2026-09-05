@@ -1,5 +1,8 @@
 'use client';
 
+import type { RecordedCue } from './audio/voice-cues';
+import { recordedCueFor } from './audio/voice-cues';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   callLine,
@@ -99,6 +102,8 @@ export interface RaceMoment {
  * for what the crowd reads - see `rankSnails`.
  */
 export interface PaintInfo {
+  /** Authoritative simulation time, shared by live coverage and replay. */
+  raceTimeMs: number;
   ranked: SnailRun[];
   byPosition: SnailRun[];
   /** The leader's progress, 0 to 1. */
@@ -324,9 +329,9 @@ export function useRace(
    * is everything the room hears. Priority decides whether a line is worth
    * talking over the last one - see `audio/voice.ts`.
    */
-  const call = useCallback((text: string, priority: 'big' | 'call' = 'call') => {
+  const call = useCallback((text: string, priority: 'big' | 'call' | 'finish' = 'call', cue?: RecordedCue) => {
     setCommentary(text);
-    say(text, priority);
+    say(text, priority, cue);
   }, []);
 
   /** Pull a banner down early, e.g. because the leaders have reached the run home. */
@@ -346,6 +351,8 @@ export function useRace(
     stop();
     clearTimers();
     raceRef.current = null;
+    boardAtRef.current = -Infinity;
+    boardRef.current.forEach((cb) => cb([]));
     setPhase('idle');
     setCountdown('');
     setCommentary('');
@@ -374,7 +381,7 @@ export function useRace(
       setResults(ordered);
       setPhase('confirming');
       setStatus(winner ? `${winner.name} wins!` : 'Race over');
-      if (winner) call(`${winner.name} wins!`, 'big');
+      if (winner) call(`${winner.name} wins!`, 'finish', 'winner');
       startTrack('winner');
       setCrowdLevel(1);
       sfx.fanfare();
@@ -411,6 +418,7 @@ export function useRace(
       const settled = rankSnails(race.snails);
       painterRef.current?.paint(race.snails, {
         ...settled,
+        raceTimeMs: race.raceT,
         leadP: 1,
         meanRate: 0,
         photoFinish: false,
@@ -434,7 +442,8 @@ export function useRace(
         margin && margin < 200
           ? `${first.name} wins it on the line!`
           : `${first.name} wins!`,
-        'big',
+        'finish',
+        'winner',
       );
     }
     startTrack('winner');
@@ -449,10 +458,12 @@ export function useRace(
       if (!race) return;
 
       if (!race.last) race.last = now;
-      let dt = now - race.last;
+      const elapsed = Math.max(0, now - race.last);
       race.last = now;
-      if (dt > 100) dt = 100; // survive GC pauses and tab returns
-      race.raceT += dt * race.slow;
+      // Progress is a pure function of race time. Catch up after a slow frame
+      // or background tab; only the instantaneous effort estimate is bounded.
+      const dt = Math.min(100, elapsed);
+      race.raceT += elapsed * race.slow;
       if (race.lockedPlan) race.raceT = Math.min(race.raceT, race.lockedPlan.stopAtMs);
 
       const { crossed, fired } = stepRace(race.snails, race.raceT, dt, race.placed);
@@ -511,7 +522,7 @@ export function useRace(
               }
             }
           } else {
-            call(cue.text, 'big');
+            call(cue.text, 'big', event ? recordedCueFor(event.label) ?? (event.consequence === 'advance' ? 'boost' : event.consequence === 'retire' ? 'retire' : 'delay') : undefined);
           }
         }
       }
@@ -576,7 +587,7 @@ export function useRace(
         lead.lane !== race.leadLane
       ) {
         const deposed = race.snails.find((s) => s.lane === race.leadLane);
-        call(leadChangeLine(lead.name, deposed?.name ?? chaser.name, race.commentaryRnd), 'big');
+        call(leadChangeLine(lead.name, deposed?.name ?? chaser.name, race.commentaryRnd), 'big', 'lead');
         race.commentaryAt = race.raceT;
         if (!quiet) announce(`${lead.name} HITS THE FRONT`, 'hot');
         sfx.leadChange();
@@ -603,7 +614,7 @@ export function useRace(
           if (s.done || s.p < 0.12) continue;
           const passed = byPosition[i + 1];
           if (!passed) continue;
-          call(overtakeLine(s.name, passed.name, i + 1, race.commentaryRnd), 'big');
+          call(overtakeLine(s.name, passed.name, i + 1, race.commentaryRnd), 'big', 'overtake');
           race.commentaryAt = race.raceT;
           race.overtakeAt = race.raceT;
           sfx.crowd.cheer(0.45);
@@ -627,7 +638,7 @@ export function useRace(
         if (done > race.lapsDone && done < laps) {
           race.lapsDone = done;
           const starting = done + 1;
-          call(lapLine(starting, laps, lead.name, chaser.name, race.commentaryRnd), 'big');
+          call(lapLine(starting, laps, lead.name, chaser.name, race.commentaryRnd), 'big', starting === laps ? 'bell' : 'lap');
           race.commentaryAt = race.raceT;
           if (starting === laps) {
             announce('BELL LAP', 'hot');
@@ -713,6 +724,7 @@ export function useRace(
       painterRef.current?.paint(race.snails, {
         ranked,
         byPosition,
+        raceTimeMs: race.raceT,
         leadP,
         meanRate: mean,
         photoFinish: race.inPhoto,
@@ -759,7 +771,7 @@ export function useRace(
       if (race.reactTone && race.raceT >= race.reactAt) {
         const tone = race.reactTone;
         race.reactTone = null;
-        call(reactionLine(tone, race.commentaryRnd));
+        call(reactionLine(tone, race.commentaryRnd), 'call', 'reaction');
         race.commentaryAt = race.raceT;
       }
 
@@ -785,6 +797,8 @@ export function useRace(
             },
             race.commentaryRnd,
           ),
+          'call',
+          leadP > 0.85 ? 'final' : leadP < 0.2 ? 'early' : toLengths(lead.p - chaser.p) < 1 ? 'close' : 'mid',
         );
       }
 
@@ -912,8 +926,7 @@ export function useRace(
     setPhotoFinish(false);
     setPhase('void');
     setStatus('RACE VOID');
-    call('This race has been declared void. All bets are off and will be re-run.', 'big');
-    silence();
+    call('This race has been declared void. All bets are off and will be re-run.', 'finish', 'void');
     setCrowdLevel(0.12);
   }, [phase, stop, clearTimers, call]);
 
