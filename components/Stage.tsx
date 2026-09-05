@@ -1310,17 +1310,22 @@ export function Stage() {
             {event.eventMode === 'recorded' ? (
               <PackRunner onResult={onPackResult} onVoid={onPackVoid} />
             ) : event.trackShape === 'circuit' ? (
-              <Telecast
-                names={names}
-                race={race}
-                surface={event.stageTheme}
-                laps={event.laps}
-                chase={event.chaseCam}
-                calm={event.calm}
-                clubName={event.clubName}
-                raceNo={event.showPhase === 'results' ? event.raceNumber : nextRaceNo}
-                courseId={activeCourse.id}
-              />
+              // The imperative SVG painter starts after saved state is restored.
+              clientReady ? (
+                <Telecast
+                  names={names}
+                  race={race}
+                  surface={event.stageTheme}
+                  laps={event.laps}
+                  chase={event.chaseCam}
+                  calm={event.calm}
+                  clubName={event.clubName}
+                  raceNo={event.showPhase === 'results' ? event.raceNumber : nextRaceNo}
+                  courseId={activeCourse.id}
+                />
+              ) : (
+                <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
+              )
             ) : (
               <RaceTrack names={names} race={race} surface={event.stageTheme} />
             )}
