@@ -293,7 +293,7 @@ export function Telecast({
           n.pos.textContent = '';
         });
         if (clockRef.current) clockRef.current.textContent = '0:00.0';
-        if (lapRef.current) lapRef.current.textContent = laps > 1 ? `LAP 1/${laps}` : '';
+        if (lapRef.current) lapRef.current.textContent = `LAP 1/${laps}`;
         if (shotRef.current) shotRef.current.textContent = '';
       },
 

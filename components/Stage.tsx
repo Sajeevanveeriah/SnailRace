@@ -1318,7 +1318,7 @@ export function Stage() {
                 chase={event.chaseCam}
                 calm={event.calm}
                 clubName={event.clubName}
-                raceNo={nextRaceNo}
+                raceNo={event.showPhase === 'results' ? event.raceNumber : nextRaceNo}
                 courseId={activeCourse.id}
               />
             ) : (
