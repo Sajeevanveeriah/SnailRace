@@ -145,6 +145,26 @@ test('navigating the desk away restores controls without crashing the show', asy
   expect(errors).toEqual([]);
 });
 
+test('the obstacle stays visible before the crowd-lift cue replaces it', async ({ page }) => {
+  const desk = await openDesk(page);
+  await desk.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desk.getByLabel('Lap length').selectOption('12000');
+  await desk.getByLabel('Laps').selectOption('1');
+  await desk.getByRole('button', { name: /Hide/ }).click();
+  await raceCard(desk);
+  await desk.getByRole('button', { name: 'Start race', exact: true }).click();
+  const signal = page.locator('.course-event-ticker');
+  await expect(signal).toContainText(/LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/, { timeout: 15_000 });
+  await expect(signal).toContainText('DELAY');
+  const label = await signal.locator('strong').innerText();
+  await expect(page.locator('.course-prop-image')).toBeVisible();
+  // Check a readable interval of actual animation, including any resulting overtake.
+  await page.waitForTimeout(650);
+  await expect(signal.locator('strong')).toHaveText(label);
+  await expect(page.locator('.course-prop-image')).toBeVisible();
+  await expect(signal).toContainText('NDCC CROWD LIFT');
+});
+
 
 test('recorded media plays only on the projector and settles from the desk', async ({ page }) => {
   const media = readFileSync('e2e/fixtures/recorded-race.webm');

@@ -1113,7 +1113,8 @@ export function drawLockedRacePlan(
     (durationMs < 25_000 || intensity === 'calm' ? [0.46] : [0.32, 0.64])
       .map((at) => Math.round(durationMs * (at + directorRnd() * 0.035)));
   const warningLead = Math.min(1400, Math.round(durationMs * 0.04));
-  const chaseOffset = Math.min(2400, Math.round(durationMs * 0.045));
+  // Let the obstacle read on screen before the chase warning replaces it.
+  const chaseOffset = Math.max(1000, warningLead + Math.min(1200, Math.round(durationMs * 0.1)));
   const comebackSpan = Math.round(durationMs * 0.13);
 
   const grouped = new Map<string, LockedRaceEvent>();
