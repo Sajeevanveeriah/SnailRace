@@ -28,6 +28,8 @@ interface Props {
   raceNo: number;
   courseId: CourseId;
   replay?: boolean;
+  fullCourse?: boolean;
+  onCourseViewChange?: (value: boolean) => void;
 }
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
@@ -45,11 +47,14 @@ export function Telecast({
   raceNo,
   courseId,
   replay = false,
+  fullCourse,
+  onCourseViewChange,
 }: Props) {
   const { setPainter } = race;
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = calm || prefersReducedMotion;
-  const [courseView, setCourseView] = useState(false);
+  const [localCourseView, setCourseView] = useState(false);
+  const courseView = fullCourse ?? localCourseView;
   const courseViewRef = useRef(false);
   const sceneRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -210,6 +215,12 @@ export function Telecast({
     const snapshot = snapshotRef.current;
     if (snapshot) painter.paint(snapshot.snails, snapshot.info);
   }, [race.moment, painter]);
+
+  useEffect(() => {
+    courseViewRef.current = courseView;
+    const snapshot = snapshotRef.current;
+    if (snapshot) painter.paint(snapshot.snails, snapshot.info);
+  }, [courseView, painter]);
 
   const phase = race.phase as string;
   const confirming = phase === 'confirming';
@@ -460,7 +471,8 @@ export function Telecast({
           disabled={phase === 'idle' || phase === 'countdown'}
           onClick={() => {
             courseViewRef.current = !courseViewRef.current;
-            setCourseView(courseViewRef.current);
+            if (onCourseViewChange) onCourseViewChange(courseViewRef.current);
+            else setCourseView(courseViewRef.current);
             const snapshot = snapshotRef.current;
             if (snapshot) painter.paint(snapshot.snails, snapshot.info);
           }}

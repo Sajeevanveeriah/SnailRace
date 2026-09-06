@@ -14,7 +14,7 @@ import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION
 import { MAX_FIELD, MIN_LIVE_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
 import { LAP_LEN } from '@/lib/broadcast';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
-import { INTENSITY_FACTOR, eventBudget, verifyDraw } from '@/lib/race-engine';
+import { verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import {
   initVoice,
@@ -72,6 +72,8 @@ export function ControlDrawer({
   locked?: boolean;
 }) {
   const event = useEvent();
+  const controlsRef = useRef<HTMLElement | null>(null);
+  const ownerWindow = () => controlsRef.current?.ownerDocument.defaultView ?? window;
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [cashLane, setCashLane] = useState(0);
@@ -109,6 +111,32 @@ export function ControlDrawer({
     };
     refresh();
     return onVoicesChanged(refresh);
+  }, [open]);
+
+  useEffect(() => {
+    const root = controlsRef.current;
+    if (!open || !root) return;
+    const doc = root.ownerDocument;
+    const previous = doc.activeElement as HTMLElement | null;
+    const focusables = () => Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), a[href]')).filter((node) => node.getClientRects().length > 0);
+    const first = focusables()[0];
+    first?.focus({ preventScroll: true });
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      const head = items[0];
+      const tail = items[items.length - 1];
+      if (e.shiftKey && (doc.activeElement === head || !root.contains(doc.activeElement))) {
+        e.preventDefault(); tail?.focus();
+      } else if (!e.shiftKey && (doc.activeElement === tail || !root.contains(doc.activeElement))) {
+        e.preventDefault(); head?.focus();
+      }
+    };
+    doc.addEventListener('keydown', trap);
+    return () => {
+      doc.removeEventListener('keydown', trap);
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
   }, [open]);
 
   /* The device archive is read when the console opens, not held live. */
@@ -379,7 +407,7 @@ export function ControlDrawer({
   const download = (filename: string, text: string, mime: string) => {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = (controlsRef.current?.ownerDocument ?? document).createElement('a');
     a.href = url;
     a.download = filename;
     a.click();
@@ -521,7 +549,7 @@ export function ControlDrawer({
         say('Integrity check failed: that saved night no longer matches its fingerprint. It was not loaded.');
         return;
       }
-      if (!window.confirm(`Load "${n.name}"? The current night on this device is replaced.`)) return;
+      if (!ownerWindow().confirm(`Load "${n.name}"? The current night on this device is replaced.`)) return;
       const ok = restore(JSON.stringify(n.state));
       if (ok) {
         addAudit({
@@ -543,7 +571,7 @@ export function ControlDrawer({
    */
   const resetRehearsal = () => {
     if (
-      !window.confirm(
+      !ownerWindow().confirm(
         'Clear the rehearsal? Races, fun bets and chips from the rehearsal are removed. Names, set-up and all donations stay.',
       )
     ) {
@@ -573,6 +601,7 @@ export function ControlDrawer({
     <>
       <section
         id="controls"
+        ref={controlsRef}
         className={`drawer glass glass-strong no-print ${open ? 'open' : ''}`}
         aria-label="Moderator controls"
         aria-hidden={!open}
@@ -867,7 +896,7 @@ export function ControlDrawer({
               </label>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 {event.surprises
-                  ? `About ${eventBudget(event.raceDurationMs, event.fieldSize)} boosts, delays and authored course set-pieces per race. Each warning, effect and lasting consequence is drawn and hash-locked before the countdown, so it can change the running order without changing after the start.`
+                  ? 'Course surprises can hold up the leader and give a chaser a crowd lift. Each lasting delay or boost is drawn before countdown and can change who wins.'
                   : 'Surprises are off. The field runs on wobble alone.'}
               </p>
             </section>
@@ -915,7 +944,8 @@ export function ControlDrawer({
                 </label>
               </div>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                {`About ${eventBudget(event.raceDurationMs, event.fieldSize, INTENSITY_FACTOR[event.intensity])} surprises a race at this setting. `}
+                Calm includes one comeback sequence. Standard, Big night and Chaos include two on races of at least 25 seconds, with extra course surprises where there is room. Short races include one.
+                {' '}
                 Presets change how much consequential drama is drawn. The complete plan - including
                 every surprise, lasting delay or boost, rare retirement and first-finisher
                 classification - is hash-locked before the countdown and cannot change mid-race.
@@ -1027,7 +1057,7 @@ export function ControlDrawer({
                         type="button"
                         className="shrink-0 text-(--tx)/40 underline hover:text-(--bad)"
                         onClick={() => {
-                          if (window.confirm(`Delete the saved night "${n.name}" from this device?`)) {
+                          if (ownerWindow().confirm(`Delete the saved night "${n.name}" from this device?`)) {
                             removeNight(n.id);
                             setNights(listNights());
                           }
@@ -1299,7 +1329,7 @@ export function ControlDrawer({
                     className="text-xs text-(--tx)/55 underline hover:text-(--tx)"
                     onClick={() => {
                       if (
-                        window.confirm(
+                        ownerWindow().confirm(
                           `Undo race ${lastStanding.raceNo}? The result stays in the ledger marked void, its fun bets reopen and chips go back to what they were. An audit entry is written.`,
                         )
                       ) {
@@ -1350,7 +1380,7 @@ export function ControlDrawer({
               )}
               <p className="mt-2 text-[11px] text-(--tx)/45">
                 Full results, replays and audit metadata live in the{' '}
-                <Link href="/archive" className="underline hover:text-(--tx)">
+                <Link href="/archive" target="_blank" rel="noopener noreferrer" className="underline hover:text-(--tx)">
                   race archive
                 </Link>
                 .
@@ -1465,7 +1495,7 @@ export function ControlDrawer({
                   className="btn btn-ghost"
                   onClick={() => {
                     setPrintedAt(formattedNow());
-                    window.setTimeout(() => window.print(), 60);
+                    window.setTimeout(() => ownerWindow().print(), 60);
                   }}
                 >
                   Print report
@@ -1509,7 +1539,7 @@ export function ControlDrawer({
                   className="btn btn-danger"
                   onClick={() => {
                     if (
-                      window.confirm(
+                      ownerWindow().confirm(
                         'Start a brand new event? This clears the line-up, cash ledger, results and chips on this device. Card donations stay in Stripe.',
                       )
                     ) {

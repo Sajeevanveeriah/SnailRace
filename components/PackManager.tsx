@@ -157,11 +157,11 @@ export function PackManager({ say }: { say: (message: string) => void }) {
     reader.readAsText(file);
   };
 
-  const exportManifest = () => {
+  const exportManifest = (doc: Document) => {
     if (!pack) return;
     const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = doc.createElement('a');
     a.href = url;
     a.download = `${dateStamp()}-Race-Pack-${pack.title.replace(/[^\w-]+/g, '-')}-Rev00.json`;
     a.click();
@@ -399,15 +399,15 @@ export function PackManager({ say }: { say: (message: string) => void }) {
         <button type="button" className="btn btn-ghost" onClick={() => addMediaRef.current?.click()}>
           Attach and verify media
         </button>
-        <button type="button" className="btn btn-ghost" onClick={exportManifest}>
+        <button type="button" className="btn btn-ghost" onClick={(e) => exportManifest(e.currentTarget.ownerDocument)}>
           Export manifest
         </button>
         <button
           type="button"
           className="btn btn-ghost !text-(--bad)"
-          onClick={() => {
+          onClick={(e) => {
             if (
-              window.confirm(
+              (e.currentTarget.ownerDocument.defaultView ?? window).confirm(
                 locked
                   ? 'Replace the LOCKED pack? Races already played keep their results; the replacement is a new pack and the change is written to the audit trail.'
                   : 'Discard this draft pack?',

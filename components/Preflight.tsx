@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { useEvent } from '@/lib/event-store';
 import { HAS_API, HAS_LIVE_API, liveApiUrl } from '@/lib/deployment';
@@ -33,6 +33,8 @@ export function Preflight() {
   const [running, setRunning] = useState(false);
   const [clickerArmed, setClickerArmed] = useState(false);
   const [clickerOk, setClickerOk] = useState<boolean | null>(null);
+  const clickerCleanup = useRef<() => void>(() => {});
+  useEffect(() => () => clickerCleanup.current(), []);
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -42,8 +44,8 @@ export function Preflight() {
     /* Projector basics. */
     add(
       'Full screen',
-      document.fullscreenEnabled ? 'pass' : 'attention',
-      document.fullscreenEnabled ? 'Available - press F on the stage.' : 'This browser refuses full screen; use the window maximised.',
+      document.fullscreenElement ? 'pass' : 'attention',
+      document.fullscreenElement ? 'The projector is in fullscreen.' : document.fullscreenEnabled ? 'Windowed - click Fullscreen or press F in the game window.' : 'Fullscreen is unavailable; maximise the game window.',
     );
     const w = window.screen.width;
     const h = window.screen.height;
@@ -69,9 +71,9 @@ export function Preflight() {
             : 'Audio arms on the first click; use Sound check before doors.',
     );
     add(
-      'Speech voices',
+      'Commentary',
       voicesReady() ? 'pass' : 'attention',
-      voicesReady() ? 'Voices installed; the caller can speak.' : 'No speech voices in this browser; written commentary still runs.',
+      voicesReady() ? 'Recorded caller is available. Use Sound check to confirm the output you can hear.' : 'Audio playback is unavailable; written commentary still runs.',
     );
 
     /* Storage and backups. */
@@ -197,7 +199,8 @@ export function Preflight() {
     setRunning(false);
   }, [event, clickerOk]);
 
-  const armClicker = useCallback(() => {
+  const armClicker = useCallback((owner: Window) => {
+    clickerCleanup.current();
     setClickerArmed(true);
     setClickerOk(null);
     const onKey = (e: KeyboardEvent) => {
@@ -206,15 +209,16 @@ export function Preflight() {
         e.stopPropagation();
         setClickerOk(true);
         setClickerArmed(false);
-        window.removeEventListener('keydown', onKey, true);
+        owner.removeEventListener('keydown', onKey, true);
       }
     };
-    window.addEventListener('keydown', onKey, true);
-    window.setTimeout(() => {
-      window.removeEventListener('keydown', onKey, true);
+    owner.addEventListener('keydown', onKey, true);
+    const timer = window.setTimeout(() => {
+      owner.removeEventListener('keydown', onKey, true);
       setClickerArmed(false);
       setClickerOk((ok) => (ok === true ? true : false));
     }, 6000);
+    clickerCleanup.current = () => { owner.removeEventListener('keydown', onKey, true); window.clearTimeout(timer); };
   }, []);
 
   const worst: Verdict | null = rows
@@ -231,7 +235,7 @@ export function Preflight() {
         <button type="button" className="btn btn-primary" disabled={running} onClick={() => void run()}>
           {running ? 'Checking…' : rows ? 'Run preflight again' : 'Run preflight'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={armClicker} disabled={clickerArmed}>
+        <button type="button" className="btn btn-ghost" onClick={(e) => armClicker(e.currentTarget.ownerDocument.defaultView ?? window)} disabled={clickerArmed}>
           {clickerArmed ? 'Press the clicker forward…' : clickerOk ? 'Clicker OK - test again' : 'Test the clicker'}
         </button>
         {clickerOk === false ? (

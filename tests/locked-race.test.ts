@@ -177,3 +177,46 @@ test('legacy all-finisher stepping remains unchanged', () => {
   );
   assert.ok(race.snails.every((snail) => snail.done && !snail.retired));
 });
+
+test('comeback surprises challenge the actual leader and produce visible overtaking', () => {
+  for (const duration of [7000, 30_000, 60_000]) {
+    for (let seed = 1; seed <= 200; seed++) {
+      const plan = drawLockedRacePlan(seed, names, duration, true);
+      const setbacks = plan.events.filter((event) => event.id.endsWith('-leader'));
+      assert.ok(setbacks.length >= 1);
+      let leadChanged = false;
+      for (const event of setbacks) {
+        const lane = event.targetLanes[0];
+        const active = plan.runners.filter((runner) => !plan.events.some((e) =>
+          e.consequence === 'retire' && e.targetLanes.includes(runner.lane) && e.effectAtMs <= event.effectAtMs));
+        assert.equal(lockedProgressAt(plan, lane, event.effectAtMs),
+          Math.max(...active.map((runner) => lockedProgressAt(plan, runner.lane, event.effectAtMs))));
+        const after = names.map((_, i) => lockedProgressAt(plan, i, event.effectEndMs));
+        leadChanged ||= after[lane] < Math.max(...after);
+        assert.ok(event.effectEndMs < plan.stopAtMs);
+        for (let t = event.effectAtMs; t < event.effectEndMs; t += 50) {
+          assert.ok(lockedProgressAt(plan, lane, t + 50) >= lockedProgressAt(plan, lane, t));
+        }
+      }
+      assert.ok(leadChanged, `Seed ${seed} at ${duration}ms had no comeback`);
+    }
+  }
+});
+
+test('comeback effects change the classification, remain bounded and respect surprise settings', () => {
+  let resultChanges = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    const plan = drawLockedRacePlan(seed, names, 30_000, true, 'chaos');
+    const without = { ...plan, events: plan.events.filter((event) => !event.id.startsWith('comeback-')) };
+    const at = plan.stopAtMs;
+    if (lockedProgressAt(without, plan.winnerLane, at) < Math.max(...names.map((_, lane) => lockedProgressAt(without, lane, at)))) resultChanges++;
+    for (const runner of plan.runners) {
+      const delta = plan.events.reduce((sum, event) => sum + (event.clockDeltaMsByLane[runner.lane] ?? 0), 0);
+      assert.ok(Math.abs(delta) <= plan.durationMs * 0.16);
+    }
+  }
+  assert.ok(resultChanges > 100, 'The comeback must affect the result, not only the picture');
+  assert.equal(drawLockedRacePlan(42, names, 60_000, false).events.length, 0);
+  assert.equal(drawLockedRacePlan(42, names, 60_000, true, 'calm').events.filter((e) => e.id.endsWith('-leader')).length, 1);
+  assert.equal(drawLockedRacePlan(42, names, 60_000, true).events.filter((e) => e.id.endsWith('-leader')).length, 2);
+});

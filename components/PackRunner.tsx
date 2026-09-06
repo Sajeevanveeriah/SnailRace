@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { addAudit, setState, useEvent } from '@/lib/event-store';
 import { drawPackRace } from '@/lib/race-pack';
 import { getPackFileUrl, hasPackFile, onPackFilesChange } from '@/lib/pack-files';
@@ -21,7 +22,9 @@ import type { PackRace, RaceResult } from '@/lib/types';
 export function PackRunner({
   onResult,
   onVoid,
+  controlsTarget,
 }: {
+  controlsTarget?: HTMLElement | null;
   /** Hand the committed result to the shared settlement path. */
   onResult: (race: PackRace, results: RaceResult[]) => void;
   onVoid: (race: PackRace, reason: string) => void;
@@ -90,8 +93,17 @@ export function PackRunner({
     onVoid(current, 'Recorded race declared void during playback. It stays eligible for a re-draw.');
   }, [current, onVoid]);
 
+  const setup = (panel: ReactNode) => controlsTarget ? <>
+    <div className="pack-stage glass grid place-items-center p-10 text-center"><div>
+      <p className="eyebrow">Recorded race</p>
+      <h2 className="text-4xl font-bold">{current?.title ?? pack?.title ?? 'Preparing the next race'}</h2>
+      <p className="mt-4">The next race will begin shortly.</p>
+    </div></div>
+    {createPortal(panel, controlsTarget)}
+  </> : panel;
+
   if (!pack) {
-    return (
+    return setup(
       <div className="pack-stage glass grid place-items-center p-10 text-center">
         <div>
           <h2 className="text-xl font-bold">Recorded mode has no Race Pack yet</h2>
@@ -105,7 +117,7 @@ export function PackRunner({
   }
 
   if (!event.packLockedAt) {
-    return (
+    return setup(
       <div className="pack-stage glass grid place-items-center p-10 text-center">
         <div>
           <h2 className="text-xl font-bold">The pack is not locked</h2>
@@ -151,21 +163,31 @@ export function PackRunner({
             }}
           />
         ) : null}
+        {controlsTarget ? createPortal(
         <div className="pack-controls no-print">
-          <button type="button" className="btn btn-ghost" onClick={finish}>
+          <button type="button" className="btn btn-ghost" onClick={(e) => { if ((e.currentTarget.ownerDocument.defaultView ?? window).confirm('Skip playback and reveal the committed result?')) finish(); }}>
             Skip to result
           </button>
-          <button type="button" className="btn btn-ghost !text-(--bad)" onClick={voidPlayback}>
+          <button type="button" className="btn btn-ghost !text-(--bad)" onClick={(e) => { if ((e.currentTarget.ownerDocument.defaultView ?? window).confirm('Void this recorded race without a result?')) voidPlayback(); }}>
             Void race
           </button>
-        </div>
+        </div>, controlsTarget) : (
+        <div className="pack-controls no-print">
+          <button type="button" className="btn btn-ghost" onClick={(e) => { if ((e.currentTarget.ownerDocument.defaultView ?? window).confirm('Skip playback and reveal the committed result?')) finish(); }}>
+            Skip to result
+          </button>
+          <button type="button" className="btn btn-ghost !text-(--bad)" onClick={(e) => { if ((e.currentTarget.ownerDocument.defaultView ?? window).confirm('Void this recorded race without a result?')) voidPlayback(); }}>
+            Void race
+          </button>
+        </div>)}
+
       </div>
     );
   }
 
   /* ── Between recorded races ───────────────────────────────────────── */
 
-  return (
+  return setup(
     <div className="pack-stage glass p-8">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-xl font-bold">
