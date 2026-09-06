@@ -133,6 +133,18 @@ test('blocked popups and rejected fullscreen retain usable controls', async ({ p
   await expect(page.locator('[data-projector-fullscreen]')).toHaveAttribute('data-projector-fullscreen', 'false');
 });
 
+test('navigating the desk away restores controls without crashing the show', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const desk = await openDesk(page);
+  await desk.goto('data:text/html,<h1>Another page</h1>');
+  await expect(page.locator('[data-moderator-connected]')).toHaveAttribute('data-moderator-connected', 'false');
+  await expect(page.getByRole('toolbar', { name: 'Show controls' })).toBeVisible();
+  await page.getByRole('button', { name: /^Show the racecard/ }).click();
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 
 test('recorded media plays only on the projector and settles from the desk', async ({ page }) => {
   const media = readFileSync('e2e/fixtures/recorded-race.webm');

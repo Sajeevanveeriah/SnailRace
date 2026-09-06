@@ -1138,7 +1138,8 @@ export function Stage() {
     moderator.target?.window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
-      moderator.target?.window.removeEventListener('keydown', onKey);
+      try { moderator.target?.window.removeEventListener('keydown', onKey); }
+      catch { /* A desk navigated to another origin no longer exposes its listeners. */ }
     };
   }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.sound, event.music, event.caller]);
 
