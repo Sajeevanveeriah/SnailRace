@@ -571,6 +571,13 @@ export function useRace(
       const { byPosition, ranked } = rankSnails(race.snails);
       const lead = byPosition[0];
       const chaser = byPosition[1] ?? lead;
+      // A lead change caused by an obstacle must not erase the explanation
+      // of that obstacle in the same frame. Keep its caption, prop and caller
+      // together; the live standings still update throughout the sequence.
+      const surpriseOnAir = race.lockedPlan?.events.some((event) =>
+        race.raceT >= event.warningAtMs &&
+        race.raceT <= event.commentaryAtMs + Math.min(1200, race.lockedPlan!.durationMs * 0.1),
+      ) ?? false;
 
       /*
        * A change of leader is the single loudest thing that happens in a
@@ -579,7 +586,7 @@ export function useRace(
        * every other lane "takes the lead" in turn as it finishes.
        */
       if (
-        lead &&
+        !surpriseOnAir && lead &&
         !lead.done &&
         race.placed === 0 &&
         lead.p > LEAD_CHANGE_FROM &&
@@ -605,7 +612,7 @@ export function useRace(
        * in a twenty-lane field several places change every second, and calling
        * all of them would be a list, not a commentary.
        */
-      if (race.placed === 0 && race.raceT - race.overtakeAt > 3000) {
+      if (!surpriseOnAir && race.placed === 0 && race.raceT - race.overtakeAt > 3000) {
         for (let i = 1; i < byPosition.length; i++) {
           const s = byPosition[i];
           const was = race.places.get(s.lane);
@@ -638,10 +645,12 @@ export function useRace(
         if (done > race.lapsDone && done < laps) {
           race.lapsDone = done;
           const starting = done + 1;
-          call(lapLine(starting, laps, lead.name, chaser.name, race.commentaryRnd), 'big', starting === laps ? 'bell' : 'lap');
-          race.commentaryAt = race.raceT;
+          if (!surpriseOnAir) {
+            call(lapLine(starting, laps, lead.name, chaser.name, race.commentaryRnd), 'big', starting === laps ? 'bell' : 'lap');
+            race.commentaryAt = race.raceT;
+          }
           if (starting === laps) {
-            announce('BELL LAP', 'hot');
+            if (!surpriseOnAir) announce('BELL LAP', 'hot');
             sfx.bell();
             sfx.crowd.roar(0.8);
           } else {
@@ -653,7 +662,7 @@ export function useRace(
         if (sector > race.sector && sector <= 3) {
           race.sector = sector;
           const line = sectorLine(sector, lead.name, chaser.name);
-          if (line) {
+          if (line && !surpriseOnAir) {
             call(line, 'big');
             race.commentaryAt = race.raceT;
             if (sector === 2) sfx.bell();

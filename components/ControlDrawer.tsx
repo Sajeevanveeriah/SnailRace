@@ -979,7 +979,7 @@ export function ControlDrawer({
               ) : null}
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 On the stage, the clicker walks the night forward: lobby, racecard, market,
-                race, results, championship, and an interval when you want one. Backspace
+                race, results, championship, and an interval when you want one. PageUp
                 steps back.
               </p>
             </section>
