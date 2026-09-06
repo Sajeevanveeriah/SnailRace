@@ -1,6 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ModeratorDesk } from './ModeratorDesk';
+import { ClubBrand } from './brand/ClubBrand';
+import { useModeratorWindow } from '@/lib/use-moderator-window';
+import { useProjectorDisplay } from '@/lib/use-projector-display';
 import { RaceTrack } from './RaceTrack';
 import { Telecast } from './Telecast';
 import { PitBoard } from './PitBoard';
@@ -51,6 +56,7 @@ import {
   setMusicOn,
   setSoundEnabled,
   sfx,
+  silence,
   startAmbience,
   startTrack,
   stopAmbience,
@@ -65,6 +71,15 @@ import {
 
 export function Stage() {
   const event = useEvent();
+  const moderator = useModeratorWindow();
+  const display = useProjectorDisplay(Boolean(moderator.target));
+  const { open: openModeratorWindow } = moderator;
+  const { toggleFullscreen } = display;
+  const [holding, setHolding] = useState(false);
+  const [fullCourse, setFullCourse] = useState(false);
+  const [packControlsRoot, setPackControlsRoot] = useState<HTMLDivElement | null>(null);
+  const audienceOnly = Boolean(moderator.target) || display.fullscreen;
+
   const [clientReady, setClientReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -316,7 +331,8 @@ export function Stage() {
     if (event.music && race.phase === 'idle') startTrack('lobby');
   }, [primed, event.sound, event.music, race.phase]);
 
-  const startRace = useCallback(async () => {
+  const startInFlight = useRef(false);
+  const prepareStartRace = useCallback(async () => {
     if (
       preparingRace ||
       voidingRace ||
@@ -553,6 +569,13 @@ export function Stage() {
     event.heldRaceStart,
   ]);
 
+  const startRace = useCallback(async () => {
+    if (startInFlight.current) return;
+    startInFlight.current = true;
+    try { await prepareStartRace(); }
+    finally { startInFlight.current = false; }
+  }, [prepareStartRace]);
+
   const resetRace = useCallback(() => {
     if (
       preparingRace ||
@@ -763,7 +786,7 @@ export function Stage() {
 
   const goToPhase = useCallback(
     (phase: ShowPhase) => {
-      setState({ showPhase: phase });
+      setState({ showPhase: phase, ...(phase === 'market' ? { bettingOpen: true } : phase === 'race' ? { bettingOpen: false } : {}) });
       addAudit({
         kind: 'phase_change',
         raceNo: nextRaceNo,
@@ -785,6 +808,7 @@ export function Stage() {
   );
 
   const advanceShow = useCallback(() => {
+    if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.showPhase === 'race') return;
     const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces });
     if (next === event.showPhase) return;
     if (event.showPhase === 'results') {
@@ -794,9 +818,10 @@ export function Stage() {
     setMarketLockAt(null);
     warnedRef.current.clear();
     goToPhase(next);
-  }, [event.showPhase, event.plannedRaces, racesRun, goToPhase, race]);
+  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery]);
 
   const backShow = useCallback(() => {
+    if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.eventMode === 'recorded' && event.packCurrent) return;
     const back: Partial<Record<ShowPhase, ShowPhase>> = {
       racecard: 'lobby',
       market: 'racecard',
@@ -810,7 +835,7 @@ export function Stage() {
       warnedRef.current.clear();
       goToPhase(prev);
     }
-  }, [event.showPhase, goToPhase]);
+  }, [event.showPhase, event.heldRaceStart, event.eventMode, event.packCurrent, goToPhase, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery]);
 
   /* The market lock countdown: 30/10/5 warnings, then lock and race. */
   useEffect(() => {
@@ -1061,81 +1086,62 @@ export function Stage() {
     }
   }, [nightCents, event.goalCents, event.goalShow]);
 
-  /* ── Keyboard ────────────────────────────────────────────────────────── */
+  /* One command path for the projector, moderator desk and presenter clicker. */
+  const forwardAction = useCallback(() => {
+    if (holding) return;
+    if (event.showPhase !== 'race') advanceShow();
+    else if (event.eventMode === 'live') {
+      if (voidRecovery) void retryVoidRecovery();
+      else void startRace();
+    }
+  }, [holding, event.showPhase, event.eventMode, advanceShow, voidRecovery, retryVoidRecovery, startRace]);
+
+  const backAction = useCallback(() => {
+    if (holding) return;
+    if (overlayOpen) setOverlayOpen(false);
+    else if (event.showPhase !== 'race') backShow();
+    else if (race.phase === 'idle' || race.phase === 'void') backShow();
+  }, [holding, overlayOpen, event.showPhase, backShow, race.phase]);
+
+  const openModerator = useCallback(() => {
+    setDrawerOpen(false);
+    openModeratorWindow();
+  }, [openModeratorWindow]);
 
   useEffect(() => {
-    const typing = (t: EventTarget | null) =>
-      t instanceof HTMLElement &&
-      (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
-
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target)) return;
+      if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return;
       const k = e.key.toLowerCase();
-
-      /*
-       * A presentation clicker sends PageDown and PageUp, which is what a
-       * volunteer at the front of a hall is actually holding. Arrow keys are
-       * mapped with them so a wireless keyboard works from the back.
-       */
-      const forward = e.code === 'Space' || e.code === 'PageDown' || e.code === 'ArrowRight';
-      const back = e.code === 'PageUp' || e.code === 'ArrowLeft';
-
-      if (forward) {
-        e.preventDefault();
-        if (event.showPhase !== 'race') {
-          advanceShow();
-          return;
-        }
-        /* Recorded mode: the pack runner's own draw and play buttons drive
-           playback, so a stray clicker press cannot start an engine race. */
-        if (event.eventMode === 'recorded') return;
-        if (voidRecovery) {
-          void retryVoidRecovery();
-        } else if (race.phase === 'idle' || race.phase === 'done' || race.phase === 'void') {
-          void startRace();
-        }
-        return;
-      }
-      if (back) {
-        e.preventDefault();
-        if (overlayOpen) {
-          setOverlayOpen(false);
-          return;
-        }
-        if (event.showPhase !== 'race') {
-          backShow();
-          return;
-        }
-        resetRace();
-        return;
-      }
       if (k === 'escape') {
-        if (overlayOpen) setOverlayOpen(false);
-        else if (drawerOpen) setDrawerOpen(false);
-        else resetRace();
+        // Esc never resets an active race or undoes a result when leaving fullscreen.
+        if (drawerOpen) setDrawerOpen(false);
+        else if (overlayOpen) setOverlayOpen(false);
         return;
       }
-      if (k === 'm') setDrawerOpen((o) => !o);
-      if (k === 'c') setState({ calm: !event.calm });
-      if (k === 's') setState({ sound: !event.sound });
-      if (k === 'b') {
-        primeAudio();
-        setState({ music: !event.music });
-      }
-      if (k === 'v') {
-        primeAudio();
-        initVoice();
-        setState({ caller: !event.caller });
-      }
-      if (k === 'f') {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void document.documentElement.requestFullscreen().catch(() => {});
-      }
+      const target = e.target as HTMLElement | null;
+      // Tag/selector checks work in both document realms; instanceof does not.
+      if (target?.closest?.('input,select,textarea,[contenteditable="true"]')) return;
+      if (e.code === 'Space' && target?.closest?.('button,a')) return;
+      if (k === 'm') { e.preventDefault(); setDrawerOpen((open) => !open); return; }
+      if (drawerOpen) return;
+      if (e.code === 'Space' || e.code === 'PageDown' || e.code === 'ArrowRight') {
+        e.preventDefault(); forwardAction();
+      } else if (e.code === 'PageUp' || e.code === 'ArrowLeft') {
+        e.preventDefault(); backAction();
+      } else if (k === 'c') setState({ calm: !event.calm });
+      else if (k === 's') setState({ sound: !event.sound });
+      else if (k === 'b') setState({ music: !event.music });
+      else if (k === 'v') setState({ caller: !event.caller });
+      else if (k === 'f' && e.currentTarget === window) void toggleFullscreen();
     };
-
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [drawerOpen, overlayOpen, race.phase, startRace, retryVoidRecovery, voidRecovery, resetRace, advanceShow, backShow, event.showPhase, event.eventMode, event.calm, event.sound, event.music, event.caller]);
+    moderator.target?.window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      try { moderator.target?.window.removeEventListener('keydown', onKey); }
+      catch { /* A desk navigated to another origin no longer exposes its listeners. */ }
+    };
+  }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.sound, event.music, event.caller]);
 
   /* ── Direct-pay link ─────────────────────────────────────────────────── */
 
@@ -1185,7 +1191,7 @@ export function Stage() {
   }, [origin, event.eventId, event.clubName, nextRaceNo, names]);
 
   const voidable = race.phase === 'running' || race.phase === 'countdown';
-  const racing = preparingRace || heldRaceStart || event.heldRaceStart !== null || voidingRace || voidRecovery !== null || voidable || race.phase === 'confirming';
+  const racing = (event.eventMode === 'recorded' && event.packCurrent !== null) || preparingRace || heldRaceStart || event.heldRaceStart !== null || voidingRace || voidRecovery !== null || voidable || race.phase === 'confirming';
   const startDisabled = preparingRace || voidingRace || voidable || race.phase === 'confirming';
   /*
    * Cinema mode. A projector at the back of a hall wants the race, not the
@@ -1193,20 +1199,32 @@ export function Stage() {
    * moderator reads between races gets out of the way. Measured on a 1080p
    * screen the course went from under half of it to nearly all of it.
    */
-  const cinema = voidable || race.phase === 'confirming' || race.phase === 'done';
+  const cinema = audienceOnly || voidable || race.phase === 'confirming' || race.phase === 'done';
   const winnerColour = race.results[0] ? laneColour(race.results[0].lane).shell : '#ffb020';
 
   return (
     <div
-      className={`${event.calm ? 'calm ' : ''}${cinema ? 'cinema' : ''}`}
+      className={`${event.calm ? 'calm ' : ''}${cinema ? 'cinema ' : ''}${audienceOnly ? 'projector-audience ' : ''}${display.fullscreen ? 'projector-fullscreen' : ''}`}
+      data-projector-fullscreen={display.fullscreen}
+      data-moderator-connected={Boolean(moderator.target)}
       data-hydrated={clientReady ? 'true' : 'false'}
     >
-      {event.showPhase === 'race' || event.showPhase === 'results' ? (
+      {!audienceOnly && (event.showPhase === 'race' || event.showPhase === 'results') ? (
         <a className="skip-link" href="#controls">
           Skip to moderator controls
         </a>
       ) : null}
       <div className="aurora" aria-hidden="true" />
+      <div className="projector-tools no-print" role="toolbar" aria-label="Projector display">
+        <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={openModerator}>{moderator.target ? 'Focus moderator window' : 'Open moderator window'}</button>
+        <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={(e) => {
+          const button = e.currentTarget;
+          const pointer = e.detail > 0;
+          void display.toggleFullscreen().then(() => { if (pointer && document.fullscreenElement) button.blur(); });
+        }}>{display.fullscreen ? 'Exit fullscreen' : 'Fullscreen'} <kbd>F</kbd></button>
+        {holding ? <button type="button" className="btn btn-go" onClick={() => setHolding(false)}>Resume show</button> : null}
+        {display.error || moderator.notice ? <p role="status">{display.error || moderator.notice}</p> : null}
+      </div>
 
       <div
         className="stage-shell mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8"
@@ -1308,7 +1326,7 @@ export function Stage() {
         <main className="stage-main grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="stage-track flex min-w-0 flex-col gap-4">
             {event.eventMode === 'recorded' ? (
-              <PackRunner onResult={onPackResult} onVoid={onPackVoid} />
+              <PackRunner onResult={onPackResult} onVoid={onPackVoid} controlsTarget={packControlsRoot} />
             ) : event.trackShape === 'circuit' ? (
               // The imperative SVG painter starts after saved state is restored.
               clientReady ? (
@@ -1322,6 +1340,8 @@ export function Stage() {
                   clubName={event.clubName}
                   raceNo={event.showPhase === 'results' ? event.raceNumber : nextRaceNo}
                   courseId={activeCourse.id}
+                  fullCourse={fullCourse}
+                  onCourseViewChange={setFullCourse}
                 />
               ) : (
                 <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1510,9 +1530,9 @@ export function Stage() {
         marketLockAt={marketLockAt}
       />
 
-      {event.showPhase !== 'race' ? (
+      {!audienceOnly && event.showPhase !== 'race' ? (
         <div className="show-controls no-print" role="toolbar" aria-label="Show controls">
-          <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={backShow}>
+          <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={backAction}>
             Back <kbd>PgUp</kbd>
           </button>
           {event.showPhase === 'market' && event.bettingOpen ? (
@@ -1556,7 +1576,7 @@ export function Stage() {
           >
             Controls <kbd>M</kbd>
           </button>
-          <button type="button" className={`btn btn-go`} disabled={!clientReady} onClick={advanceShow}>
+          <button type="button" className={`btn btn-go`} disabled={!clientReady} onClick={forwardAction}>
             {showPhaseSpec(event.showPhase).advance} <kbd>Space</kbd>
           </button>
         </div>
@@ -1596,6 +1616,7 @@ export function Stage() {
       ) : null}
 
       <WinnerOverlay
+        audienceOnly={audienceOnly}
         open={overlayOpen}
         raceNo={event.raceNumber}
         results={
@@ -1617,6 +1638,33 @@ export function Stage() {
 
       <Confetti fire={confettiKey} highlight={winnerColour} calm={event.calm} />
 
+      {holding ? <div className="projector-hold" role="status">
+        <ClubBrand className="hold-brand" />
+        <h2>Back shortly</h2><p>{event.eventName}</p>
+      </div> : null}
+
+      {moderator.target ? createPortal(
+        <ModeratorDesk
+          packControlsRef={setPackControlsRoot}
+          event={event} race={race} courseName={activeCourse.name}
+          raceNo={event.showPhase === 'results' ? event.raceNumber : nextRaceNo}
+          fullscreen={display.fullscreen} wakeLock={display.wakeLock} audio={audio}
+          holding={holding} fullCourse={fullCourse} locked={racing || event.eventMode === 'recorded' && event.packCurrent !== null}
+          primaryLabel={event.showPhase !== 'race' ? showPhaseSpec(event.showPhase).advance : voidRecovery ? 'Retry void/rearm' : heldRaceStart ? 'Retry lock' : startDisabled ? race.phase === 'running' ? 'Race in progress' : 'Preparing race' : 'Start race'}
+          primaryDisabled={!clientReady || (event.showPhase === 'race' ? startDisabled || event.eventMode === 'recorded' : racing || event.showPhase === 'finale')}
+          canBack={!racing && ['racecard', 'market', 'race', 'intermission', 'finale'].includes(event.showPhase)}
+          startError={startError} marketLockAt={marketLockAt} winnerOpen={overlayOpen}
+          onPrimary={forwardAction} onBack={backAction}
+          onSettings={() => setDrawerOpen(true)}
+          onReturn={() => { setDrawerOpen(false); moderator.close(); }}
+          onHold={() => { if (!racing && !marketLockAt) { silence(); setHolding((v) => !v); } }}
+          onCamera={setFullCourse}
+          onVoid={() => { if (moderator.target?.window.confirm(`Void race ${nextRaceNo}? No result or settlement; selections reopen for the re-run.`)) voidCurrentRace(); }}
+          onMarketTimer={() => { warnedRef.current.clear(); setMarketLockAt(Date.now() + 60_000); }}
+          onCancelTimer={() => { warnedRef.current.clear(); setMarketLockAt(null); }}
+          onInterval={() => goToPhase('intermission')}
+          onDismissWinner={() => setOverlayOpen(false)}
+        >
       <ControlDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -1628,6 +1676,20 @@ export function Stage() {
         phonePlay={phonePlay}
         playUrl={playUrl}
       />
+        </ModeratorDesk>, moderator.target.root,
+      ) : (
+      <ControlDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        donations={allDonations}
+        stripeDonations={feed.donations}
+        nextRaceNo={nextRaceNo}
+        nightCents={nightCents}
+        locked={racing}
+        phonePlay={phonePlay}
+        playUrl={playUrl}
+      />
+      )}
     </div>
   );
 }

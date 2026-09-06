@@ -1104,6 +1104,18 @@ export function drawLockedRacePlan(
     ph2: snail.ph2,
   }));
 
+  /* Reserve a little room for a story the audience can follow. Targeting is
+     resolved from the simulated field NOW, before the plan is hashed. There
+     is no runtime rubber-banding and no input from the moderator or picks.
+     Keep the legacy generator and already stored plans untouched. */
+  const directorRnd = mulberry32(seed ^ 0x434f4d45);
+  const comebackTimes = !surprises || durationMs < 6000 ? [] :
+    (durationMs < 25_000 || intensity === 'calm' ? [0.46] : [0.32, 0.64])
+      .map((at) => Math.round(durationMs * (at + directorRnd() * 0.035)));
+  const warningLead = Math.min(1400, Math.round(durationMs * 0.04));
+  const chaseOffset = Math.min(2400, Math.round(durationMs * 0.045));
+  const comebackSpan = Math.round(durationMs * 0.13);
+
   const grouped = new Map<string, LockedRaceEvent>();
   for (const event of source.events) {
     if (event.id.startsWith('fin-')) continue;
@@ -1111,6 +1123,9 @@ export function drawLockedRacePlan(
     /* Leave enough course for the complete four-beat sequence and the
        consequence to be read before the first possible finish. */
     if (effectAtMs > durationMs * 0.72) continue;
+    const sourceEnd = effectAtMs + Math.max(Math.round(event.span * durationMs), 350);
+    if (comebackTimes.some((at) => sourceEnd >= at - warningLead &&
+      effectAtMs - warningLead <= at + chaseOffset + comebackSpan)) continue;
     const key = event.group ?? event.id;
     const cap = Math.round(durationMs * 0.06);
     let delta = clamp(Math.round(event.mag * durationMs * 0.55), -cap, cap);
@@ -1207,6 +1222,52 @@ export function drawLockedRacePlan(
     });
     events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
   }
+
+  const setbacks = [
+    { label: 'LETTUCE AMBUSH', kind: 'nap', sound: 'nap',
+      warning: 'A fresh lettuce delivery is heading for the front of the field.',
+      call: 'The leader, {a}, has stopped for lettuce! The chase is on.' },
+    { label: 'SPRINKLER SURPRISE', kind: 'stumble', sound: 'down',
+      warning: 'The groundskeeper is reaching for the sprinkler switch.',
+      call: 'The sprinklers have caught the leader, {a}! That lead is under pressure.' },
+    { label: 'PITCH ROLLER DETOUR', kind: 'wander', sound: 'wander',
+      warning: 'The pitch roller is edging towards the racing line.',
+      call: 'The leader, {a}, has to wait for the pitch roller! Here come the chasers.' },
+  ];
+  for (const [index, at] of comebackTimes.entries()) {
+    const field = runners.filter((runner) => {
+      const retirement = retirementFor(events, runner.lane);
+      return !retirement || retirement.effectAtMs > at;
+    })
+      .sort((a, b) => progressForLockedRunner(b, events, at) - progressForLockedRunner(a, events, at));
+    if (field.length < 2) continue;
+    const leader = field[0];
+    const chaser = field[1];
+    const spec = setbacks[Math.floor(directorRnd() * setbacks.length)];
+    const delay = Math.min(totalCap + totals[leader.lane], Math.round(durationMs * (0.105 + directorRnd() * 0.02)));
+    const boost = Math.min(totalCap - totals[chaser.lane], Math.round(durationMs * (0.045 + directorRnd() * 0.025)));
+    const addBeat = (runner: LockedRaceRunner, start: number, delta: number, chase: boolean) => {
+      if (!delta) return;
+      totals[runner.lane] += delta;
+      const label = chase ? 'NDCC CROWD LIFT' : spec.label;
+      events.push({
+        id: `comeback-${index}-${chase ? 'chase' : 'leader'}`,
+        kind: chase ? 'surge' : spec.kind, label,
+        tone: chase ? 'good' : 'bad', sound: chase ? 'up' : spec.sound,
+        targetLanes: [runner.lane], consequence: consequenceFor(delta),
+        warningAtMs: start - warningLead, revealAtMs: start - Math.round(warningLead / 2),
+        effectAtMs: start, commentaryAtMs: start + commentaryDelayMs,
+        effectEndMs: start + comebackSpan,
+        clockDeltaMsByLane: { [runner.lane]: delta },
+        warningText: chase ? 'The NDCC crowd is getting behind the chase.' : spec.warning,
+        revealText: `${runner.name}: ${label}`,
+        commentaryText: chase ? `${runner.name} finds another gear with the NDCC crowd behind them!` : fillRunner(spec.call, runner.name),
+      });
+    };
+    addBeat(leader, at, -delay, false);
+    addBeat(chaser, at + chaseOffset, boost, true);
+  }
+  events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
 
   const phaseOrder: Record<LockedRaceCue['phase'], number> = {
     warning: 0,

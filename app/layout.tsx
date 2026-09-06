@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './broadcast-theatre.css';
+import './moderator-desk.css';
 
 const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
 const fallbackSiteUrl = 'https://sajeevanveeriah.github.io/SnailRace';

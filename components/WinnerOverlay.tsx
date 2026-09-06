@@ -9,6 +9,7 @@ import type { Bet, Donation, RaceHighlight, RaceResult } from '@/lib/types';
 
 export function WinnerOverlay({
   open,
+  audienceOnly = false,
   raceNo,
   results,
   donations,
@@ -19,6 +20,7 @@ export function WinnerOverlay({
   onClose,
 }: {
   open: boolean;
+  audienceOnly?: boolean;
   raceNo: number;
   results: RaceResult[];
   donations: Donation[];
@@ -31,14 +33,14 @@ export function WinnerOverlay({
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || audienceOnly) return;
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, audienceOnly]);
 
   if (!open || results.length === 0) return null;
 
@@ -52,15 +54,15 @@ export function WinnerOverlay({
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center p-4">
-      <button
+      {!audienceOnly ? <button
         type="button"
         className="overlay-scrim"
         aria-label="Close winner announcement"
         onClick={onClose}
-      />
+      /> : <div className="overlay-scrim" />}
       <div
-        role="dialog"
-        aria-modal="true"
+        role={audienceOnly ? "region" : "dialog"}
+        aria-modal={audienceOnly ? undefined : true}
         aria-labelledby="winner-name"
         className="winner-card glass glass-strong relative w-full max-w-lg p-9 text-center"
         style={
@@ -184,9 +186,9 @@ export function WinnerOverlay({
           Betting is open for race {nextRaceNo}. Scan the code and back one.
         </p>
 
-        <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>
+        {!audienceOnly ? <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>
           Close <kbd>Esc</kbd>
-        </button>
+        </button> : null}
       </div>
     </div>
   );
