@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { DonateFlow } from '@/components/DonateFlow';
 
 export const metadata = {
-  title: 'Back a snail | Snail Racing Fundraiser',
+  title: 'Back a snail | NDCC Snail Racing',
   description: 'Choose a snail, choose an amount, and donate to the Newcomb & District Cricket Club.',
 };
 

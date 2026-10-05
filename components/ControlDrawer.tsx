@@ -749,6 +749,40 @@ export function ControlDrawer({
                     onChange={(e) => setState({ eventName: e.target.value })}
                   />
                 </label>
+                <label className="fld">
+                  <span>Tagline (above the event name)</span>
+                  <input
+                    type="text"
+                    value={event.eventTagline ?? ''}
+                    maxLength={60}
+                    placeholder="e.g. A night at the races"
+                    onChange={(e) => setState({ eventTagline: e.target.value })}
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="fld">
+                    <span>Start time</span>
+                    <input
+                      type="time"
+                      value={event.startTime ?? ''}
+                      onChange={(e) => setState({ startTime: e.target.value || undefined })}
+                    />
+                  </label>
+                  <label className="fld">
+                    <span>Back a snail (AUD, suggested gift)</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="1"
+                      step="1"
+                      value={event.backingCents ? event.backingCents / 100 : ''}
+                      onChange={(e) => {
+                        const cents = parseAmountToCents(e.target.value);
+                        setState({ backingCents: cents && cents >= 100 ? cents : undefined });
+                      }}
+                    />
+                  </label>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="fld">
                     <span>Event date</span>

@@ -37,6 +37,17 @@ The current live engine is `consequential-eight-v1`:
 Legacy all-finisher records remain readable. New live races use the locked
 8-to-20-runner path.
 
+## The October 2026 night
+
+A fresh night opens pre-configured from the club's poster: **Snail Racing - A
+night at the races**, Saturday 24 October 2026 from 7 pm at the club rooms,
+$10 per snail. The welcome screen shows the poster, the date line and "Back
+your snail. Cheer it home."; the ticker carries the same facts; the page
+metadata and share image match. Backing a snail is a suggested gift to the
+club that puts a name on the board, never a stake. Every one of these fields
+(tagline, date, start time, venue, suggested gift) is editable in the console
+and a saved night keeps its own values.
+
 ## What changed in 4.2
 
 - **Live TV presentation.** A start-list slate before the off, timing splits at

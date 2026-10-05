@@ -19,18 +19,23 @@ const clubLogo = new URL(
   metadataBase.origin,
 ).toString();
 
+const poster = new URL(
+  `${basePath || '/SnailRace'}/brand/20261003-NDCC-Snail-Racing-Poster-Rev00.webp`,
+  metadataBase.origin,
+).toString();
+
 export const metadata: Metadata = {
   metadataBase,
-  title: 'Dino Snail Race Night | Newcomb & District Cricket Club',
+  title: 'Snail Racing - A Night at the Races | Newcomb & District Cricket Club',
   description:
-    'An original 8-to-20-runner cartoon snail race night for Newcomb & District Cricket Club, with free fun chips, live commentary and seeded surprise theatre.',
+    'Newcomb & District Cricket Club presents Snail Racing: a night at the races, Saturday 24 October 2026 from 7 pm at the club rooms. $10 per snail. Back your snail, cheer it home. Slow race, big cheers.',
   applicationName: 'NDCC Snail Race',
   openGraph: {
-    title: 'Dino Snail Race Night',
+    title: 'Snail Racing - A Night at the Races',
     description:
-      'Up to twenty original club snails, live commentary and surprise-filled race-night theatre.',
+      'Saturday 24 October 2026 from 7 pm at the NDCC club rooms. $10 per snail. Back your snail, cheer it home.',
     type: 'website',
-    images: [{ url: clubLogo, width: 1184, height: 896, alt: 'Newcomb and District Cricket Club crest' }],
+    images: [{ url: poster, width: 900, height: 1125, alt: 'NDCC Snail Racing poster: Saturday 24 October, from 7 pm, club rooms, $10 per snail' }],
   },
   icons: {
     icon: clubLogo,

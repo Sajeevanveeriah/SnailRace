@@ -27,8 +27,10 @@ the repository does not mean either service is deployed.
 
 ## 2. Before doors open
 
-1. Open the projector stage at `/`, press **M**, and enter the event name,
-   venue, date, sponsors and fundraising goal.
+1. Open the projector stage at `/`, press **M**, and check the event name,
+   tagline, date, start time, venue, suggested gift per snail, sponsors and
+   fundraising goal. A fresh night already carries the October 2026 poster
+   details (Saturday 24 October, from 7 pm, club rooms, $10 per snail).
 2. Choose and confirm 8 to 20 runner names. A live race will refuse any field
    outside that range.
 3. Choose live animated or a rights-cleared recorded pack. For a recorded pack,

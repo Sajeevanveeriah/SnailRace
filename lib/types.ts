@@ -495,6 +495,12 @@ export interface EventState {
   /** ISO date of the event, for the archive and reports. Optional. */
   eventDate?: string;
   venue?: string;
+  /** Poster strapline shown above the event name on the welcome screen. */
+  eventTagline?: string;
+  /** Doors or first race, as HH:MM in the event timezone. Presentation only. */
+  startTime?: string;
+  /** The advertised amount to back a snail, in cents. A suggested donation, never a stake. */
+  backingCents?: number;
   /** Which product the night runs on: the animated engine, or a Race Pack. */
   eventMode: 'live' | 'recorded';
   /** How many races the card plans. Presentation only; never a limit. */

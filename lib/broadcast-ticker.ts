@@ -17,6 +17,10 @@ export interface TickerInput {
   plannedRaces: number;
   courseName: string;
   laps: number;
+  /** "Saturday 24 October · from 7 pm · Club rooms", when set. */
+  when?: string;
+  /** Advertised gift to back a snail, in cents. */
+  backingCents?: number;
   sponsor?: string;
   names: string[];
   runnerSponsors?: string[];
@@ -41,6 +45,8 @@ export function tickerItems(input: TickerInput): string[] {
   const items: string[] = [];
   items.push(`${input.eventName.toUpperCase()} · RACE ${input.raceNo} OF ${input.plannedRaces}`);
   items.push(`${input.courseName}, ${input.laps} ${input.laps === 1 ? 'lap' : 'laps'}`);
+  if (input.when) items.push(input.when);
+  if (input.backingCents) items.push(`Back your snail for ${moneyShort(input.backingCents)} - a gift to the club - and cheer it home`);
   if (input.sponsor?.trim()) items.push(`Race ${input.raceNo} presented by ${input.sponsor.trim()}`);
   const runnerSponsors = (input.runnerSponsors ?? [])
     .map((s, i) => (s?.trim() && input.names[i] ? `${input.names[i]} with ${s.trim()}` : ''))

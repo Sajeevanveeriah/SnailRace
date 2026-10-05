@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { ThanksCard } from '@/components/ThanksCard';
 
 export const metadata = {
-  title: 'Thank you | Snail Racing Fundraiser',
+  title: 'Thank you | NDCC Snail Racing',
 };
 
 export default function ThanksPage() {

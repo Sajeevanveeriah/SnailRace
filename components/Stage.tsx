@@ -43,6 +43,7 @@ import { funChipPoolsFor } from '@/lib/tote';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
 import { auctionOwners, isAuctionRace, projectTote, toteIsLive } from '@/lib/cash-tote';
 import { tickerItems } from '@/lib/broadcast-ticker';
+import { eventWhen } from '@/lib/event-when';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour, MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
@@ -174,6 +175,8 @@ export function Stage() {
       plannedRaces: event.plannedRaces,
       courseName: activeCourse.name,
       laps: event.laps,
+      when: eventWhen({ eventDate: event.eventDate, startTime: event.startTime, venue: event.venue }),
+      backingCents: event.backingCents,
       sponsor,
       names,
       runnerSponsors: event.runnerSponsors,
@@ -187,6 +190,7 @@ export function Stage() {
   }, [
     event.cashTote, event.toteSales, event.auctionBids, event.plannedRaces, event.clubName, event.eventName,
     event.laps, event.runnerSponsors, event.goalShow, event.goalCents, event.history, event.phonePlay,
+    event.eventDate, event.startTime, event.venue, event.backingCents,
     broadcastRaceNo, activeCourse.name, sponsor, names, nightCents,
   ]);
 
