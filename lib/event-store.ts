@@ -4,9 +4,12 @@ import { useSyncExternalStore } from 'react';
 import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 import { normaliseCourseId } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
+import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
 import type {
+  AuctionBid,
   AuditEntry,
   EventState,
+  ToteSale,
   HeldRaceStartState,
   ShowPhase,
   SurpriseIntensity,
@@ -84,6 +87,10 @@ export function freshState(): EventState {
     raceType: 'Heat',
     raceNumber: 0,
     sponsors: [],
+    runnerSponsors: [],
+    cashTote: { ...DEFAULT_CASH_TOTE },
+    toteSales: [],
+    auctionBids: [],
     cashLedger: [],
     history: [],
     bets: [],
@@ -322,6 +329,26 @@ function merge(raw: string | null): EventState {
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],
       sponsors: Array.isArray(parsed.sponsors)
         ? parsed.sponsors.filter((x): x is string => typeof x === 'string')
+        : [],
+      runnerSponsors: Array.isArray(parsed.runnerSponsors)
+        ? parsed.runnerSponsors.filter((x): x is string => typeof x === 'string').slice(0, MAX_FIELD)
+        : [],
+      /* The cash tote never comes back live from storage without its
+         attestation, and tallies are kept only in a shape the maths accepts. */
+      cashTote: normaliseCashTote(parsed.cashTote),
+      toteSales: Array.isArray(parsed.toteSales)
+        ? parsed.toteSales.filter(
+            (x): x is ToteSale =>
+              Boolean(x) && typeof x === 'object' && Number.isSafeInteger((x as ToteSale).raceNo) &&
+              Number.isSafeInteger((x as ToteSale).lane) && Number.isSafeInteger((x as ToteSale).tickets),
+          )
+        : [],
+      auctionBids: Array.isArray(parsed.auctionBids)
+        ? parsed.auctionBids.filter(
+            (x): x is AuctionBid =>
+              Boolean(x) && typeof x === 'object' && Number.isSafeInteger((x as AuctionBid).raceNo) &&
+              Number.isSafeInteger((x as AuctionBid).lane) && Number.isSafeInteger((x as AuctionBid).cents),
+          )
         : [],
       chipBank: parsed.chipBank && typeof parsed.chipBank === 'object' ? parsed.chipBank : {},
       streaks: parsed.streaks && typeof parsed.streaks === 'object' ? parsed.streaks : {},

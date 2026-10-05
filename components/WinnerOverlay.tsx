@@ -5,7 +5,7 @@ import { Snail } from './Snail';
 import { laneColour } from '@/lib/palette';
 import { money } from '@/lib/money';
 import { ordinal } from '@/lib/race-engine';
-import type { Bet, Donation, RaceHighlight, RaceResult } from '@/lib/types';
+import type { AuctionSettlement, Bet, Donation, RaceHighlight, RaceResult, ToteDividend } from '@/lib/types';
 
 export function WinnerOverlay({
   open,
@@ -17,6 +17,10 @@ export function WinnerOverlay({
   highlights,
   nextRaceNo,
   sponsor,
+  phonePlayOpen = false,
+  lastRace = false,
+  tote,
+  auction,
   onClose,
 }: {
   open: boolean;
@@ -28,6 +32,13 @@ export function WinnerOverlay({
   highlights: RaceHighlight[];
   nextRaceNo: number;
   sponsor: string;
+  /** A Phone Play room is open, so the join code is on the big screen. */
+  phonePlayOpen?: boolean;
+  /** The card is complete; there is no next race to point the room at. */
+  lastRace?: boolean;
+  /** Permit-gated cash tote settlement for this race, when the tote was live. */
+  tote?: ToteDividend;
+  auction?: AuctionSettlement;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -120,13 +131,37 @@ export function WinnerOverlay({
               FUN CHIPS - NO MONETARY VALUE
             </p>
             <p className="mt-2 text-sm text-(--tx)/70">
-              {winningBets.length} winning play {winningBets.length === 1 ? 'bet' : 'bets'} on the
-              fun board, paying{' '}
+              {winningBets.length} winning fun-chip {winningBets.length === 1 ? 'pick' : 'picks'},
+              returning{' '}
               <span className="num font-semibold text-(--gold)">
                 {winningBets.reduce((s, b) => s + (b.returned ?? 0), 0).toLocaleString('en-AU')}
               </span>{' '}
-              chips at the odds locked before the start.
+              free chips at the fixed price shown before the start.
             </p>
+          </div>
+        ) : null}
+
+        {tote ? (
+          <div className="tote-result mt-4" role="note" aria-label="Cash tote dividend">
+            <p className="tote-result-label">CLUB CASH TOTE</p>
+            {tote.unbacked ? (
+              <p className="tote-result-pay">No winning tickets - pool {money(tote.poolCents)} to the club</p>
+            ) : (
+              <p className="tote-result-pay">
+                Pays <b className="num">{money(tote.dividendCents)}</b> per {money(tote.ticketCents)} ticket
+              </p>
+            )}
+            <p className="tote-result-detail num">
+              {tote.winningTickets} winning {tote.winningTickets === 1 ? 'ticket' : 'tickets'} · pool {money(tote.poolCents)} ·{' '}
+              {tote.retainedPercent}% to the club
+            </p>
+            {auction ? (
+              <p className="tote-result-detail">
+                {auction.winningOwner
+                  ? `Auction: ${auction.winningOwner.bidder} owned the winner and collects ${money(auction.prizeCents)}`
+                  : `Auction: the winner was unowned; pool ${money(auction.poolCents)} to the club`}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -182,8 +217,14 @@ export function WinnerOverlay({
           </div>
         ) : null}
 
+        {/* Never money language on the result card: chips are free, and the
+            QR is only mentioned when a Phone Play room is actually open. */}
         <p className="mt-6 text-sm font-medium text-(--tx)/70">
-          Betting is open for race {nextRaceNo}. Scan the code and back one.
+          {lastRace
+            ? 'That was the last race on the card. Thank you for racing with us.'
+            : `Free fun-chip picks open for race ${nextRaceNo}.${
+                phonePlayOpen ? ' Scan the code on the big screen to play along.' : ''
+              }`}
         </p>
 
         {!audienceOnly ? <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>

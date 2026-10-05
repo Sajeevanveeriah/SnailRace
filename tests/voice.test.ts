@@ -23,6 +23,27 @@ test('every recorded cue ships an audio file and unsupported text stays silent',
   assert.equal(recordedCueFor('A completely unrelated sentence.'), undefined);
 });
 
+test('run-of-play lines never trigger the start or ready clips mid-race', () => {
+  /* These are real lines from the commentary book that used to misfire. */
+  assert.notEqual(recordedCueFor('Flash in front. Turbo is a length away and paying attention.'), 'start');
+  assert.notEqual(recordedCueFor('Bolt has already decided this is a good spot for a lie down.'), 'ready');
+  assert.notEqual(recordedCueFor('Comet is bogged in a soft patch and the field collapses around it.'), 'lap');
+  assert.equal(recordedCueFor('And they are away!'), 'start');
+  assert.equal(recordedCueFor('The field is ready. Let us get this race started.'), 'ready');
+  assert.equal(recordedCueFor('Onto lap 2 - Flash by a whisker from Turbo.'), 'lap');
+  assert.equal(recordedCueFor('THE BELL! Last lap, and Flash leads!'), 'bell');
+});
+
+test('the generic run-of-play pools map to truthful generic clips', () => {
+  assert.equal(recordedCueFor('You could throw a blanket over Flash and Turbo!'), 'close');
+  assert.equal(recordedCueFor('Flash has broken the elastic! Three lengths clear!'), 'clear');
+  assert.equal(recordedCueFor('Two lengths to run and it is Flash by a nose!'), 'final');
+  assert.equal(recordedCueFor('HALFWAY - Flash by a nose from Turbo.'), 'mid');
+  assert.equal(recordedCueFor('Flash has made the tidy start. Turbo is keeping it honest.'), 'early');
+  assert.equal(recordedCueFor('LEAD CHANGE! Turbo snatches it from Flash!'), 'lead');
+  assert.equal(recordedCueFor('Turbo goes past Flash and into 2nd!'), 'overtake');
+});
+
 test('one caller owns audio; cancelled callbacks cannot unlock a newer line', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const originalAudio = Object.getOwnPropertyDescriptor(globalThis, 'Audio');

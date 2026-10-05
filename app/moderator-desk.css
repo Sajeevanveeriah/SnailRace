@@ -108,3 +108,8 @@ body:has(.projector-audience) { overflow: hidden; }
 @media print {
   .desk-header, .desk-sequence, .desk-layout, .desk-footer { display: none; }
 }
+.desk-tote { margin-top: 16px; }
+.desk-tote .tote-tally ol li { min-height: 34px; }
+.desk-tote .lane-badge { width: 22px; height: 22px; font-size: 11px; }
+.desk-tote .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #cbd5e1; }
+.desk-tote .tote-auction { margin-top: 16px; }

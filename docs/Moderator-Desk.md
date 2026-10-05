@@ -16,6 +16,15 @@ Space/PageDown advances and PageUp goes back. Settings suspends show shortcuts w
 
 ![Fullscreen race](screenshots/projector-race.png)
 
+## Cash tote tally on the desk
+
+When the permit-gated cash tote is live, the desk shows a **Cash tote** panel on
+the welcome, racecard and market screens with a per-runner ticket tally and,
+on the auctioned last race, the bid desk. Tallies close while a race is armed.
+The projector shows the tote board on the market screen and the dividend on the
+official result. Enabling the tote, and the attestation it needs, lives in
+Settings.
+
 ## A chase worth watching
 
 With surprises enabled, races of at least six seconds include a comeback sequence. A lettuce ambush, sprinkler surprise or pitch roller can hold up the actual leader. A chasing runner then receives an NDCC crowd lift. Standard, Big night and Chaos include two sequences on races of at least 25 seconds; Calm and shorter races include one. Other course surprises fill the remaining gaps.

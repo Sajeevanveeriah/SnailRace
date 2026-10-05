@@ -6,6 +6,8 @@ import { addAudit, auditChainSettled, currentState, hydrate, resetEvent, restore
 import { commitmentOf, planHashOf, resultHashOf, shortHash, verifyAuditChain, type RaceConfig } from '@/lib/audit';
 import { archiveNight, listNights, removeNight, verifyNight, type ArchivedNight } from '@/lib/event-archive';
 import { PhonePlayPanel } from './PhonePlayPanel';
+import { CashTotePanel } from './CashTotePanel';
+import { toteIsLive, toteProceeds } from '@/lib/cash-tote';
 import { PackManager } from './PackManager';
 import { Preflight } from './Preflight';
 import type { usePhonePlay } from '@/lib/use-phone-play';
@@ -476,6 +478,41 @@ export function ControlDrawer({
     );
   };
 
+  /** The payout sheet as data: one row per race, plus auction rows. */
+  const exportToteCsv = () => {
+    const rows: (string | number)[][] = [
+      ['race', 'kind', 'ticket_aud', 'tickets', 'pool_aud', 'retained_pct', 'retained_aud', 'winner', 'winning_tickets', 'dividend_aud', 'breakage_aud', 'paid_out_aud', 'to_club_aud', 'detail'],
+    ];
+    for (const h of event.history.slice().reverse()) {
+      if (h.void) continue;
+      const winner = h.results.find((r) => r.place === 1);
+      if (h.tote) {
+        const t = h.tote;
+        rows.push([
+          h.raceNo, 'tote', (t.ticketCents / 100).toFixed(2), t.tickets, (t.poolCents / 100).toFixed(2), t.retainedPercent,
+          (t.retainedCents / 100).toFixed(2), winner?.name ?? '', t.winningTickets, (t.dividendCents / 100).toFixed(2),
+          (t.breakageCents / 100).toFixed(2), ((t.dividendCents * t.winningTickets) / 100).toFixed(2),
+          ((t.retainedCents + t.breakageCents) / 100).toFixed(2),
+          t.perLane.map((l) => `${l.lane + 1}:${l.tickets}`).join(' '),
+        ]);
+      }
+      if (h.auction) {
+        const a = h.auction;
+        rows.push([
+          h.raceNo, 'auction', '', a.owners.length, (a.poolCents / 100).toFixed(2), a.retainedPercent,
+          (a.retainedCents / 100).toFixed(2), winner?.name ?? '', a.winningOwner ? 1 : 0, (a.prizeCents / 100).toFixed(2),
+          '0.00', (a.prizeCents / 100).toFixed(2), (a.retainedCents / 100).toFixed(2),
+          a.owners.map((o) => `${o.lane + 1}:${o.bidder} $${(o.cents / 100).toFixed(2)}`).join('; '),
+        ]);
+      }
+    }
+    download(
+      `${dateStamp()}-Snail-Race-Tote-Payouts-Rev00.csv`,
+      rows.map((r) => r.map(csvCell).join(',')).join('\n'),
+      'text/csv;charset=utf-8',
+    );
+  };
+
   const exportBackup = () => {
     download(
       `${dateStamp()}-Snail-Race-Night-Backup-Rev00.json`,
@@ -687,6 +724,9 @@ export function ControlDrawer({
               </div>
             </section>
 
+            {/* ── Permit-gated cash tote ───────────────────────────── */}
+            <CashTotePanel nextRaceNo={nextRaceNo} locked={locked} />
+
             {/* ── Event identity and stage look ────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Event</h3>
@@ -743,6 +783,17 @@ export function ControlDrawer({
                     Race {nextRaceNo}: {sponsorFor(event.sponsors, nextRaceNo) || 'none'}
                   </p>
                 ) : null}
+                <label className="fld">
+                  <span>Runner sponsors (one per lane, optional)</span>
+                  <textarea
+                    rows={3}
+                    value={names.map((_, i) => event.runnerSponsors[i] ?? '').join('\n')}
+                    placeholder={'Line 1 sponsors runner 1, line 2 runner 2 ...\nShown on the racecard and the lower thirds'}
+                    onChange={(e) =>
+                      setState({ runnerSponsors: e.target.value.split('\n').map((x) => x.slice(0, 40)) })
+                    }
+                  />
+                </label>
 
                 <div>
                   <p className="fld mb-2"><span>Stage look</span></p>
@@ -1480,6 +1531,11 @@ export function ControlDrawer({
                 <button type="button" className="btn btn-ghost" onClick={exportAuditCsv}>
                   Export audit CSV
                 </button>
+                {event.history.some((h) => !h.void && (h.tote || h.auction)) ? (
+                  <button type="button" className="btn btn-ghost" onClick={exportToteCsv}>
+                    Export tote payouts CSV
+                  </button>
+                ) : null}
                 <button type="button" className="btn btn-ghost" onClick={exportBackup}>
                   Save backup
                 </button>
@@ -1598,6 +1654,66 @@ export function ControlDrawer({
             With thanks to tonight&apos;s race sponsors:{' '}
             {[...new Set(event.history.map((h) => h.sponsor).filter(Boolean))].join(', ')}.
           </p>
+        ) : null}
+
+        {event.history.some((h) => !h.void && (h.tote || h.auction)) ? (
+          <>
+            <h2 className="mt-4 text-lg font-bold">Cash tote payout sheet</h2>
+            <p className="mb-2 text-xs">
+              Run under the club&apos;s stated authority &ldquo;{event.cashTote.permitReference}&rdquo;
+              {toteIsLive(event.cashTote) ? '' : ' (tote now switched off)'}. Dividends are per winning ticket,
+              rounded down to 10c; breakage stays with the club.
+            </p>
+            <table className="mb-2 w-full text-left text-sm">
+              <thead>
+                <tr>
+                  <th className="border-b p-1">Race</th>
+                  <th className="border-b p-1">Winner</th>
+                  <th className="border-b p-1 text-right">Tickets</th>
+                  <th className="border-b p-1 text-right">Pool</th>
+                  <th className="border-b p-1 text-right">Retained</th>
+                  <th className="border-b p-1 text-right">Winning tickets</th>
+                  <th className="border-b p-1 text-right">Dividend</th>
+                  <th className="border-b p-1 text-right">To club</th>
+                </tr>
+              </thead>
+              <tbody>
+                {event.history
+                  .filter((h) => !h.void && h.tote)
+                  .slice()
+                  .reverse()
+                  .map((h) => (
+                    <tr key={`tote-${h.raceNo}-${h.at}`}>
+                      <td className="p-1">{h.raceNo}</td>
+                      <td className="p-1">{h.results.find((r) => r.place === 1)?.name ?? ''}</td>
+                      <td className="p-1 text-right">{h.tote!.tickets}</td>
+                      <td className="p-1 text-right">{money(h.tote!.poolCents)}</td>
+                      <td className="p-1 text-right">{h.tote!.retainedPercent}%</td>
+                      <td className="p-1 text-right">{h.tote!.winningTickets}</td>
+                      <td className="p-1 text-right">{h.tote!.unbacked ? 'no winning tickets' : money(h.tote!.dividendCents)}</td>
+                      <td className="p-1 text-right">{money(h.tote!.retainedCents + h.tote!.breakageCents)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            {event.history
+              .filter((h) => !h.void && h.auction)
+              .map((h) => (
+                <p key={`auction-${h.raceNo}-${h.at}`} className="mb-2 text-sm">
+                  Race {h.raceNo} runner auction: pool {money(h.auction!.poolCents)},{' '}
+                  {h.auction!.winningOwner
+                    ? `prize ${money(h.auction!.prizeCents)} to ${h.auction!.winningOwner.bidder} (bid ${money(h.auction!.winningOwner.cents)})`
+                    : 'the winner was not bid for'}
+                  , {money(h.auction!.retainedCents)} to the club. Owners:{' '}
+                  {h.auction!.owners.map((o) => `${o.lane + 1} ${o.bidder} ${money(o.cents)}`).join('; ') || 'none'}.
+                </p>
+              ))}
+            <p className="mb-4 text-sm font-semibold">
+              Tote to club {money(toteProceeds(event.history).toteCents)}, auction to club{' '}
+              {money(toteProceeds(event.history).auctionCents)}, paid out {money(toteProceeds(event.history).paidOutCents)}.
+              These amounts are separate from the donations below.
+            </p>
+          </>
         ) : null}
 
         <h2 className="text-lg font-bold">Donations</h2>

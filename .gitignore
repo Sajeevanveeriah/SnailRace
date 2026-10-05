@@ -12,3 +12,7 @@ next-env.d.ts
 
 test-results/
 playwright-report/
+
+# Written by `next dev` on every start; not project content.
+AGENTS.md
+CLAUDE.md

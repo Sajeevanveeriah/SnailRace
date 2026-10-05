@@ -330,6 +330,13 @@ test('first finisher freezes the field and opens one result within one second', 
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
   await expect(winner).toBeVisible();
   await expect(winner).toHaveCount(1);
+  /* The result card is projected to the room: free chips only, no money words,
+     and no QR instruction unless a Phone Play room is actually open. */
+  await expect(winner).toContainText(/Free fun-chip picks open for race 2\./);
+  await expect(winner).not.toContainText(/scan the code/i);
+  await expect(winner).not.toContainText(
+    /\b(bet|bets|betting|wager|stake|money|cash|ticket)\b/i,
+  );
   await expect(
     page.locator('.race-broadcast [aria-label="Race 1 status"]'),
   ).toHaveCount(1);
@@ -393,6 +400,7 @@ test('reduced motion disables decorative race and surprise animation', async ({
   await advanceToRace(page);
   await page.getByRole('button', { name: /Start race/i }).click();
   await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
+  await expect(page.locator('.tv-ticker')).toHaveAttribute('data-ticker-mode', 'static');
   await expect(page.locator('.race-broadcast')).toHaveAttribute(
     'data-reduced-motion',
     'true',
@@ -549,4 +557,103 @@ test('initial page hydration has no React errors', async ({ page }) => {
   await page.reload();
   await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('the telecast carries broadcast furniture from start list to official result', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await setSprintRace(page);
+  await page.getByRole('button', { name: /Controls/i }).click();
+  const controls = page.getByRole('region', { name: 'Moderator controls', includeHidden: true });
+  await controls.getByLabel('Race sponsors').fill('Bay Bakery');
+  await controls.getByLabel(/Runner sponsors/).fill('Dave the Plumber');
+  await controls.getByRole('button', { name: /Hide/i }).click();
+  await advanceToRace(page);
+
+  /* Before the off: the start list over the course, the ticker and the bug. */
+  const slate = page.getByRole('region', { name: 'Race 1 start list' });
+  await expect(slate).toBeVisible();
+  await expect(slate).toContainText('START LIST');
+  await expect(slate).toContainText('Presented by Bay Bakery');
+  await expect(slate).toContainText(/Speedy/i);
+  await expect(slate).toContainText('with Dave the Plumber');
+  await expect(slate).toContainText('First start tonight');
+  const ticker = page.locator('.tv-ticker');
+  await expect(ticker).toHaveAttribute('data-ticker-mode', 'scroll');
+  await expect(ticker).toContainText('FUN CHIPS - NO MONETARY VALUE');
+  await expect(ticker).toContainText(/Race 1 presented by Bay Bakery/i);
+  const bug = page.locator('.tv-bug');
+  await expect(bug).toContainText('NDCC RACE NIGHT');
+  await expect(bug.locator('.tv-bug-clock')).toHaveText(/\d{1,2}:\d{2} [AP]M/);
+  await expect(page.locator('.tv-result')).toHaveCount(0);
+
+  await page.getByRole('button', { name: /Start race/i }).click();
+  await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
+  await expect(slate).toHaveCount(0);
+  /* A one-lap sprint publishes quarter marks; the halfway split goes on air. */
+  await expect(page.locator('.tv-split')).toContainText(/HALFWAY|QUARTER/, { timeout: 8_000 });
+
+  const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
+  await expect(winner).toBeVisible({ timeout: 20_000 });
+  await page.keyboard.press('Escape');
+  const result = page.getByRole('region', { name: 'Race 1 official result' });
+  await expect(result).toBeVisible();
+  await expect(result).toContainText('OFFICIAL RESULT');
+  await expect(result).toContainText('1st');
+  await expect(result).toContainText('Presented by Bay Bakery');
+  const winnerName = await page.locator('.tv-result-1 .tv-result-name').innerText();
+  await expect(page.locator('.tv-order-row').first()).toContainText(new RegExp(winnerName.split('\n')[0], 'i'));
+  await expect(result).not.toContainText(/\b(bet|betting|wager|stake)\b/i);
+});
+
+/* ── Projected screens under a light OS colour scheme ──────────────────── */
+
+const relativeLuminance = ([r, g, b]: number[]) => {
+  const channel = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+};
+const parseColour = (value: string): number[] => {
+  const m = value.match(/rgba?\(([^)]+)\)/);
+  if (!m) return [0, 0, 0, 1];
+  const parts = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  return [parts[0], parts[1], parts[2], parts[3] ?? 1];
+};
+/** Source-over compositing of an rgba colour on an opaque backdrop. */
+const composite = (fg: number[], bg: number[]) =>
+  [0, 1, 2].map((i) => Math.round(fg[i] * fg[3] + bg[i] * (1 - fg[3])));
+const contrast = (a: number[], b: number[]) => {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+};
+
+test.describe('light colour scheme', () => {
+  test.use({ colorScheme: 'light' });
+
+  test('the market board stays readable on a light-scheme laptop', async ({ page }) => {
+    await page.getByRole('button', { name: /Show the racecard/i }).click();
+    await page.getByRole('button', { name: /Open the fun-chip market/i }).click();
+    const board = page.getByRole('region', { name: 'MARKET OPEN screen' })
+      .locator('aside[aria-label="Free fun-chip picks"]');
+    await expect(board).toBeVisible();
+    const colours = await board.evaluate((aside) => {
+      const name = aside.querySelector('ol p') as HTMLElement;
+      const panel = aside.closest('.show-panel') as HTMLElement;
+      return {
+        text: getComputedStyle(name).color,
+        board: getComputedStyle(aside).backgroundColor,
+        panel: getComputedStyle(panel).backgroundColor,
+        scheme: getComputedStyle(aside).colorScheme,
+      };
+    });
+    const panel = composite(parseColour(colours.panel), [7, 17, 30]);
+    const surface = composite(parseColour(colours.board), panel);
+    const ratio = contrast(parseColour(colours.text), surface);
+    expect(colours.scheme).toBe('dark');
+    expect(ratio, JSON.stringify(colours)).toBeGreaterThanOrEqual(4.5);
+  });
 });

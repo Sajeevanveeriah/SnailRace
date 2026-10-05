@@ -83,7 +83,7 @@ export const soundCheck = () => {
   const order = [
     () => sfx.beep(), () => sfx.go(), () => sfx.coin(), () => sfx.chip(),
     () => sfx.boost(), () => sfx.stumble(), () => sfx.nap(), () => sfx.wander(),
-    () => sfx.weird(), () => sfx.swoop(), () => sfx.plague(), () => sfx.siren(),
+    () => sfx.weird(), () => sfx.swoop(), () => sfx.plague(), () => sfx.siren(), () => sfx.rain(), () => sfx.wave(),
     () => sfx.leadChange(), () => sfx.bell(), () => sfx.photo(), () => sfx.fanfare(),
   ];
   order.forEach((play, i) => window.setTimeout(play, i * 620));
@@ -243,6 +243,25 @@ export const sfx = {
     duck(1.6, 0.42);
   },
 
+  /** Weather coming in: a rising hiss, a rumble, and the room groaning under cover. */
+  rain: () => {
+    noise({ dur: 1.4, peak: 0.16, type: 'highpass', freq: 3000, sweepTo: 6000, attack: 0.3 });
+    noise({ dur: 1.1, peak: 0.12, type: 'lowpass', freq: 140, sweepTo: 60, attack: 0.15 });
+    tone({ freq: 70, dur: 0.9, type: 'sine', peak: 0.2, slideTo: 45, attack: 0.1 });
+    crowd.gasp(1.1);
+    duck(1.5, 0.45);
+  },
+
+  /** The crowd lifting the field: a swell that rises and keeps rising. */
+  wave: () => {
+    noise({ dur: 2.2, peak: 0.24, type: 'bandpass', freq: 500, sweepTo: 1600, q: 0.6, attack: 0.45, bus: 'crowd' });
+    [392, 494, 587, 784].forEach((f, i) =>
+      tone({ freq: f, at: i * 0.14, dur: 0.5, type: 'triangle', peak: 0.17 }),
+    );
+    crowd.cheer(1.1);
+    duck(1.4, 0.55);
+  },
+
   /** Officialdom: a two-tone that says somebody has stopped the race. */
   siren: () => {
     [0, 0.22, 0.44].forEach((at) => {
@@ -318,4 +337,6 @@ const SFX_BY_EVENT: Record<EventSound, () => void> = {
   swoop: () => sfx.swoop(),
   plague: () => sfx.plague(),
   siren: () => sfx.siren(),
+  rain: () => sfx.rain(),
+  wave: () => sfx.wave(),
 };

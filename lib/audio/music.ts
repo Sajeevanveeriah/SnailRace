@@ -5,6 +5,7 @@ import {
   fadeOut,
   isEnabled,
   isMusicEnabled,
+  musicBusTarget,
   noise,
   now,
   playSample,
@@ -401,14 +402,25 @@ export function stopAmbience(): void {
   ambience = null;
 }
 
-/** Duck the music under a big moment, then bring it back. */
+/**
+ * Duck the music under a big moment, then bring it back.
+ *
+ * The duck is measured from the bus's NOMINAL level, never from its current
+ * reading. Reading the bus used to compound: a commentary line ducked to 20%
+ * for six seconds, a surprise two seconds later read the half-recovered bus
+ * as "the level" and restored to that, the next line read that lower level
+ * again - and by the run home the soundtrack had quietly ratcheted itself
+ * down to nothing. Every duck now starts from wherever the bus is and always
+ * recovers to where it belongs.
+ */
 export function duck(seconds = 1.2, amount = 0.45): void {
   const bus = busNode('music');
   if (!bus) return;
+  const level = musicBusTarget();
+  if (level <= 0) return;
   const t = now();
   bus.gain.cancelScheduledValues(t);
-  const level = bus.gain.value;
-  bus.gain.setValueAtTime(level, t);
+  bus.gain.setValueAtTime(Math.min(level, Math.max(0.0001, bus.gain.value)), t);
   bus.gain.linearRampToValueAtTime(level * amount, t + 0.12);
-  bus.gain.linearRampToValueAtTime(level, t + seconds);
+  bus.gain.linearRampToValueAtTime(level, t + Math.max(0.3, seconds));
 }

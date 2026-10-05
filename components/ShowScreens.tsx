@@ -9,6 +9,8 @@ import { CountUp } from './CountUp';
 import { ClubBrand } from './brand/ClubBrand';
 import { RunnerLineup } from './race-broadcast/RunnerLineup';
 import { showPhaseSpec } from '@/lib/show';
+import { auctionOwners, isAuctionRace, projectTote, toteIsLive, toteProceeds } from '@/lib/cash-tote';
+import { money } from '@/lib/money';
 import { standingsFrom } from '@/lib/standings';
 import { laneColour } from '@/lib/palette';
 import { moneyShort } from '@/lib/money';
@@ -83,6 +85,7 @@ export function ShowOverlay({
                 lanes={lanes}
                 raceNo={nextRaceNo}
                 sponsor={sponsor}
+                runnerSponsors={event.runnerSponsors}
                 compact={event.fieldSize > 12}
               />
             </div>
@@ -100,6 +103,7 @@ export function ShowOverlay({
           room={room}
           marketLockAt={marketLockAt}
           open={event.bettingOpen}
+          tote={toteIsLive(event.cashTote) ? <CashToteBoard event={event} raceNo={nextRaceNo} /> : null}
         />
       ) : null}
       {phase === 'championship' ? <Championship event={event} /> : null}
@@ -205,6 +209,7 @@ function Market({
   room,
   marketLockAt,
   open,
+  tote,
 }: {
   lanes: FunChipLane[];
   totalChips: number;
@@ -215,6 +220,8 @@ function Market({
   room: RoomSummary | null;
   marketLockAt: number | null;
   open: boolean;
+  /** The permit-gated cash tote board, only when the tote is live. */
+  tote?: React.ReactNode;
 }) {
   /* The countdown repaints once a second; nothing else re-renders with it. */
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -228,7 +235,7 @@ function Market({
   const roomTotal = room
     ? Object.values(room.perLane).reduce((s, l) => s + l.chips, 0)
     : 0;
-  const hasAudiencePanel = Boolean(playUrl || (room && room.players > 0));
+  const hasAudiencePanel = Boolean(playUrl || (room && room.players > 0) || tote);
 
   return (
     <section className="show-body">
@@ -265,6 +272,7 @@ function Market({
         </div>
 
         {hasAudiencePanel ? <div className="flex flex-col gap-4">
+          {tote}
           {room && room.players > 0 ? (
             <div className="show-panel">
               <div className="mb-3 flex items-baseline justify-between">
@@ -366,6 +374,7 @@ function Finale({ event, nightCents }: { event: EventState; nightCents: number }
           <p className="eyebrow">Raised for {event.clubName}</p>
           <CountUp value={nightCents} format={moneyShort} className="display money-ink text-6xl" />
         </div>
+        <ToteProceedsLine event={event} />
         {sponsors.length ? (
           <p className="mt-7 text-sm text-(--tx)/55">
             With thanks to tonight&apos;s sponsors: <b className="text-(--gold)">{sponsors.join(' · ')}</b>
@@ -374,5 +383,89 @@ function Finale({ event, nightCents }: { event: EventState; nightCents: number }
         <p className="mt-6 text-lg text-(--tx)/70">Safe travels home - and thank you.</p>
       </div>
     </section>
+  );
+}
+
+/* ── Permit-gated cash tote, as the room sees it ───────────────────────── */
+
+/**
+ * The tote board. Shown only while the tote is live under the operator's
+ * attestation. It quotes paper tickets and dollars, labelled as the club's
+ * own cash tote, and is kept visibly apart from the free fun-chip board.
+ */
+function CashToteBoard({ event, raceNo }: { event: EventState; raceNo: number }) {
+  const names = event.names.slice(0, event.fieldSize);
+  const settings = event.cashTote;
+  if (isAuctionRace(settings, raceNo, event.plannedRaces)) {
+    const owners = auctionOwners(event.auctionBids, raceNo, names.length);
+    const pool = owners.reduce((s, o) => s + o.cents, 0);
+    return (
+      <div className="show-panel tote-board" aria-label="Runner auction">
+        <div className="tote-board-head">
+          <h3 className="eyebrow">Runner auction - race {raceNo}</h3>
+          <span className="num">pool {money(pool)}</span>
+        </div>
+        <ol className="tote-board-rows">
+          {names.map((name, i) => {
+            const owner = owners.find((o) => o.lane === i);
+            return (
+              <li key={i}>
+                <span className="tote-board-dot" style={{ background: laneColour(i).shell }} aria-hidden="true" />
+                <span className="tote-board-name">{name}</span>
+                <span className="num tote-board-pay">{owner ? `${owner.bidder} ${money(owner.cents)}` : 'open'}</span>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="tote-board-note">
+          Highest bid owns the runner. {100 - settings.auctionRetainedPercent}% of the pool to the owner of the
+          winner, {settings.auctionRetainedPercent}% to {event.clubName}. Club cash tote under its own authority.
+        </p>
+      </div>
+    );
+  }
+  const board = projectTote(event.toteSales, raceNo, settings, names.length);
+  return (
+    <div className="show-panel tote-board" aria-label="Cash tote">
+      <div className="tote-board-head">
+        <h3 className="eyebrow">Cash tote - {money(settings.ticketCents)} tickets</h3>
+        <span className="num">
+          {board.tickets} sold · pool {money(board.poolCents)}
+        </span>
+      </div>
+      <ol className="tote-board-rows">
+        {board.perLane.map((row) => (
+          <li key={row.lane}>
+            <span className="tote-board-dot" style={{ background: laneColour(row.lane).shell }} aria-hidden="true" />
+            <span className="tote-board-name">{names[row.lane]}</span>
+            <span className="num tote-board-tickets">{row.tickets}</span>
+            <span className="num tote-board-pay">
+              {row.wouldPayCents !== null ? `pays ${money(row.wouldPayCents)}` : '-'}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="tote-board-note">
+        Pays per winning ticket if that runner wins now. {settings.retainedPercent}% of the pool to{' '}
+        {event.clubName}; dividends rounded down to 10c. Club cash tote under its own authority - separate from
+        free fun chips.
+      </p>
+    </div>
+  );
+}
+
+function ToteProceedsLine({ event }: { event: EventState }) {
+  const proceeds = toteProceeds(event.history);
+  if (!proceeds.races && !proceeds.auctionCents) return null;
+  return (
+    <p className="mt-4 text-base text-(--tx)/70">
+      Cash tote to the club <b className="num text-(--gold)">{money(proceeds.toteCents)}</b>
+      {proceeds.auctionCents ? (
+        <>
+          {' '}· runner auction <b className="num text-(--gold)">{money(proceeds.auctionCents)}</b>
+        </>
+      ) : null}
+      {' '}· paid out to winning tickets <b className="num">{money(proceeds.paidOutCents)}</b>
+    </p>
   );
 }

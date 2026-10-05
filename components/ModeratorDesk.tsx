@@ -4,6 +4,8 @@ import { useEffect, useState, type ReactNode, type RefCallback } from 'react';
 import { ClubBrand } from './brand/ClubBrand';
 import { laneColour } from '@/lib/palette';
 import { setState } from '@/lib/event-store';
+import { isAuctionRace, toteIsLive } from '@/lib/cash-tote';
+import { AuctionDesk, ToteTally } from './CashTotePanel';
 import { showPhaseSpec } from '@/lib/show';
 import type { EventState } from '@/lib/types';
 import type { BoardRow, RaceController } from '@/lib/use-race';
@@ -112,6 +114,13 @@ export function ModeratorDesk(p: Props) {
           </section>
 
           <div ref={packControlsRef} className="desk-pack-tools" hidden={event.eventMode !== 'recorded' || event.showPhase !== 'race'} />
+          {toteIsLive(event.cashTote) && ['lobby', 'racecard', 'market'].includes(event.showPhase) ? (
+            <section className="desk-panel desk-tote" aria-label="Cash tote tally">
+              <h2>Cash tote</h2>
+              <ToteTally raceNo={p.raceNo} locked={p.locked} compact />
+              {isAuctionRace(event.cashTote, p.raceNo, event.plannedRaces) ? <AuctionDesk raceNo={p.raceNo} locked={p.locked} /> : null}
+            </section>
+          ) : null}
           <div className="desk-settings-strip">
             <section className="desk-panel" aria-label="Sound controls">
               <h2>Sound</h2>

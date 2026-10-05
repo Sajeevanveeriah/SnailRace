@@ -1478,3 +1478,111 @@
   .course-broadcast .tv-lap,
   .course-broadcast .tv-clock { display: inline-flex; }
 }
+
+/* ── Broadcast furniture: slate, splits, result, ticker, bug ─────────── */
+
+/* The start list fills the reserved course area before the off. */
+.course-broadcast .tv-slate {
+  position: absolute; inset: 108px calc(var(--tower-width) + 28px) 112px 12px; z-index: 12;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 18px; overflow: hidden;
+  border-radius: 12px; border: 1px solid #ffffff2e;
+  background: linear-gradient(160deg, rgb(7 17 30 / 0.94), rgb(96 29 41 / 0.92));
+  color: #fff9ed; animation: tv-slate-in .5s ease-out both;
+}
+.course-broadcast .tv-slate-head { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto; column-gap: 16px; align-items: baseline; border-bottom: 2px solid var(--race-gold); padding-bottom: 8px; }
+.course-broadcast .tv-slate-kicker { grid-row: 1 / 3; align-self: center; padding: 6px 12px; background: var(--race-gold); color: #3f1822; font: 900 12px/1 Arial, sans-serif; letter-spacing: .18em; clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+.course-broadcast .tv-slate h3 { margin: 0; font: 900 clamp(22px, 2.6vw, 40px)/1 Arial, sans-serif; letter-spacing: .02em; }
+.course-broadcast .tv-slate h3 span { font-size: .5em; font-weight: 700; opacity: .7; }
+.course-broadcast .tv-slate-course { grid-column: 2; font: 700 clamp(10px, .95vw, 14px)/1.2 Arial, sans-serif; letter-spacing: .12em; opacity: .85; }
+.course-broadcast .tv-slate-sponsor { grid-column: 3; grid-row: 1 / 3; align-self: center; text-align: right; color: var(--race-gold); font: 700 clamp(11px, 1.1vw, 17px)/1.2 Arial, sans-serif; }
+.course-broadcast .tv-slate-grid { flex: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; min-height: 0; }
+.course-broadcast .tv-slate-dense .tv-slate-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.course-broadcast .tv-slate-card { position: relative; display: grid; grid-template-rows: 1fr auto auto; min-height: 0; padding: 8px 10px 8px 10px; border-radius: 8px; border-left: 5px solid var(--shell); background: rgb(255 249 237 / 0.08); overflow: hidden; }
+.course-broadcast .tv-slate-number { position: absolute; top: 6px; left: 8px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--shell-dk); color: #fff; font: 800 12px/1 Arial, sans-serif; border: 1px solid #ffffff80; }
+.course-broadcast .tv-slate-art { min-height: 34px; background: center / contain no-repeat; }
+.course-broadcast .tv-slate-name { font: 800 clamp(12px, 1.15vw, 19px)/1.1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.course-broadcast .tv-slate-meta { font: 600 clamp(9px, .8vw, 12px)/1.3 Arial, sans-serif; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.course-broadcast .tv-slate-runner-sponsor { font: 700 clamp(9px, .8vw, 12px)/1.3 Arial, sans-serif; color: var(--race-gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.course-broadcast .tv-slate-dense .tv-slate-art { display: none; }
+.course-broadcast .tv-slate-dense .tv-slate-card { grid-template-rows: auto auto; padding-left: 38px; }
+@keyframes tv-slate-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* The timing split, under the top bar, left of the tower. */
+.course-broadcast .tv-split {
+  position: absolute; top: 108px; left: 12px; z-index: 14; display: inline-flex; align-items: center; gap: 10px;
+  padding: 7px 14px 7px 0; border-radius: 0 8px 8px 0; background: rgb(7 17 30 / 0.92); color: #fff9ed;
+  border: 1px solid #ffffff30; border-left: 0; font: 700 clamp(12px, 1.1vw, 17px)/1 Arial, sans-serif;
+  animation: tv-split-in .35s ease-out both;
+}
+.course-broadcast .tv-split b { padding: 8px 12px; margin: -8px 0; background: var(--race-gold); color: #3f1822; font-size: .8em; letter-spacing: .16em; }
+@keyframes tv-split-in { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+
+/* Photo finish badge in the top bar. */
+.race-broadcast .tv-photo { flex: none; display: inline-flex; align-items: center; min-height: 32px; padding-inline: 10px; border-radius: 6px; background: #fff9ed; color: var(--race-maroon-deep); font: 900 12px/1 Arial, sans-serif; letter-spacing: .14em; animation: tv-photo-flash .6s steps(2, end) infinite; }
+@keyframes tv-photo-flash { to { background: var(--race-gold); } }
+
+/* The official result lower third, over the frozen finish frame. */
+.course-broadcast .tv-result {
+  position: absolute; left: 12px; right: calc(var(--tower-width) + 28px); bottom: 112px; z-index: 13;
+  padding: 10px 14px 12px; border-radius: 10px 10px 0 0; border: 1px solid #ffffff30; border-bottom: 0;
+  background: linear-gradient(90deg, rgb(7 17 30 / 0.95), rgb(96 29 41 / 0.93)); color: #fff9ed;
+  animation: tv-result-in .45s ease-out both;
+}
+.course-broadcast .tv-result-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.course-broadcast .tv-result-kicker { padding: 5px 10px; background: var(--race-gold); color: #3f1822; font: 900 11px/1 Arial, sans-serif; letter-spacing: .18em; clip-path: polygon(0 0, 100% 0, calc(100% - 7px) 100%, 0 100%); }
+.course-broadcast .tv-result-race { font: 900 13px/1 Arial, sans-serif; letter-spacing: .12em; opacity: .85; }
+.course-broadcast .tv-result-sponsor { margin-left: auto; color: var(--race-gold); font: 700 12px/1.2 Arial, sans-serif; }
+.course-broadcast .tv-result-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.course-broadcast .tv-result-row { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; border-left: 5px solid var(--shell); background: rgb(255 249 237 / 0.08); min-width: 0; }
+.course-broadcast .tv-result-1 { background: rgb(232 181 94 / 0.22); }
+.course-broadcast .tv-result-place { font: 900 clamp(14px, 1.4vw, 22px)/1 Arial, sans-serif; letter-spacing: .04em; min-width: 2.2em; }
+.course-broadcast .tv-result-dot { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: #fff; font: 800 10px/1 Arial, sans-serif; border: 1px solid #ffffff70; }
+.course-broadcast .tv-result-name { font: 800 clamp(13px, 1.3vw, 20px)/1.1 Arial, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.course-broadcast .tv-result-name small { display: block; font: 600 .6em/1.2 Arial, sans-serif; text-transform: none; color: var(--race-gold); }
+.course-broadcast .tv-result-time { font: 700 clamp(11px, 1vw, 15px)/1 Arial, sans-serif; opacity: .8; }
+.course-broadcast .tv-result-tote { margin: 8px 0 0; padding-top: 6px; border-top: 1px solid #ffffff25; color: var(--race-gold); font: 800 clamp(11px, 1vw, 15px)/1.2 Arial, sans-serif; letter-spacing: .06em; }
+@keyframes tv-result-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+/* The ticker lives in the director bar, left of the bug and camera toggle. */
+.course-broadcast .course-director-bar { gap: 12px; }
+.course-broadcast .tv-ticker { flex: 1 1 auto; min-width: 0; height: 24px; overflow: hidden; position: relative; border-radius: 4px; background: rgb(7 17 30 / 0.55); mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
+.course-broadcast .tv-ticker-track { position: absolute; left: 0; top: 0; height: 100%; display: flex; gap: 48px; white-space: nowrap; align-items: center; padding-left: 100%; animation: tv-ticker-scroll var(--ticker-seconds, 40s) linear infinite; will-change: transform; }
+.course-broadcast .tv-ticker-item { font: 700 11px/1 Arial, sans-serif; letter-spacing: .1em; color: #f5deb2; text-transform: uppercase; }
+.course-broadcast .tv-ticker-static { display: flex; align-items: center; padding: 0 10px; mask-image: none; }
+.course-broadcast .tv-ticker-static .tv-ticker-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes tv-ticker-scroll { to { transform: translateX(-100%); } }
+
+/* The on-air bug: label, conditions and the clock. */
+.course-broadcast .tv-bug { flex: none; display: inline-flex; align-items: center; gap: 0; height: 24px; border-radius: 4px; overflow: hidden; border: 1px solid #ffffff40; font: 800 10px/1 Arial, sans-serif; letter-spacing: .1em; }
+.course-broadcast .tv-bug > span { display: inline-flex; align-items: center; height: 100%; padding: 0 9px; }
+.course-broadcast .tv-bug-label { background: var(--race-maroon); color: #fff; }
+.course-broadcast .tv-bug-weather { background: rgb(7 17 30 / 0.85); color: #f5deb2; }
+.course-broadcast .tv-bug-weather[data-weather="downpour"] { color: #9fd3ff; }
+.course-broadcast .tv-bug-clock { background: #f5deb2; color: #3f1822; }
+
+/* Reduced motion: furniture appears without sliding or scrolling. */
+.course-broadcast.race-motion-reduced .tv-slate,
+.course-broadcast.race-motion-reduced .tv-split,
+.course-broadcast.race-motion-reduced .tv-result,
+.course-broadcast.race-motion-reduced .tv-photo { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .course-broadcast .tv-slate, .course-broadcast .tv-split, .course-broadcast .tv-result, .course-broadcast .tv-photo, .course-broadcast .tv-ticker-track { animation: none; }
+}
+
+@media (max-width: 900px) {
+  .course-broadcast .tv-slate-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .course-broadcast .tv-result-podium { grid-template-columns: 1fr; }
+  .course-broadcast .tv-bug-weather { display: none; }
+}
+@media (max-width: 600px) {
+  .course-broadcast .tv-slate { inset: 183px 8px 112px; padding: 10px; }
+  .course-broadcast .tv-slate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .course-broadcast .tv-slate-art { display: none; }
+  .course-broadcast .tv-slate-sponsor { display: none; }
+  .course-broadcast .tv-split { top: 183px; left: 8px; }
+  .course-broadcast .tv-result { left: 8px; right: 8px; }
+  .course-broadcast .tv-result-sponsor { display: none; }
+  .course-broadcast .tv-ticker { display: none; }
+  .course-broadcast .tv-bug { margin-left: auto; }
+  .race-broadcast .tv-photo { display: none; }
+}
