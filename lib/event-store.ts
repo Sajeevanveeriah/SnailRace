@@ -54,7 +54,12 @@ export function freshState(): EventState {
     version: 4,
     eventId: newEventId(),
     clubName: 'Newcomb & District Cricket Club',
-    eventName: 'Snail Racing Fundraiser',
+    eventName: 'Snail Racing',
+    eventTagline: 'A night at the races',
+    eventDate: '2026-10-24',
+    startTime: '19:00',
+    venue: 'Club rooms',
+    backingCents: 1000,
     timezone: 'Australia/Melbourne',
     eventMode: 'live',
     plannedRaces: 6,
@@ -296,6 +301,12 @@ function merge(raw: string | null): EventState {
       version: 4,
       /* v3 nights predate these; every default is deterministic. */
       timezone: typeof parsed.timezone === 'string' && parsed.timezone ? parsed.timezone : base.timezone,
+      eventTagline: typeof parsed.eventTagline === 'string' ? parsed.eventTagline.slice(0, 60) : base.eventTagline,
+      startTime: typeof parsed.startTime === 'string' && /^\d{2}:\d{2}$/.test(parsed.startTime) ? parsed.startTime : base.startTime,
+      backingCents:
+        typeof parsed.backingCents === 'number' && Number.isSafeInteger(parsed.backingCents) && parsed.backingCents >= 100
+          ? parsed.backingCents
+          : base.backingCents,
       eventMode: parsed.eventMode === 'recorded' ? 'recorded' : 'live',
       plannedRaces: Math.min(12, Math.max(1, Number(parsed.plannedRaces) || base.plannedRaces)),
       rehearsal: parsed.rehearsal === true,

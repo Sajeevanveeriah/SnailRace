@@ -265,22 +265,32 @@ test('surprises announce warning, reveal and effect with a visible prop or symbo
 
   const signal = page.locator('.course-event-ticker');
   await expect(signal).toBeVisible({ timeout: 15_000 });
-  await expect(signal.locator('strong')).not.toHaveText(
-    /Something is developing/i,
-  );
-  await expect(
-    page.locator('.course-prop-image, .course-prop-symbol'),
-  ).toBeVisible();
-  const scene = await page.locator('.course-scene').boundingBox();
-  const ticker = await signal.boundingBox();
-  expect(scene).not.toBeNull();
-  expect(ticker).not.toBeNull();
-  expect(ticker!.y).toBeGreaterThanOrEqual(scene!.y + scene!.height);
-  expect(ticker!.height).toBeLessThanOrEqual(35);
-  await expect(page.locator('.race-surprise[role="status"]')).toHaveAttribute(
-    'aria-live',
-    'assertive',
-  );
+  /* A surprise is on air for under two seconds on a sprint, so everything
+     about it is read in one snapshot at the instant it is visible rather
+     than through a chain of round trips that can outlive it. */
+  const snapshot = await page.evaluate(() => {
+    const ticker = document.querySelector('.course-event-ticker') as HTMLElement | null;
+    const scene = document.querySelector('.course-scene') as HTMLElement | null;
+    const prop = document.querySelector('.course-prop-image, .course-prop-symbol') as Element | null;
+    const rect = (el: Element | null) => (el ? el.getBoundingClientRect().toJSON() as DOMRect : null);
+    return {
+      label: ticker?.querySelector('strong')?.textContent ?? '',
+      ariaLive: ticker?.getAttribute('aria-live'),
+      role: ticker?.getAttribute('role'),
+      ticker: rect(ticker),
+      scene: rect(scene),
+      prop: rect(prop),
+    };
+  });
+  expect(snapshot.label).not.toMatch(/Something is developing/i);
+  expect(snapshot.role).toBe('status');
+  expect(snapshot.ariaLive).toBe('assertive');
+  expect(snapshot.scene).not.toBeNull();
+  expect(snapshot.ticker).not.toBeNull();
+  expect(snapshot.prop, 'a prop or symbol is drawn on the course').not.toBeNull();
+  expect(snapshot.prop!.width).toBeGreaterThan(0);
+  expect(snapshot.ticker!.y).toBeGreaterThanOrEqual(snapshot.scene!.y + snapshot.scene!.height);
+  expect(snapshot.ticker!.height).toBeLessThanOrEqual(35);
 });
 
 test('first finisher freezes the field and opens one result within one second', async ({

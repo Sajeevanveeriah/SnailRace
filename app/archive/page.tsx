@@ -1,7 +1,7 @@
 import { Archive } from '@/components/Archive';
 
 export const metadata = {
-  title: 'Race archive | Snail Racing Fundraiser',
+  title: 'Race archive | NDCC Snail Racing',
   description: 'Completed races, results, replays and audit metadata.',
 };
 

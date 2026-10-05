@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Racecard } from './Racecard';
 import { ToteBoard } from './ToteBoard';
 import { DonateQr } from './DonateQr';
@@ -11,6 +12,9 @@ import { RunnerLineup } from './race-broadcast/RunnerLineup';
 import { showPhaseSpec } from '@/lib/show';
 import { auctionOwners, isAuctionRace, projectTote, toteIsLive, toteProceeds } from '@/lib/cash-tote';
 import { money } from '@/lib/money';
+import { eventWhen } from '@/lib/event-when';
+
+const POSTER = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/brand/20261003-NDCC-Snail-Racing-Poster-Rev00.webp`;
 import { standingsFrom } from '@/lib/standings';
 import { laneColour } from '@/lib/palette';
 import { moneyShort } from '@/lib/money';
@@ -156,19 +160,30 @@ function ShowDialog({ phase, children }: { phase: EventState['showPhase']; child
 
 function Lobby({ event, donateUrl, playUrl }: { event: EventState; donateUrl: string; playUrl: string }) {
   const sponsors = event.sponsors.map((s) => s.trim()).filter(Boolean);
+  const when = eventWhen(event);
   return (
     <section className="show-body show-center">
       <div className="grid w-full max-w-[1200px] gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div className="show-panel">
+          {event.eventTagline?.trim() ? <p className="eyebrow mb-2 show-tagline">{event.eventTagline.trim()}</p> : null}
           <h2 className="display text-balance text-6xl leading-[0.98]">{event.eventName}</h2>
+          {when ? <p className="show-when num mt-3">{when}</p> : null}
           <p className="mt-4 text-xl text-(--tx)/65">
             {event.plannedRaces} races. Free fun chips. Real donations to {event.clubName}.
           </p>
+          {event.backingCents ? (
+            <p className="show-backing mt-4">
+              <span className="show-backing-price num">{moneyShort(event.backingCents)} per snail</span>
+              <span>Back your snail. Cheer it home.</span>
+            </p>
+          ) : null}
           <ul className="mt-6 grid gap-2 text-[15px] text-(--tx)/70">
+            <li>Backing a snail is a gift to the club that puts your name on the board.</li>
             <li>Chips are free and worth nothing - the leaderboard is the glory.</li>
             <li>Every snail wins with exactly the same chance, drawn before the off.</li>
             <li>Donations are gifts to the club and never touch a race.</li>
           </ul>
+          <p className="show-slogan mt-6">Slow race. Big cheers.</p>
           {sponsors.length ? (
             <div className="mt-7 border-t border-(--tx)/10 pt-4">
               <p className="eyebrow mb-2">Tonight&apos;s race sponsors</p>
@@ -181,6 +196,9 @@ function Lobby({ event, donateUrl, playUrl }: { event: EventState; donateUrl: st
           ) : null}
         </div>
         <div className="flex flex-col gap-4">
+          <div className="show-poster" aria-hidden="true">
+            <Image unoptimized src={POSTER} alt="" width={900} height={1125} sizes="(max-width: 1024px) 100vw, 400px" />
+          </div>
           {playUrl ? (
             <div className="show-panel text-center">
               <p className="eyebrow mb-2">Play along on your phone</p>
