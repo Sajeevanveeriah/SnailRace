@@ -124,6 +124,14 @@ export const isEnabled = (): boolean => enabled;
 export const isMusicEnabled = (): boolean => enabled && musicEnabled;
 export const getLevels = (): AudioLevels => ({ ...levels });
 
+/**
+ * The level the music bus is meant to sit at right now. Ducking ramps back
+ * to this rather than to whatever the bus happened to read when the duck
+ * began, so overlapping ducks cannot ratchet the music down a step at a
+ * time until the race ends in near silence.
+ */
+export const musicBusTarget = (): number => (enabled && musicEnabled ? levels.music : 0);
+
 /** The graph's clock. Callers schedule against this, never against Date. */
 export const now = (): number => (ctx ? ctx.currentTime : 0);
 
@@ -150,7 +158,14 @@ function applyLevels() {
    * and the moderator drags these sliders while the race is on.
    */
   master.gain.setTargetAtTime(enabled ? levels.master : 0, t, 0.02);
-  buses.get('music')?.gain.setTargetAtTime(musicEnabled ? levels.music : 0, t, 0.05);
+  const music = buses.get('music');
+  if (music) {
+    /* A slider move during a duck must win over the duck's pending ramp,
+       otherwise the ramp restores the old level a second later. */
+    music.gain.cancelScheduledValues(t);
+    music.gain.setValueAtTime(Math.max(0.0001, music.gain.value), t);
+    music.gain.setTargetAtTime(musicBusTarget(), t, 0.05);
+  }
   buses.get('sfx')?.gain.setTargetAtTime(levels.sfx, t, 0.02);
   buses.get('crowd')?.gain.setTargetAtTime(levels.crowd, t, 0.05);
 }

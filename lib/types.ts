@@ -173,6 +173,12 @@ export interface AuditEntry {
     | 'pack_race_drawn'
     | 'backup_exported'
     | 'backup_restored'
+    | 'tote_enabled'
+    | 'tote_disabled'
+    | 'tote_sale'
+    | 'tote_settled'
+    | 'auction_bid'
+    | 'auction_settled'
     | 'note';
   /** Race the entry belongs to. 0 for event-level notes. */
   raceNo: number;
@@ -270,6 +276,90 @@ export interface RaceMedia {
   addedAt: number;
 }
 
+/* ── Permit-gated cash tote ─────────────────────────────────────────────── */
+
+/**
+ * The cash tote is a SEPARATE product from the free fun chips and from the
+ * donations, and it is off by default. It exists for clubs that hold their
+ * own authority to run a tote at a race night (in Victoria, typically a
+ * VGCCC minor gaming permit, or the club's confirmed exemption). The app
+ * records the operator's attestation and reference, it never claims the
+ * activity is lawful, and nothing in it is readable by the race engine, the
+ * fun-chip maths or the donation ledger.
+ */
+export interface CashToteSettings {
+  enabled: boolean;
+  /** Wall-clock ms of the operator's permit attestation. Null until given. */
+  permitAcknowledgedAt: number | null;
+  /** Permit number or the club's stated authority. Required to go live. */
+  permitReference: string;
+  /** Price of one paper tote ticket, in cents. */
+  ticketCents: number;
+  /** Share of each race pool the club keeps, 0 to 100. */
+  retainedPercent: number;
+  /** The last race on the card is sold by runner auction instead of tickets. */
+  auctionLastRace: boolean;
+  /** Share of the auction pool the club keeps, 0 to 100. */
+  auctionRetainedPercent: number;
+}
+
+/** A tally of paper tickets sold on one runner for one race. */
+export interface ToteSale {
+  id: string;
+  raceNo: number;
+  lane: number;
+  /** Tickets added by this entry. Negative entries correct a miscount. */
+  tickets: number;
+  createdAt: number;
+  void?: boolean;
+  note?: string;
+}
+
+/** One bid for one runner in the last-race auction. */
+export interface AuctionBid {
+  id: string;
+  raceNo: number;
+  lane: number;
+  bidder: string;
+  cents: number;
+  createdAt: number;
+  void?: boolean;
+}
+
+/** The settled tote for one race, stored with its result and printed. */
+export interface ToteDividend {
+  raceNo: number;
+  ticketCents: number;
+  retainedPercent: number;
+  perLane: { lane: number; tickets: number }[];
+  tickets: number;
+  poolCents: number;
+  retainedCents: number;
+  returnedCents: number;
+  winnerLane: number;
+  winningTickets: number;
+  /** Payout per winning ticket, rounded down to ten cents. */
+  dividendCents: number;
+  /** Rounding left over after the dividend, kept by the club. */
+  breakageCents: number;
+  /** Nobody held the winner: the returned share stays with the club. */
+  unbacked: boolean;
+}
+
+/** The settled runner auction for the last race. */
+export interface AuctionSettlement {
+  raceNo: number;
+  retainedPercent: number;
+  /** Highest standing bid per runner; lanes with no bid are absent. */
+  owners: { lane: number; bidder: string; cents: number }[];
+  poolCents: number;
+  retainedCents: number;
+  prizeCents: number;
+  winnerLane: number;
+  /** Null when the winning runner was never bid for. */
+  winningOwner: { bidder: string; cents: number } | null;
+}
+
 export interface RaceHistoryEntry {
   raceNo: number;
   raceType: string;
@@ -331,6 +421,10 @@ export interface RaceHistoryEntry {
   racePlan?: LockedRacePlan;
   /** SHA-256 over the canonical complete plan, published before countdown. */
   planHash?: string;
+  /** Cash tote settlement, only when the permit-gated tote was live. */
+  tote?: ToteDividend;
+  /** Runner auction settlement, only on the auctioned last race. */
+  auction?: AuctionSettlement;
 }
 
 /** A free-to-play wager. No real money, no cash payout. */
@@ -445,6 +539,12 @@ export interface EventState {
   raceNumber: number;
   /** Sponsors, used in order and cycled. One line per race on the stage. */
   sponsors: string[];
+  /** Optional sponsor per runner lane, shown on the racecard and lower thirds. */
+  runnerSponsors: string[];
+  /** The permit-gated cash tote. Off by default; see CashToteSettings. */
+  cashTote: CashToteSettings;
+  toteSales: ToteSale[];
+  auctionBids: AuctionBid[];
   cashLedger: Donation[];
   history: RaceHistoryEntry[];
   bets: Bet[];

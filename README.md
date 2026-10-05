@@ -37,6 +37,28 @@ The current live engine is `consequential-eight-v1`:
 Legacy all-finisher records remain readable. New live races use the locked
 8-to-20-runner path.
 
+## What changed in 4.2
+
+- **Live TV presentation.** A start-list slate before the off, timing splits at
+  the quarter, half and lap marks, a scrolling ticker built from recorded facts
+  (sponsors, raised total, championship, tote pool, join code), an on-air bug
+  with the clock and conditions, a photo-finish badge and an official-result
+  lower third over the frozen finish frame. Reduced motion shows the same
+  furniture without sliding or scrolling.
+- **Permit-gated cash tote and last-race runner auction.** Off by default and
+  structurally separate from fun chips and donations. See below.
+- **Second surprise book.** Twelve new individual set pieces, five new field
+  incidents and three new family-safe retirements, drawn as vector props so
+  nothing depends on the projector laptop's emoji font.
+- **Audio.** Overlapping ducks no longer ratchet the music down to silence,
+  the recorded caller no longer plays "And they are away!" in the middle of a
+  race, and the run-of-play lines now map to truthful generic clips so the
+  natural caller talks between set pieces. Two new event sounds (rain, crowd
+  wave).
+- **Fixes.** The fun-chip board on the market screen is readable on a laptop
+  running a light colour scheme, and the result card no longer uses betting
+  language or points at a QR code that is not on screen.
+
 ## Money and free chips are structurally separate
 
 Stripe and cash entries are donations to the club with no return. Fun chips are
@@ -51,6 +73,35 @@ fun-chip maths.
 The app does not provide real-money wagering or claim legal clearance. The club
 must obtain any event-specific regulatory advice it needs.
 
+### The permit-gated cash tote
+
+Some clubs hold their own authority to run a tote at a race night (in Victoria
+typically a VGCCC minor gaming permit, or a confirmed exemption). For those
+clubs the console offers a **cash tote** that is off by default and cannot be
+switched on until the operator types the permit or authority reference and
+ticks an attestation that the club holds it. The app records that attestation
+in the audit trail; it does not decide the question and makes no legal claim.
+
+Once live:
+
+- paper tickets are sold and paid at the table; the volunteer tallies tickets
+  per runner on the console or the moderator desk before the off;
+- the projector's market screen shows the tote board (tickets per runner, pool,
+  and what one ticket would pay if that runner won now), labelled as the club's
+  cash tote and kept apart from the free-chip board;
+- the dividend settles from the recorded result, is rounded down to ten cents,
+  breakage stays with the club, and an unbacked winner leaves the pool with the
+  club, stated on screen;
+- the last race on the card can be sold by runner auction instead, highest
+  standing bid owns the runner;
+- every settlement is written to the audit trail, the printed report carries a
+  payout sheet, and a tote CSV export exists for reconciliation.
+
+`lib/cash-tote.ts` imports nothing from the race engine, the fun-chip maths,
+the settlement path or the donation ledger, and none of them import it. A unit
+test enforces that boundary, and a backup that claims `enabled` without the
+attestation loads with the tote off.
+
 ## Projector experience
 
 The stage is built as an NDCC cricket-night broadcast:
@@ -64,6 +115,9 @@ The stage is built as an NDCC cricket-night broadcast:
   including field-wide incidents and rare family-safe retirement set-pieces;
 - full-bleed show screens for lobby, racecard, market, race, result,
   championship, intermission and finale;
+- broadcast furniture: a start-list slate with tonight's form and runner
+  sponsors, timing splits, a ticker of recorded facts, an on-air bug with the
+  clock and conditions, a photo-finish badge and an official-result lower third;
 - reduced-motion support, keyboard operation and an operator preflight panel.
 
 The crest is committed at
@@ -76,11 +130,15 @@ The committed event book currently contains:
 
 | Group | Authored moments |
 | --- | --- |
-| Advances | Turbo Slime, Second Wind, Slipstream, Downhill Run, Triple Espresso, Crowd Lift, Fresh Wax |
-| Delays | Shell Slip, Micro-Nap, Lettuce Break, Gravel Patch, Cramp, Wrong Way, Snail Mail, Stage Fright, Bogged |
-| Wild effects | Mystery Slime, Banana Peel, Snail Romance, Third Umpire, Sledged from Slips, Shell Swap |
-| Field incidents | The Plague, Magpie Swoop, Sprinklers On, Rogue Cricket Ball, Dog on the Track, Lettuce on the Track, False Start Panic, Pitch Roller Crossing |
-| Rare safe retirements | Groundskeeper Boot Scare, Boundary Bee Scare, Roller Obstruction, Loose Cricket Ball, Sprinkler Stop |
+| Advances | Turbo Slime, Second Wind, Slipstream, Downhill Run, Triple Espresso, Crowd Lift, Fresh Wax, Sightscreen Shortcut, Drinks Break Energy, Tailwind, Home Crowd Roar |
+| Delays | Shell Slip, Micro-Nap, Lettuce Break, Gravel Patch, Cramp, Wrong Way, Snail Mail, Stage Fright, Bogged, Tea Interval, Selfie Stop, Dew on the Outfield, Sunscreen Stop, Covers Crew |
+| Wild effects | Mystery Slime, Banana Peel, Snail Romance, Third Umpire, Sledged from Slips, Shell Swap, DRS Review, Mystery Spinner, Sightscreen Glare |
+| Field incidents | The Plague, Magpie Swoop, Sprinklers On, Rogue Cricket Ball, Dog on the Track, Lettuce on the Track, False Start Panic, Pitch Roller Crossing, Rain Squall, Mexican Wave, Seagull Raid, Ice Cream Van, Pitch Invader |
+| Rare safe retirements | Groundskeeper Boot Scare, Boundary Bee Scare, Roller Obstruction, Loose Cricket Ball, Sprinkler Stop, Seagull Scare, Covers Call, Drinks Cart Crossing |
+
+Painted set pieces use the committed PNG props; everything else is drawn as a
+vector prop in `components/race-broadcast/prop-glyphs.tsx`, so the course never
+depends on the projector laptop's emoji font.
 
 Intensity controls how much of the ordinary event book is dealt. A retirement
 is instead a separate race-level rarity, is never multiplied by intensity and
@@ -137,7 +195,8 @@ that a Worker has been deployed.
 2. Confirm the event details and all eight runner names; open Phone Play only
    after the real phone can join the room.
 3. On the market screen, remind the room that every lane is fixed at 8.00 and
-   free chips never meet donations.
+   free chips never meet donations. If the club runs its own permitted cash
+   tote, tally the paper tickets per runner before the off.
 4. Start the race. The app draws and hashes the complete plan, closes picks,
    obtains any required remote lock/run acknowledgements, then counts down.
 5. Call the locked surprises as they land. At the first crossing, stop: the
@@ -177,6 +236,7 @@ Useful environment variables:
 | `STRIPE_WEBHOOK_SECRET` | Next server | Verify Stripe webhooks and refresh donation data promptly |
 | `NEXT_PUBLIC_SITE_URL` | Next server | Build absolute Stripe return URLs when the request has no usable origin |
 | `SNAILRACE_DATA_DIR` | Next live service | Choose the file-backed Phone Play data directory |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE` | Browser tests | Point Playwright at a preinstalled Chromium when it cannot download its own |
 | `NEXT_PUBLIC_LIVE_API_ORIGIN` | Static Pages build | Route Phone Play to the approved Cloudflare Worker origin |
 | `ALLOWED_ORIGINS` | Cloudflare Worker | Exact comma-separated browser origins allowed to use the live service |
 

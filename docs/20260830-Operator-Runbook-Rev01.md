@@ -41,6 +41,14 @@ the repository does not mean either service is deployed.
 6. Reconcile the displayed donation mode. A static Pages build cannot create
    Stripe sessions, even when its Cloudflare Phone Play service is enabled.
 7. Save an off-device backup of the configured night.
+8. **Only if the club holds its own authority to run a tote** (for example a
+   VGCCC minor gaming permit, or a confirmed exemption): open the console's
+   **Cash tote (club permit)** panel, type the permit or authority reference,
+   tick the attestation and enable it. Set the ticket price, the percentage the
+   club retains and whether the last race is sold by runner auction. The app
+   records the attestation in the audit trail; it does not decide whether the
+   activity is permitted. Leave the tote off otherwise - nothing tote-related
+   then appears anywhere.
 
 ## 3. What happens when Start is pressed
 
@@ -73,12 +81,12 @@ race is running.
 | --- | --- | --- |
 | Lobby | NDCC crest, event information, rules, join/donation access where available | Welcome the room and say that chips are free and donations have no return |
 | Racecard | Every named runner | Introduce the runners and sponsor |
-| Market | Free-chip pick bars and the same fixed N.00 price on every lane | Open or count down the market; do not describe donations as stakes or a pool |
+| Market | Free-chip pick bars and the same fixed N.00 price on every lane; the club's cash tote board only when the permitted tote is live | Open or count down the market; do not describe donations as stakes or a pool. Tally paper tote tickets per runner on the console or desk before locking |
 | Locking | Selections closed while the plan and any remote lifecycle are acknowledged | Wait; do not restart or change the field |
 | Countdown | Locked runners and committed plan | Call the start |
 | Race | Broadcast field, running order and four-beat surprises | Let warning, reveal, effect and commentary land in sequence |
 | Finish | The exact first-crossing frame and winner | Stop immediately - there is no wait for trailing runners |
-| Result | Winner plus complete classification | Continue after the result card and chip settlement are visible |
+| Result | Winner plus complete classification; the official-result lower third and, when live, the tote dividend per ticket | Pay winning tote tickets from the table at the dividend shown, then continue |
 
 ### Immediate finish rule
 
@@ -157,9 +165,12 @@ result error. Do not delete history.
 2. Export donations and audit data, save a backup, print the report and archive
    the night.
 3. Reconcile card donations against Stripe and cash against the cash tin.
-4. Keep chip reports separate from every dollar report. Chips are never a
+4. If the cash tote ran, export the tote payouts CSV and keep the printed
+   payout sheet with the tote float. Tote and auction proceeds are reported
+   separately from donations and are never added to the donation goal.
+5. Keep chip reports separate from every dollar report. Chips are never a
    receipt, stake, refund, prize or entitlement.
-5. Publish or retain the final audit head if the club wants stronger
+6. Publish or retain the final audit head if the club wants stronger
    tamper-evidence outside the operator laptop.
 
 ## 9. Release gate before a real event

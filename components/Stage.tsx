@@ -40,7 +40,9 @@ import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace } from '@/lib/use-race';
 import { funChipPoolsFor } from '@/lib/tote';
-import { sponsorFor } from '@/lib/standings';
+import { sponsorFor, standingsFrom } from '@/lib/standings';
+import { auctionOwners, isAuctionRace, projectTote, toteIsLive } from '@/lib/cash-tote';
+import { tickerItems } from '@/lib/broadcast-ticker';
 import { encodeLineup } from '@/lib/lineup';
 import { money, moneyShort, CHIP_START } from '@/lib/money';
 import { laneColour, MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
@@ -156,6 +158,37 @@ export function Stage() {
     () => funChipPoolsFor(event.bets, names, nextRaceNo),
     [event.bets, names, nextRaceNo],
   );
+
+  /* The broadcast ticker, rebuilt only when one of its facts changes. */
+  const broadcastRaceNo = event.showPhase === 'results' ? event.raceNumber : nextRaceNo;
+  const ticker = useMemo(() => {
+    const live = toteIsLive(event.cashTote);
+    const board = live ? projectTote(event.toteSales, broadcastRaceNo, event.cashTote, names.length) : null;
+    const auction = live && isAuctionRace(event.cashTote, broadcastRaceNo, event.plannedRaces)
+      ? auctionOwners(event.auctionBids, broadcastRaceNo, names.length)
+      : null;
+    return tickerItems({
+      clubName: event.clubName,
+      eventName: event.eventName,
+      raceNo: broadcastRaceNo,
+      plannedRaces: event.plannedRaces,
+      courseName: activeCourse.name,
+      laps: event.laps,
+      sponsor,
+      names,
+      runnerSponsors: event.runnerSponsors,
+      nightCents,
+      goalCents: event.goalShow ? event.goalCents : undefined,
+      standings: standingsFrom(event.history),
+      tote: board ? { ticketCents: event.cashTote.ticketCents, poolCents: board.poolCents, tickets: board.tickets } : null,
+      auction: auction ? { poolCents: auction.reduce((s, o) => s + o.cents, 0), owners: auction.length } : null,
+      phonePlayCode: event.phonePlay?.code ?? null,
+    });
+  }, [
+    event.cashTote, event.toteSales, event.auctionBids, event.plannedRaces, event.clubName, event.eventName,
+    event.laps, event.runnerSponsors, event.goalShow, event.goalCents, event.history, event.phonePlay,
+    broadcastRaceNo, activeCourse.name, sponsor, names, nightCents,
+  ]);
 
   /* ── Race lifecycle ──────────────────────────────────────────────────── */
 
@@ -1342,6 +1375,12 @@ export function Stage() {
                   courseId={activeCourse.id}
                   fullCourse={fullCourse}
                   onCourseViewChange={setFullCourse}
+                  plannedRaces={event.plannedRaces}
+                  sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
+                  runnerSponsors={event.runnerSponsors}
+                  history={event.history}
+                  ticker={ticker}
+                  toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                 />
               ) : (
                 <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1633,6 +1672,10 @@ export function Stage() {
         highlights={highlights}
         nextRaceNo={event.raceNumber + 1}
         sponsor={event.history[0]?.sponsor ?? ''}
+        phonePlayOpen={Boolean(phonePlay.session)}
+        lastRace={racesRun >= event.plannedRaces}
+        tote={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote}
+        auction={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.auction}
         onClose={() => setOverlayOpen(false)}
       />
 

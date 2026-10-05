@@ -12,10 +12,13 @@ import { courseGeometry, pointOnLane } from '@/lib/course-geometry';
 import { BroadcastHud } from './race-broadcast/BroadcastHud';
 import { SurpriseLayer } from './race-broadcast/SurpriseLayer';
 import { presentationForMoment } from './race-broadcast/surprise-presentation';
+import { PropGlyph } from './race-broadcast/prop-glyphs';
 import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import { clockText, lapProgress } from '@/lib/broadcast';
 import type { SnailRun } from '@/lib/race-engine';
 import type { PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
+import type { RaceHistoryEntry, ToteDividend } from '@/lib/types';
+import { BroadcastTicker, OfficialResult, OnAirBug, StartListSlate } from './race-broadcast/BroadcastGraphics';
 
 interface Props {
   names: string[];
@@ -30,6 +33,14 @@ interface Props {
   replay?: boolean;
   fullCourse?: boolean;
   onCourseViewChange?: (value: boolean) => void;
+  /* Broadcast furniture. All optional so the replay player can stay lean. */
+  plannedRaces?: number;
+  sponsor?: string;
+  runnerSponsors?: string[];
+  history?: RaceHistoryEntry[];
+  ticker?: string[];
+  /** This race's settled cash tote, for the official result lower third. */
+  toteResult?: ToteDividend | null;
 }
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
@@ -49,6 +60,12 @@ export function Telecast({
   replay = false,
   fullCourse,
   onCourseViewChange,
+  plannedRaces = 1,
+  sponsor,
+  runnerSponsors,
+  history = [],
+  ticker = [],
+  toteResult,
 }: Props) {
   const { setPainter } = race;
   const prefersReducedMotion = useReducedMotion();
@@ -226,6 +243,22 @@ export function Telecast({
   const confirming = phase === 'confirming';
   const moment = phase === 'running' ? race.moment : null;
   const presentation = presentationForMoment(moment);
+  /* Tonight's finishing places per name, for the start-list slate. */
+  const formByName = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const h of history.slice().reverse()) {
+      if (h.void) continue;
+      for (const r of h.results) {
+        if (r.status === 'retired') continue;
+        const list = map.get(r.name) ?? [];
+        list.push(r.place);
+        map.set(r.name, list);
+      }
+    }
+    return map;
+  }, [history]);
+  const showSlate = !replay && phase === 'idle';
+  const showResult = (phase === 'confirming' || phase === 'done') && race.results.length > 0;
   const finishA = pointOnLane(geometry.boundaries[0], 0);
   const finishB = pointOnLane(
     geometry.boundaries[geometry.boundaries.length - 1],
@@ -446,6 +479,10 @@ export function Telecast({
                       width="64"
                       height="64"
                     />
+                  ) : presentation.glyph ? (
+                    <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph}>
+                      <PropGlyph id={presentation.glyph} />
+                    </g>
                   ) : (
                     <text
                       className="course-prop-symbol"
@@ -462,8 +499,35 @@ export function Telecast({
           </g>
         </svg>
       </div>
+      {showSlate ? (
+        <StartListSlate
+          names={names}
+          runnerSponsors={runnerSponsors}
+          formByName={formByName}
+          raceNo={raceNo}
+          plannedRaces={plannedRaces}
+          courseName={course.name}
+          laps={laps}
+          sponsor={sponsor}
+        />
+      ) : null}
+      {showResult ? (
+        <OfficialResult
+          results={race.results}
+          raceNo={raceNo}
+          sponsor={sponsor}
+          tote={toteResult}
+          replay={replay}
+          runnerSponsors={runnerSponsors}
+        />
+      ) : null}
       <div className="course-director-bar">
-        <span>{clubName} / SAJ RACE NIGHT</span>
+        {ticker.length ? (
+          <BroadcastTicker items={ticker} reduceMotion={reduceMotion} />
+        ) : (
+          <span>{clubName} / SAJ RACE NIGHT</span>
+        )}
+        <OnAirBug weather={race.weather} label={replay ? 'REPLAY' : 'NDCC RACE NIGHT'} />
         <button
           type="button"
           className="race-camera-toggle"

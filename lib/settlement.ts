@@ -3,8 +3,49 @@
 import { addAudit, setState } from './event-store';
 import { settleBets } from './tote';
 import { resultHashOf } from './audit';
-import { CHIP_START } from './money';
-import type { RaceHistoryEntry, RaceResult } from './types';
+import { CHIP_START, money } from './money';
+import { isAuctionRace, settleAuction, settleTote, toteIsLive } from './cash-tote';
+import type { EventState, RaceHistoryEntry, RaceResult } from './types';
+
+/**
+ * Attach the permit-gated cash tote settlement to a finished race.
+ *
+ * Pure and one-directional: it reads the winner from an entry that already
+ * exists and the tallies the operator typed, and returns a new entry. It
+ * writes nothing into the chip bank, the bet book or the donation ledger,
+ * and it is skipped entirely unless the tote is live under its attestation.
+ */
+export function withCashTote(
+  state: Pick<EventState, 'cashTote' | 'toteSales' | 'auctionBids' | 'plannedRaces'>,
+  entry: RaceHistoryEntry,
+): RaceHistoryEntry {
+  if (!toteIsLive(state.cashTote)) return entry;
+  const winner = entry.results.find((r) => r.place === 1);
+  if (!winner) return entry;
+  const fieldSize = entry.fieldSize;
+  const auction = isAuctionRace(state.cashTote, entry.raceNo, state.plannedRaces);
+  return {
+    ...entry,
+    ...(auction
+      ? {
+          auction: settleAuction({
+            bids: state.auctionBids,
+            raceNo: entry.raceNo,
+            retainedPercent: state.cashTote.auctionRetainedPercent,
+            winnerLane: winner.lane,
+            fieldSize,
+          }),
+        }
+      : {}),
+    tote: settleTote({
+      sales: state.toteSales,
+      raceNo: entry.raceNo,
+      settings: state.cashTote,
+      winnerLane: winner.lane,
+      fieldSize,
+    }),
+  };
+}
 
 /** Bonus chips per race for a punter on a run, so a hot streak is worth chasing. */
 export const STREAK_BONUS = 25;
@@ -51,7 +92,7 @@ export function recordRaceResult(entry: RaceHistoryEntry): { recorded: boolean }
     return {
       raceNumber: raceNo,
       history: [
-        { ...entry, chipBankBefore: { ...s.chipBank }, streaksBefore: { ...s.streaks } },
+        { ...withCashTote(s, entry), chipBankBefore: { ...s.chipBank }, streaksBefore: { ...s.streaks } },
         ...s.history,
       ],
       bets: settled,
@@ -79,6 +120,33 @@ export function recordRaceResult(entry: RaceHistoryEntry): { recorded: boolean }
         kind: 'bets_settled',
         raceNo,
         detail: `Race ${raceNo}: ${raceBets.length} fun-chip ${raceBets.length === 1 ? 'bet' : 'bets'} settled once, ${paid} chips paid at locked odds. FUN CHIPS - no monetary value.`,
+      });
+    }
+    return {};
+  });
+
+  /* The tote settles from the stored entry, so the trail quotes what the
+     printed payout sheet will show. Nothing here touches chips. */
+  setState((s) => {
+    const standing = s.history.find((h) => h.raceNo === raceNo && !h.void && h.at === entry.at);
+    if (standing?.tote) {
+      const t = standing.tote;
+      addAudit({
+        kind: 'tote_settled',
+        raceNo,
+        detail: t.unbacked
+          ? `Race ${raceNo} cash tote: ${t.tickets} tickets, pool ${money(t.poolCents)}, no tickets on the winner; ${money(t.returnedCents)} stays with the club with the ${t.retainedPercent}% retained share.`
+          : `Race ${raceNo} cash tote: ${t.tickets} tickets, pool ${money(t.poolCents)}, ${t.retainedPercent}% retained (${money(t.retainedCents)}), dividend ${money(t.dividendCents)} per ${money(t.ticketCents)} ticket on ${t.winningTickets} winning ${t.winningTickets === 1 ? 'ticket' : 'tickets'}, breakage ${money(t.breakageCents)}.`,
+      });
+    }
+    if (standing?.auction) {
+      const a = standing.auction;
+      addAudit({
+        kind: 'auction_settled',
+        raceNo,
+        detail: a.winningOwner
+          ? `Race ${raceNo} runner auction: pool ${money(a.poolCents)}, ${a.retainedPercent}% retained (${money(a.retainedCents)}), prize ${money(a.prizeCents)} to ${a.winningOwner.bidder} (bid ${money(a.winningOwner.cents)}).`
+          : `Race ${raceNo} runner auction: pool ${money(a.poolCents)}, the winner was not bid for; the pool stays with the club.`,
       });
     }
     return {};

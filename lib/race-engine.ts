@@ -121,7 +121,9 @@ export type EventSound =
   | 'weird'
   | 'swoop'
   | 'plague'
-  | 'siren';
+  | 'siren'
+  | 'rain'
+  | 'wave';
 
 /**
  * One kind of surprise, and the range it is drawn from.
@@ -352,6 +354,104 @@ export const EVENT_SPECS: EventSpec[] = [
     ],
     magFrom: -0.1, magTo: 0.1, spanFrom: 0.1, spanTo: 0.18, from: 0.24, to: 0.74,
   },
+
+  /* ── The second book: more of the ground, more of the club ────────── */
+  {
+    kind: 'boost', label: 'SIGHTSCREEN SHORTCUT', tone: 'good', sound: 'up', weight: 6,
+    calls: [
+      '{a} has ducked behind the sightscreen and come out the other side ahead!',
+      'Nobody saw {a} go past the sightscreen, but there it is!',
+    ],
+    magFrom: 0.045, magTo: 0.085, spanFrom: 0.08, spanTo: 0.15, from: 0.12, to: 0.7,
+  },
+  {
+    kind: 'surge', label: 'DRINKS BREAK ENERGY', tone: 'good', sound: 'up', weight: 6,
+    calls: [
+      '{a} has had a sports drink at the boundary and it has WORKED!',
+      'Hydrated and dangerous: {a} is motoring!',
+    ],
+    magFrom: 0.05, magTo: 0.09, spanFrom: 0.1, spanTo: 0.18, from: 0.3, to: 0.78,
+  },
+  {
+    kind: 'boost', label: 'TAILWIND', tone: 'good', sound: 'up', weight: 7,
+    calls: [
+      'A gust off the bay has got in behind {a}!',
+      '{a} has caught the tailwind and it is sailing!',
+    ],
+    magFrom: 0.04, magTo: 0.075, spanFrom: 0.12, spanTo: 0.2, from: 0.1, to: 0.72,
+  },
+  {
+    kind: 'surge', label: 'HOME CROWD ROAR', tone: 'good', sound: 'wave', weight: 5,
+    calls: [
+      'The home crowd has found its voice and {a} has heard it!',
+      'Listen to the members for {a}! It is lifting!',
+    ],
+    magFrom: 0.05, magTo: 0.095, spanFrom: 0.1, spanTo: 0.18, from: 0.4, to: 0.82,
+  },
+  {
+    kind: 'nap', label: 'TEA INTERVAL', tone: 'bad', sound: 'nap', weight: 6,
+    calls: [
+      '{a} has stopped for tea. It is not tea time!',
+      'Scones and a sit down for {a}. The race goes on without it.',
+    ],
+    magFrom: -0.12, magTo: -0.07, spanFrom: 0.12, spanTo: 0.2, from: 0.2, to: 0.7,
+  },
+  {
+    kind: 'wander', label: 'SELFIE STOP', tone: 'bad', sound: 'wander', weight: 6,
+    calls: [
+      '{a} has stopped for a selfie with the front row!',
+      'Smile! {a} is posing for the members and going nowhere!',
+    ],
+    magFrom: -0.08, magTo: -0.045, spanFrom: 0.1, spanTo: 0.18, from: 0.18, to: 0.74,
+  },
+  {
+    kind: 'stumble', label: 'DEW ON THE OUTFIELD', tone: 'bad', sound: 'down', weight: 7,
+    calls: [
+      '{a} has hit the dew and it is spinning its wheels!',
+      'Heavy dew out there and {a} has found the worst of it!',
+    ],
+    magFrom: -0.075, magTo: -0.04, spanFrom: 0.1, spanTo: 0.17, from: 0.12, to: 0.78,
+  },
+  {
+    kind: 'nap', label: 'SUNSCREEN STOP', tone: 'bad', sound: 'wander', weight: 5,
+    calls: [
+      '{a} has pulled over to reapply the sunscreen. Slip, slop, slow.',
+      'Sun safety first for {a}, racing second!',
+    ],
+    magFrom: -0.1, magTo: -0.06, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.72,
+  },
+  {
+    kind: 'stumble', label: 'COVERS CREW', tone: 'bad', sound: 'down', weight: 4,
+    calls: [
+      'The covers crew is dragging the sheet straight across {a}!',
+      '{a} is caught under the covers! Somebody lift the corner!',
+    ],
+    magFrom: -0.1, magTo: -0.055, spanFrom: 0.1, spanTo: 0.17, from: 0.2, to: 0.74,
+  },
+  {
+    kind: 'chaos', label: 'DRS REVIEW', tone: 'wild', sound: 'siren', weight: 4,
+    calls: [
+      '{a} has been sent upstairs for a review. The big screen says... nothing yet!',
+      'Reviewing! {a} is waiting on the third umpire and so are we!',
+    ],
+    magFrom: -0.09, magTo: 0.09, spanFrom: 0.08, spanTo: 0.15, from: 0.2, to: 0.74,
+  },
+  {
+    kind: 'chaos', label: 'MYSTERY SPINNER', tone: 'wild', sound: 'weird', weight: 4,
+    calls: [
+      'A mystery spinner has landed in the lane of {a} and it has turned square!',
+      '{a} has read the wrong one! Which way is that going?',
+    ],
+    magFrom: -0.1, magTo: 0.1, spanFrom: 0.08, spanTo: 0.16, from: 0.18, to: 0.76,
+  },
+  {
+    kind: 'chaos', label: 'SIGHTSCREEN GLARE', tone: 'wild', sound: 'weird', weight: 4,
+    calls: [
+      'The sun is off the sightscreen and straight into the eyes of {a}!',
+      '{a} cannot see a thing and is guessing the line!',
+    ],
+    magFrom: -0.08, magTo: 0.07, spanFrom: 0.08, spanTo: 0.15, from: 0.16, to: 0.74,
+  },
 ];
 
 /**
@@ -455,6 +555,53 @@ export const SWARM_SPECS: SwarmSpec[] = [
     ],
     shareFrom: 0.25, shareTo: 0.55,
     magFrom: -0.095, magTo: 0.035, spanFrom: 0.1, spanTo: 0.17, from: 0.22, to: 0.72,
+  },
+
+  /* ── The second book of field incidents ───────────────────────────── */
+  {
+    kind: 'plague', label: 'RAIN SQUALL', tone: 'bad', sound: 'rain', weight: 5,
+    calls: [
+      'A squall has come straight across the ground! Half the field has stopped to shelter!',
+      'RAIN! The outfield is under water and the middle of the field is bogged!',
+    ],
+    shareFrom: 0.35, shareTo: 0.7,
+    magFrom: -0.09, magTo: -0.045, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.7,
+  },
+  {
+    kind: 'boost', label: 'MEXICAN WAVE', tone: 'good', sound: 'wave', weight: 5,
+    calls: [
+      'The crowd has started a wave and it has carried half the field with it!',
+      'Here comes the wave! Everybody up, and everybody faster!',
+    ],
+    shareFrom: 0.4, shareTo: 0.8,
+    magFrom: 0.04, magTo: 0.08, spanFrom: 0.1, spanTo: 0.18, from: 0.18, to: 0.72,
+  },
+  {
+    kind: 'swoop', label: 'SEAGULL RAID', tone: 'bad', sound: 'swoop', weight: 6,
+    calls: [
+      'SEAGULLS! Somebody dropped a chip and the whole flock has come through the field!',
+      'A seagull raid! They are after the lettuce and they have scattered the runners!',
+    ],
+    shareFrom: 0.25, shareTo: 0.5,
+    magFrom: -0.085, magTo: -0.04, spanFrom: 0.06, spanTo: 0.12, from: 0.15, to: 0.76,
+  },
+  {
+    kind: 'chaos', label: 'ICE CREAM VAN', tone: 'wild', sound: 'wander', weight: 5,
+    calls: [
+      'The ice cream van has pulled up at the boundary and half the field has gone for a cone!',
+      'Ice cream! Some of them have sped up to get there and some have stopped to eat it!',
+    ],
+    shareFrom: 0.3, shareTo: 0.6,
+    magFrom: -0.09, magTo: 0.07, spanFrom: 0.1, spanTo: 0.17, from: 0.2, to: 0.72,
+  },
+  {
+    kind: 'chaos', label: 'PITCH INVADER', tone: 'wild', sound: 'siren', weight: 4,
+    calls: [
+      'A pitch invader in a club polo is running across the course! The runners are dodging!',
+      'Somebody has run on! Security is slower than the snails and that is saying something!',
+    ],
+    shareFrom: 0.25, shareTo: 0.55,
+    magFrom: -0.09, magTo: 0.06, spanFrom: 0.08, spanTo: 0.14, from: 0.2, to: 0.72,
   },
 ];
 
@@ -983,6 +1130,24 @@ export const RETIREMENT_SPECS = [
     label: 'SPRINKLER STOP',
     reveal: 'The sprinklers have caught {a}, and the marshal has called them in.',
     commentary: '{a} is safe and drying off beside the course, but their race is over.',
+  },
+  {
+    code: 'seagull-scare',
+    label: 'SEAGULL SCARE',
+    reveal: 'A seagull has swooped at {a}, and the marshal is walking it off the course.',
+    commentary: '{a} is safe under the marshal\'s hat after that seagull scare, but their race is over.',
+  },
+  {
+    code: 'covers-call',
+    label: 'COVERS CALL',
+    reveal: 'The covers are coming on over {a}\'s lane. The marshal has called it in.',
+    commentary: '{a} has been lifted safely clear before the covers went on, but their race is over.',
+  },
+  {
+    code: 'drinks-cart-crossing',
+    label: 'DRINKS CART CROSSING',
+    reveal: 'The drinks cart is crossing {a}\'s lane and the marshal has stopped the runner.',
+    commentary: '{a} has been walked safely around the drinks cart, but their race is over.',
   },
 ] as const;
 

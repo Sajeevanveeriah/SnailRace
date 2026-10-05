@@ -53,6 +53,7 @@ export function Racecard({
   lanes,
   raceNo,
   sponsor,
+  runnerSponsors = [],
   compact = false,
 }: {
   names: string[];
@@ -60,6 +61,8 @@ export function Racecard({
   lanes: FunChipLane[];
   raceNo: number;
   sponsor?: string;
+  /** Optional sponsor per lane, printed under the runner's name. */
+  runnerSponsors?: string[];
   /** Projector mode trims the flavour column below twelve-lane fields. */
   compact?: boolean;
 }) {
@@ -114,7 +117,14 @@ export function Racecard({
                   </span>
                 </td>
                 <td className="py-2 pr-2">
-                  <p className="font-semibold leading-tight">{name}</p>
+                  <p className="font-semibold leading-tight">
+                    {name}
+                    {runnerSponsors[i]?.trim() ? (
+                      <span className="runner-sponsor ml-2 text-[11px] font-medium text-(--gold)">
+                        with {runnerSponsors[i].trim()}
+                      </span>
+                    ) : null}
+                  </p>
                   {!compact ? (
                     <p className="text-[11px] leading-snug text-(--tx)/45" aria-label="For fun">
                       {flavourOf(name)}

@@ -152,17 +152,44 @@ test('the obstacle stays visible before the crowd-lift cue replaces it', async (
   await desk.getByLabel('Laps').selectOption('1');
   await desk.getByRole('button', { name: /Hide/ }).click();
   await raceCard(desk);
+  /* Measure on the page's own clock. The obstacle must stay on air for a
+     readable interval after its effect lands, before the chase cue replaces
+     it; a test-runner round trip under load must not be able to eat that
+     margin, so a MutationObserver records every ticker change as it happens. */
+  await page.evaluate(() => {
+    const log: { t: number; label: string; text: string; prop: boolean }[] = [];
+    (window as unknown as { __tickerLog: typeof log }).__tickerLog = log;
+    const read = () => {
+      const el = document.querySelector('.course-event-ticker');
+      const label = el?.querySelector('strong')?.textContent ?? '';
+      const text = el?.textContent ?? '';
+      const last = log[log.length - 1];
+      if (!last || last.label !== label || last.text !== text) {
+        log.push({ t: performance.now(), label, text, prop: Boolean(document.querySelector('.course-prop-image')) });
+      }
+    };
+    new MutationObserver(read).observe(document.body, {
+      childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-phase'],
+    });
+  });
   await desk.getByRole('button', { name: 'Start race', exact: true }).click();
   const signal = page.locator('.course-event-ticker');
   await expect(signal).toContainText(/LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/, { timeout: 15_000 });
   await expect(signal).toContainText('DELAY');
-  const label = await signal.locator('strong').innerText();
   await expect(page.locator('.course-prop-image')).toBeVisible();
-  // Check a readable interval of actual animation, including any resulting overtake.
-  await page.waitForTimeout(650);
-  await expect(signal.locator('strong')).toHaveText(label);
-  await expect(page.locator('.course-prop-image')).toBeVisible();
-  await expect(signal).toContainText('NDCC CROWD LIFT');
+  await expect(signal).toContainText('NDCC CROWD LIFT', { timeout: 10_000 });
+  const log = await page.evaluate(
+    () => (window as unknown as { __tickerLog: { t: number; label: string; text: string; prop: boolean }[] }).__tickerLog,
+  );
+  const setback = /LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/;
+  const effectAt = log.findIndex((row) => setback.test(row.label) && row.text.includes('DELAY'));
+  expect(effectAt, JSON.stringify(log)).toBeGreaterThanOrEqual(0);
+  const replacedAt = log.findIndex((row, i) => i > effectAt && row.label !== log[effectAt].label);
+  expect(replacedAt, JSON.stringify(log)).toBeGreaterThan(effectAt);
+  // A readable interval of actual animation, including any resulting overtake.
+  expect(log[replacedAt].t - log[effectAt].t, JSON.stringify(log.slice(effectAt, replacedAt + 1))).toBeGreaterThanOrEqual(650);
+  for (const row of log.slice(effectAt, replacedAt)) expect(row.prop, JSON.stringify(row)).toBe(true);
+  expect(log[replacedAt].label).toBe('NDCC CROWD LIFT');
 });
 
 
@@ -197,4 +224,34 @@ test('recorded media plays only on the projector and settles from the desk', asy
   await expect(desk.getByRole('button', { name: 'Skip to result' })).toBeVisible();
   await expect.poll(async () => (await readNight(page)).history?.length ?? 0, { timeout: 15_000 }).toBe(1);
   expect((await readNight(page)).history[0].results[0].name).toBe('Turbo');
+});
+
+test('a live cash tote can be tallied from the desk and is settled on the projector', async ({ page }) => {
+  test.setTimeout(60_000);
+  const desk = await openDesk(page);
+  await desk.setViewportSize({ width: 1280, height: 900 });
+  await expect(desk.getByRole('region', { name: 'Cash tote tally' })).toHaveCount(0);
+  await desk.getByRole('button', { name: 'Settings', exact: true }).click();
+  const tote = desk.getByRole('region', { name: 'Cash tote' });
+  await tote.getByLabel(/Permit or authority reference/i).fill('Club authority ref 77');
+  await tote.getByRole('checkbox').first().check();
+  await tote.getByRole('button', { name: /Enable cash tote/i }).click();
+  await desk.getByLabel('Lap length').selectOption('7000');
+  await desk.getByLabel('Laps').selectOption('1');
+  await desk.getByRole('button', { name: /Hide/ }).click();
+
+  const tally = desk.getByRole('region', { name: 'Cash tote tally' });
+  await expect(tally).toBeVisible();
+  await tally.getByRole('button', { name: 'Add one ticket to Flash' }).click();
+  await tally.getByRole('button', { name: 'Add one ticket to Flash' }).click();
+  await expect.poll(async () => {
+    const night = await readNight(page);
+    return (night.toteSales as { lane: number; tickets: number }[]).reduce((s, x) => s + (x.lane === 3 ? x.tickets : 0), 0);
+  }).toBe(2);
+  await raceCard(desk);
+  await expect(desk.getByRole('region', { name: 'Cash tote tally' })).toHaveCount(0);
+  await desk.getByRole('button', { name: 'Start race', exact: true }).click();
+  await expect(page.getByRole('note', { name: 'Cash tote dividend' })).toBeVisible({ timeout: 30_000 });
+  const night = await readNight(page);
+  expect(night.history[0].tote.poolCents).toBe(400);
 });

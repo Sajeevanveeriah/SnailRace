@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import { resultGapText } from '@/lib/broadcast';
 import { laneColour } from '@/lib/palette';
 import type { BoardRow, RaceController } from '@/lib/use-race';
+import { SplitChip } from './BroadcastGraphics';
 
 interface BroadcastHudProps {
   brand: ReactNode;
@@ -70,8 +71,14 @@ export function BroadcastHud({
             0:00.0
           </span>
         )}
+        {race.photoFinish && phase !== 'done' ? (
+          <span className="tv-photo num" role="status">
+            PHOTO FINISH
+          </span>
+        ) : null}
         <span ref={shotRef} className="tv-shot num" aria-hidden="true" />
       </div>
+      {phase === 'running' ? <SplitChip onSplit={race.onSplit} /> : null}
 
       <RunningOrder
         race={race}

@@ -136,6 +136,17 @@ export interface RacePainter {
   paint: (snails: SnailRun[], info: PaintInfo) => void;
 }
 
+/** A timing split, published when the leader passes a sector or lap mark. */
+export interface RaceSplit {
+  id: number;
+  /** "LAP 2", "BELL LAP", "HALFWAY" and so on. */
+  label: string;
+  leader: string;
+  chaser: string;
+  gapSeconds: number;
+  atMs: number;
+}
+
 /** One row of the running-order board. */
 export interface BoardRow {
   lane: number;
@@ -155,6 +166,12 @@ export interface RaceController {
   /** Every surprise drawn for the race in progress, for the track markers. */
   events: RaceEvent[];
   moment: RaceMoment | null;
+  /**
+   * Subscribe to timing splits. Published like the board, through a
+   * subscription rather than React state, so a split re-renders only the
+   * chip that shows it and never the whole stage mid-race.
+   */
+  onSplit: (cb: (split: RaceSplit) => void) => () => void;
   /** Conditions for the race in progress. Scenery and commentary only. */
   weather: Weather;
   /**
@@ -244,6 +261,14 @@ export function useRace(
   const [events, setEvents] = useState<RaceEvent[]>([]);
   const [moment, setMoment] = useState<RaceMoment | null>(null);
   const [weather, setWeather] = useState<Weather>('clear');
+  const splitIdRef = useRef(0);
+  const splitRef = useRef<Set<(split: RaceSplit) => void>>(new Set());
+  const onSplit = useCallback((cb: (split: RaceSplit) => void) => {
+    splitRef.current.add(cb);
+    return () => {
+      splitRef.current.delete(cb);
+    };
+  }, []);
 
   const painterRef = useRef<RacePainter | null>(null);
   const raceRef = useRef<LiveRace | null>(null);
@@ -640,11 +665,27 @@ export function useRace(
       /* Progress is 0..1 over the whole race, so a lane unit is worth a lap's
          worth of lengths times the number of laps. */
       const toLengths = (dp: number) => Math.max(0, dp) * laps * LENGTHS_PER_LAP;
+      /* The timing graphic. Quoted against race pace like the board. */
+      const publishSplit = (label: string) => {
+        if (!lead) return;
+        const second = byPosition[1];
+        splitIdRef.current += 1;
+        const split: RaceSplit = {
+          id: splitIdRef.current,
+          label,
+          leader: lead.name,
+          chaser: second && second.lane !== lead.lane ? second.name : '',
+          gapSeconds: second ? Math.max(0, (lead.p - second.p) * (race.durationMs / 1000)) : 0,
+          atMs: race.raceT,
+        };
+        splitRef.current.forEach((cb) => cb(split));
+      };
       if (lead && !lead.done && laps > 1) {
         const done = Math.floor(lead.p * laps);
         if (done > race.lapsDone && done < laps) {
           race.lapsDone = done;
           const starting = done + 1;
+          publishSplit(starting === laps ? 'BELL LAP' : `LAP ${done} DONE`);
           if (!surpriseOnAir) {
             call(lapLine(starting, laps, lead.name, chaser.name, race.commentaryRnd), 'big', starting === laps ? 'bell' : 'lap');
             race.commentaryAt = race.raceT;
@@ -661,6 +702,7 @@ export function useRace(
         const sector = Math.floor(lead.p * 4);
         if (sector > race.sector && sector <= 3) {
           race.sector = sector;
+          publishSplit(sector === 2 ? 'HALFWAY' : sector === 1 ? 'QUARTER' : 'THREE-QUARTER');
           const line = sectorLine(sector, lead.name, chaser.name);
           if (line && !surpriseOnAir) {
             call(line, 'big');
@@ -957,6 +999,7 @@ export function useRace(
     results,
     events,
     moment,
+    onSplit,
     weather,
     onBoard,
     setPainter,

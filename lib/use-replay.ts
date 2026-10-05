@@ -324,6 +324,7 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
     results: entry?.results ?? [],
     events: tape?.events ?? [],
     moment,
+    onSplit: () => () => {},
     weather: tape?.weather ?? 'clear',
     onBoard,
     setPainter,

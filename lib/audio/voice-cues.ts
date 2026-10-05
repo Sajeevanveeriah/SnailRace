@@ -32,18 +32,43 @@ export const RECORDED_CUES = {
 } as const;
 export type RecordedCue = keyof typeof RECORDED_CUES;
 
-/** Only match specific supported events; never invent a race fact. */
+/**
+ * Only match specific supported events; never invent a race fact.
+ *
+ * Every pattern is anchored to a phrase the commentary book actually says.
+ * A loose word used to misfire: "/away/" matched "{b} is a length away and
+ * paying attention" and played "And they are away!" in the middle of a race,
+ * and "/ready/" matched "already". The run-of-play pools now map to their
+ * generic clips too, so the natural caller talks between the set pieces
+ * instead of falling silent until the next lettuce.
+ */
 export function recordedCueFor(text: string): RecordedCue | undefined {
- const value = text.toLowerCase();
- const rules: Array<[RegExp, RecordedCue]> = [
- [/race.*(?:void|stopped|declared)/, 'void'], [/\bwins?\b|we have.*winner/, 'winner'],
- [/away/, 'start'], [/lettuce/, 'lettuce'], [/plague/, 'plague'],
- [/cricket ball/, 'ball'], [/sprinkler/, 'sprinkler'], [/pitch roller/, 'roller'],
- [/dog.*track/, 'dog'], [/magpie|swoop/, 'magpie'], [/groundskeeper/, 'boot'],
- [/boundary bee/, 'bee'], [/retir/, 'retire'], [/bell|last lap|final lap/, 'bell'],
- [/lap/, 'lap'], [/photo|on the line|right to the line/, 'photo'],
- [/hits the front|takes the lead|new leader|into the lead/, 'lead'],
- [/past|overtak|up to.*place/, 'overtake'], [/ready/, 'ready']
- ];
- return rules.find(([pattern]) => pattern.test(value))?.[1];
+  const value = text.toLowerCase();
+  const rules: Array<[RegExp, RecordedCue]> = [
+    [/race.*(?:void|stopped|declared)|has been stopped/, 'void'],
+    [/\bwins?\b|we have.*winner|our winner/, 'winner'],
+    [/they are away|they're away|and they are off|under way/, 'start'],
+    [/lettuce/, 'lettuce'],
+    [/plague/, 'plague'],
+    [/cricket ball/, 'ball'],
+    [/sprinkler/, 'sprinkler'],
+    [/pitch roller/, 'roller'],
+    [/\bdog\b/, 'dog'],
+    [/magpie|swoop/, 'magpie'],
+    [/groundskeeper|groundsman/, 'boot'],
+    [/boundary bee|\bbee\b/, 'bee'],
+    [/\bretir/, 'retire'],
+    [/\bbell\b|last lap|final lap|one lap to run|one lap to go/, 'bell'],
+    [/\blaps?\b/, 'lap'],
+    [/hits the front|takes the lead|new leader|into the lead|lead change|snatches it|takes it up/, 'lead'],
+    [/goes past|up to .* place|been passed|takes .* off|overtak/, 'overtake'],
+    [/photo finish|right to the line|on the line!/, 'photo'],
+    [/to run and it is|inside the last|left, .* closing|turns for home|can see the line|needs every/, 'final'],
+    [/halfway|three-quarter|quarter of the way|looks settled|proper race of it|holds the front|for company|another gear/, 'mid'],
+    [/tidy start|leads them out|has the rail|clean getaway|sets the pace|settling into/, 'early'],
+    [/throw a blanket|side by side|locked together|in it between|neither giving|nothing in it|by a nose/, 'close'],
+    [/broken the elastic|is gone\.|put on the field|reel in|clear!/, 'clear'],
+    [/field is ready|get this race started|under starter/, 'ready'],
+  ];
+  return rules.find(([pattern]) => pattern.test(value))?.[1];
 }
