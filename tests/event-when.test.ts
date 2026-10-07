@@ -19,12 +19,12 @@ test('a fresh night carries the October 2026 event as advertised', () => {
   assert.equal(s.eventName, 'Snail Racing');
   assert.equal(s.eventTagline, 'A night at the races');
   assert.equal(eventWhen(s), 'Saturday 24 October · from 7 pm · Club rooms');
-  assert.equal(s.backingCents, 1000);
+  assert.equal(s.backingCents, 400);
   const items = tickerItems({
     clubName: s.clubName, eventName: s.eventName, raceNo: 1, plannedRaces: s.plannedRaces,
     courseName: 'Boundary Oval', laps: 3, names: [], nightCents: 0, standings: [],
     when: eventWhen(s), backingCents: s.backingCents,
   });
   assert.ok(items.includes('Saturday 24 October · from 7 pm · Club rooms'));
-  assert.ok(items.includes('Back your snail for $10 - a gift to the club - and cheer it home'));
+  assert.ok(items.includes('Back your snail for $4 - a gift to the club - and cheer it home'));
 });

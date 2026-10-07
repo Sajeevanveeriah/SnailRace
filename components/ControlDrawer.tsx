@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { addAudit, auditChainSettled, currentState, hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
+import { addAudit, audioPatch, auditChainSettled, currentState, hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
 import { commitmentOf, planHashOf, resultHashOf, shortHash, verifyAuditChain, type RaceConfig } from '@/lib/audit';
 import { archiveNight, listNights, removeNight, verifyNight, type ArchivedNight } from '@/lib/event-archive';
 import { PhonePlayPanel } from './PhonePlayPanel';
@@ -10,10 +10,14 @@ import { CashTotePanel } from './CashTotePanel';
 import { toteIsLive, toteProceeds } from '@/lib/cash-tote';
 import { PackManager } from './PackManager';
 import { Preflight } from './Preflight';
+import { RosterPanel } from './RosterPanel';
+import { QuaddieSettingsPanel } from './QuaddiePanel';
+import { AudioModePicker } from './AudioModePicker';
+import { cardRaceNames } from '@/lib/card';
 import type { usePhonePlay } from '@/lib/use-phone-play';
 import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { MAX_FIELD, MIN_LIVE_FIELD, QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, drawNames, laneColour } from '@/lib/palette';
+import { QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, laneColour } from '@/lib/palette';
 import { LAP_LEN } from '@/lib/broadcast';
 import { sponsorFor, standingsFrom } from '@/lib/standings';
 import { verifyDraw } from '@/lib/race-engine';
@@ -95,7 +99,7 @@ export function ControlDrawer({
   const [voices, setVoices] = useState<VoiceChoice[]>([]);
   const [voiceURI, setVoiceURI] = useState('');
 
-  const names = event.names.slice(0, event.fieldSize);
+  const names = cardRaceNames(event.card, nextRaceNo);
 
   /*
    * Which drop-in audio files were found. The probe runs once the audio
@@ -236,17 +240,6 @@ export function ControlDrawer({
     setState({
       cashLedger: event.cashLedger.map((d) => (d.id === id ? { ...d, void: !d.void } : d)),
     });
-  };
-
-  const setName = (index: number, value: string) => {
-    const names = event.names.slice();
-    names[index] = value.slice(0, 24);
-    setState({ names });
-  };
-
-  const suggestNames = () => {
-    setState({ names: drawNames(MAX_FIELD) });
-    say('New names drawn.');
   };
 
   /** The newest race that still stands. Voided entries are already undone. */
@@ -917,60 +910,16 @@ export function ControlDrawer({
                     <option>Champion of champions</option>
                   </select>
                 </label>
-                <label className="fld">
-                  <span>Number of racers</span>
-                  <select
-                    value={event.fieldSize}
-                    disabled={locked}
-                    aria-describedby="field-range-note"
-                    onChange={(e) => setState({ fieldSize: Number(e.target.value) })}
-                  >
-                    {Array.from({ length: MAX_FIELD - MIN_LIVE_FIELD + 1 }, (_, index) => MIN_LIVE_FIELD + index).map((size) => (
-                      <option key={size} value={size}>{size}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="fld">
-                  <span>Tonight&apos;s goal (AUD)</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="50"
-                    value={event.goalCents / 100}
-                    onChange={(e) =>
-                      setState({ goalCents: Math.max(0, Math.round(Number(e.target.value) * 100)) })
-                    }
-                  />
-                </label>
               </div>
               <p className="mt-3 text-[11px] leading-snug text-(--tx)/50">
                 {event.trackShape === 'circuit'
                   ? `${event.laps} ${event.laps === 1 ? 'lap' : 'laps'} at ${Math.round(lapMs / 1000)}s = a ${raceLength} race, at about ${pace} body-lengths a second. A snail reads as a snail at about one; much above two and it looks like a beetle.`
                   : `A ${raceLength} race.`}
               </p>
-              <p id="field-range-note" className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                Choose {MIN_LIVE_FIELD} to {MAX_FIELD} runners. The projector, Phone Play and locked result all use this field.
+              <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
+                Every race is ten snails: the ten numbers sold into it on the card.
               </p>
-
               <label className="mt-3 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={event.goalShow}
-                  onChange={(e) => setState({ goalShow: e.target.checked })}
-                />
-                Show the goal ring on the stage
-              </label>
-              {event.trackShape === 'circuit' ? (
-                <label className="mt-2 flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={event.chaseCam}
-                    onChange={(e) => setState({ chaseCam: e.target.checked })}
-                  />
-                  Camera director (cuts between shots)
-                </label>
-              ) : null}
-              <label className="mt-2 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={event.surprises}
@@ -981,7 +930,7 @@ export function ControlDrawer({
               </label>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 {event.surprises
-                  ? 'Course surprises can hold up the leader and give a chaser a crowd lift. Each lasting delay or boost is drawn before countdown and can change who wins.'
+                  ? 'Surprises are dealt from a shuffled deck that reaches the finish straight and hits the whole field. Once-a-night cards are never repeated. Every lasting delay or boost is drawn before countdown and can change who wins.'
                   : 'Surprises are off. The field runs on wobble alone.'}
               </p>
             </section>
@@ -1002,38 +951,24 @@ export function ControlDrawer({
                   </select>
                 </label>
                 <label className="fld">
-                  <span>Races on the card</span>
-                  <select
-                    value={event.plannedRaces}
-                    onChange={(e) => setState({ plannedRaces: Number(e.target.value) })}
-                  >
-                    {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                      <option key={n} value={n}>
-                        {n} races
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="fld sm:col-span-2">
                   <span>Surprise director</span>
                   <select
                     value={event.intensity}
                     disabled={locked}
                     onChange={(e) => setState({ intensity: e.target.value as SurpriseIntensity })}
                   >
-                    <option value="calm">Calm night</option>
-                    <option value="standard">Standard</option>
-                    <option value="big">Big night</option>
-                    <option value="chaos">Chaos</option>
+                    <option value="calm">Calm night (no deck)</option>
+                    <option value="standard">Standard (up to one deck card)</option>
+                    <option value="big">Big night (one or two)</option>
+                    <option value="chaos">Chaos (two or three)</option>
                   </select>
                 </label>
               </div>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                Calm includes one comeback sequence. Standard, Big night and Chaos include two on races of at least 25 seconds, with extra course surprises where there is room. Short races include one.
-                {' '}
-                Presets change how much consequential drama is drawn. The complete plan - including
-                every surprise, lasting delay or boost, rare retirement and first-finisher
-                classification - is hash-locked before the countdown and cannot change mid-race.
+                The deck adds field-wide and late cards on top of the ordinary surprises: a plague at the line,
+                the big freeze, a headwind, reverse gear, lucky last and more. Once-a-night cards are dealt
+                without replacement across the ten races ({event.dealtCards.length} used so far). The complete
+                plan is hash-locked before the countdown and cannot change mid-race.
               </p>
               <label className="mt-3 flex items-center gap-2 text-sm">
                 <input
@@ -1063,9 +998,8 @@ export function ControlDrawer({
                 </button>
               ) : null}
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                On the stage, the clicker walks the night forward: lobby, racecard, market,
-                race, results, championship, and an interval when you want one. PageUp
-                steps back.
+                On the stage, the clicker walks the night forward: welcome, racecard, race, result,
+                the quaddie board when one is running, and the thank-you after race ten. PageUp steps back.
               </p>
             </section>
 
@@ -1160,42 +1094,21 @@ export function ControlDrawer({
             <section className="panel">
               <h3 className="mb-3 font-semibold">Sound</h3>
               <div className="grid gap-3">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={event.sound}
-                    onChange={(e) => {
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <AudioModePicker
+                    mode={event.audioMode}
+                    canSpeak={canSpeak}
+                    onChange={(mode) => {
                       primeAudio();
-                      setState({ sound: e.target.checked });
+                      if (mode === 'commentary') initVoice();
+                      setState(audioPatch(mode));
                     }}
                   />
-                  Sound on <kbd>S</kbd>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={event.music}
-                    disabled={!event.sound}
-                    onChange={(e) => {
-                      primeAudio();
-                      setState({ music: e.target.checked });
-                    }}
-                  />
-                  Music and crowd <kbd>B</kbd>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={event.caller}
-                    disabled={!event.sound || !canSpeak}
-                    onChange={(e) => {
-                      primeAudio();
-                      initVoice();
-                      setState({ caller: e.target.checked });
-                    }}
-                  />
-                  Spoken race caller <kbd>V</kbd>
-                </label>
+                  <span className="text-[11px] text-(--tx)/50">
+                    <kbd>A</kbd> cycles, <kbd>S</kbd> silences. Music plays the lobby, race and winner tracks;
+                    Commentary plays the caller with no music bed. There is no generated crowd noise.
+                  </span>
+                </div>
                 {!canSpeak ? (
                   <p className="text-[11px] leading-snug text-(--tx)/50">
                     This browser has no speech voices installed, so the caller is
@@ -1303,43 +1216,47 @@ export function ControlDrawer({
               </div>
             </section>
 
-            {/* ── Racers ───────────────────────────────────────────── */}
-            <section className="panel">
-              <h3 className="mb-3 font-semibold">Racers</h3>
-              <div className="grid gap-2">
-                {names.map((n, i) => (
-                  <label key={i} className="flex items-center gap-2">
-                    <span
-                      className="h-3 w-3 shrink-0 rounded-full"
-                      style={{ background: laneColour(i).shell }}
-                      aria-hidden="true"
-                    />
-                    <span className="sr-only">Lane {i + 1} name</span>
-                    <input
-                      type="text"
-                      value={n}
-                      maxLength={24}
-                      disabled={locked}
-                      onChange={(e) => setName(i, e.target.value)}
-                      className="w-full rounded-lg border border-(--tx)/15 bg-(--well) px-3 py-1.5 text-sm"
-                    />
-                  </label>
-                ))}
+            {/* ── The card ─────────────────────────────────────────── */}
+            <section className="panel lg:col-span-2" aria-label="The card">
+              <h3 className="mb-3 font-semibold">The card</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="fld">
+                  <span>Price of a snail (AUD)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={event.card.snailCents / 100}
+                    onChange={(e) =>
+                      setState((s) => ({
+                        card: { ...s.card, snailCents: Math.max(100, Math.round(Number(e.target.value) * 100)) },
+                        backingCents: Math.max(100, Math.round(Number(e.target.value) * 100)),
+                      }))
+                    }
+                  />
+                </label>
+                <label className="fld">
+                  <span>Stripe Payment Link for the QR</span>
+                  <input
+                    type="url"
+                    placeholder="https://buy.stripe.com/..."
+                    value={event.card.paymentLinkUrl}
+                    onChange={(e) => setState((s) => ({ card: { ...s.card, paymentLinkUrl: e.target.value.trim() } }))}
+                  />
+                </label>
               </div>
-              <button
-                type="button"
-                className="btn btn-ghost mt-3 w-full"
-                disabled={locked}
-                onClick={suggestNames}
-              >
-                Suggest names
-              </button>
-              {locked ? (
-                <p className="mt-2 text-[11px] text-(--tx)/45">
-                  Names are locked while a race is armed or running.
-                </p>
-              ) : null}
+              <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
+                With a Stripe key on the server the link is minted automatically and paid snails name themselves on
+                this roster. On the static site, create a Payment Link in the Stripe dashboard at the snail price with three
+                custom fields (snail number, snail name, your name), paste it here, and fill the roster from the Stripe
+                export with Paste list.
+              </p>
+              <div className="mt-4">
+                <RosterPanel card={event.card} raceNo={nextRaceNo} lockedRaceNo={locked ? nextRaceNo : null} />
+              </div>
             </section>
+
+            <QuaddieSettingsPanel event={event} locked={locked} />
 
             {/* ── Ledger ───────────────────────────────────────────── */}
             <section className="panel lg:col-span-2">

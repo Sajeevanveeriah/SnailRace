@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getStripe, META, APP_TAG } from '@/lib/stripe';
+import { getStripe, META, APP_TAG, SNAIL_FIELDS } from '@/lib/stripe';
 import { MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
+import { DEFAULT_SNAIL_CENTS, SNAILS_ON_CARD } from '@/lib/card';
 import { checkOrigin } from '@/lib/server-origin';
 
 export const runtime = 'nodejs';
@@ -26,6 +27,8 @@ export const dynamic = 'force-dynamic';
  */
 const linkCache = new Map<string, { id: string; url: string }>();
 
+type LinkKind = 'donation' | 'snail';
+
 export async function POST(request: Request) {
   /* Same boundary as /api/checkout: a foreign page cannot mint links whose
      completion redirect it controls. */
@@ -43,11 +46,17 @@ export async function POST(request: Request) {
   }
 
   let eventId = '';
+  let kind: LinkKind = 'donation';
+  let snailCents = DEFAULT_SNAIL_CENTS;
   try {
-    const body = (await request.json()) as { eventId?: string };
+    const body = (await request.json()) as { eventId?: string; kind?: string; cents?: number };
     eventId = String(body.eventId ?? '')
       .replace(/[^\w-]/g, '')
       .slice(0, 40);
+    if (body.kind === 'snail') kind = 'snail';
+    if (Number.isSafeInteger(body.cents) && Number(body.cents) >= 100 && Number(body.cents) <= 100_000) {
+      snailCents = Number(body.cents);
+    }
   } catch {
     /* fall through to the validation below */
   }
@@ -55,12 +64,71 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'eventId is required.' }, { status: 400 });
   }
 
-  const cached = linkCache.get(eventId);
+  const cacheKey = `${kind}:${eventId}:${snailCents}`;
+  const cached = linkCache.get(cacheKey);
   if (cached) {
     return NextResponse.json({ ok: true, url: cached.url, id: cached.id });
   }
 
   const origin = originCheck.origin;
+
+  /*
+   * The snail link: a fixed price, and three questions Stripe asks on its
+   * own page - the snail number, what to call it, and who owns it. The
+   * answers come back on the Checkout Session as custom fields, which is how
+   * a paid snail names itself on the roster with no page of ours in between.
+   */
+  if (kind === 'snail') {
+    try {
+      const price = await stripe.prices.create({
+        currency: 'aud',
+        unit_amount: snailCents,
+        product_data: { name: 'Snail Race - one snail on the card' },
+      });
+      const link = await stripe.paymentLinks.create({
+        line_items: [{ price: price.id, quantity: 1 }],
+        submit_type: 'pay',
+        custom_fields: [
+          {
+            key: SNAIL_FIELDS.number,
+            label: { type: 'custom', custom: `Snail number (1 to ${SNAILS_ON_CARD}, ask the table which are free)` },
+            type: 'numeric',
+            numeric: { minimum_length: 1, maximum_length: 3 },
+          },
+          {
+            key: SNAIL_FIELDS.name,
+            label: { type: 'custom', custom: 'Name your snail' },
+            type: 'text',
+            text: { maximum_length: 24 },
+          },
+          {
+            key: SNAIL_FIELDS.owner,
+            label: { type: 'custom', custom: 'Your name, as shown on the board' },
+            type: 'text',
+            text: { maximum_length: 24 },
+          },
+        ],
+        metadata: {
+          app: APP_TAG,
+          [META.eventId]: eventId,
+          [META.kind]: 'snail',
+          [META.raceNo]: '0',
+          [META.lane]: '-1',
+          [META.snailName]: '',
+          [META.backerName]: '',
+        },
+        after_completion: {
+          type: 'redirect',
+          redirect: { url: `${origin}/donate/thanks?session_id={CHECKOUT_SESSION_ID}` },
+        },
+      });
+      linkCache.set(cacheKey, { id: link.id, url: link.url });
+      return NextResponse.json({ ok: true, url: link.url, id: link.id });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Stripe rejected the request.';
+      return NextResponse.json({ ok: false, error: message }, { status: 502 });
+    }
+  }
 
   try {
     const price = await stripe.prices.create({
@@ -93,7 +161,7 @@ export async function POST(request: Request) {
       },
     });
 
-    linkCache.set(eventId, { id: link.id, url: link.url });
+    linkCache.set(cacheKey, { id: link.id, url: link.url });
     return NextResponse.json({ ok: true, url: link.url, id: link.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Stripe rejected the request.';

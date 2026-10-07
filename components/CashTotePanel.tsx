@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { addAudit, setState, useEvent } from '@/lib/event-store';
+import { cardRaceNames } from '@/lib/card';
 import {
   DEFAULT_CASH_TOTE,
   TICKET_PRICE_OPTIONS_CENTS,
@@ -278,7 +279,7 @@ export function ToteTally({
   compact: boolean;
 }) {
   const event = useEvent();
-  const names = event.names.slice(0, event.fieldSize);
+  const names = cardRaceNames(event.card, raceNo);
   const board = projectTote(event.toteSales, raceNo, event.cashTote, names.length);
   const add = (lane: number, tickets: number) => {
     if (locked || !tickets) return;
@@ -344,7 +345,7 @@ export function ToteTally({
 /** Record bids for the auctioned last race. Highest standing bid owns the runner. */
 export function AuctionDesk({ raceNo, locked }: { raceNo: number; locked: boolean }) {
   const event = useEvent();
-  const names = event.names.slice(0, event.fieldSize);
+  const names = cardRaceNames(event.card, raceNo);
   const owners = auctionOwners(event.auctionBids, raceNo, names.length);
   const [lane, setLane] = useState(0);
   const [bidder, setBidder] = useState('');

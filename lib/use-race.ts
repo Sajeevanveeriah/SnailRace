@@ -29,7 +29,7 @@ import {
   type SnailRun,
   type Weather,
 } from './race-engine';
-import { say, setCrowdLevel, setIntensity, sfx, silence, startTrack } from './sound';
+import { say, setIntensity, sfx, silence, startTrack } from './sound';
 import type { LockedRacePlan, RaceHighlight, RaceResult } from './types';
 
 /** How much race-time the photo-finish slow-motion covers, at 0.3x speed. */
@@ -387,8 +387,6 @@ export function useRace(
     setMoment(null);
     setStatus('Ready to race');
     silence();
-    /* Back to a room between races rather than a room at the line. */
-    setCrowdLevel(0.12);
     painterRef.current?.reset();
   }, [clearTimers, stop]);
 
@@ -408,7 +406,6 @@ export function useRace(
       setStatus(winner ? `${winner.name} wins!` : 'Race over');
       if (winner) call(`${winner.name} wins!`, 'finish', 'winner');
       startTrack('winner');
-      setCrowdLevel(1);
       sfx.fanfare();
 
       /* The winner is already visible and the animation is already stopped.
@@ -472,7 +469,6 @@ export function useRace(
       );
     }
     startTrack('winner');
-    setCrowdLevel(1);
     sfx.fanfare();
     finishRef.current(race, ordered, race.highlights);
   }, [call, stop]);
@@ -978,7 +974,6 @@ export function useRace(
     setPhase('void');
     setStatus('RACE VOID');
     call('This race has been declared void. All bets are off and will be re-run.', 'finish', 'void');
-    setCrowdLevel(0.12);
   }, [phase, stop, clearTimers, call]);
 
   useEffect(

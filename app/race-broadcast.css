@@ -1586,3 +1586,8 @@
   .course-broadcast .tv-bug { margin-left: auto; }
   .race-broadcast .tv-photo { display: none; }
 }
+
+/* ── Lead-pack telecast ─────────────────────────────────────────────────── */
+.course-out-of-shot { margin: 0; flex: 1; min-width: 0; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; opacity: .75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-out-of-shot:empty { display: none; }
+.tv-order-owner { font-size: .78em; opacity: .6; font-weight: 500; }

@@ -53,7 +53,7 @@ test('a v3 night restores as v4 with deterministic defaults', () => {
   assert.equal(s.eventId, 'ev-v3-night');
   assert.equal(s.timezone, 'Australia/Melbourne');
   assert.equal(s.eventMode, 'live');
-  assert.equal(s.plannedRaces, 6);
+  assert.equal(s.plannedRaces, 10);
   assert.equal(s.rehearsal, false);
   assert.equal(s.showPhase, 'lobby');
   assert.equal(s.intensity, 'standard');
@@ -91,7 +91,8 @@ test('unknown phase and intensity strings normalise instead of crashing', () => 
   const s = currentState();
   assert.equal(s.showPhase, 'lobby');
   assert.equal(s.intensity, 'standard');
-  assert.equal(s.plannedRaces, 12);
+  /* The card is always ten races; a hand-edited count is ignored. */
+  assert.equal(s.plannedRaces, 10);
 });
 
 test('migration is deterministic: the same backup loads to the same night', () => {

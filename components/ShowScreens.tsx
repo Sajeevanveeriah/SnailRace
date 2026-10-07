@@ -1,62 +1,42 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Racecard } from './Racecard';
-import { ToteBoard } from './ToteBoard';
 import { DonateQr } from './DonateQr';
-import { GoalRing } from './GoalRing';
-import { CountUp } from './CountUp';
 import { ClubBrand } from './brand/ClubBrand';
 import { RunnerLineup } from './race-broadcast/RunnerLineup';
 import { showPhaseSpec } from '@/lib/show';
-import { auctionOwners, isAuctionRace, projectTote, toteIsLive, toteProceeds } from '@/lib/cash-tote';
-import { money } from '@/lib/money';
+import { money, moneyShort } from '@/lib/money';
 import { eventWhen } from '@/lib/event-when';
-
-const POSTER = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/brand/20261003-NDCC-Snail-Racing-Poster-Rev00.webp`;
-import { standingsFrom } from '@/lib/standings';
+import { cardRaceNames, cardRaceOwners, snailsForRace, soldCount, SNAILS_ON_CARD } from '@/lib/card';
+import { quaddieStatus } from '@/lib/quaddie';
 import { laneColour } from '@/lib/palette';
-import { moneyShort } from '@/lib/money';
-import type { RoomSummary } from '@/lib/use-phone-play';
-import type { FunChipLane } from '@/lib/tote';
+import { toteProceeds } from '@/lib/cash-tote';
 import type { EventState } from '@/lib/types';
 
+const POSTER = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/brand/20261003-NDCC-Snail-Racing-Poster-Rev00.webp`;
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
 /**
- * The projector's non-race screens: the run of show.
+ * The projector's non-race screens.
  *
- * Each phase is one full-bleed screen in the broadcast's visual language -
- * event identity top left, phase strip top right, one clear subject in the
- * middle, and nothing decorative that does not serve the room. The race
- * itself, and its results card, belong to the existing race surfaces; this
- * overlay renders only between them.
+ * Five screens make the night: welcome, racecard, race, result and, when the
+ * club is running one, the quaddie board; then the thank-you. Each is one
+ * full-bleed screen with the crest top left, the phase top right and one
+ * subject in the middle. Nothing scrolls, nothing cycles.
  */
-
 export function ShowOverlay({
   event,
-  lanes,
-  totalChips,
   nightCents,
   nextRaceNo,
   sponsor,
-  donateUrl,
-  playUrl,
-  room,
-  marketLockAt,
+  snailLinkUrl,
 }: {
   event: EventState;
-  lanes: FunChipLane[];
-  totalChips: number;
   nightCents: number;
   nextRaceNo: number;
   sponsor?: string;
-  donateUrl: string;
-  playUrl: string;
-  room: RoomSummary | null;
-  /** Wall-clock ms when the market locks, when the operator armed a timer. */
-  marketLockAt: number | null;
+  /** The $4 snail link the QR encodes. Empty when none is configured. */
+  snailLinkUrl: string;
 }) {
   const phase = event.showPhase;
   if (phase === 'race' || phase === 'results') return null;
@@ -77,65 +57,16 @@ export function ShowOverlay({
         <span className="show-phase num">{showPhaseSpec(phase).screen}</span>
       </header>
 
-      {phase === 'lobby' ? <Lobby event={event} donateUrl={donateUrl} playUrl={playUrl} /> : null}
-      {phase === 'racecard' ? (
-        <section className="show-body">
-          <div className="show-panel show-panel-wide show-racecard-panel">
-            <RunnerLineup names={event.names.slice(0, event.fieldSize)} />
-            <div className="show-racecard-details">
-              <Racecard
-                names={event.names.slice(0, event.fieldSize)}
-                history={event.history}
-                lanes={lanes}
-                raceNo={nextRaceNo}
-                sponsor={sponsor}
-                runnerSponsors={event.runnerSponsors}
-                compact={event.fieldSize > 12}
-              />
-            </div>
-          </div>
-        </section>
+      {phase === 'lobby' || phase === 'intermission' ? <Lobby event={event} snailLinkUrl={snailLinkUrl} /> : null}
+      {phase === 'racecard' || phase === 'market' ? (
+        <RacecardScreen event={event} raceNo={nextRaceNo} sponsor={sponsor} snailLinkUrl={snailLinkUrl} />
       ) : null}
-      {phase === 'market' ? (
-        <Market
-          lanes={lanes}
-          totalChips={totalChips}
-          nextRaceNo={nextRaceNo}
-          fieldSize={event.fieldSize}
-          names={event.names}
-          playUrl={playUrl}
-          room={room}
-          marketLockAt={marketLockAt}
-          open={event.bettingOpen}
-          tote={toteIsLive(event.cashTote) ? <CashToteBoard event={event} raceNo={nextRaceNo} /> : null}
-        />
-      ) : null}
-      {phase === 'championship' ? <Championship event={event} /> : null}
-      {phase === 'intermission' ? (
-        <section className="show-body show-center">
-          <div className="show-panel text-center">
-            <h2 className="display text-5xl">Back shortly</h2>
-            <p className="mt-4 text-lg text-(--tx)/60">
-              Racing resumes with race {nextRaceNo}. The bar is open, and so is the donation tin.
-            </p>
-            <div className="mx-auto mt-6 flex items-center justify-center gap-8">
-              <div className="text-center">
-                <p className="eyebrow">Raised tonight</p>
-                <CountUp value={nightCents} format={moneyShort} className="display money-ink text-5xl" />
-              </div>
-              {event.goalShow ? (
-                <GoalRing raisedCents={nightCents} goalCents={event.goalCents} />
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
+      {phase === 'championship' ? <QuaddieBoard event={event} /> : null}
       {phase === 'finale' ? <Finale event={event} nightCents={nightCents} /> : null}
 
       <footer className="show-strap">
-        <span className="fun-chip-banner">FUN CHIPS - NO MONETARY VALUE</span>
         <span className="text-sm text-(--tx)/55">
-          Every snail has an equal chance. Donations never influence a result.
+          Every snail has the same chance. The result is drawn and sealed before the gates open.
         </span>
       </footer>
     </ShowDialog>
@@ -158,9 +89,28 @@ function ShowDialog({ phase, children }: { phase: EventState['showPhase']; child
 
 /* ── Screens ───────────────────────────────────────────────────────────── */
 
-function Lobby({ event, donateUrl, playUrl }: { event: EventState; donateUrl: string; playUrl: string }) {
+function SnailQr({ url, cents, compact = false }: { url: string; cents: number; compact?: boolean }) {
+  if (!url) {
+    return (
+      <div className="show-panel text-center">
+        <p className="eyebrow mb-1">Buy a snail</p>
+        <p className="show-backing-price num">{moneyShort(cents)}</p>
+        <p className="mt-2 text-sm text-(--tx)/60">See the table to buy and name your snail.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="show-panel text-center">
+      <p className="eyebrow mb-2">Buy a snail, {moneyShort(cents)}</p>
+      <DonateQr url={url} caption={compact ? 'Scan to buy and name a snail' : 'Scan, pay by card, name your snail'} />
+    </div>
+  );
+}
+
+function Lobby({ event, snailLinkUrl }: { event: EventState; snailLinkUrl: string }) {
   const sponsors = event.sponsors.map((s) => s.trim()).filter(Boolean);
   const when = eventWhen(event);
+  const sold = soldCount(event.card);
   return (
     <section className="show-body show-center">
       <div className="grid w-full max-w-[1200px] gap-6 lg:grid-cols-[1.4fr_1fr]">
@@ -169,24 +119,21 @@ function Lobby({ event, donateUrl, playUrl }: { event: EventState; donateUrl: st
           <h2 className="display text-balance text-6xl leading-[0.98]">{event.eventName}</h2>
           {when ? <p className="show-when num mt-3">{when}</p> : null}
           <p className="mt-4 text-xl text-(--tx)/65">
-            {event.plannedRaces} races. Free fun chips. Real donations to {event.clubName}.
+            {event.plannedRaces} races. Ten snails a race. {SNAILS_ON_CARD} snails on the card.
           </p>
-          {event.backingCents ? (
-            <p className="show-backing mt-4">
-              <span className="show-backing-price num">{moneyShort(event.backingCents)} per snail</span>
-              <span>Back your snail. Cheer it home.</span>
-            </p>
-          ) : null}
+          <p className="show-backing mt-4">
+            <span className="show-backing-price num">{moneyShort(event.card.snailCents)} a snail</span>
+            <span>Buy one, name it, cheer it home.</span>
+          </p>
           <ul className="mt-6 grid gap-2 text-[15px] text-(--tx)/70">
-            <li>Backing a snail is a gift to the club that puts your name on the board.</li>
-            <li>Chips are free and worth nothing - the leaderboard is the glory.</li>
+            <li>Your snail number decides its race: 1 to 10 run first, 11 to 20 next, and so on.</li>
             <li>Every snail wins with exactly the same chance, drawn before the off.</li>
-            <li>Donations are gifts to the club and never touch a race.</li>
+            <li>{sold} of {SNAILS_ON_CARD} snails have an owner so far.</li>
           </ul>
           <p className="show-slogan mt-6">Slow race. Big cheers.</p>
           {sponsors.length ? (
             <div className="mt-7 border-t border-(--tx)/10 pt-4">
-              <p className="eyebrow mb-2">Tonight&apos;s race sponsors</p>
+              <p className="eyebrow mb-2">Tonight&apos;s sponsors</p>
               <p className="flex flex-wrap gap-x-6 gap-y-1 text-lg font-semibold text-(--gold)">
                 {sponsors.map((s) => (
                   <span key={s}>{s}</span>
@@ -199,166 +146,135 @@ function Lobby({ event, donateUrl, playUrl }: { event: EventState; donateUrl: st
           <div className="show-poster" aria-hidden="true">
             <Image unoptimized src={POSTER} alt="" width={900} height={1125} sizes="(max-width: 1024px) 100vw, 400px" />
           </div>
-          {playUrl ? (
-            <div className="show-panel text-center">
-              <p className="eyebrow mb-2">Play along on your phone</p>
-              <DonateQr url={playUrl} caption="Scan to join with 100 free chips" />
-            </div>
-          ) : null}
-          {donateUrl ? (
-            <div className="show-panel text-center">
-              <p className="eyebrow mb-2">Back the club</p>
-              <DonateQr url={donateUrl} caption="Scan to donate - every dollar to the club" />
-            </div>
-          ) : null}
+          <SnailQr url={snailLinkUrl} cents={event.card.snailCents} />
         </div>
       </div>
     </section>
   );
 }
 
-function Market({
-  lanes,
-  totalChips,
-  nextRaceNo,
-  fieldSize,
-  names,
-  playUrl,
-  room,
-  marketLockAt,
-  open,
-  tote,
+function RacecardScreen({
+  event,
+  raceNo,
+  sponsor,
+  snailLinkUrl,
 }: {
-  lanes: FunChipLane[];
-  totalChips: number;
-  nextRaceNo: number;
-  fieldSize: number;
-  names: string[];
-  playUrl: string;
-  room: RoomSummary | null;
-  marketLockAt: number | null;
-  open: boolean;
-  /** The permit-gated cash tote board, only when the tote is live. */
-  tote?: React.ReactNode;
+  event: EventState;
+  raceNo: number;
+  sponsor?: string;
+  snailLinkUrl: string;
 }) {
-  /* The countdown repaints once a second; nothing else re-renders with it. */
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    if (!marketLockAt) return;
-    const t = window.setInterval(() => setNowMs(Date.now()), 250);
-    return () => window.clearInterval(t);
-  }, [marketLockAt]);
-  const secondsLeft = marketLockAt ? Math.max(0, Math.ceil((marketLockAt - nowMs) / 1000)) : null;
-
-  const roomTotal = room
-    ? Object.values(room.perLane).reduce((s, l) => s + l.chips, 0)
-    : 0;
-  const hasAudiencePanel = Boolean(playUrl || (room && room.players > 0) || tote);
-
+  const names = cardRaceNames(event.card, raceNo);
+  const owners = cardRaceOwners(event.card, raceNo);
+  const numbers = snailsForRace(raceNo);
+  const unsold = numbers.filter((n) => !event.card.names[n - 1]?.trim() && !event.card.owners[n - 1]?.trim());
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const leg = quaddie.live ? event.quaddie.legs.indexOf(raceNo) : -1;
   return (
     <section className="show-body">
-      <div
-        className={`grid w-full gap-5 ${
-          hasAudiencePanel ? 'max-w-[1240px] lg:grid-cols-[1.1fr_1fr]' : 'max-w-[1040px]'
-        }`}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="show-panel">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="display text-4xl">
-                {open ? `Market open - race ${nextRaceNo}` : 'MARKET CLOSED'}
-              </h2>
-              {secondsLeft !== null && open ? (
-                <span
-                  className={`num show-countdown ${secondsLeft <= 10 ? 'show-countdown-hot' : ''}`}
-                  role="timer"
-                  aria-label={`Market locks in ${secondsLeft} seconds`}
-                >
-                  {secondsLeft}s
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-2 text-(--tx)/60">
-              {open
-                ? 'Fun chips at the table or on your phone. The odds you take are the odds you keep.'
-                : 'Selections are locked at snapshot odds. They are heading to the gate.'}
-            </p>
-          </div>
-          <div className="show-panel">
-            <ToteBoard lanes={lanes} totalChips={totalChips} fieldSize={fieldSize} raceNo={nextRaceNo} showOdds />
+      <div className="show-panel show-panel-wide show-racecard-panel">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="display text-4xl">
+            Race {raceNo} of {event.plannedRaces}
+            <span className="num ml-3 text-lg text-(--tx)/55">snails {numbers[0]} to {numbers[numbers.length - 1]}</span>
+          </h2>
+          <div className="flex items-center gap-3 text-sm">
+            {leg >= 0 ? <span className="show-leg num">QUADDIE LEG {leg + 1}</span> : null}
+            {sponsor ? <span className="text-(--gold)">Sponsored by {sponsor}</span> : null}
           </div>
         </div>
-
-        {hasAudiencePanel ? <div className="flex flex-col gap-4">
-          {tote}
-          {room && room.players > 0 ? (
-            <div className="show-panel">
-              <div className="mb-3 flex items-baseline justify-between">
-                <h3 className="eyebrow">The room&apos;s picks</h3>
-                <span className="num text-xs text-(--tx)/45">
-                  {room.players} {room.players === 1 ? 'phone' : 'phones'} · {roomTotal} chips
-                </span>
-              </div>
-              <ol className="flex flex-col gap-2">
-                {names.slice(0, fieldSize).map((name, laneIdx) => {
-                  const laneData = room.perLane[laneIdx];
-                  const width = roomTotal > 0 && laneData ? (laneData.chips / roomTotal) * 100 : 0;
-                  return (
-                    <li key={laneIdx} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-sm">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ background: laneColour(laneIdx).shell }}
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">{name}</span>
-                      <span className="num text-(--tx)/55">{laneData?.chips ?? 0}</span>
-                      <span className="tote-bar col-span-3 h-1.5 overflow-hidden rounded-full bg-(--tx)/8" aria-hidden="true">
-                        <i style={{ '--w': width } as React.CSSProperties} />
-                      </span>
-                    </li>
-                  );
-                })}
-              </ol>
-              <p className="fun-chip-tag mt-3">fun chips - no monetary value</p>
-            </div>
-          ) : null}
-          {playUrl ? (
-            <div className="show-panel text-center">
-              <p className="eyebrow mb-2">Join in</p>
-              <DonateQr url={playUrl} caption="Scan to play along - free fun chips" />
-            </div>
-          ) : null}
-        </div> : null}
+        <RunnerLineup names={names} numberOffset={(raceNo - 1) * 10} dense />
+        <ol className="show-owner-grid" aria-label={`Owners for race ${raceNo}`}>
+          {numbers.map((snailNo, lane) => (
+            <li key={snailNo} className={owners[lane] || names[lane] !== `Snail ${snailNo}` ? '' : 'show-owner-unsold'}>
+              <span className="show-owner-no num" style={{ background: laneColour(lane).shell }}>
+                {snailNo}
+              </span>
+              <span className="show-owner-name">{names[lane]}</span>
+              <span className="show-owner-owner">{owners[lane] || (names[lane] === `Snail ${snailNo}` ? 'Unsold' : '')}</span>
+            </li>
+          ))}
+        </ol>
+        {unsold.length && snailLinkUrl ? (
+          <div className="show-racecard-qr">
+            <SnailQr url={snailLinkUrl} cents={event.card.snailCents} compact />
+            <p className="text-sm text-(--tx)/60">
+              Still unsold in this race: <b className="num">{unsold.join(', ')}</b>. Buy before the gate.
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
   );
 }
 
-function Championship({ event }: { event: EventState }) {
-  const rows = standingsFrom(event.history).slice(0, 10);
-  const top = rows[0]?.points || 1;
+export function QuaddieBoard({ event }: { event: EventState }) {
+  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  if (!status.live) {
+    return (
+      <section className="show-body show-center">
+        <div className="show-panel text-center">
+          <h2 className="display text-5xl">Next race shortly</h2>
+        </div>
+      </section>
+    );
+  }
+  const nextLeg = status.legs.find((l) => l.alive === null);
   return (
     <section className="show-body show-center">
       <div className="show-panel show-panel-wide">
-        <h2 className="display mb-5 text-5xl">Championship</h2>
-        {rows.length === 0 ? (
-          <p className="text-lg text-(--tx)/60">The first result writes the first line of this table.</p>
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="display text-5xl">Quaddie</h2>
+          <p className="num text-lg text-(--tx)/70">
+            {status.entries} {status.entries === 1 ? 'ticket' : 'tickets'} · pool {money(status.poolCents)} ·{' '}
+            {money(status.returnedCents)} to the winners
+          </p>
+        </div>
+        <ol className="quaddie-legs">
+          {status.legs.map((leg) => (
+            <li key={leg.raceNo} className={leg.alive === null ? 'quaddie-leg-pending' : 'quaddie-leg-run'}>
+              <span className="num quaddie-leg-no">Leg {leg.index + 1}</span>
+              <span className="quaddie-leg-race">Race {leg.raceNo}</span>
+              <span className="quaddie-leg-result">
+                {leg.winnerSnail !== null ? (
+                  <>
+                    won by <b className="num">{leg.winnerSnail}</b> {leg.winnerName}
+                  </>
+                ) : (
+                  'to run'
+                )}
+              </span>
+              <span className="num quaddie-leg-alive">
+                {leg.alive === null ? '' : `${leg.alive} alive`}
+              </span>
+            </li>
+          ))}
+        </ol>
+        {status.complete ? (
+          <p className="mt-5 text-xl">
+            {status.unwon
+              ? `No ticket picked all four. The pool of ${money(status.poolCents)} stays with ${event.clubName}.`
+              : `${status.winners.length} winning ${status.winners.length === 1 ? 'ticket' : 'tickets'}: ${status.winners
+                  .map((w) => w.holder)
+                  .join(', ')}. Each collects ${money(status.dividendCents)}.`}
+          </p>
+        ) : status.legsRun > 0 ? (
+          <p className="mt-5 text-xl">
+            {status.alive.length === 0
+              ? `Nobody is still alive. The pool stays with ${event.clubName}.`
+              : `${status.alive.length} ${status.alive.length === 1 ? 'ticket is' : 'tickets are'} still alive: ${status.alive
+                  .slice(0, 8)
+                  .map((a) => `${a.holder} (needs ${a.picks[nextLeg?.index ?? 3]})`)
+                  .join(', ')}${status.alive.length > 8 ? ' and more' : ''}.`}
+          </p>
         ) : (
-          <ol className="flex flex-col gap-2">
-            {rows.map((row, i) => (
-              <li key={row.name} className="grid grid-cols-[2.4rem_1fr_3fr_4rem] items-center gap-3 text-lg">
-                <span className="num font-bold text-(--tx)/50">{i + 1}</span>
-                <span className="truncate font-semibold">{row.name}</span>
-                <span className="st-bar" aria-hidden="true">
-                  <i style={{ width: `${Math.max(4, (row.points / top) * 100)}%` }} />
-                </span>
-                <span className="num text-right font-bold">{row.points}</span>
-              </li>
-            ))}
-          </ol>
+          <p className="mt-5 text-lg text-(--tx)/60">
+            Entries close when race {event.quaddie.legs[0]} goes to the gate.
+          </p>
         )}
         <p className="mt-4 text-sm text-(--tx)/50">
-          5 for a win, 3 for second, 1 for third. A consistent second beats one lucky win.
+          {event.quaddie.retainedPercent}% of the pool to {event.clubName}; dividends rounded down to 10c. Club product under its
+          own authority.
         </p>
       </div>
     </section>
@@ -366,124 +282,63 @@ function Championship({ event }: { event: EventState }) {
 }
 
 function Finale({ event, nightCents }: { event: EventState; nightCents: number }) {
-  const rows = standingsFrom(event.history);
-  const champion = rows[0];
-  const sponsors = [
-    ...new Set([...event.sponsors, ...event.history.map((h) => h.sponsor ?? '')]),
-  ]
+  const winners = event.history
+    .filter((h) => !h.void)
+    .slice()
+    .sort((a, b) => a.raceNo - b.raceNo)
+    .map((h) => {
+      const w = h.results.find((r) => r.place === 1);
+      return w ? { raceNo: h.raceNo, name: w.name, snailNo: (h.raceNo - 1) * 10 + w.lane + 1, owner: event.card.owners[(h.raceNo - 1) * 10 + w.lane] ?? '' } : null;
+    })
+    .filter((x): x is { raceNo: number; name: string; snailNo: number; owner: string } => x !== null);
+  const sponsors = [...new Set([...event.sponsors, ...event.history.map((h) => h.sponsor ?? '')])]
     .map((s) => s.trim())
     .filter(Boolean);
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const proceeds = toteProceeds(event.history);
   return (
     <section className="show-body show-center">
       <div className="show-panel show-panel-wide text-center">
-        <p className="eyebrow">Night champion</p>
-        {champion ? (
-          <h2 className="display mt-2 text-balance text-6xl">{champion.name}</h2>
-        ) : (
-          <h2 className="display mt-2 text-5xl">Thank you for racing</h2>
-        )}
-        {champion ? (
-          <p className="mt-3 text-lg text-(--tx)/60">
-            {champion.points} points from {champion.races} races, {champion.wins}{' '}
-            {champion.wins === 1 ? 'win' : 'wins'}.
+        <h2 className="display mt-2 text-5xl">Thank you for racing</h2>
+        {winners.length ? (
+          <ol className="finale-winners">
+            {winners.map((w) => (
+              <li key={w.raceNo}>
+                <span className="num">Race {w.raceNo}</span>
+                <b>{w.name}</b>
+                <span className="num">#{w.snailNo}</span>
+                <span className="text-(--tx)/60">{w.owner}</span>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+        {nightCents > 0 ? (
+          <div className="mx-auto mt-7 w-fit text-center">
+            <p className="eyebrow">Raised for {event.clubName}</p>
+            <p className="display money-ink text-6xl num">{moneyShort(nightCents)}</p>
+          </div>
+        ) : null}
+        {quaddie.live && quaddie.complete ? (
+          <p className="mt-4 text-base text-(--tx)/70">
+            Quaddie:{' '}
+            {quaddie.unwon
+              ? `no winner, ${money(quaddie.poolCents)} to the club`
+              : `${quaddie.winners.map((w) => w.holder).join(', ')} collected ${money(quaddie.dividendCents)} each`}
           </p>
         ) : null}
-        <div className="mx-auto mt-7 w-fit text-center">
-          <p className="eyebrow">Raised for {event.clubName}</p>
-          <CountUp value={nightCents} format={moneyShort} className="display money-ink text-6xl" />
-        </div>
-        <ToteProceedsLine event={event} />
+        {proceeds.races || proceeds.auctionCents ? (
+          <p className="mt-2 text-base text-(--tx)/70">
+            Cash tote to the club <b className="num text-(--gold)">{money(proceeds.toteCents)}</b> · paid out{' '}
+            <b className="num">{money(proceeds.paidOutCents)}</b>
+          </p>
+        ) : null}
         {sponsors.length ? (
           <p className="mt-7 text-sm text-(--tx)/55">
             With thanks to tonight&apos;s sponsors: <b className="text-(--gold)">{sponsors.join(' · ')}</b>
           </p>
         ) : null}
-        <p className="mt-6 text-lg text-(--tx)/70">Safe travels home - and thank you.</p>
+        <p className="mt-6 text-lg text-(--tx)/70">Safe travels home.</p>
       </div>
     </section>
-  );
-}
-
-/* ── Permit-gated cash tote, as the room sees it ───────────────────────── */
-
-/**
- * The tote board. Shown only while the tote is live under the operator's
- * attestation. It quotes paper tickets and dollars, labelled as the club's
- * own cash tote, and is kept visibly apart from the free fun-chip board.
- */
-function CashToteBoard({ event, raceNo }: { event: EventState; raceNo: number }) {
-  const names = event.names.slice(0, event.fieldSize);
-  const settings = event.cashTote;
-  if (isAuctionRace(settings, raceNo, event.plannedRaces)) {
-    const owners = auctionOwners(event.auctionBids, raceNo, names.length);
-    const pool = owners.reduce((s, o) => s + o.cents, 0);
-    return (
-      <div className="show-panel tote-board" aria-label="Runner auction">
-        <div className="tote-board-head">
-          <h3 className="eyebrow">Runner auction - race {raceNo}</h3>
-          <span className="num">pool {money(pool)}</span>
-        </div>
-        <ol className="tote-board-rows">
-          {names.map((name, i) => {
-            const owner = owners.find((o) => o.lane === i);
-            return (
-              <li key={i}>
-                <span className="tote-board-dot" style={{ background: laneColour(i).shell }} aria-hidden="true" />
-                <span className="tote-board-name">{name}</span>
-                <span className="num tote-board-pay">{owner ? `${owner.bidder} ${money(owner.cents)}` : 'open'}</span>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="tote-board-note">
-          Highest bid owns the runner. {100 - settings.auctionRetainedPercent}% of the pool to the owner of the
-          winner, {settings.auctionRetainedPercent}% to {event.clubName}. Club cash tote under its own authority.
-        </p>
-      </div>
-    );
-  }
-  const board = projectTote(event.toteSales, raceNo, settings, names.length);
-  return (
-    <div className="show-panel tote-board" aria-label="Cash tote">
-      <div className="tote-board-head">
-        <h3 className="eyebrow">Cash tote - {money(settings.ticketCents)} tickets</h3>
-        <span className="num">
-          {board.tickets} sold · pool {money(board.poolCents)}
-        </span>
-      </div>
-      <ol className="tote-board-rows">
-        {board.perLane.map((row) => (
-          <li key={row.lane}>
-            <span className="tote-board-dot" style={{ background: laneColour(row.lane).shell }} aria-hidden="true" />
-            <span className="tote-board-name">{names[row.lane]}</span>
-            <span className="num tote-board-tickets">{row.tickets}</span>
-            <span className="num tote-board-pay">
-              {row.wouldPayCents !== null ? `pays ${money(row.wouldPayCents)}` : '-'}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p className="tote-board-note">
-        Pays per winning ticket if that runner wins now. {settings.retainedPercent}% of the pool to{' '}
-        {event.clubName}; dividends rounded down to 10c. Club cash tote under its own authority - separate from
-        free fun chips.
-      </p>
-    </div>
-  );
-}
-
-function ToteProceedsLine({ event }: { event: EventState }) {
-  const proceeds = toteProceeds(event.history);
-  if (!proceeds.races && !proceeds.auctionCents) return null;
-  return (
-    <p className="mt-4 text-base text-(--tx)/70">
-      Cash tote to the club <b className="num text-(--gold)">{money(proceeds.toteCents)}</b>
-      {proceeds.auctionCents ? (
-        <>
-          {' '}· runner auction <b className="num text-(--gold)">{money(proceeds.auctionCents)}</b>
-        </>
-      ) : null}
-      {' '}· paid out to winning tickets <b className="num">{money(proceeds.paidOutCents)}</b>
-    </p>
   );
 }

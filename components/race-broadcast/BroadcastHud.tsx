@@ -4,12 +4,13 @@ import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import { resultGapText } from '@/lib/broadcast';
 import { laneColour } from '@/lib/palette';
 import type { BoardRow, RaceController } from '@/lib/use-race';
-import { SplitChip } from './BroadcastGraphics';
 
 interface BroadcastHudProps {
   brand: ReactNode;
   race: RaceController;
   names: string[];
+  owners?: string[];
+  numberOffset?: number;
   raceNo: number;
   courseName: string;
   replay: boolean;
@@ -33,6 +34,8 @@ export function BroadcastHud({
   brand,
   race,
   names,
+  owners = [],
+  numberOffset = 0,
   raceNo,
   courseName,
   replay,
@@ -78,11 +81,11 @@ export function BroadcastHud({
         ) : null}
         <span ref={shotRef} className="tv-shot num" aria-hidden="true" />
       </div>
-      {phase === 'running' ? <SplitChip onSplit={race.onSplit} /> : null}
-
       <RunningOrder
         race={race}
         names={names}
+        owners={owners}
+        numberOffset={numberOffset}
         open={running || phase === 'done'}
       />
 
@@ -113,10 +116,14 @@ export function BroadcastHud({
 function RunningOrder({
   race,
   names,
+  owners,
+  numberOffset,
   open,
 }: {
   race: RaceController;
   names: string[];
+  owners: string[];
+  numberOffset: number;
   open: boolean;
 }) {
   const [rows, setRows] = useState<BoardRow[]>([]);
@@ -157,12 +164,13 @@ function RunningOrder({
             <span
               className="tv-order-dot"
               style={{ background: laneColour(row.lane).dark }}
-              aria-label={`Runner ${row.lane + 1}`}
+              aria-label={`Snail ${numberOffset + row.lane + 1}`}
             >
-              {row.lane + 1}
+              {numberOffset + row.lane + 1}
             </span>
             <span className="tv-order-name">
               {names[row.lane] ?? `Lane ${row.lane + 1}`}
+              {owners[row.lane] ? <small className="tv-order-owner"> {owners[row.lane]}</small> : null}
             </span>
             <span className="tv-order-gap num">{row.gapText}</span>
           </li>
