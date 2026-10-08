@@ -159,6 +159,21 @@ export function Stage() {
     [event.bets, fieldNames, nextRaceNo],
   );
 
+  /* ── Race lifecycle ──────────────────────────────────────────────────── */
+
+  const [highlights, setHighlights] = useState<RaceHighlight[]>([]);
+  const [preparingRace, setPreparingRace] = useState(false);
+  const [heldRaceStart, setHeldRaceStart] = useState(false);
+  const [voidingRace, setVoidingRace] = useState(false);
+  const voidRecovery = event.voidRecovery;
+  const [startError, setStartError] = useState('');
+
+  /*
+   * The armed race: everything the audit block needs, captured at lock so a
+   * mid-race rename or setting change cannot rewrite what was committed to.
+   */
+  const armedRef = useRef<HeldRaceStartState | null>(null);
+
   /* ── Paid snails fill the roster ─────────────────────────────────────── */
 
   /*
@@ -168,7 +183,10 @@ export function Stage() {
    */
   /* Conflicts already told to the desk, so a poll does not repeat them. */
   const reportedConflictsRef = useRef<Set<string>>(new Set());
-  const lockedRaceNo = event.heldRaceStart?.raceNo ?? null;
+  /* Locked from the moment Start is pressed, not only once the hashed plan
+     has been persisted: the names were copied into the plan at the first
+     synchronous step of arming. */
+  const lockedRaceNo = event.heldRaceStart?.raceNo ?? (preparingRace || heldRaceStart ? nextRaceNo : null);
   useEffect(() => {
     /*
      * A race that is armed or running keeps the names its plan was hashed
@@ -183,6 +201,8 @@ export function Stage() {
     const refunded = feed.donations.filter((d) => d.void && d.snailNo && raceForSnail(d.snailNo) !== lockedRaceNo).map((d) => d.id);
     if (!purchases.length && !refunded.length) return;
     const id = window.setTimeout(() => {
+      /* Re-check inside the deferred callback: arming may have begun since. */
+      if (armedRef.current && purchases.some((p) => raceForSnail(p.snailNo) === armedRef.current!.raceNo)) return;
       const before = currentState().card;
       const freed = releaseRefunded(before, refunded);
       const applied = applyPurchases(freed.card, purchases);
@@ -211,22 +231,7 @@ export function Stage() {
       });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [feed.donations, lockedRaceNo]);
-
-  /* ── Race lifecycle ──────────────────────────────────────────────────── */
-
-  const [highlights, setHighlights] = useState<RaceHighlight[]>([]);
-  const [preparingRace, setPreparingRace] = useState(false);
-  const [heldRaceStart, setHeldRaceStart] = useState(false);
-  const [voidingRace, setVoidingRace] = useState(false);
-  const voidRecovery = event.voidRecovery;
-  const [startError, setStartError] = useState('');
-
-  /*
-   * The armed race: everything the audit block needs, captured at lock so a
-   * mid-race rename or setting change cannot rewrite what was committed to.
-   */
-  const armedRef = useRef<HeldRaceStartState | null>(null);
+  }, [feed.donations, lockedRaceNo, preparingRace, heldRaceStart, nextRaceNo]);
 
   /** Set once Phone Play mounts; onFinish settles the room through it. */
   const phonePlayRef = useRef<((raceNo: number, results: RaceResult[]) => Promise<void>) | null>(

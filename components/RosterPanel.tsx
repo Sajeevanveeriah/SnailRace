@@ -40,11 +40,15 @@ export function RosterPanel({
   const [paste, setPaste] = useState('');
   const [notice, setNotice] = useState('');
 
+  /* A hand edit makes the slot the desk's: the Stripe claim is released so a
+     later refund of that payment cannot erase what the desk typed. */
   const update = (snailNo: number, field: 'names' | 'owners', value: string) => {
     setState((s) => {
       const list = s.card[field].slice();
       list[snailNo - 1] = value.slice(0, 24);
-      return { card: { ...s.card, [field]: list } };
+      const claims = { ...s.card.claims };
+      delete claims[snailNo];
+      return { card: { ...s.card, [field]: list, claims } };
     });
   };
 
@@ -58,6 +62,7 @@ export function RosterPanel({
     setState((s) => {
       const names = s.card.names.slice();
       const owners = s.card.owners.slice();
+      const claims = { ...s.card.claims };
       for (const row of rows) {
         const race = Math.ceil(row.snailNo / 10);
         if (lockedRaceNo === race) {
@@ -66,8 +71,9 @@ export function RosterPanel({
         }
         names[row.snailNo - 1] = row.name;
         owners[row.snailNo - 1] = row.owner;
+        delete claims[row.snailNo];
       }
-      return { card: { ...s.card, names, owners } };
+      return { card: { ...s.card, names, owners, claims } };
     });
     addAudit({ kind: 'note', raceNo: 0, detail: `Roster import: ${rows.length - blocked} snails set from a pasted list${blocked ? `, ${blocked} skipped because their race is locked` : ''}${skipped ? `, ${skipped} lines unreadable` : ''}.` });
     setNotice(`${rows.length - blocked} snails updated${blocked ? `, ${blocked} locked` : ''}${skipped ? `, ${skipped} lines skipped` : ''}.`);
