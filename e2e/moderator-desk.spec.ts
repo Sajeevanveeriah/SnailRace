@@ -17,8 +17,8 @@ const raceCard = async (desk: Page) => {
 };
 const sprint = async (desk: Page) => {
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
-  await desk.getByLabel('Lap length').selectOption('7000');
-  await desk.getByLabel('Laps').selectOption('1');
+  await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
+  { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await desk.getByRole('button', { name: /Hide/ }).click();
 };
 const readNight = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('ndcc-snailrace-v3') ?? '{}'));
@@ -158,8 +158,8 @@ test('navigating the desk away restores controls without crashing the show', asy
 test('the obstacle stays visible before the crowd-lift cue replaces it', async ({ page }) => {
   const desk = await openDesk(page);
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
-  await desk.getByLabel('Lap length').selectOption('12000');
-  await desk.getByLabel('Laps').selectOption('1');
+  await desk.getByLabel(/Lap length|Race length/).selectOption('12000');
+  { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await desk.getByRole('button', { name: /Hide/ }).click();
   await raceCard(desk);
   /* Measure on the page's own clock. The obstacle must stay on air for a
@@ -246,8 +246,8 @@ test('a live cash tote can be tallied from the desk and is settled on the projec
   await tote.getByLabel(/Permit or authority reference/i).fill('Club authority ref 77');
   await tote.getByRole('checkbox').first().check();
   await tote.getByRole('button', { name: /Enable cash tote/i }).click();
-  await desk.getByLabel('Lap length').selectOption('7000');
-  await desk.getByLabel('Laps').selectOption('1');
+  await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
+  { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await desk.getByRole('button', { name: /Hide/ }).click();
 
   const tally = desk.getByRole('region', { name: 'Cash tote tally' });
@@ -289,8 +289,8 @@ test('a permit-attested quaddie takes entries at the desk and shows the board af
   await quaddie.getByRole('checkbox').first().check();
   await quaddie.getByRole('button', { name: /Enable quaddie/i }).click();
   await expect(quaddie).toContainText(/LIVE under/);
-  await desk.getByLabel('Lap length').selectOption('7000');
-  await desk.getByLabel('Laps').selectOption('1');
+  await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
+  { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await desk.getByRole('button', { name: /Hide/ }).click();
 
   const entries = desk.getByRole('region', { name: 'Quaddie entries' });

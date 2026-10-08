@@ -48,8 +48,8 @@ test('an attested tote tallies tickets, settles from the result and prints', asy
   await tally.getByRole('button', { name: 'Add five tickets to Snail 3', exact: true }).click();
   await expect(tally).toContainText('9 sold · pool $18.00 · $9.00 to winners');
 
-  await controls.getByLabel('Lap length').selectOption('7000');
-  await controls.getByLabel('Laps').selectOption('1');
+  await controls.getByLabel(/Lap length|Race length/).selectOption('7000');
+  { const laps = controls.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await controls.getByRole('button', { name: /Hide/i }).click();
 
   await page.getByRole('button', { name: /Show the racecard/i }).click();

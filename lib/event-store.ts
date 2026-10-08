@@ -89,7 +89,9 @@ export function freshState(): EventState {
      * one length a second, which is brisk enough for a two-minute race-night film.
      */
     raceDurationMs: 120_000,
-    trackShape: 'circuit',
+    /* The side-on cartoon straight is the night's race view; the oval stays
+       as an option in Admin. */
+    trackShape: 'lanes',
     courseId: 'boundary-oval',
     laps: 3,
     chaseCam: true,

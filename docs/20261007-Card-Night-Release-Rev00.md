@@ -16,6 +16,10 @@ Prepared 7 October 2026 for the 24 October 2026 night. Rev00.
 | 8 | Quaddie on four races | Permit-gated quaddie, desk entries, live board after each leg, finale summary | `lib/quaddie.ts`, `components/QuaddiePanel.tsx` |
 | 9 | $4 a snail, scan and pay | Stripe Payment Link at the card price with number, name and owner fields; paid snails fill the roster | `app/api/payment-link/route.ts`, `lib/stripe-read.ts` |
 
+## Rev01: the side-on race
+
+After the first release the club showed a reference of the look they want for the race itself: a side-on cartoon straight. `components/Sidescroller.tsx` replaces the oval on the race screen (the oval stays as an Admin option): parallax scenery drawn in code, ten large numbered snails, lead-pack camera, start and finish banners, a 1-to-9 progress bar and oversized surprise props. The engine, the plan hash and every other screen are unchanged.
+
 ## Assumptions taken without an answer
 
 - The $4 snail is a named entry, not a stake: the app never pays it out. Cash prizes are the club's business off the app.
