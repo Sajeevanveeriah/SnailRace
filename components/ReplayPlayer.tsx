@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Telecast } from './Telecast';
 import { courseForRace } from '@/lib/courses';
-import { RaceTrack } from './RaceTrack';
+import { Sidescroller } from './Sidescroller';
 import { useReplay } from '@/lib/use-replay';
 import { clockText } from '@/lib/broadcast';
 import { sha256HexOfBuffer, shortHash } from '@/lib/audit';
@@ -215,7 +215,16 @@ export function ReplayPlayer({
             replay
           />
         ) : (
-          <RaceTrack names={names} race={replay} surface={event.stageTheme} />
+          <Sidescroller
+            names={names}
+            owners={entry.owners ?? []}
+            race={replay}
+            calm={event.calm}
+            clubName={event.clubName}
+            raceNo={entry.raceNo}
+            numberOffset={entry.snailOffset ?? 0}
+            replay
+          />
         )}
       </div>
 

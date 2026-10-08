@@ -398,6 +398,10 @@ export interface RaceHistoryEntry {
   resultHash?: string;
   /** Snail names as raced, so the replay is exact even after a rename. */
   names?: string[];
+  /** Owners as raced, snapshotted with the names: a later roster edit never re-attributes a result. */
+  owners?: string[];
+  /** First snail number minus one for this race on the card. Absent on races numbered by lane. */
+  snailOffset?: number;
   laps?: number;
   surprises?: boolean;
   trackShape?: 'lanes' | 'circuit';
