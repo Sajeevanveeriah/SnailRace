@@ -16,7 +16,7 @@ import { addAudit, audioPatch, currentState, hydrate, useEvent, setState } from 
 import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
 import { hostLineFor, nextShowPhase, showPhaseSpec } from '@/lib/show';
-import { applyPurchases, cardRaceNames, cardRaceOwners, type SnailPurchase } from '@/lib/card';
+import { applyPurchases, cardRaceNames, cardRaceOwners, raceForSnail, releaseRefunded, type SnailPurchase } from '@/lib/card';
 import { quaddieIsLive } from '@/lib/quaddie';
 import { usePhonePlay } from '@/lib/use-phone-play';
 import { ShowOverlay } from './ShowScreens';
@@ -70,6 +70,11 @@ export function Stage() {
   const { toggleFullscreen } = display;
   const [holding, setHolding] = useState(false);
   const [fullCourse, setFullCourse] = useState(false);
+  /* One camera choice, whether it comes from the on-screen button or the desk. */
+  const setCameraFull = useCallback((full: boolean) => {
+    setFullCourse(full);
+    setState({ cameraMode: full ? 'full' : 'telecast' });
+  }, []);
   const [packControlsRoot, setPackControlsRoot] = useState<HTMLDivElement | null>(null);
   const audienceOnly = Boolean(moderator.target) || display.fullscreen;
 
@@ -112,7 +117,8 @@ export function Stage() {
    * still shows the race that just ran, so its names come from that race's
    * ten snails, not the next ten. Everywhere else it is the next field.
    */
-  const shownRaceNo = event.showPhase === 'results' ? event.raceNumber : nextRaceNo;
+  /* After race ten there is no race eleven: the card's last field stays up. */
+  const shownRaceNo = Math.min(event.plannedRaces, event.showPhase === 'results' ? event.raceNumber : nextRaceNo);
   const names = useMemo(() => cardRaceNames(event.card, shownRaceNo), [event.card, shownRaceNo]);
   const owners = useMemo(() => cardRaceOwners(event.card, shownRaceNo), [event.card, shownRaceNo]);
   const fieldNames = useMemo(() => cardRaceNames(event.card, nextRaceNo), [event.card, nextRaceNo]);
@@ -160,23 +166,52 @@ export function Stage() {
    * feed is polled, so this runs on every snapshot and applies only what is
    * new; a slot the desk typed by hand is never overwritten by a payment.
    */
+  /* Conflicts already told to the desk, so a poll does not repeat them. */
+  const reportedConflictsRef = useRef<Set<string>>(new Set());
+  const lockedRaceNo = event.heldRaceStart?.raceNo ?? null;
   useEffect(() => {
+    /*
+     * A race that is armed or running keeps the names its plan was hashed
+     * with. A payment for one of its snails waits in the feed and is applied
+     * once the race has settled; manual edits are disabled for the same
+     * reason, and Stripe gets no exception.
+     */
     const purchases: SnailPurchase[] = feed.donations
-      .filter((d) => !d.void && d.snailNo)
+      .filter((d) => !d.void && d.snailNo && raceForSnail(d.snailNo) !== lockedRaceNo)
       .map((d) => ({ snailNo: d.snailNo!, snailName: d.snailName, owner: d.backerName, id: d.id }));
-    if (!purchases.length) return;
+    /* A fully refunded purchase releases the slot it bought. */
+    const refunded = feed.donations.filter((d) => d.void && d.snailNo && raceForSnail(d.snailNo) !== lockedRaceNo).map((d) => d.id);
+    if (!purchases.length && !refunded.length) return;
     const id = window.setTimeout(() => {
       const before = currentState().card;
-      const applied = applyPurchases(before, purchases);
-      if (!applied.changed) return;
-      setState({ card: applied.card });
-      const fresh = purchases.filter((p) => !before.claims[p.snailNo] && applied.card.claims[p.snailNo] === p.id);
-      for (const p of fresh) {
-        addAudit({ kind: 'snail_sold', raceNo: Math.ceil(p.snailNo / 10), detail: `Snail ${p.snailNo} sold by card: "${p.snailName}" for ${p.owner || 'an anonymous owner'}.` });
+      const freed = releaseRefunded(before, refunded);
+      const applied = applyPurchases(freed.card, purchases);
+      if (freed.released.length || applied.changed) setState({ card: applied.card });
+      for (const n of freed.released) {
+        addAudit({ kind: 'note', raceNo: raceForSnail(n), detail: `Snail ${n} released: its card payment was refunded in full.` });
       }
+      const fresh = purchases.filter((p) => !freed.card.claims[p.snailNo] && applied.card.claims[p.snailNo] === p.id);
+      for (const p of fresh) {
+        addAudit({ kind: 'snail_sold', raceNo: raceForSnail(p.snailNo), detail: `Snail ${p.snailNo} sold by card: "${p.snailName}" for ${p.owner || 'an anonymous owner'}.` });
+      }
+      /* A paid number that was already taken is a real problem for a real
+         person at the bar: it goes to the audit trail and the desk notice. */
+      for (const c of applied.conflicts) {
+        if (reportedConflictsRef.current.has(c.id)) continue;
+        reportedConflictsRef.current.add(c.id);
+        addAudit({
+          kind: 'note',
+          raceNo: raceForSnail(c.snailNo),
+          detail: `CONFLICT: ${c.owner || 'a buyer'} paid for snail ${c.snailNo} ("${c.snailName}", Stripe ${c.id}) but that number is already taken. Resolve at the desk and refund or reassign.`,
+        });
+      }
+      setState((s) => {
+        const pending = applied.conflicts.map((c) => `Snail ${c.snailNo} was paid for by ${c.owner || 'a buyer'} but is already taken`);
+        return pending.join('; ') === s.card.conflictNotice ? {} : { card: { ...s.card, conflictNotice: pending.join('; ') } };
+      });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [feed.donations]);
+  }, [feed.donations, lockedRaceNo]);
 
   /* ── Race lifecycle ──────────────────────────────────────────────────── */
 
@@ -471,6 +506,10 @@ export function Stage() {
       return;
     }
 
+    if (nextRaceNo > event.plannedRaces) {
+      setStartError(`The card is complete: all ${event.plannedRaces} races have run.`);
+      return;
+    }
     if (fieldNames.length < MIN_LIVE_FIELD || fieldNames.length > MAX_FIELD) {
       setStartError(`The live race needs ${MIN_LIVE_FIELD} to ${MAX_FIELD} runners.`);
       return;
@@ -588,6 +627,7 @@ export function Stage() {
     event.phonePlay,
     event.heldRaceStart,
     event.dealtCards,
+    event.plannedRaces,
   ]);
 
   const startRace = useCallback(async () => {
@@ -1078,8 +1118,8 @@ export function Stage() {
    * One QR for the night: a reusable Stripe Payment Link that sells a $4
    * snail and asks for its number, its name and the owner's name. A server
    * deployment mints it here; the static Pages build cannot, so there the
-   * link the operator pasted into Admin stands. A minted link only replaces
-   * a pasted one when nothing has been pasted.
+   * link the operator pasted into Admin stands. A minted link is replaced
+   * when the price changes; a pasted link is never replaced by the stage.
    */
   useEffect(() => {
     if (!event.eventId || !HAS_API) return;
@@ -1093,7 +1133,14 @@ export function Stage() {
         });
         const body = (await res.json()) as { ok: boolean; url?: string };
         if (cancel || !body.ok || !body.url) return;
-        setState((s) => (s.card.paymentLinkUrl ? {} : { card: { ...s.card, paymentLinkUrl: body.url! } }));
+        /* A pasted link is the operator's; a minted one follows the price. */
+        setState((s) =>
+          s.card.paymentLinkUrl && !s.card.paymentLinkMinted
+            ? {}
+            : s.card.paymentLinkUrl === body.url
+              ? {}
+              : { card: { ...s.card, paymentLinkUrl: body.url!, paymentLinkMinted: true } },
+        );
       } catch {
         /* The link is an extra. The pasted link, or none, still stands. */
       }
@@ -1201,8 +1248,8 @@ export function Stage() {
                   clubName={event.clubName}
                   raceNo={shownRaceNo}
                   courseId={activeCourse.id}
-                  fullCourse={fullCourse}
-                  onCourseViewChange={setFullCourse}
+                  fullCourse={fullCourse || event.cameraMode === 'full'}
+                  onCourseViewChange={setCameraFull}
                   sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
                   toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                   numberOffset={(shownRaceNo - 1) * 10}
@@ -1401,7 +1448,7 @@ export function Stage() {
           event={event} race={race} courseName={activeCourse.name}
           raceNo={shownRaceNo} nextRaceNo={nextRaceNo}
           fullscreen={display.fullscreen} wakeLock={display.wakeLock} audio={audio}
-          holding={holding} fullCourse={fullCourse} locked={racing || event.eventMode === 'recorded' && event.packCurrent !== null}
+          holding={holding} fullCourse={fullCourse || event.cameraMode === 'full'} locked={racing || event.eventMode === 'recorded' && event.packCurrent !== null}
           primaryLabel={event.showPhase !== 'race' ? showPhaseSpec(event.showPhase).advance : voidRecovery ? 'Retry void/rearm' : heldRaceStart ? 'Retry lock' : startDisabled ? race.phase === 'running' ? 'Race in progress' : 'Preparing race' : 'Start race'}
           primaryDisabled={!clientReady || (event.showPhase === 'race' ? startDisabled || event.eventMode === 'recorded' : racing || event.showPhase === 'finale')}
           canBack={!racing && ['racecard', 'market', 'race', 'intermission', 'finale'].includes(event.showPhase)}
@@ -1410,7 +1457,7 @@ export function Stage() {
           onSettings={() => setDrawerOpen(true)}
           onReturn={() => { setDrawerOpen(false); moderator.close(); }}
           onHold={() => { if (!racing) { silence(); setHolding((v) => !v); } }}
-          onCamera={setFullCourse}
+          onCamera={setCameraFull}
           onVoid={() => { if (moderator.target?.window.confirm(`Void race ${nextRaceNo}? No result or settlement; the same ten snails re-run.`)) voidCurrentRace(); }}
           onDismissWinner={() => setOverlayOpen(false)}
         >

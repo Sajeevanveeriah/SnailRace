@@ -10,6 +10,7 @@ import {
   normaliseCard,
   parseRosterPaste,
   raceForSnail,
+  releaseRefunded,
   rosterCsv,
   snailsForRace,
   soldCount,
@@ -99,4 +100,28 @@ test('a stored card from any backup normalises to exactly one hundred slots', ()
   assert.equal(card.snailCents, 400);
   assert.equal(card.paymentLinkUrl, '');
   assert.equal(normaliseCard({ paymentLinkUrl: 'https://buy.stripe.com/test_abc' }).paymentLinkUrl, 'https://buy.stripe.com/test_abc');
+});
+
+test('a full refund releases the slot it bought, and only that slot', () => {
+  const card = fresh();
+  const bought = applyPurchases(card, [
+    { snailNo: 29, snailName: 'Escargot Faster', owner: 'Priya', id: 'cs_1' },
+    { snailNo: 30, snailName: 'Nans Favourite', owner: 'Lisa', id: 'cs_2' },
+  ]).card;
+  const { card: after, released } = releaseRefunded(bought, ['cs_1', 'cs_unknown']);
+  assert.deepEqual(released, [29]);
+  assert.equal(after.names[28], '');
+  assert.equal(after.owners[28], '');
+  assert.equal(after.claims[29], undefined);
+  assert.equal(after.names[29], 'Nans Favourite');
+  /* The desk reassigned the number by hand since: the refund does not touch it. */
+  const retyped = { ...after, names: after.names.slice(), claims: { ...after.claims } };
+  retyped.names[29] = 'Typed Later';
+  delete retyped.claims[30];
+  assert.equal(releaseRefunded(retyped, ['cs_2']).released.length, 0);
+  /* A refunded number can be bought again. */
+  assert.equal(applyPurchases(after, [{ snailNo: 29, snailName: 'Second Go', owner: 'Sam', id: 'cs_3' }]).card.names[28], 'Second Go');
+  /* The minted flag only survives alongside a valid link. */
+  assert.equal(normaliseCard({ paymentLinkUrl: 'https://buy.stripe.com/x', paymentLinkMinted: true }).paymentLinkMinted, true);
+  assert.equal(normaliseCard({ paymentLinkMinted: true }).paymentLinkMinted, false);
 });

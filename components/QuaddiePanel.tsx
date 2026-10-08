@@ -28,6 +28,10 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
   const [reference, setReference] = useState(q.permitReference);
   const [attest, setAttest] = useState(false);
   const live = quaddieIsLive(q);
+  /* Money terms freeze with the first ticket: a payout is never recomputed
+     under terms nobody bought under. Switching the quaddie off does not
+     unfreeze them. */
+  const termsFrozen = live || event.quaddieEntries.some((e) => !e.void);
 
   const save = (patch: Partial<QuaddieSettings>) =>
     setState((s) => ({ quaddie: { ...s.quaddie, ...patch } }));
@@ -51,8 +55,12 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
 
   const setLeg = (index: number, raceNo: number) => {
     const legs = q.legs.slice();
+    /* A race already used by another leg swaps places with it, so there are
+       always four distinct legs and never a vanished selector. */
+    const other = legs.indexOf(raceNo);
+    if (other >= 0 && other !== index) legs[other] = legs[index];
     legs[index] = raceNo;
-    save({ legs: [...new Set(legs)].sort((a, b) => a - b).slice(0, QUADDIE_LEGS) });
+    save({ legs: legs.sort((a, b) => a - b) });
   };
 
   return (
@@ -89,7 +97,7 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
         {q.legs.map((leg, index) => (
           <label key={index} className="fld">
             <span>Leg {index + 1}</span>
-            <select value={leg} disabled={live || event.quaddieEntries.length > 0} onChange={(e) => setLeg(index, Number(e.target.value))}>
+            <select value={leg} disabled={termsFrozen} onChange={(e) => setLeg(index, Number(e.target.value))}>
               {Array.from({ length: event.plannedRaces }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>
                   Race {n}
@@ -105,7 +113,7 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
             min="1"
             step="1"
             value={q.entryCents / 100}
-            disabled={live}
+            disabled={termsFrozen}
             onChange={(e) => save({ entryCents: Math.max(100, Math.round(Number(e.target.value) * 100)) })}
           />
         </label>
@@ -117,7 +125,7 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
             max="100"
             step="1"
             value={q.retainedPercent}
-            disabled={live}
+            disabled={termsFrozen}
             onChange={(e) => save({ retainedPercent: Math.min(100, Math.max(0, Math.round(Number(e.target.value)))) })}
           />
         </label>

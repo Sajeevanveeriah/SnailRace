@@ -618,6 +618,8 @@ export function ControlDrawer({
       rehearsal: false,
       packPlayed: [],
       packCurrent: null,
+      /* The deck starts the real card whole again. */
+      dealtCards: [],
     });
     addAudit({
       kind: 'note',
@@ -1241,7 +1243,7 @@ export function ControlDrawer({
                     type="url"
                     placeholder="https://buy.stripe.com/..."
                     value={event.card.paymentLinkUrl}
-                    onChange={(e) => setState((s) => ({ card: { ...s.card, paymentLinkUrl: e.target.value.trim() } }))}
+                    onChange={(e) => setState((s) => ({ card: { ...s.card, paymentLinkUrl: e.target.value.trim(), paymentLinkMinted: false } }))}
                   />
                 </label>
               </div>
