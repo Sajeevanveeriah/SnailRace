@@ -33,6 +33,14 @@ export interface CardState {
    * the link created in the Stripe dashboard.
    */
   paymentLinkUrl: string;
+  /**
+   * True when the server minted `paymentLinkUrl` for the current price. A
+   * minted link is replaced when the price changes; a pasted one is never
+   * touched by the stage.
+   */
+  paymentLinkMinted: boolean;
+  /** Paid numbers that were already taken, for the desk to resolve. Transient. */
+  conflictNotice?: string;
 }
 
 export const DEFAULT_CARD: CardState = {
@@ -41,6 +49,7 @@ export const DEFAULT_CARD: CardState = {
   claims: {},
   snailCents: DEFAULT_SNAIL_CENTS,
   paymentLinkUrl: '',
+  paymentLinkMinted: false,
 };
 
 export const validSnailNo = (n: unknown): n is number =>
@@ -113,8 +122,32 @@ export function normaliseCard(value: unknown): CardState {
   }
   if (typeof v.paymentLinkUrl === 'string' && /^https:\/\/[^\s]{6,300}$/.test(v.paymentLinkUrl.trim())) {
     base.paymentLinkUrl = v.paymentLinkUrl.trim();
+    base.paymentLinkMinted = v.paymentLinkMinted === true;
   }
   return base;
+}
+
+/**
+ * Release slots whose payment was fully refunded.
+ *
+ * Only a slot still claimed by that same session is cleared: a number the
+ * desk has since reassigned by hand, or another payment has since claimed,
+ * is left alone. Returns the numbers released so the desk can be told.
+ */
+export function releaseRefunded(card: CardState, refundedSessionIds: string[]): { card: CardState; released: number[] } {
+  const released: number[] = [];
+  if (!refundedSessionIds.length) return { card, released };
+  const ids = new Set(refundedSessionIds);
+  const next: CardState = { ...card, names: card.names.slice(), owners: card.owners.slice(), claims: { ...card.claims } };
+  for (const [key, id] of Object.entries(card.claims)) {
+    if (!ids.has(id)) continue;
+    const n = Number(key);
+    next.names[n - 1] = '';
+    next.owners[n - 1] = '';
+    delete next.claims[n];
+    released.push(n);
+  }
+  return { card: released.length ? next : card, released };
 }
 
 export interface SnailPurchase {

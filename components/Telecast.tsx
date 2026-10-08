@@ -77,7 +77,7 @@ export function Telecast({
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = calm || prefersReducedMotion;
   const [localCourseView, setCourseView] = useState(false);
-  const courseView = (fullCourse ?? localCourseView) || cameraMode === 'full';
+  const courseView = fullCourse ?? (localCourseView || cameraMode === 'full');
   const courseViewRef = useRef(false);
   const outOfShotRef = useRef<HTMLParagraphElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);

@@ -94,6 +94,8 @@ export function ModeratorDesk(p: Props) {
   const visibleSequence = sequence.filter((s) => s.id !== 'championship' || quaddieIsLive(event.quaddie));
   const racing = race.phase === 'running' || race.phase === 'countdown' || race.phase === 'confirming';
   const lockedRaceNo = p.locked ? p.nextRaceNo : null;
+  /* After race ten the roster has nothing next; show the last field. */
+  const rosterRaceNo = Math.min(event.plannedRaces, p.nextRaceNo);
   const setAudio = (mode: AudioMode) => {
     primeAudio();
     if (mode === 'commentary') initVoice();
@@ -125,6 +127,7 @@ export function ModeratorDesk(p: Props) {
               {p.holding ? 'The audience sees the holding screen. The show is held.' : event.showPhase === 'race' || event.showPhase === 'results' ? race.status : `The audience sees the ${title.toLowerCase()} screen.`}
             </p>
             {p.startError ? <p className="desk-error" role="alert">{p.startError}</p> : null}
+            {event.card.conflictNotice ? <p className="desk-error" role="alert">Card payment conflict: {event.card.conflictNotice}. See the audit trail in Admin.</p> : null}
             <div className="desk-actions">
               {!(recorded && event.showPhase === 'race') ? <button className="btn btn-go" type="button" disabled={p.primaryDisabled || p.holding} onClick={(e) => { if (e.detail < 2) p.onPrimary(); }}>{p.primaryLabel}</button> : null}
               <button className="btn btn-ghost" type="button" disabled={!p.canBack || p.holding} onClick={p.onBack}>Back</button>
@@ -142,8 +145,8 @@ export function ModeratorDesk(p: Props) {
           <div ref={packControlsRef} className="desk-pack-tools" hidden={event.eventMode !== 'recorded' || event.showPhase !== 'race'} />
 
           <section className="desk-panel desk-roster" aria-label="Roster">
-            <h2>Roster <span className="num desk-label">race {p.nextRaceNo}</span></h2>
-            <RosterPanel card={event.card} raceNo={p.nextRaceNo} lockedRaceNo={lockedRaceNo} compact />
+            <h2>Roster <span className="num desk-label">race {rosterRaceNo}</span></h2>
+            <RosterPanel card={event.card} raceNo={rosterRaceNo} lockedRaceNo={lockedRaceNo} compact />
           </section>
 
           {quaddieIsLive(event.quaddie) ? <QuaddieDesk event={event} racing={p.locked} nextRaceNo={p.nextRaceNo} /> : null}
@@ -170,8 +173,8 @@ export function ModeratorDesk(p: Props) {
             <section className="desk-panel" aria-label="Display controls">
               <h2>Camera</h2>
               {event.eventMode === 'live' && event.trackShape === 'circuit' ? <div className="desk-camera" role="radiogroup" aria-label="Camera view">
-                <label><input type="radio" name="desk-camera" checked={!p.fullCourse} onChange={() => { p.onCamera(false); setState({ cameraMode: 'telecast' }); }} /> Telecast (lead pack)</label>
-                <label><input type="radio" name="desk-camera" checked={p.fullCourse} onChange={() => { p.onCamera(true); setState({ cameraMode: 'full' }); }} /> Full course</label>
+                <label><input type="radio" name="desk-camera" checked={!p.fullCourse} onChange={() => p.onCamera(false)} /> Telecast (lead pack)</label>
+                <label><input type="radio" name="desk-camera" checked={p.fullCourse} onChange={() => p.onCamera(true)} /> Full course</label>
               </div> : null}
               <p className="desk-display-help">Move the game window to the projector, then press F for fullscreen. Keep this desk on the laptop.</p>
               <p className="desk-label">{p.wakeLock ? 'Keeping the projector awake' : 'Check the laptop sleep settings before the event'}</p>
