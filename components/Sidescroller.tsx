@@ -293,7 +293,9 @@ export function Sidescroller({
         : Math.max(PACK_VIEW_W, Math.min(span + 700, PACK_VIEW_W * 1.6));
       const left = xs.length ? Math.min(...xs) : worldX(info.leadP);
       const right = xs.length ? Math.max(...xs) : left;
-      let targetX = (left + right) / 2 - wantW * 0.42;
+      /* Full field view centres the window on the whole field; the lead-pack
+         shot sits the leaders a little right of centre with room to run into. */
+      let targetX = (left + right) / 2 - wantW * (courseViewRef.current ? 0.5 : 0.42);
       if (info.finalStraight) targetX = Math.max(targetX, TRACK_LEN + 300 - wantW);
       targetX = Math.max(-200, Math.min(TRACK_LEN + 400 - wantW, targetX));
       const cam = camRef.current;
@@ -320,7 +322,11 @@ export function Sidescroller({
       layers.sky?.setAttribute('transform', `translate(${cam.x} 0)`);
 
       if (clockRef.current) clockRef.current.textContent = clockText(info.raceTimeMs);
-      if (barRef.current) barRef.current.style.setProperty('--lead', String(Math.min(1, Math.max(0, info.leadP))));
+      if (barRef.current) {
+        const lead = Math.min(1, Math.max(0, info.leadP));
+        barRef.current.style.setProperty('--lead', String(lead));
+        barRef.current.setAttribute('aria-valuenow', String(Math.round(lead * 90) / 10));
+      }
       if (leaderRef.current) {
         const lead = info.ranked[0];
         const text = lead ? `${numberOffset + lead.lane + 1} ${names[lead.lane]} leads` : '';
@@ -346,7 +352,10 @@ export function Sidescroller({
           node.classList.remove('finished', 'retired', 'fx-up', 'fx-down');
         });
         if (clockRef.current) clockRef.current.textContent = '0:00.0';
-        if (barRef.current) barRef.current.style.setProperty('--lead', '0');
+        if (barRef.current) {
+          barRef.current.style.setProperty('--lead', '0');
+          barRef.current.setAttribute('aria-valuenow', '0');
+        }
         if (leaderRef.current) leaderRef.current.textContent = '';
         const aspect = aspectRef.current;
         const viewH = PACK_VIEW_W / aspect;
@@ -504,7 +513,7 @@ export function Sidescroller({
       </div>
 
       {/* The progress bar: nine marks and the flag, filled by the leader. */}
-      <div className="side-progress" ref={barRef} role="progressbar" aria-label="Leader's progress to the finish" aria-valuemin={0} aria-valuemax={9}>
+      <div className="side-progress" ref={barRef} role="progressbar" aria-label="Leader's progress to the finish" aria-valuemin={0} aria-valuemax={9} aria-valuenow={0}>
         <div className="side-progress-fill" aria-hidden="true" />
         <ol aria-hidden="true">
           {bar.map((n) => <li key={n}><span className="num">{n}</span></li>)}
