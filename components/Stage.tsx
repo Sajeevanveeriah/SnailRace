@@ -6,8 +6,8 @@ import { ModeratorDesk } from './ModeratorDesk';
 import { ClubBrand } from './brand/ClubBrand';
 import { useModeratorWindow } from '@/lib/use-moderator-window';
 import { useProjectorDisplay } from '@/lib/use-projector-display';
-import { RaceTrack } from './RaceTrack';
 import { Telecast } from './Telecast';
+import { Sidescroller } from './Sidescroller';
 import { WinnerOverlay } from './WinnerOverlay';
 import { ControlDrawer } from './ControlDrawer';
 import { ThemeToggle } from './ThemeToggle';
@@ -1262,8 +1262,24 @@ export function Stage() {
               ) : (
                 <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
               )
+            ) : clientReady ? (
+              <Sidescroller
+                names={names}
+                owners={owners}
+                race={race}
+                calm={event.calm}
+                clubName={event.clubName}
+                raceNo={shownRaceNo}
+                cameraMode={event.cameraMode}
+                fullCourse={fullCourse || event.cameraMode === 'full'}
+                onCourseViewChange={setCameraFull}
+                sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
+                sponsors={event.sponsors}
+                toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
+                numberOffset={(shownRaceNo - 1) * 10}
+              />
             ) : (
-              <RaceTrack names={names} race={race} surface={event.stageTheme} />
+              <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
             )}
 
             <div className="stage-bar glass flex flex-wrap items-center justify-between gap-4 px-5 py-4">
@@ -1294,9 +1310,7 @@ export function Stage() {
                     </span>
                   ) : null}
                 </div>
-                {event.trackShape === 'circuit' ? null : (
-                  <p className="call-rail h-5 truncate text-sm text-(--tx)/55">{race.commentary}</p>
-                )}
+
               </div>
 
               <div className="flex flex-wrap gap-2">

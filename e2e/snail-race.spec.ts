@@ -42,10 +42,22 @@ const setSprintRace = async (page: Page) => {
     includeHidden: true,
   });
   await expect(controls).toBeVisible();
-  await controls.getByLabel('Lap length').selectOption('7000');
-  await controls.getByLabel('Laps').selectOption('1');
+  await controls.getByLabel(/Lap length|Race length/).selectOption('7000');
+  { const laps = controls.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await controls.getByRole('button', { name: /Hide/i }).click();
   await expect(controls).toHaveAttribute('aria-hidden', 'true');
+};
+
+/* The night's default race view is the side-on straight; the oval remains an option. */
+const useOval = async (page: Page) => {
+  await page.evaluate(() => {
+    const key = 'ndcc-snailrace-v3';
+    const saved = JSON.parse(localStorage.getItem(key) ?? '{}');
+    saved.trackShape = 'circuit';
+    localStorage.setItem(key, JSON.stringify(saved));
+  });
+  await page.reload();
+  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 };
 
 const armFirstFinisherProbe = async (page: Page) => {
@@ -162,15 +174,11 @@ test('race uses production art and commentary avoids monetary language', async (
 
   await expect(page.locator('.tv-art-background')).toBeVisible();
   await expect(page.locator('.tv-snail-sprite')).toHaveCount(10);
-  await expect(page.locator('.race-broadcast')).toHaveAttribute(
-    'data-course',
-    'boundary-oval',
-  );
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-renderer', 'sidescroller');
   await expect(
-    page.getByRole('img', {
-      name: /Boundary Oval: 10 snails racing in marked lanes/i,
-    }),
+    page.getByRole('img', { name: /Straight track: 10 snails racing side on/i }),
   ).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: /Leader's progress/ })).toBeVisible();
   /* The furniture the room asked to lose is gone. */
   await expect(page.locator('.tv-ticker')).toHaveCount(0);
   await expect(page.locator('.tv-bug')).toHaveCount(0);
@@ -196,13 +204,10 @@ test('race uses production art and commentary avoids monetary language', async (
   });
 });
 
-test('the telecast follows the lead pack and names the runners behind the shot', async ({
+test('the side-on race follows the lead pack and the full field view keeps every snail on screen', async ({
   page,
 }, testInfo) => {
-  test.skip(
-    testInfo.project.name !== 'projector',
-    'Ultra-wide projector regression',
-  );
+  test.skip(testInfo.project.name !== 'projector', 'Ultra-wide projector regression');
   await page.setViewportSize({ width: 2048, height: 593 });
   await setSprintRace(page);
   await advanceToRace(page);
@@ -210,38 +215,26 @@ test('the telecast follows the lead pack and names the runners behind the shot',
   await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
   await expect(page.locator('.tv-snail-sprite')).toHaveCount(10);
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'trackside');
-  await expect(page.locator('.tv-shot')).toHaveText(/LEAD PACK|FINISH LINE/, { timeout: 8_000 });
-  await expect(
-    page.getByRole('complementary', { name: 'Running order for 10 runners' }),
-  ).toBeVisible();
-  /* Once the field strings out, the strip under the picture names who is behind the shot. */
-  await expect(page.locator('.course-out-of-shot')).toContainText(/Behind the shot/, { timeout: 8_000 });
+  await expect(page.locator('.side-leader')).toContainText(/leads/, { timeout: 8_000 });
+  /* The progress bar fills as the leader goes. */
+  await expect
+    .poll(() => page.locator('.side-progress').evaluate((el) => Number(getComputedStyle(el).getPropertyValue('--lead'))))
+    .toBeGreaterThan(0.1);
 
-  /* Full course keeps every runner inside the unobscured picture. */
-  await page.getByRole('button', { name: 'Full course view', exact: true }).click();
+  await page.getByRole('button', { name: 'Full field view', exact: true }).click();
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'course');
   await expect
     .poll(async () => {
-      const standings = await page.locator('.race-standings').boundingBox();
-      const broadcast = await page.locator('.race-broadcast').boundingBox();
-      const sprites = await page.locator('.tv-snail-sprite').all();
-      if (!standings || !broadcast || !sprites.length) return false;
-      const boxes = await Promise.all(
-        sprites.map((sprite) => sprite.boundingBox()),
-      );
+      const scene = await page.locator('.course-scene').boundingBox();
+      const sprites = await page.locator('.tv-runner').all();
+      if (!scene || !sprites.length) return false;
+      const boxes = await Promise.all(sprites.map((sprite) => sprite.boundingBox()));
       return boxes.every(
-        (box) =>
-          box !== null &&
-          box.x >= broadcast.x - 1 &&
-          box.x + box.width <= standings.x + 1,
+        (box) => box !== null && box.x >= scene.x - 1 && box.x + box.width <= scene.x + scene.width + 1,
       );
     })
     .toBe(true);
-
-  await page.screenshot({
-    path: testInfo.outputPath('ten-runner-ultrawide.png'),
-    fullPage: true,
-  });
+  await page.screenshot({ path: testInfo.outputPath('side-on-ultrawide.png'), fullPage: true });
 });
 
 test('surprises announce warning, reveal and effect with a visible prop or symbol', async ({
@@ -346,7 +339,7 @@ test('first finisher freezes the field and opens one result within one second', 
   await expect(
     page.locator('.race-broadcast [aria-label="Race 1 status"]'),
   ).toHaveCount(1);
-  await expect(page.locator('.tv-lap')).toHaveText('LAP 1/1');
+  await expect(page.locator('.tv-clock')).not.toHaveText('0:00.0');
 
   const recordedOnce = () =>
     page.evaluate(() => {
@@ -435,6 +428,7 @@ test('phone route has a useful, non-overflowing fallback without a live room', a
 test('camera changes preserve painted lanes without restarting the race', async ({
   page,
 }, testInfo) => {
+  await useOval(page);
   await advanceToRace(page);
   await page.getByRole('button', { name: /Start race/i }).click();
   await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6000 });
@@ -507,6 +501,7 @@ for (const [raceNumber, courseId] of [
       const key = 'ndcc-snailrace-v3';
       const saved = JSON.parse(localStorage.getItem(key)!);
       saved.raceNumber = number;
+      saved.trackShape = 'circuit';
       localStorage.setItem(key, JSON.stringify(saved));
     }, raceNumber);
     await page.reload();
@@ -593,10 +588,7 @@ test('owners name their snails on the racecard, the running order and the offici
 
   await page.getByRole('button', { name: /Start race/i }).click();
   await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
-  const order = page.getByRole('complementary', { name: 'Running order for 10 runners' });
-  await expect(order).toBeVisible({ timeout: 8_000 });
-  await expect(order).toContainText('Mucus Bolt');
-  await expect(order.locator('.tv-order-owner').first()).toBeVisible();
+  await expect(page.locator('.side-leader')).toContainText(/leads/, { timeout: 8_000 });
 
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
   await expect(winner).toBeVisible({ timeout: 20_000 });

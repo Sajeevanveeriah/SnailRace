@@ -879,8 +879,8 @@ export function ControlDrawer({
                       setState({ trackShape: e.target.value as 'circuit' | 'lanes' })
                     }
                   >
-                    <option value="circuit">Trackside telecast</option>
-                    <option value="lanes">Straight lanes</option>
+                    <option value="lanes">Side-on cartoon straight</option>
+                    <option value="circuit">Top-down oval</option>
                   </select>
                 </label>
 

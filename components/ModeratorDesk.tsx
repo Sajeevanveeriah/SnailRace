@@ -172,7 +172,7 @@ export function ModeratorDesk(p: Props) {
             </section>
             <section className="desk-panel" aria-label="Display controls">
               <h2>Camera</h2>
-              {event.eventMode === 'live' && event.trackShape === 'circuit' ? <div className="desk-camera" role="radiogroup" aria-label="Camera view">
+              {event.eventMode === 'live' ? <div className="desk-camera" role="radiogroup" aria-label="Camera view">
                 <label><input type="radio" name="desk-camera" checked={!p.fullCourse} onChange={() => p.onCamera(false)} /> Telecast (lead pack)</label>
                 <label><input type="radio" name="desk-camera" checked={p.fullCourse} onChange={() => p.onCamera(true)} /> Full course</label>
               </div> : null}

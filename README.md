@@ -32,10 +32,15 @@ What changed from 4.2, point by point from the room's feedback:
    all 100) edits name and owner per number, imports a pasted list, and copies
    a CSV. A paid Stripe snail names itself. Names for a race lock when it is
    armed and are recorded with the result.
-5. **Telecast camera.** The default shot follows the leading pack (leader to
-   fourth) and names who is behind the shot in a strip under the picture;
-   the finish is always the locked full straight. The on-screen button and the
-   desk flip to the full course at any time.
+5. **The side-on cartoon race.** The race screen is now a straight track seen
+   from the grandstand (`components/Sidescroller.tsx`): big numbered snails
+   crawling left to right, scenery sliding past behind them, a silhouetted
+   crowd in front, start and finish banners with the red line, and a 1-to-9
+   progress bar with the flag that fills as the leader goes. The camera pans
+   with the leading pack and the finish banner scrolls in for the run home;
+   the on-screen button and the desk flip to the full field at any time.
+   Surprises land on the snails they hit as large props. The top-down oval
+   remains in Admin under Track.
 6. **A deck of surprises.** On top of both existing books, `DECK_CARDS` in
    `lib/race-engine.ts` deals field-wide and late cards that reach the finish
    straight: Plague at the Line, Magpie at the Post, The Big Freeze, Headwind,
