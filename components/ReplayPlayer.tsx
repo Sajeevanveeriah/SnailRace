@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Telecast } from './Telecast';
 import { courseForRace } from '@/lib/courses';
 import { Sidescroller } from './Sidescroller';
-import { cardRaceOwners } from '@/lib/card';
 import { useReplay } from '@/lib/use-replay';
 import { clockText } from '@/lib/broadcast';
 import { sha256HexOfBuffer, shortHash } from '@/lib/audit';
@@ -218,13 +217,12 @@ export function ReplayPlayer({
         ) : (
           <Sidescroller
             names={names}
-            owners={cardRaceOwners(event.card, entry.raceNo)}
+            owners={entry.owners ?? []}
             race={replay}
             calm={event.calm}
             clubName={event.clubName}
             raceNo={entry.raceNo}
-            cameraMode={event.cameraMode}
-            numberOffset={(entry.raceNo - 1) * 10}
+            numberOffset={entry.snailOffset ?? 0}
             replay
           />
         )}

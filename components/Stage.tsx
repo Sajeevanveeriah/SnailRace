@@ -274,6 +274,8 @@ export function Stage() {
         sponsor,
         source: 'engine',
         names: armed?.config.names ?? names,
+        owners: cardRaceOwners(event.card, raceNo),
+        snailOffset: (raceNo - 1) * 10,
         laps: armed?.config.laps,
         surprises: armed?.config.surprises,
         trackShape: armed?.config.trackShape ?? event.trackShape,
@@ -314,7 +316,7 @@ export function Stage() {
       setHighlights(reel);
       setOverlayOpen(true);
     },
-    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
+    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, event.card, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
   );
 
   const race = useRace(onFinish);
@@ -744,6 +746,8 @@ export function Stage() {
       photoFinish: false,
       sponsor,
       names: armed?.config.names ?? fieldNames,
+      owners: cardRaceOwners(event.card, raceNo),
+      snailOffset: (raceNo - 1) * 10,
       lockedAt: armed?.lockedAt,
       startedAt: armed?.startedAt,
       commitHash: armed?.commitHash || undefined,
@@ -794,7 +798,7 @@ export function Stage() {
         ? ''
         : 'Race voided locally, but Phone Play recovery is held. Retry the same void and rearm commands; no new race plan can be drawn.',
     );
-  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, fieldNames, raceDonationCents, sponsor, acknowledgeVoidAndRearm]);
+  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, event.card, fieldNames, raceDonationCents, sponsor, acknowledgeVoidAndRearm]);
 
   /** Retry only the stable void/rearm commands; never redraw the held race. */
   const retryVoidRecovery = useCallback(async () => {
