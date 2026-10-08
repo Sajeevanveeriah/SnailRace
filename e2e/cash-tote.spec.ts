@@ -20,13 +20,11 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 });
 
-test('the tote is absent by default and the market shows free chips only', async ({ page }) => {
+test('the tote is absent by default and the racecard carries no tote language', async ({ page }) => {
   await page.getByRole('button', { name: /Show the racecard/i }).click();
-  await page.getByRole('button', { name: /Open the fun-chip market/i }).click();
-  const market = page.getByRole('region', { name: 'MARKET OPEN screen' });
-  await expect(market).toBeVisible();
-  await expect(market).not.toContainText(/cash tote|ticket|auction/i);
-  await expect(market).toContainText('8.00 for 1');
+  const racecard = page.getByRole('region', { name: 'RACECARD screen' });
+  await expect(racecard).toBeVisible();
+  await expect(racecard).not.toContainText(/cash tote|ticket|auction/i);
 });
 
 test('an attested tote tallies tickets, settles from the result and prints', async ({ page }, testInfo) => {
@@ -43,31 +41,20 @@ test('an attested tote tallies tickets, settles from the result and prints', asy
 
   /* Tally: 3 on runner 1, 1 on runner 2, 5 on runner 3 = 9 tickets at $2. */
   const tally = tote.getByLabel('Race 1 tote tickets');
-  await tally.getByRole('button', { name: 'Add one ticket to Speedy' }).click();
-  await tally.getByRole('button', { name: 'Add one ticket to Speedy' }).click();
-  await tally.getByRole('button', { name: 'Add one ticket to Speedy' }).click();
-  await tally.getByRole('button', { name: 'Add one ticket to Turbo' }).click();
-  await tally.getByRole('button', { name: 'Add five tickets to Lightning' }).click();
+  await tally.getByRole('button', { name: 'Add one ticket to Snail 1', exact: true }).click();
+  await tally.getByRole('button', { name: 'Add one ticket to Snail 1', exact: true }).click();
+  await tally.getByRole('button', { name: 'Add one ticket to Snail 1', exact: true }).click();
+  await tally.getByRole('button', { name: 'Add one ticket to Snail 2', exact: true }).click();
+  await tally.getByRole('button', { name: 'Add five tickets to Snail 3', exact: true }).click();
   await expect(tally).toContainText('9 sold · pool $18.00 · $9.00 to winners');
 
-  /* The fun-chip price is untouched by any of that. */
   await controls.getByLabel('Lap length').selectOption('7000');
   await controls.getByLabel('Laps').selectOption('1');
   await controls.getByRole('button', { name: /Hide/i }).click();
 
   await page.getByRole('button', { name: /Show the racecard/i }).click();
-  await page.getByRole('button', { name: /Open the fun-chip market/i }).click();
-  const market = page.getByRole('region', { name: 'MARKET OPEN screen' });
-  await expect(market).toContainText('8.00 for 1');
-  const board = market.getByLabel('Cash tote');
-  await expect(board).toContainText('9 sold · pool $18.00');
-  /* 3 tickets on Speedy share $9 if Speedy wins: $3.00 each. 5 on Lightning: $1.80. */
-  await expect(board).toContainText(/Speedy\s*3\s*pays \$3\.00/);
-  await expect(board).toContainText(/Lightning\s*5\s*pays \$1\.80/);
-  await expect(board).toContainText(/Turbo\s*1\s*pays \$9\.00/);
-  await page.screenshot({ path: testInfo.outputPath('tote-market.png') });
-
-  await page.getByRole('button', { name: /Lock and race/i }).click();
+  await page.screenshot({ path: testInfo.outputPath('tote-racecard.png') });
+  await page.getByRole('button', { name: /To the gate/i }).click();
   await page.getByRole('button', { name: /Start race/i }).click();
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
   await expect(winner).toBeVisible({ timeout: 30_000 });

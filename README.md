@@ -8,110 +8,73 @@ one-volunteer run of show.
 This repository implements an original NDCC production. It uses its own club
 crest, runner art, copy, commentary and cricket-ground surprises.
 
-## Current release - consequential live-field races
+## Current release - the card night (5.0)
 
-The current live engine is `consequential-eight-v1`:
+The night is a **card of one hundred snails**: ten races of ten. A supporter
+buys a numbered snail for $4, names it, and that number fixes its race (1 to
+10 in race 1, 11 to 20 in race 2, and so on). The projector shows five screens
+and nothing else; the desk has three panels; the phone does one thing.
 
-- Every live race supports a configurable field of 8 to 20 runners.
-- Before countdown, one seed draws the complete immutable race plan: runner
-  motion, all surprise targets and timings, warning/reveal/effect/commentary
-  cues, persistent clock consequences, any rare safe retirement, the winner,
-  and the complete classification.
-- The stage records both a configuration commitment and a plan hash before the
-  gates open. Runtime animation only instantiates that plan; it does not make
-  new competitive decisions.
-- Surprises are consequential. A boost, delay or safe retirement can change the
-  result, but that consequence is already part of the locked plan. Donations,
-  fun-chip picks and audience reactions are not inputs to the engine.
-- The instant the first active runner crosses, the animation freezes on that
-  authoritative frame. The winner is shown immediately, then the result card
-  opens after a confirmation beat capped at 450 ms. The show never waits for
-  the remaining runners to crawl home.
-- Active trailing runners are classified by their progress at the stop frame.
-  A safely retired runner is marked `RET`, carries a reason, and ranks after
-  active runners.
-- The stored plan, cues and stop-frame classification drive archive replay, so
-  a replay tells the same consequential story rather than reconstructing the
-  older decorative-surprise model.
+What changed from 4.2, point by point from the room's feedback:
 
-Legacy all-finisher records remain readable. New live races use the locked
-8-to-20-runner path.
+1. **Simpler.** Projector screens: Welcome, Racecard, Race, Result, Quaddie
+   (only while one runs), Thank you. The market, championship and intermission
+   screens, the ticker, timing splits, start-list slate, on-air bug, goal ring,
+   confetti, pit board and standings are gone. The desk is run of show, roster
+   and audio/camera; everything else is behind **Admin**.
+2. **No slithering.** The synthesised crowd bed and the noise-based crowd
+   reactions are removed outright. Audio is one choice: **Music**,
+   **Commentary** or **Off** (`A` cycles, `S` silences). Supplied
+   `crowd-cheer.mp3`/`crowd-gasp.mp3` files still play if a club drops them in.
+3. **Snails 1 to 100, ten a race.** `lib/card.ts` holds the card. Race N's
+   field is always its ten numbers; an unsold snail still runs as "Snail N".
+4. **Owners name their snails.** The roster (desk for the next race, Admin for
+   all 100) edits name and owner per number, imports a pasted list, and copies
+   a CSV. A paid Stripe snail names itself. Names for a race lock when it is
+   armed and are recorded with the result.
+5. **Telecast camera.** The default shot follows the leading pack (leader to
+   fourth) and names who is behind the shot in a strip under the picture;
+   the finish is always the locked full straight. The on-screen button and the
+   desk flip to the full course at any time.
+6. **A deck of surprises.** On top of both existing books, `DECK_CARDS` in
+   `lib/race-engine.ts` deals field-wide and late cards that reach the finish
+   straight: Plague at the Line, Magpie at the Post, The Big Freeze, Headwind,
+   Reverse Gear, Lucky Last, Groundskeeper Shuffle, Late Shell Swap,
+   Sprinklers in the Straight. Once-a-night cards are dealt without
+   replacement across the ten races (`dealtCards`), so the plague at the line
+   is the moment of the night, not of every race. Every card is a bounded,
+   persistent clock consequence inside the same per-lane cap, drawn and
+   hashed before countdown. Intensity: Calm deals none, Standard up to one,
+   Big night one or two, Chaos (the default) two or three, scaled to race length.
+7. **Fewer graphics.** See 1.
+8. **Quaddie.** Four nominated races (default 3, 5, 7, 9), $10 a ticket,
+   every four-leg winner shares the pool after the club's share, dividends
+   rounded down to 10c, an unwon pool stays with the club and the screen says
+   so. The board shows who is still alive after each leg. Like the cash tote
+   it is **permit-gated**: off until the operator records the club's authority
+   reference and attests to it in Admin. `lib/quaddie.ts` imports nothing from
+   the race engine.
+9. **$4 and a QR.** One Stripe Payment Link sells a snail at the card price
+   and asks for the number, the snail's name and the owner's name on Stripe's
+   own page. With a Stripe key on the server the link is minted automatically
+   and paid snails fill the roster from the Checkout Session's custom fields.
+   On the static GitHub Pages build, create the link in the Stripe dashboard,
+   paste it into Admin, and fill the roster from the Stripe export with
+   **Paste list**.
 
-## The October 2026 night
+The live engine is still `consequential-eight-v1`: one seed draws the complete
+immutable plan before countdown, the stage records a configuration commitment
+and a plan hash, the first crossing freezes the field, and replays and audits
+are unchanged.
 
-A fresh night opens pre-configured from the club's poster: **Snail Racing - A
-night at the races**, Saturday 24 October 2026 from 7 pm at the club rooms,
-$10 per snail. The welcome screen shows the poster, the date line and "Back
-your snail. Cheer it home."; the ticker carries the same facts; the page
-metadata and share image match. Backing a snail is a suggested gift to the
-club that puts a name on the board, never a stake. Every one of these fields
-(tagline, date, start time, venue, suggested gift) is editable in the console
-and a saved night keeps its own values.
+## Money
 
-## What changed in 4.2
-
-- **Live TV presentation.** A start-list slate before the off, timing splits at
-  the quarter, half and lap marks, a scrolling ticker built from recorded facts
-  (sponsors, raised total, championship, tote pool, join code), an on-air bug
-  with the clock and conditions, a photo-finish badge and an official-result
-  lower third over the frozen finish frame. Reduced motion shows the same
-  furniture without sliding or scrolling.
-- **Permit-gated cash tote and last-race runner auction.** Off by default and
-  structurally separate from fun chips and donations. See below.
-- **Second surprise book.** Twelve new individual set pieces, five new field
-  incidents and three new family-safe retirements, drawn as vector props so
-  nothing depends on the projector laptop's emoji font.
-- **Audio.** Overlapping ducks no longer ratchet the music down to silence,
-  the recorded caller no longer plays "And they are away!" in the middle of a
-  race, and the run-of-play lines now map to truthful generic clips so the
-  natural caller talks between set pieces. Two new event sounds (rain, crowd
-  wave).
-- **Fixes.** The fun-chip board on the market screen is readable on a laptop
-  running a light colour scheme, and the result card no longer uses betting
-  language or points at a QR code that is not on screen.
-
-## Money and free chips are structurally separate
-
-Stripe and cash entries are donations to the club with no return. Fun chips are
-free play counters with no monetary value, no purchase path and no cash-out.
-
-Every runner carries the same fixed fair play price: `N.00 for 1` in an
-N-runner race, including the returned stake. The room's pick bars show only
-free chips. A donation amount, supported lane or change in total raised cannot
-alter the displayed price or a chip return; donation data is not passed to the
-fun-chip maths.
-
-The app does not provide real-money wagering or claim legal clearance. The club
-must obtain any event-specific regulatory advice it needs.
-
-### The permit-gated cash tote
-
-Some clubs hold their own authority to run a tote at a race night (in Victoria
-typically a VGCCC minor gaming permit, or a confirmed exemption). For those
-clubs the console offers a **cash tote** that is off by default and cannot be
-switched on until the operator types the permit or authority reference and
-ticks an attestation that the club holds it. The app records that attestation
-in the audit trail; it does not decide the question and makes no legal claim.
-
-Once live:
-
-- paper tickets are sold and paid at the table; the volunteer tallies tickets
-  per runner on the console or the moderator desk before the off;
-- the projector's market screen shows the tote board (tickets per runner, pool,
-  and what one ticket would pay if that runner won now), labelled as the club's
-  cash tote and kept apart from the free-chip board;
-- the dividend settles from the recorded result, is rounded down to ten cents,
-  breakage stays with the club, and an unbacked winner leaves the pool with the
-  club, stated on screen;
-- the last race on the card can be sold by runner auction instead, highest
-  standing bid owns the runner;
-- every settlement is written to the audit trail, the printed report carries a
-  payout sheet, and a tote CSV export exists for reconciliation.
-
-`lib/cash-tote.ts` imports nothing from the race engine, the fun-chip maths,
-the settlement path or the donation ledger, and none of them import it. A unit
-test enforces that boundary, and a backup that claims `enabled` without the
-attestation loads with the tote off.
+A $4 snail is a purchase of a named entry on the card. The app records it, puts
+the name on the board and never pays it out. Stripe donations through the older
+`/donate` route remain gifts with no return. The quaddie and the cash tote are
+the only products that pay money out, and both sit behind the operator's permit
+attestation. The app does not claim legal clearance for any of it; the club
+obtains the advice it needs for its own event.
 
 ## Projector experience
 
@@ -160,8 +123,8 @@ inside the pre-countdown plan hash.
 
 | Route | Audience | Purpose |
 | --- | --- | --- |
-| `/` | Projector and operator | Complete run of show, race stage, free-chip board, fundraising total and moderator controls |
-| `/play` | Audience phone | Join a room, make free-chip picks, react and view the chip leaderboard |
+| `/` | Projector and operator | Run of show, race stage, roster, quaddie and Admin |
+| `/play` | Audience phone | Legacy Phone Play room (off the projector in 5.0; kept for clubs that still use it) |
 | `/donate` | Supporter phone | Make a separate club donation through Stripe Checkout when the Next server API is available |
 | `/donate/thanks` | Donor | Confirm the Stripe donation returned by the server |
 | `/archive` | Operator or audience | Review stored results, audit metadata and deterministic replays |
@@ -203,22 +166,19 @@ that a Worker has been deployed.
 ## Operator quick runbook
 
 1. Choose the deployment shape and run preflight before doors open.
-2. Confirm the event details and all eight runner names; open Phone Play only
-   after the real phone can join the room.
-3. On the market screen, remind the room that every lane is fixed at 8.00 and
-   free chips never meet donations. If the club runs its own permitted cash
-   tote, tally the paper tickets per runner before the off.
-4. Start the race. The app draws and hashes the complete plan, closes picks,
-   obtains any required remote lock/run acknowledgements, then counts down.
-5. Call the locked surprises as they land. At the first crossing, stop: the
-   result is already complete and appears immediately without waiting for the
-   trailing field.
-6. If the stage says `HELD`, keep the market closed and retry the same lock. If
-   a race must be abandoned before the finish, use the audited void path and
-   wait for rearm acknowledgement before reopening picks.
-7. After the night, export donations and audit records, save a backup, archive
-   the event, and reconcile Stripe donations against Stripe separately from
-   every chip report.
+2. In Admin, set the snail price, paste the Stripe Payment Link (static build)
+   or confirm it was minted (server build), and enable the quaddie if the club
+   holds the authority for it.
+3. Welcome screen up. People scan, pay $4, name their snail. Paid snails
+   appear on the roster; cash sales are typed at the desk.
+4. Racecard for race 1: read the ten snails and owners. **To the gate**, then
+   **Start race**. The plan is drawn and hashed, then the countdown runs.
+5. Let the finish play out. The result card names the winner, number and
+   owner. **Next** goes to the quaddie board (if live) or the next racecard.
+6. Audio and camera are on the desk: Music / Commentary / Off, Telecast /
+   Full course. The Holding screen checkbox parks the projector between races.
+7. After race ten, the thank-you screen lists every winner. Export the audit
+   and a backup from Admin, and reconcile Stripe separately.
 
 The detailed volunteer script is
 [docs/20260830-Operator-Runbook-Rev01.md](docs/20260830-Operator-Runbook-Rev01.md).

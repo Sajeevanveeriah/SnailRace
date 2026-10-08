@@ -5,19 +5,17 @@ import { Snail } from './Snail';
 import { laneColour } from '@/lib/palette';
 import { money } from '@/lib/money';
 import { ordinal } from '@/lib/race-engine';
-import type { AuctionSettlement, Bet, Donation, RaceHighlight, RaceResult, ToteDividend } from '@/lib/types';
+import type { AuctionSettlement, RaceHighlight, RaceResult, ToteDividend } from '@/lib/types';
 
 export function WinnerOverlay({
   open,
   audienceOnly = false,
   raceNo,
   results,
-  donations,
-  bets,
+  owners = [],
   highlights,
   nextRaceNo,
   sponsor,
-  phonePlayOpen = false,
   lastRace = false,
   tote,
   auction,
@@ -27,13 +25,11 @@ export function WinnerOverlay({
   audienceOnly?: boolean;
   raceNo: number;
   results: RaceResult[];
-  donations: Donation[];
-  bets: Bet[];
+  /** Owner per lane of the race just run. */
+  owners?: string[];
   highlights: RaceHighlight[];
   nextRaceNo: number;
   sponsor: string;
-  /** A Phone Play room is open, so the join code is on the big screen. */
-  phonePlayOpen?: boolean;
   /** The card is complete; there is no next race to point the room at. */
   lastRace?: boolean;
   /** Permit-gated cash tote settlement for this race, when the tote was live. */
@@ -57,11 +53,8 @@ export function WinnerOverlay({
 
   const winner = results[0];
   const c = laneColour(winner.lane);
-  const backers = donations.filter(
-    (d) => !d.void && d.raceNo === raceNo && d.lane === winner.lane,
-  );
-  const raised = backers.reduce((sum, d) => sum + d.cents, 0);
-  const winningBets = bets.filter((b) => b.raceNo === raceNo && b.lane === winner.lane);
+  const owner = owners[winner.lane]?.trim() ?? '';
+  const snailNo = (raceNo - 1) * 10 + winner.lane + 1;
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center p-4">
@@ -102,44 +95,9 @@ export function WinnerOverlay({
           {winner.name}
         </h2>
 
-        <p
-          className={`num mt-3 text-lg font-semibold ${
-            raised > 0 ? 'text-(--money-b)' : 'text-(--tx)/45'
-          }`}
-        >
-          {raised > 0
-            ? `${money(raised)} backed this snail`
-            : 'Nobody backed this one tonight'}
+        <p className="num mt-3 text-lg font-semibold text-(--gold)">
+          Snail {snailNo}{owner ? ` · owned by ${owner}` : ''}
         </p>
-
-        {backers.length > 0 ? (
-          <ul className="mt-4 flex flex-wrap justify-center gap-2">
-            {backers.slice(0, 12).map((b) => (
-              <li
-                key={b.id}
-                className="rounded-full bg-(--tx)/10 px-3 py-1 text-xs font-medium text-(--tx)/85"
-              >
-                {b.backerName || 'Anonymous'} {money(b.cents)}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        {winningBets.length > 0 ? (
-          <div className="mt-4">
-            <p className="fun-chip-banner mx-auto w-fit" role="note">
-              FUN CHIPS - NO MONETARY VALUE
-            </p>
-            <p className="mt-2 text-sm text-(--tx)/70">
-              {winningBets.length} winning fun-chip {winningBets.length === 1 ? 'pick' : 'picks'},
-              returning{' '}
-              <span className="num font-semibold text-(--gold)">
-                {winningBets.reduce((s, b) => s + (b.returned ?? 0), 0).toLocaleString('en-AU')}
-              </span>{' '}
-              free chips at the fixed price shown before the start.
-            </p>
-          </div>
-        ) : null}
 
         {tote ? (
           <div className="tote-result mt-4" role="note" aria-label="Cash tote dividend">
@@ -217,14 +175,10 @@ export function WinnerOverlay({
           </div>
         ) : null}
 
-        {/* Never money language on the result card: chips are free, and the
-            QR is only mentioned when a Phone Play room is actually open. */}
         <p className="mt-6 text-sm font-medium text-(--tx)/70">
           {lastRace
             ? 'That was the last race on the card. Thank you for racing with us.'
-            : `Free fun-chip picks open for race ${nextRaceNo}.${
-                phonePlayOpen ? ' Scan the code on the big screen to play along.' : ''
-              }`}
+            : `Race ${nextRaceNo} is next: snails ${(nextRaceNo - 1) * 10 + 1} to ${nextRaceNo * 10}.`}
         </p>
 
         {!audienceOnly ? <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>

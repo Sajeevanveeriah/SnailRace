@@ -1,7 +1,7 @@
 'use client';
 
 import { noise, playSample, primeAudio, setEnabled, setMusicEnabled, tone } from './audio/engine';
-import { duck, stopAmbience, stopTrack } from './audio/music';
+import { duck, stopTrack } from './audio/music';
 import { say, setVoiceEnabled, silence } from './audio/voice';
 import type { EventSound } from './race-engine';
 
@@ -52,9 +52,6 @@ export {
   startTrack,
   stopTrack,
   setIntensity,
-  startAmbience,
-  stopAmbience,
-  setCrowdLevel,
   duck,
 } from './audio/music';
 
@@ -62,7 +59,6 @@ export function setSoundEnabled(on: boolean) {
   setEnabled(on);
   if (!on) {
     stopTrack(0.25);
-    stopAmbience();
     silence();
   }
 }
@@ -96,31 +92,22 @@ export const soundCheck = () => {
 /* ── Crowd reactions ───────────────────────────────────────────────────── */
 
 /**
- * A human noise from filtered noise.
+ * The crowd only speaks when the club has supplied a recording of one.
  *
- * A crowd is broadband and slow: a bandpass around the voice range with a
- * long attack reads as people, where the same burst with a fast attack reads
- * as a drum. `sweepTo` is what separates a cheer (rising) from a groan.
+ * The synthesised cheers and gasps were bandpass noise, and on a function
+ * room PA bandpass noise is a hiss, not a hall. They are gone with the
+ * ambience bed. Drop `crowd-cheer.mp3` and `crowd-gasp.mp3` into
+ * `public/audio/` and these come back as real people.
  */
 const crowd = {
   cheer: (size = 1) => {
-    if (playSample('crowd-cheer', { bus: 'crowd', gain: 0.5 * size })) return;
-    noise({ dur: 1.5 * size, peak: 0.21 * size, bus: 'crowd', type: 'bandpass', freq: 700, sweepTo: 1500, q: 0.6, attack: 0.18 });
-    noise({ dur: 1.2 * size, peak: 0.105 * size, bus: 'crowd', type: 'highpass', freq: 2200, attack: 0.22 });
+    playSample('crowd-cheer', { bus: 'crowd', gain: 0.5 * size });
   },
   gasp: (size = 1) => {
-    if (playSample('crowd-gasp', { bus: 'crowd', gain: 0.5 * size })) return;
-    noise({ dur: 0.85 * size, peak: 0.1575 * size, bus: 'crowd', type: 'bandpass', freq: 1300, sweepTo: 480, q: 0.8, attack: 0.14 });
+    playSample('crowd-gasp', { bus: 'crowd', gain: 0.5 * size });
   },
-  /* The one that runs long: for the run home and the finish. */
   roar: (size = 1) => {
-    if (playSample('crowd-cheer', { bus: 'crowd', gain: 0.75 * size })) return;
-    noise({ dur: 2.8 * size, peak: 0.273 * size, bus: 'crowd', type: 'bandpass', freq: 620, sweepTo: 1250, q: 0.5, attack: 0.3 });
-    noise({ dur: 2.4 * size, peak: 0.126 * size, bus: 'crowd', type: 'highpass', freq: 2600, attack: 0.35 });
-    /* Scattered claps: short bursts on an uneven grid so it is not a machine. */
-    for (let i = 0; i < 14; i++) {
-      noise({ at: 0.25 + i * 0.11 + Math.random() * 0.07, dur: 0.05, peak: 0.063 * size, bus: 'crowd', type: 'highpass', freq: 3400, attack: 0.02 });
-    }
+    playSample('crowd-cheer', { bus: 'crowd', gain: 0.75 * size });
   },
 };
 
@@ -254,7 +241,6 @@ export const sfx = {
 
   /** The crowd lifting the field: a swell that rises and keeps rising. */
   wave: () => {
-    noise({ dur: 2.2, peak: 0.24, type: 'bandpass', freq: 500, sweepTo: 1600, q: 0.6, attack: 0.45, bus: 'crowd' });
     [392, 494, 587, 784].forEach((f, i) =>
       tone({ freq: f, at: i * 0.14, dur: 0.5, type: 'triangle', peak: 0.17 }),
     );

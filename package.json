@@ -1,6 +1,6 @@
 {
   "name": "ndcc-snail-race",
-  "version": "4.2.0",
+  "version": "5.0.0",
   "private": true,
   "description": "Snail Racing Fundraiser for the Newcomb & District Cricket Club - live race stage, Stripe donations and moderator console.",
   "scripts": {

@@ -8,8 +8,16 @@
  */
 
 import type { CourseId } from './courses';
+import type { CardState } from './card';
+import type { QuaddieEntry, QuaddieSettings } from './quaddie';
 
 export type DonationSource = 'stripe' | 'cash';
+
+/** What plays on the projector. One choice, never three toggles. */
+export type AudioMode = 'music' | 'commentary' | 'off';
+
+/** How the race is framed: the leading pack, or the whole course. */
+export type CameraMode = 'telecast' | 'full';
 
 export interface Racer {
   /** Lane index, 0-based. Stable for the life of a race. */
@@ -30,6 +38,8 @@ export interface Donation {
   createdAt: number;
   /** Present for Stripe donations only. */
   sessionId?: string;
+  /** Set when the payment bought a numbered snail on the card (1 to 100). */
+  snailNo?: number;
   /** Voided entries stay in the ledger for auditability but leave the totals. */
   void?: boolean;
   /**
@@ -179,6 +189,11 @@ export interface AuditEntry {
     | 'tote_settled'
     | 'auction_bid'
     | 'auction_settled'
+    | 'snail_sold'
+    | 'quaddie_enabled'
+    | 'quaddie_disabled'
+    | 'quaddie_entry'
+    | 'quaddie_settled'
     | 'note';
   /** Race the entry belongs to. 0 for event-level notes. */
   raceNo: number;
@@ -547,6 +562,24 @@ export interface EventState {
   sponsors: string[];
   /** Optional sponsor per runner lane, shown on the racecard and lower thirds. */
   runnerSponsors: string[];
+  /**
+   * The card: one hundred numbered snails, ten per race, named by the
+   * people who bought them. Race N's field is always snails 10N-9 to 10N.
+   */
+  card: CardState;
+  /** The permit-gated quaddie on four nominated races. Off by default. */
+  quaddie: QuaddieSettings;
+  quaddieEntries: QuaddieEntry[];
+  /** Music, commentary or silence on the projector. */
+  audioMode: AudioMode;
+  /** Leading-pack telecast or the whole course. The desk can flip it live. */
+  cameraMode: CameraMode;
+  /**
+   * Once-a-night surprise cards already dealt tonight, by card id. The deck
+   * is dealt without replacement so the room never sees the same set piece
+   * twice in one night.
+   */
+  dealtCards: string[];
   /** The permit-gated cash tote. Off by default; see CashToteSettings. */
   cashTote: CashToteSettings;
   toteSales: ToteSale[];

@@ -10,11 +10,11 @@
 
 Space/PageDown advances and PageUp goes back. Settings suspends show shortcuts while editing. Escape closes a sheet or winner announcement; it never resets an active race. Fullscreen is requested in the game window because browsers require an interaction there. Window placement remains an operating-system action.
 
-![Moderator desk](screenshots/moderator-desk.png)
+![Moderator desk](screenshots/08-desk.png)
 
-![Fullscreen welcome](screenshots/projector-welcome.png)
+![Fullscreen welcome](screenshots/01-welcome.png)
 
-![Fullscreen race](screenshots/projector-race.png)
+![Fullscreen race](screenshots/03-race-telecast.png)
 
 ## Cash tote tally on the desk
 

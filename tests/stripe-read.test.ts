@@ -68,3 +68,35 @@ test('direct QR donations belong to no race and no lane', () => {
   assert.equal(d.raceNo, 0);
   assert.equal(d.lane, -1);
 });
+
+/* A snail bought through the Payment Link names itself from its custom fields. */
+test('a snail purchase reads its number, name and owner from the custom fields', () => {
+  const bought = session({
+    amount_total: 400,
+    metadata: { app: APP_TAG, [META.eventId]: 'ev1', [META.kind]: 'snail', [META.raceNo]: '0', [META.lane]: '-1' },
+    custom_fields: [
+      { key: 'snail_number', type: 'numeric', numeric: { value: '29' } },
+      { key: 'snail_name', type: 'text', text: { value: '  Escargot Faster ' } },
+      { key: 'owner_name', type: 'text', text: { value: 'Priya' } },
+    ],
+  });
+  const d = toDonation(bought);
+  assert.ok(d);
+  assert.equal(d.snailNo, 29);
+  assert.equal(d.raceNo, 3);
+  assert.equal(d.lane, 8);
+  assert.equal(d.snailName, 'Escargot Faster');
+  assert.equal(d.backerName, 'Priya');
+  assert.equal(d.cents, 400);
+
+  /* An unreadable number still records the money, as a plain donation. */
+  const odd = session({
+    amount_total: 400,
+    metadata: { app: APP_TAG, [META.eventId]: 'ev1', [META.kind]: 'snail', [META.raceNo]: '0', [META.lane]: '-1' },
+    custom_fields: [{ key: 'snail_number', type: 'numeric', numeric: { value: '250' } }],
+  });
+  const plain = toDonation(odd);
+  assert.ok(plain);
+  assert.equal(plain.snailNo, undefined);
+  assert.equal(plain.lane, -1);
+});

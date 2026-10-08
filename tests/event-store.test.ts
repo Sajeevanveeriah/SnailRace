@@ -65,10 +65,16 @@ test('a held start restores the exact locked plan and rejects a partial hash', a
   assert.equal(currentState().heldRaceStart, null);
 });
 
-/* Eight stays the practical default even though the live format can expand. */
-test('freshState opens with the approved eight-runner default', () => {
+/* Ten a race: the card sells snails 1 to 100 into ten races of ten. */
+test('freshState opens with the ten-snail card default', () => {
   const s = freshState();
-  assert.equal(s.fieldSize, 8);
+  assert.equal(s.fieldSize, 10);
+  assert.equal(s.plannedRaces, 10);
+  assert.equal(s.card.names.length, 100);
+  assert.equal(s.card.snailCents, 400);
+  assert.equal(s.audioMode, 'music');
+  assert.equal(s.cameraMode, 'telecast');
+  assert.deepEqual(s.dealtCards, []);
   assert.deepEqual(s.names.slice(0, s.fieldSize), [
     'Speedy',
     'Turbo',
@@ -78,6 +84,8 @@ test('freshState opens with the approved eight-runner default', () => {
     'Bolt',
     'Comet',
     'Dasher',
+    'Escar-go',
+    'Shellby',
   ]);
 });
 

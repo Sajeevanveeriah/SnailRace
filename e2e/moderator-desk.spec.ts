@@ -13,11 +13,10 @@ const openDesk = async (page: Page) => {
 };
 const raceCard = async (desk: Page) => {
   await desk.getByRole('button', { name: 'Show the racecard', exact: true }).click();
-  await desk.getByRole('button', { name: 'Open the fun-chip market', exact: true }).click();
-  await desk.getByRole('button', { name: 'Lock and race', exact: true }).click();
+  await desk.getByRole('button', { name: 'To the gate', exact: true }).click();
 };
 const sprint = async (desk: Page) => {
-  await desk.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desk.getByRole('button', { name: 'Admin', exact: true }).click();
   await desk.getByLabel('Lap length').selectOption('7000');
   await desk.getByLabel('Laps').selectOption('1');
   await desk.getByRole('button', { name: /Hide/ }).click();
@@ -38,8 +37,14 @@ test('moderator is a separate document with shared settings and accessible contr
   await expect(desk.locator('.race-broadcast')).toHaveCount(0);
   await expect(desk.locator('script[src]')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Moderator controls' })).toHaveCount(0);
-  await desk.getByRole('checkbox', { name: 'Commentary', exact: true }).uncheck();
-  await expect.poll(async () => (await readNight(page)).caller).toBe(false);
+  await desk.getByRole('radio', { name: 'Off', exact: true }).check();
+  await expect.poll(async () => (await readNight(page)).audioMode).toBe('off');
+  await expect.poll(async () => (await readNight(page)).sound).toBe(false);
+  await desk.getByRole('radio', { name: 'Music', exact: true }).check();
+  await expect.poll(async () => (await readNight(page)).audioMode).toBe('music');
+  /* The desk roster edits the next race's snails and the projector shows them. */
+  await desk.getByRole('region', { name: 'Roster', exact: true }).getByLabel('Snail 1 name', { exact: true }).fill('Mucus Bolt');
+  await expect.poll(async () => (await readNight(page)).card.names[0]).toBe('Mucus Bolt');
   await sprint(desk);
   await expect.poll(async () => (await readNight(page)).raceDurationMs).toBe(7000);
   await raceCard(desk);
@@ -47,6 +52,7 @@ test('moderator is a separate document with shared settings and accessible contr
   await expect.poll(async () => (await readNight(page)).bettingOpen).toBe(false);
   await desk.getByRole('radio', { name: 'Full course', exact: true }).check();
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'course');
+  await expect.poll(async () => (await readNight(page)).cameraMode).toBe('full');
   const axe = await new AxeBuilder({ page: desk }).analyze();
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
   await desk.setViewportSize({ width: 390, height: 844 });
@@ -75,10 +81,12 @@ test('race survives closing, reopening and reloading the desk with one settlemen
   const night = await readNight(page);
   expect(night.history[0].planHash).toBe(held);
   expect(night.heldRaceStart).toBeNull();
-  await expect(desk.getByRole('button', { name: 'Show the championship' })).toBeEnabled();
+  await expect(desk.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: /Close winner/ })).toHaveCount(0);
-  await desk.getByRole('button', { name: 'Show the championship' }).click();
-  await expect(page.getByRole('region', { name: 'CHAMPIONSHIP screen' })).toBeVisible();
+  await desk.getByRole('button', { name: 'Next', exact: true }).click();
+  /* No quaddie running, so the result goes straight to the next racecard. */
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toContainText('Race 2 of 10');
   expect(errors).toEqual([]);
 });
 
@@ -107,7 +115,7 @@ test('holding screen and settings stop accidental show advances', async ({ page 
   await expect(page.getByRole('region', { name: 'WELCOME screen' })).toBeVisible();
   await desk.getByRole('checkbox', { name: 'Holding screen', exact: true }).uncheck();
   await expect(page.getByRole('heading', { name: 'Back shortly' })).toHaveCount(0);
-  await desk.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desk.getByRole('button', { name: 'Admin', exact: true }).click();
   await desk.getByLabel('Event name', { exact: true }).fill('NDCC Finals Night');
   await desk.locator('body').press('PageDown');
   expect((await readNight(page)).showPhase).toBe('lobby');
@@ -117,7 +125,9 @@ test('holding screen and settings stop accidental show advances', async ({ page 
   await desk.keyboard.down('PageDown');
   await desk.keyboard.down('PageDown');
   await desk.keyboard.up('PageDown');
-  expect((await readNight(page)).showPhase).toBe('market');
+  expect((await readNight(page)).showPhase).toBe('race');
+  await desk.locator('body').press('PageUp');
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toBeVisible();
   await desk.getByRole('button', { name: 'Return controls to projector' }).click();
   await expect(page.getByRole('toolbar', { name: 'Show controls' })).toBeVisible();
 });
@@ -147,7 +157,7 @@ test('navigating the desk away restores controls without crashing the show', asy
 
 test('the obstacle stays visible before the crowd-lift cue replaces it', async ({ page }) => {
   const desk = await openDesk(page);
-  await desk.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desk.getByRole('button', { name: 'Admin', exact: true }).click();
   await desk.getByLabel('Lap length').selectOption('12000');
   await desk.getByLabel('Laps').selectOption('1');
   await desk.getByRole('button', { name: /Hide/ }).click();
@@ -211,7 +221,7 @@ test('recorded media plays only on the projector and settles from the desk', asy
   await desk.getByRole('button', { name: 'Draw the next race' }).click();
   await expect(desk.getByRole('button', { name: 'Play race', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Play race', exact: true })).toHaveCount(0);
-  await desk.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desk.getByRole('button', { name: 'Admin', exact: true }).click();
   const choosing = desk.waitForEvent('filechooser');
   await desk.getByRole('button', { name: 'Attach and verify media', exact: true }).click();
   await (await choosing).setFiles({ name: 'recorded-race.webm', mimeType: 'video/webm', buffer: media });
@@ -231,7 +241,7 @@ test('a live cash tote can be tallied from the desk and is settled on the projec
   const desk = await openDesk(page);
   await desk.setViewportSize({ width: 1280, height: 900 });
   await expect(desk.getByRole('region', { name: 'Cash tote tally' })).toHaveCount(0);
-  await desk.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desk.getByRole('button', { name: 'Admin', exact: true }).click();
   const tote = desk.getByRole('region', { name: 'Cash tote' });
   await tote.getByLabel(/Permit or authority reference/i).fill('Club authority ref 77');
   await tote.getByRole('checkbox').first().check();
@@ -242,8 +252,8 @@ test('a live cash tote can be tallied from the desk and is settled on the projec
 
   const tally = desk.getByRole('region', { name: 'Cash tote tally' });
   await expect(tally).toBeVisible();
-  await tally.getByRole('button', { name: 'Add one ticket to Flash' }).click();
-  await tally.getByRole('button', { name: 'Add one ticket to Flash' }).click();
+  await tally.getByRole('button', { name: 'Add one ticket to Snail 4', exact: true }).click();
+  await tally.getByRole('button', { name: 'Add one ticket to Snail 4', exact: true }).click();
   await expect.poll(async () => {
     const night = await readNight(page);
     return (night.toteSales as { lane: number; tickets: number }[]).reduce((s, x) => s + (x.lane === 3 ? x.tickets : 0), 0);
@@ -254,4 +264,57 @@ test('a live cash tote can be tallied from the desk and is settled on the projec
   await expect(page.getByRole('note', { name: 'Cash tote dividend' })).toBeVisible({ timeout: 30_000 });
   const night = await readNight(page);
   expect(night.history[0].tote.poolCents).toBe(400);
+});
+
+test('a permit-attested quaddie takes entries at the desk and shows the board after a leg', async ({ page }) => {
+  test.setTimeout(90_000);
+  /* Two races already stand, so the next race is leg one of the quaddie. */
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('ndcc-snailrace-v3') ?? '{}');
+    saved.raceNumber = 2;
+    saved.history = [1, 2].map((raceNo) => ({
+      raceNo, raceType: 'Heat', seedHex: 'ABCDEF01', fieldSize: 10, durationMs: 7000, at: raceNo, potCents: 0, photoFinish: false,
+      results: Array.from({ length: 10 }, (_, lane) => ({ lane, name: `Snail ${(raceNo - 1) * 10 + lane + 1}`, place: lane + 1, finishMs: lane === 0 ? 7000 : null })),
+    }));
+    localStorage.setItem('ndcc-snailrace-v3', JSON.stringify(saved));
+  });
+  await page.reload();
+  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  const desk = await openDesk(page);
+  await desk.setViewportSize({ width: 1280, height: 900 });
+  await expect(desk.getByRole('region', { name: 'Quaddie entries' })).toHaveCount(0);
+  await desk.getByRole('button', { name: 'Admin', exact: true }).click();
+  const quaddie = desk.getByRole('region', { name: 'Quaddie', exact: true });
+  await quaddie.getByLabel(/Permit or authority reference/i).fill('Club authority ref 77');
+  await quaddie.getByRole('checkbox').first().check();
+  await quaddie.getByRole('button', { name: /Enable quaddie/i }).click();
+  await expect(quaddie).toContainText(/LIVE under/);
+  await desk.getByLabel('Lap length').selectOption('7000');
+  await desk.getByLabel('Laps').selectOption('1');
+  await desk.getByRole('button', { name: /Hide/ }).click();
+
+  const entries = desk.getByRole('region', { name: 'Quaddie entries' });
+  await expect(entries).toBeVisible();
+  await entries.getByLabel('Ticket holder').fill('Priya');
+  await entries.getByLabel('Race 3').selectOption('21');
+  await entries.getByLabel('Race 5').selectOption('45');
+  await entries.getByLabel('Race 7').selectOption('63');
+  await entries.getByLabel('Race 9').selectOption('88');
+  await entries.getByRole('button', { name: 'Record entry' }).click();
+  await expect(entries).toContainText('1 entry · pool $10.00');
+  await expect.poll(async () => (await readNight(page)).quaddieEntries.length).toBe(1);
+
+  await desk.getByRole('button', { name: 'Show the racecard', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toContainText('QUADDIE LEG 1');
+  await desk.getByRole('button', { name: 'To the gate', exact: true }).click();
+  await desk.getByRole('button', { name: 'Start race', exact: true }).click();
+  await expect.poll(async () => (await readNight(page)).history.filter((h: { void?: boolean; raceNo: number }) => !h.void && h.raceNo === 3).length, { timeout: 30_000 }).toBe(1);
+  await expect(desk.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
+  await desk.getByRole('button', { name: 'Next', exact: true }).click();
+  const board = page.getByRole('region', { name: 'QUADDIE screen' });
+  await expect(board).toBeVisible();
+  await expect(board).toContainText(/Leg 1\s*Race 3\s*won by/);
+  await expect(board).toContainText(/alive|Nobody is still alive/);
+  await desk.getByRole('button', { name: 'Next race', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toContainText('Race 4 of 10');
 });

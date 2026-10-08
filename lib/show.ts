@@ -22,13 +22,14 @@ export interface ShowPhaseSpec {
 
 export const SHOW_PHASES: ShowPhaseSpec[] = [
   { id: 'lobby', label: 'Doors open', screen: 'WELCOME', advance: 'Show the racecard' },
-  { id: 'racecard', label: 'Racecard', screen: 'RACECARD', advance: 'Open the fun-chip market' },
-  { id: 'market', label: 'Market open', screen: 'MARKET OPEN', advance: 'Lock and race' },
+  { id: 'racecard', label: 'Racecard', screen: 'RACECARD', advance: 'To the gate' },
   { id: 'race', label: 'Race', screen: 'RACE', advance: 'Start the race' },
-  { id: 'results', label: 'Results', screen: 'RESULT', advance: 'Show the championship' },
-  { id: 'championship', label: 'Championship', screen: 'CHAMPIONSHIP', advance: 'Next race' },
-  { id: 'intermission', label: 'Intermission', screen: 'INTERMISSION', advance: 'Back to racing' },
+  { id: 'results', label: 'Results', screen: 'RESULT', advance: 'Next' },
+  { id: 'championship', label: 'Quaddie', screen: 'QUADDIE', advance: 'Next race' },
   { id: 'finale', label: 'Finale', screen: 'THANK YOU', advance: 'End of night' },
+  /* Retired screens. Kept so an older saved night still names its phase. */
+  { id: 'market', label: 'Market', screen: 'RACECARD', advance: 'To the gate' },
+  { id: 'intermission', label: 'Intermission', screen: 'WELCOME', advance: 'Show the racecard' },
 ];
 
 export const showPhaseSpec = (id: ShowPhase): ShowPhaseSpec =>
@@ -37,29 +38,31 @@ export const showPhaseSpec = (id: ShowPhase): ShowPhaseSpec =>
 export interface ShowContext {
   racesRun: number;
   plannedRaces: number;
+  /** The quaddie board is shown after a result only while the quaddie is live. */
+  quaddieLive?: boolean;
 }
 
 /**
- * Where the forward button goes. The loop is
- * racecard, market, race, results, championship, then racecard again until
- * the card is complete, then finale. Intermission is a moderator choice,
- * never forced into the loop.
+ * Where the forward button goes. The loop is racecard, race, results, then
+ * the quaddie board when one is running, then racecard again until the card
+ * is complete, then finale. There is no market screen: a snail is bought
+ * before the night, not picked between races.
  */
 export function nextShowPhase(current: ShowPhase, ctx: ShowContext): ShowPhase {
+  const afterResult = (): ShowPhase => (ctx.racesRun >= ctx.plannedRaces ? 'finale' : 'racecard');
   switch (current) {
     case 'lobby':
+    case 'intermission':
       return 'racecard';
     case 'racecard':
-      return 'market';
     case 'market':
       return 'race';
     case 'race':
       return 'results';
     case 'results':
-      return 'championship';
+      return ctx.quaddieLive ? 'championship' : afterResult();
     case 'championship':
-    case 'intermission':
-      return ctx.racesRun >= ctx.plannedRaces ? 'finale' : 'racecard';
+      return afterResult();
     case 'finale':
       return 'finale';
   }
@@ -96,26 +99,23 @@ export function hostLineFor(phase: ShowPhase, ctx: HostContext): string {
     case 'lobby':
       return `Welcome to ${ctx.eventName}. Settle in - the first field for ${ctx.clubName} is nearly ready.`;
     case 'racecard':
-      return ctx.raceNo === 1
-        ? `Tonight's card: ${ctx.plannedRaces} races. Remember, the chips are fun chips with no monetary value, every snail has an equal chance, and every dollar donated goes straight to the club.`
-        : `Here is the field for race ${ctx.raceNo} of ${ctx.plannedRaces}${ctx.sponsor ? `, proudly sponsored by ${ctx.sponsor}` : ''}.`;
     case 'market':
+      return ctx.raceNo === 1
+        ? `Tonight's card: ${ctx.plannedRaces} races of ten snails, every one named by the person who bought it. Every snail has an equal chance.`
+        : `Here is the field for race ${ctx.raceNo} of ${ctx.plannedRaces}${ctx.sponsor ? `, proudly sponsored by ${ctx.sponsor}` : ''}.`;
+    case 'race':
       return pickFor(
         [
-          `The fun-chip market is open for race ${ctx.raceNo}. Make your pick before the gate closes.`,
-          `Race ${ctx.raceNo} is open. Choose a snail, spend only free fun chips, and keep your dignity where possible.`,
-          `Selections are open for race ${ctx.raceNo}. The chips are free; the bragging rights are not.`,
+          `The field is heading to the gate for race ${ctx.raceNo}. Find your snail and get behind it.`,
+          `Race ${ctx.raceNo}. Ten snails, ten owners, one winner. Cheer yours home.`,
+          `They are coming out for race ${ctx.raceNo}. Owners, this is your moment.`,
         ],
-        `${ctx.eventName}:${ctx.raceNo}:market`,
+        `${ctx.eventName}:${ctx.raceNo}:race`,
       );
-    case 'race':
-      return `The field is heading to the gate for race ${ctx.raceNo}. Selections are locked when the lights go.`;
     case 'results':
-      return 'And that is the result, drawn before a single snail moved. Settling the fun chips now.';
+      return 'And that is the result, drawn before a single snail moved.';
     case 'championship':
-      return ctx.leaderName
-        ? `After ${ctx.raceNo} ${ctx.raceNo === 1 ? 'race' : 'races'}, ${ctx.leaderName} leads the championship.`
-        : 'Here is how the championship stands.';
+      return 'Here is how the quaddie stands after that leg.';
     case 'intermission':
       return 'Time for a short break. Stretch the legs, support the club if you can, and we race again shortly.';
     case 'finale':

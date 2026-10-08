@@ -49,6 +49,15 @@ export const META = {
   lane: 'lane',
   snailName: 'snail_name',
   backerName: 'backer_name',
+  /** What the payment bought: a direct gift, or a numbered snail on the card. */
+  kind: 'kind',
+} as const;
+
+/** Custom-field keys on the snail Payment Link; Stripe copies them onto the session. */
+export const SNAIL_FIELDS = {
+  number: 'snail_number',
+  name: 'snail_name',
+  owner: 'owner_name',
 } as const;
 
 /* Kept stable so historical Stripe metadata remains query-compatible. */

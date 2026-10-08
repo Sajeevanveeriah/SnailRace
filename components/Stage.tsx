@@ -8,21 +8,16 @@ import { useModeratorWindow } from '@/lib/use-moderator-window';
 import { useProjectorDisplay } from '@/lib/use-projector-display';
 import { RaceTrack } from './RaceTrack';
 import { Telecast } from './Telecast';
-import { PitBoard } from './PitBoard';
-import { Standings } from './Standings';
-import { ToteBoard } from './ToteBoard';
-import { BetSlip } from './BetSlip';
-import { DonateQr } from './DonateQr';
-import { GoalRing } from './GoalRing';
-import { CountUp } from './CountUp';
-import { Confetti } from './Confetti';
 import { WinnerOverlay } from './WinnerOverlay';
 import { ControlDrawer } from './ControlDrawer';
 import { ThemeToggle } from './ThemeToggle';
-import { addAudit, hydrate, useEvent, setState } from '@/lib/event-store';
+import { AudioModePicker } from './AudioModePicker';
+import { addAudit, audioPatch, currentState, hydrate, useEvent, setState } from '@/lib/event-store';
 import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
-import { hostLineFor, marketWarning, nextShowPhase, showPhaseSpec } from '@/lib/show';
+import { hostLineFor, nextShowPhase, showPhaseSpec } from '@/lib/show';
+import { applyPurchases, cardRaceNames, cardRaceOwners, type SnailPurchase } from '@/lib/card';
+import { quaddieIsLive } from '@/lib/quaddie';
 import { usePhonePlay } from '@/lib/use-phone-play';
 import { ShowOverlay } from './ShowScreens';
 import { PackRunner } from './PackRunner';
@@ -40,13 +35,9 @@ import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace } from '@/lib/use-race';
 import { funChipPoolsFor } from '@/lib/tote';
-import { sponsorFor, standingsFrom } from '@/lib/standings';
-import { auctionOwners, isAuctionRace, projectTote, toteIsLive } from '@/lib/cash-tote';
-import { tickerItems } from '@/lib/broadcast-ticker';
-import { eventWhen } from '@/lib/event-when';
-import { encodeLineup } from '@/lib/lineup';
-import { money, moneyShort, CHIP_START } from '@/lib/money';
-import { laneColour, MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
+import { sponsorFor } from '@/lib/standings';
+import { money } from '@/lib/money';
+import { MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
 import { courseById, courseForRace } from '@/lib/courses';
 import {
   audioState,
@@ -60,13 +51,12 @@ import {
   setSoundEnabled,
   sfx,
   silence,
-  startAmbience,
   startTrack,
-  stopAmbience,
   stopTrack,
 } from '@/lib/sound';
-import type { Bet, Donation, RaceHighlight, RaceHistoryEntry, RaceResult } from '@/lib/types';
+import type { AudioMode, Donation, RaceHighlight, RaceHistoryEntry, RaceResult } from '@/lib/types';
 import {
+  dealtDeckCards,
   drawLockedRacePlan,
   freshSeed,
   type DrawnRace,
@@ -86,9 +76,7 @@ export function Stage() {
   const [clientReady, setClientReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
-  const [confettiKey, setConfettiKey] = useState(0);
   const [dismissedToast, setDismissedToast] = useState<string | null>(null);
-  const milestoneRef = useRef(0);
   const origin = useOrigin();
 
   useEffect(() => {
@@ -115,15 +103,19 @@ export function Stage() {
 
   useEffect(() => () => {
     stopTrack(0.2);
-    stopAmbience();
   }, []);
 
   const feed = useDonations(event.eventId);
-  const names = useMemo(
-    () => event.names.slice(0, event.fieldSize),
-    [event.names, event.fieldSize],
-  );
   const nextRaceNo = event.raceNumber + 1;
+  /*
+   * The field on the projector. While the show sits on a result the stage
+   * still shows the race that just ran, so its names come from that race's
+   * ten snails, not the next ten. Everywhere else it is the next field.
+   */
+  const shownRaceNo = event.showPhase === 'results' ? event.raceNumber : nextRaceNo;
+  const names = useMemo(() => cardRaceNames(event.card, shownRaceNo), [event.card, shownRaceNo]);
+  const owners = useMemo(() => cardRaceOwners(event.card, shownRaceNo), [event.card, shownRaceNo]);
+  const fieldNames = useMemo(() => cardRaceNames(event.card, nextRaceNo), [event.card, nextRaceNo]);
   const finishedCourseId = event.showPhase === 'results'
     ? event.history.find((entry) => entry.raceNo === event.raceNumber && !entry.void)?.courseId
     : undefined;
@@ -155,44 +147,36 @@ export function Stage() {
     [liveDonations, nextRaceNo],
   );
 
-  const { lanes, totalChips } = useMemo(
-    () => funChipPoolsFor(event.bets, names, nextRaceNo),
-    [event.bets, names, nextRaceNo],
+  /* Fixed fair-play prices for the lock snapshot and any Phone Play room. */
+  const { lanes } = useMemo(
+    () => funChipPoolsFor(event.bets, fieldNames, nextRaceNo),
+    [event.bets, fieldNames, nextRaceNo],
   );
 
-  /* The broadcast ticker, rebuilt only when one of its facts changes. */
-  const broadcastRaceNo = event.showPhase === 'results' ? event.raceNumber : nextRaceNo;
-  const ticker = useMemo(() => {
-    const live = toteIsLive(event.cashTote);
-    const board = live ? projectTote(event.toteSales, broadcastRaceNo, event.cashTote, names.length) : null;
-    const auction = live && isAuctionRace(event.cashTote, broadcastRaceNo, event.plannedRaces)
-      ? auctionOwners(event.auctionBids, broadcastRaceNo, names.length)
-      : null;
-    return tickerItems({
-      clubName: event.clubName,
-      eventName: event.eventName,
-      raceNo: broadcastRaceNo,
-      plannedRaces: event.plannedRaces,
-      courseName: activeCourse.name,
-      laps: event.laps,
-      when: eventWhen({ eventDate: event.eventDate, startTime: event.startTime, venue: event.venue }),
-      backingCents: event.backingCents,
-      sponsor,
-      names,
-      runnerSponsors: event.runnerSponsors,
-      nightCents,
-      goalCents: event.goalShow ? event.goalCents : undefined,
-      standings: standingsFrom(event.history),
-      tote: board ? { ticketCents: event.cashTote.ticketCents, poolCents: board.poolCents, tickets: board.tickets } : null,
-      auction: auction ? { poolCents: auction.reduce((s, o) => s + o.cents, 0), owners: auction.length } : null,
-      phonePlayCode: event.phonePlay?.code ?? null,
-    });
-  }, [
-    event.cashTote, event.toteSales, event.auctionBids, event.plannedRaces, event.clubName, event.eventName,
-    event.laps, event.runnerSponsors, event.goalShow, event.goalCents, event.history, event.phonePlay,
-    event.eventDate, event.startTime, event.venue, event.backingCents,
-    broadcastRaceNo, activeCourse.name, sponsor, names, nightCents,
-  ]);
+  /* ── Paid snails fill the roster ─────────────────────────────────────── */
+
+  /*
+   * A Stripe payment that bought a numbered snail names it on the card. The
+   * feed is polled, so this runs on every snapshot and applies only what is
+   * new; a slot the desk typed by hand is never overwritten by a payment.
+   */
+  useEffect(() => {
+    const purchases: SnailPurchase[] = feed.donations
+      .filter((d) => !d.void && d.snailNo)
+      .map((d) => ({ snailNo: d.snailNo!, snailName: d.snailName, owner: d.backerName, id: d.id }));
+    if (!purchases.length) return;
+    const id = window.setTimeout(() => {
+      const before = currentState().card;
+      const applied = applyPurchases(before, purchases);
+      if (!applied.changed) return;
+      setState({ card: applied.card });
+      const fresh = purchases.filter((p) => !before.claims[p.snailNo] && applied.card.claims[p.snailNo] === p.id);
+      for (const p of fresh) {
+        addAudit({ kind: 'snail_sold', raceNo: Math.ceil(p.snailNo / 10), detail: `Snail ${p.snailNo} sold by card: "${p.snailName}" for ${p.owner || 'an anonymous owner'}.` });
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [feed.donations]);
 
   /* ── Race lifecycle ──────────────────────────────────────────────────── */
 
@@ -277,13 +261,18 @@ export function Stage() {
 
       void phonePlayRef.current?.(raceNo, results);
       armedRef.current = null;
-      setState({ heldRaceStart: null });
+      /* The deck is dealt without replacement: a once-a-night card this race
+         used is off the table for the rest of the card. */
+      const used = armed?.plan ? dealtDeckCards(armed.plan) : [];
+      setState((s) => ({
+        heldRaceStart: null,
+        dealtCards: used.length ? [...new Set([...s.dealtCards, ...used])] : s.dealtCards,
+      }));
       setPreparingRace(false);
       setHeldRaceStart(false);
       setStartError('');
       setHighlights(reel);
       setOverlayOpen(true);
-      setConfettiKey((k) => k + 1);
     },
     [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
   );
@@ -351,20 +340,13 @@ export function Stage() {
   }, []);
 
   /*
-   * The soundtrack is idle-driven: whenever no race is running, the lobby
-   * groove and the crowd bed come back up. The race lifecycle in `use-race`
-   * owns everything from the countdown to the winner fanfare, so this only
-   * has to cover the gaps between races.
+   * The soundtrack is idle-driven: whenever no race is running and the desk
+   * has chosen music, the lobby groove comes back up. The race lifecycle in
+   * `use-race` owns everything from the countdown to the winner fanfare, so
+   * this only has to cover the gaps between races. There is no crowd bed.
    */
   useEffect(() => {
-    if (!primed) return;
-    if (!event.sound) {
-      stopAmbience();
-      return;
-    }
-    /* The crowd is the venue, not the soundtrack: it stays up whenever sound
-       is on, even with the music switched off. */
-    startAmbience();
+    if (!primed || !event.sound) return;
     if (event.music && race.phase === 'idle') startTrack('lobby');
   }, [primed, event.sound, event.music, race.phase]);
 
@@ -489,7 +471,7 @@ export function Stage() {
       return;
     }
 
-    if (names.length < MIN_LIVE_FIELD || names.length > MAX_FIELD) {
+    if (fieldNames.length < MIN_LIVE_FIELD || fieldNames.length > MAX_FIELD) {
       setStartError(`The live race needs ${MIN_LIVE_FIELD} to ${MAX_FIELD} runners.`);
       return;
     }
@@ -501,19 +483,20 @@ export function Stage() {
 
     const plan = drawLockedRacePlan(
       freshSeed(),
-      names,
+      fieldNames,
       event.raceDurationMs,
       event.surprises,
       event.intensity,
       laps,
       event.trackShape,
       activeCourse.id,
+      event.dealtCards,
     );
     const config: HeldRaceStartState['config'] = {
       raceNo: nextRaceNo,
       raceType: event.raceType,
-      fieldSize: names.length,
-      names: names.slice(),
+      fieldSize: fieldNames.length,
+      names: fieldNames.slice(),
       durationMs: event.raceDurationMs,
       laps,
       surprises: event.surprises,
@@ -592,7 +575,7 @@ export function Stage() {
     voidingRace,
     voidRecovery,
     race,
-    names,
+    fieldNames,
     lanes,
     nextRaceNo,
     event.raceDurationMs,
@@ -604,6 +587,7 @@ export function Stage() {
     event.laps,
     event.phonePlay,
     event.heldRaceStart,
+    event.dealtCards,
   ]);
 
   const startRace = useCallback(async () => {
@@ -707,14 +691,14 @@ export function Stage() {
       raceNo,
       raceType: armed?.config.raceType ?? event.raceType,
       seedHex: race.seedHex || '--------',
-      fieldSize: armed?.config.fieldSize ?? names.length,
+      fieldSize: armed?.config.fieldSize ?? fieldNames.length,
       durationMs: armed?.config.durationMs ?? event.raceDurationMs,
       at: nowMs(),
       results: [],
       potCents: raceDonationCents,
       photoFinish: false,
       sponsor,
-      names: armed?.config.names ?? names,
+      names: armed?.config.names ?? fieldNames,
       lockedAt: armed?.lockedAt,
       startedAt: armed?.startedAt,
       commitHash: armed?.commitHash || undefined,
@@ -765,7 +749,7 @@ export function Stage() {
         ? ''
         : 'Race voided locally, but Phone Play recovery is held. Retry the same void and rearm commands; no new race plan can be drawn.',
     );
-  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, names, raceDonationCents, sponsor, acknowledgeVoidAndRearm]);
+  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, fieldNames, raceDonationCents, sponsor, acknowledgeVoidAndRearm]);
 
   /** Retry only the stable void/rearm commands; never redraw the held race. */
   const retryVoidRecovery = useCallback(async () => {
@@ -813,8 +797,7 @@ export function Stage() {
     [event.history],
   );
 
-  const [marketLockAt, setMarketLockAt] = useState<number | null>(null);
-  const warnedRef = useRef<Set<number>>(new Set());
+  const quaddieLive = quaddieIsLive(event.quaddie);
 
   /** The host speaks between races; the race keeps its own richer caller. */
   const sayHost = useCallback((text: string) => {
@@ -823,7 +806,7 @@ export function Stage() {
 
   const goToPhase = useCallback(
     (phase: ShowPhase) => {
-      setState({ showPhase: phase, ...(phase === 'market' ? { bettingOpen: true } : phase === 'race' ? { bettingOpen: false } : {}) });
+      setState({ showPhase: phase, ...(phase === 'race' ? { bettingOpen: false } : {}) });
       addAudit({
         kind: 'phase_change',
         raceNo: nextRaceNo,
@@ -846,67 +829,32 @@ export function Stage() {
 
   const advanceShow = useCallback(() => {
     if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.showPhase === 'race') return;
-    const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces });
+    const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces, quaddieLive });
     if (next === event.showPhase) return;
     if (event.showPhase === 'results') {
       setOverlayOpen(false);
       race.reset();
     }
-    setMarketLockAt(null);
-    warnedRef.current.clear();
     goToPhase(next);
-  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery]);
+  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive]);
 
   const backShow = useCallback(() => {
     if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.eventMode === 'recorded' && event.packCurrent) return;
     const back: Partial<Record<ShowPhase, ShowPhase>> = {
       racecard: 'lobby',
       market: 'racecard',
-      race: 'market',
-      intermission: 'championship',
+      race: 'racecard',
+      intermission: 'lobby',
       finale: 'championship',
     };
     const prev = back[event.showPhase];
-    if (prev) {
-      setMarketLockAt(null);
-      warnedRef.current.clear();
-      goToPhase(prev);
-    }
+    if (prev) goToPhase(prev);
   }, [event.showPhase, event.heldRaceStart, event.eventMode, event.packCurrent, goToPhase, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery]);
 
-  /* The market lock countdown: 30/10/5 warnings, then lock and race. */
-  useEffect(() => {
-    if (!marketLockAt) return;
-    const timer = window.setInterval(() => {
-      const left = Math.ceil((marketLockAt - Date.now()) / 1000);
-      for (const mark of [30, 10, 5] as const) {
-        if (left <= mark && !warnedRef.current.has(mark)) {
-          warnedRef.current.add(mark);
-          sayHost(marketWarning(mark));
-        }
-      }
-      if (left <= 0) {
-        setMarketLockAt(null);
-        warnedRef.current.clear();
-        setState({ bettingOpen: false, showPhase: 'race' });
-        sayHost('The market is closed. They are heading to the gate.');
-        addAudit({
-          kind: 'phase_change',
-          raceNo: nextRaceNo,
-          detail: `Market countdown reached zero: selections closed for race ${nextRaceNo}.`,
-        });
-      }
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [marketLockAt, sayHost, nextRaceNo]);
-
-  /* A race taking the gate always lands the show in the race phase and
-     cancels any armed market countdown. */
+  /* A race taking the gate always lands the show in the race phase. */
   useEffect(() => {
     if (race.phase !== 'countdown') return;
     const id = window.setTimeout(() => {
-      setMarketLockAt(null);
-      warnedRef.current.clear();
       if (event.showPhase !== 'race') setState({ showPhase: 'race' });
     }, 0);
     return () => window.clearTimeout(id);
@@ -935,7 +883,7 @@ export function Stage() {
       raceNo: onResults && standing ? standing.raceNo : nextRaceNo,
       phase: event.showPhase,
       marketOpen: event.bettingOpen && !isRacing && !onResults,
-      names,
+      names: fieldNames,
       odds: Object.fromEntries(lanes.map((l) => [l.lane, l.odds])),
       result:
         standing && standing.results.length
@@ -950,7 +898,7 @@ export function Stage() {
           : null,
       rehearsal: event.rehearsal,
     };
-  }, [event.history, event.eventName, event.clubName, event.showPhase, event.bettingOpen, event.rehearsal, event.heldRaceStart, preparingRace, heldRaceStart, voidingRace, voidRecovery, race.phase, nextRaceNo, names, lanes]);
+  }, [event.history, event.eventName, event.clubName, event.showPhase, event.bettingOpen, event.rehearsal, event.heldRaceStart, preparingRace, heldRaceStart, voidingRace, voidRecovery, race.phase, nextRaceNo, fieldNames, lanes]);
 
   useEffect(() => {
     liveShowRef.current = liveShow;
@@ -978,31 +926,6 @@ export function Stage() {
         : '',
     [origin, phonePlay.session],
   );
-
-  /* Reaction bursts float up the projector and nudge the crowd bed. */
-  const [floats, setFloats] = useState<{ id: number; glyph: string; left: number }[]>([]);
-  const floatIdRef = useRef(0);
-  useEffect(() => {
-    const glyphs: Record<string, string> = {
-      cheer: '📣', clap: '👏', laugh: '😂', shock: '😱', snail: '🐌',
-    };
-    const burst = Object.entries(phonePlay.reactionBurst).flatMap(([kind, count]) =>
-      Array.from({ length: Math.min(4, count) }, () => glyphs[kind] ?? '🐌'),
-    );
-    if (!burst.length || event.calm) return;
-    sfx.crowd.cheer(Math.min(0.5, 0.15 + burst.length * 0.05));
-    const added = burst.slice(0, 8).map((glyph) => ({
-      id: (floatIdRef.current += 1),
-      glyph,
-      left: 8 + Math.random() * 84,
-    }));
-    setFloats((f) => [...f.slice(-12), ...added]);
-    const timer = window.setTimeout(
-      () => setFloats((f) => f.filter((x) => !added.some((a) => a.id === x.id))),
-      2800,
-    );
-    return () => window.clearTimeout(timer);
-  }, [phonePlay.reactionBurst, event.calm]);
 
   /* ── Recorded Race Pack results, through the same settlement path ────── */
 
@@ -1033,7 +956,6 @@ export function Stage() {
       void phonePlayRef.current?.(raceNo, results);
       setHighlights([]);
       setOverlayOpen(true);
-      setConfettiKey((k) => k + 1);
     },
     [nextRaceNo, event.raceType, event.racePack?.packId, event.packCommit, raceDonationCents, sponsor, lanes],
   );
@@ -1074,29 +996,6 @@ export function Stage() {
     [nextRaceNo, event.raceType, event.racePack?.packId, raceDonationCents, sponsor],
   );
 
-  /* ── Fun bets ────────────────────────────────────────────────────────── */
-
-  const placeBet = useCallback(
-    (bet: Omit<Bet, 'id' | 'settled'>) => {
-      const k = bet.punter.trim().toLowerCase();
-      /*
-       * Functional, and re-checked at write time: the lock and the bank are
-       * verified against the freshest state, so a stale tab cannot slip a
-       * bet under a closed book or spend chips it no longer has.
-       */
-      setState((s) => {
-        if (!s.bettingOpen) return {};
-        const bank = s.chipBank[k] ?? CHIP_START;
-        if (bet.chips > bank || bet.chips <= 0) return {};
-        return {
-          bets: [...s.bets, { ...bet, id: newId('bet'), settled: false }],
-          chipBank: { ...s.chipBank, [k]: bank - bet.chips },
-        };
-      });
-    },
-    [],
-  );
-
   /* ── Donation arrivals ───────────────────────────────────────────────── */
 
   /*
@@ -1113,15 +1012,6 @@ export function Stage() {
     const id = window.setTimeout(() => setDismissedToast(toast.id), 5200);
     return () => window.clearTimeout(id);
   }, [toast]);
-
-  useEffect(() => {
-    if (!event.goalShow || event.goalCents <= 0) return;
-    const quarter = Math.floor((nightCents / event.goalCents) * 4);
-    if (quarter > milestoneRef.current && quarter > 0) {
-      milestoneRef.current = quarter;
-      sfx.milestone();
-    }
-  }, [nightCents, event.goalCents, event.goalShow]);
 
   /* One command path for the projector, moderator desk and presenter clicker. */
   const forwardAction = useCallback(() => {
@@ -1166,9 +1056,11 @@ export function Stage() {
       } else if (e.code === 'PageUp' || e.code === 'ArrowLeft') {
         e.preventDefault(); backAction();
       } else if (k === 'c') setState({ calm: !event.calm });
-      else if (k === 's') setState({ sound: !event.sound });
-      else if (k === 'b') setState({ music: !event.music });
-      else if (k === 'v') setState({ caller: !event.caller });
+      else if (k === 's') setState(audioPatch(event.audioMode === 'off' ? 'music' : 'off'));
+      else if (k === 'a') {
+        const order: AudioMode[] = ['music', 'commentary', 'off'];
+        setState(audioPatch(order[(order.indexOf(event.audioMode) + 1) % order.length]));
+      }
       else if (k === 'f' && e.currentTarget === window) void toggleFullscreen();
     };
     window.addEventListener('keydown', onKey);
@@ -1178,19 +1070,17 @@ export function Stage() {
       try { moderator.target?.window.removeEventListener('keydown', onKey); }
       catch { /* A desk navigated to another origin no longer exposes its listeners. */ }
     };
-  }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.sound, event.music, event.caller]);
+  }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.audioMode]);
 
-  /* ── Direct-pay link ─────────────────────────────────────────────────── */
+  /* ── The snail link ──────────────────────────────────────────────────── */
 
   /*
-   * A reusable Stripe Payment Link for the event: scanning its QR lands the
-   * phone straight in Stripe checkout with a choose-your-amount field. It is
-   * fetched once per event; if Stripe is not configured the request fails
-   * quietly and the panel simply never offers the second QR.
+   * One QR for the night: a reusable Stripe Payment Link that sells a $4
+   * snail and asks for its number, its name and the owner's name. A server
+   * deployment mints it here; the static Pages build cannot, so there the
+   * link the operator pasted into Admin stands. A minted link only replaces
+   * a pasted one when nothing has been pasted.
    */
-  const [directUrl, setDirectUrl] = useState('');
-  const [qrMode, setQrMode] = useState<'lineup' | 'direct'>('lineup');
-
   useEffect(() => {
     if (!event.eventId || !HAS_API) return;
     let cancel = false;
@@ -1199,33 +1089,21 @@ export function Stage() {
         const res = await fetch('/api/payment-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ eventId: event.eventId }),
+          body: JSON.stringify({ eventId: event.eventId, kind: 'snail', cents: event.card.snailCents }),
         });
         const body = (await res.json()) as { ok: boolean; url?: string };
-        if (!cancel) setDirectUrl(body.ok && body.url ? body.url : '');
+        if (cancel || !body.ok || !body.url) return;
+        setState((s) => (s.card.paymentLinkUrl ? {} : { card: { ...s.card, paymentLinkUrl: body.url! } }));
       } catch {
-        /* Direct pay is an extra. The lineup QR still works without it. */
-        if (!cancel) setDirectUrl('');
+        /* The link is an extra. The pasted link, or none, still stands. */
       }
     })();
     return () => {
       cancel = true;
     };
-  }, [event.eventId]);
+  }, [event.eventId, event.card.snailCents]);
 
-  /* ── Donor link ──────────────────────────────────────────────────────── */
-
-  const donateUrl = useMemo(() => {
-    if (!origin || !HAS_API) return '';
-    const token = encodeLineup({
-      v: 1,
-      e: event.eventId,
-      r: nextRaceNo,
-      c: event.clubName,
-      n: names,
-    });
-    return `${origin}${withBasePath('/donate')}?e=${token}`;
-  }, [origin, event.eventId, event.clubName, nextRaceNo, names]);
+  const snailLinkUrl = event.card.paymentLinkUrl;
 
   const voidable = race.phase === 'running' || race.phase === 'countdown';
   const racing = (event.eventMode === 'recorded' && event.packCurrent !== null) || preparingRace || heldRaceStart || event.heldRaceStart !== null || voidingRace || voidRecovery !== null || voidable || race.phase === 'confirming';
@@ -1237,7 +1115,6 @@ export function Stage() {
    * screen the course went from under half of it to nearly all of it.
    */
   const cinema = audienceOnly || voidable || race.phase === 'confirming' || race.phase === 'done';
-  const winnerColour = race.results[0] ? laneColour(race.results[0].lane).shell : '#ffb020';
 
   return (
     <div
@@ -1277,29 +1154,12 @@ export function Stage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="eyebrow">Raised tonight</p>
-              <CountUp
-                value={nightCents}
-                format={moneyShort}
-                className="display money-ink mt-1 text-4xl sm:text-[3.2rem]"
-              />
-            </div>
-            {event.goalShow ? (
-              <GoalRing raisedCents={nightCents} goalCents={event.goalCents} />
-            ) : null}
-          </div>
-
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip-toggle pointer-events-none">
-              {event.raceType} {nextRaceNo} of {event.plannedRaces}
+              Race {shownRaceNo} of {event.plannedRaces}
             </span>
             {event.rehearsal ? (
               <span className="chip-toggle pointer-events-none !text-(--bad)">REHEARSAL</span>
-            ) : null}
-            {event.eventMode === 'recorded' ? (
-              <span className="chip-toggle pointer-events-none">Recorded card</span>
             ) : null}
             {sponsor ? (
               <span className="sponsor-line" title="Race sponsor">
@@ -1316,51 +1176,13 @@ export function Stage() {
             >
               Calm
             </button>
-            <button
-              type="button"
-              className="chip-toggle"
-              aria-pressed={event.sound}
-              onClick={() => {
-                primeAudio();
-                setState({ sound: !event.sound });
-              }}
-              title="Sound (S)"
-            >
-              {event.sound ? 'Sound on' : 'Muted'}
-            </button>
-            <button
-              type="button"
-              className="chip-toggle"
-              aria-pressed={event.caller}
-              disabled={!event.sound || !canSpeak}
-              onClick={() => {
-                primeAudio();
-                initVoice();
-                setState({ caller: !event.caller });
-              }}
-              title="Spoken race caller (V)"
-            >
-              {event.caller ? 'Caller on' : 'Caller off'}
-            </button>
-            <button
-              type="button"
-              className="chip-toggle"
-              aria-pressed={event.music}
-              disabled={!event.sound}
-              onClick={() => {
-                primeAudio();
-                setState({ music: !event.music });
-              }}
-              title="Music and crowd (B)"
-            >
-              {event.music ? 'Music on' : 'Music off'}
-            </button>
+            <AudioModePicker mode={event.audioMode} canSpeak={canSpeak} onChange={(mode) => { primeAudio(); if (mode === 'commentary') initVoice(); setState(audioPatch(mode)); }} />
             <ThemeToggle />
           </div>
         </header>
 
         {/* ── Stage body ─────────────────────────────────────────────── */}
-        <main className="stage-main grid flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <main className="stage-main grid flex-1 gap-5">
           <div className="stage-track flex min-w-0 flex-col gap-4">
             {event.eventMode === 'recorded' ? (
               <PackRunner onResult={onPackResult} onVoid={onPackVoid} controlsTarget={packControlsRoot} />
@@ -1369,22 +1191,21 @@ export function Stage() {
               clientReady ? (
                 <Telecast
                   names={names}
+                  owners={owners}
                   race={race}
                   surface={event.stageTheme}
                   laps={event.laps}
                   chase={event.chaseCam}
+                  cameraMode={event.cameraMode}
                   calm={event.calm}
                   clubName={event.clubName}
-                  raceNo={event.showPhase === 'results' ? event.raceNumber : nextRaceNo}
+                  raceNo={shownRaceNo}
                   courseId={activeCourse.id}
                   fullCourse={fullCourse}
                   onCourseViewChange={setFullCourse}
-                  plannedRaces={event.plannedRaces}
                   sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
-                  runnerSponsors={event.runnerSponsors}
-                  history={event.history}
-                  ticker={ticker}
                   toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
+                  numberOffset={(shownRaceNo - 1) * 10}
                 />
               ) : (
                 <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1485,92 +1306,16 @@ export function Stage() {
               </div>
             </div>
 
-            {event.trackShape === 'circuit' ? (
-              <PitBoard names={names} race={race} laps={event.laps} />
-            ) : null}
-
-            <Standings history={event.history} />
-
-            <RecentDonations donations={liveDonations} />
-          </div>
-
-          <div className="stage-side flex flex-col gap-4">
-            <ToteBoard
-              lanes={lanes}
-              totalChips={totalChips}
-              fieldSize={names.length}
-              raceNo={nextRaceNo}
-              showOdds
-            />
-
-            {donateUrl && feed.status !== 'unconfigured' ? (
-              <section className="glass glass-strong flex flex-col items-center gap-3 p-6">
-                <h2 className="eyebrow">
-                  {qrMode === 'direct' ? 'Give in one scan' : 'Back a snail'}
-                </h2>
-
-                {directUrl ? (
-                  <span className="seg" style={{ '--seg-n': 2 } as React.CSSProperties} role="group" aria-label="Donation QR mode">
-                    <span
-                      className="seg-thumb"
-                      style={{ '--seg-i': qrMode === 'lineup' ? 0 : 1 } as React.CSSProperties}
-                      aria-hidden="true"
-                    />
-                    <button
-                      type="button"
-                      aria-pressed={qrMode === 'lineup'}
-                      onClick={() => setQrMode('lineup')}
-                    >
-                      Back a snail
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={qrMode === 'direct'}
-                      onClick={() => setQrMode('direct')}
-                    >
-                      Scan &amp; pay
-                    </button>
-                  </span>
-                ) : null}
-
-                <DonateQr
-                  url={qrMode === 'direct' && directUrl ? directUrl : donateUrl}
-                  caption={
-                    qrMode === 'direct' ? 'Scan to pay by card now' : 'Scan to back a snail'
-                  }
-                />
-                <p className="text-center text-xs text-(--tx)/50">
-                  {qrMode === 'direct'
-                    ? 'Straight into Stripe checkout: pick an amount, pay by card, Apple Pay or Google Pay.'
-                    : 'Card donations by Stripe. Every dollar goes to the club.'}
-                </p>
-              </section>
-            ) : null}
-
-            <BetSlip
-              lanes={lanes}
-              raceNo={nextRaceNo}
-              bets={event.bets}
-              chipBank={event.chipBank}
-              streaks={event.streaks}
-              open={event.bettingOpen && !racing}
-              onPlace={placeBet}
-            />
           </div>
         </main>
       </div>
 
       <ShowOverlay
         event={event}
-        lanes={lanes}
-        totalChips={totalChips}
         nightCents={nightCents}
         nextRaceNo={nextRaceNo}
         sponsor={sponsor}
-        donateUrl={feed.status !== 'unconfigured' ? donateUrl : ''}
-        playUrl={playUrl}
-        room={phonePlay.session ? phonePlay.summary : null}
-        marketLockAt={marketLockAt}
+        snailLinkUrl={snailLinkUrl}
       />
 
       {!audienceOnly && event.showPhase !== 'race' ? (
@@ -1578,37 +1323,6 @@ export function Stage() {
           <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={backAction}>
             Back <kbd>PgUp</kbd>
           </button>
-          {event.showPhase === 'market' && event.bettingOpen ? (
-            <>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                disabled={!clientReady}
-                onClick={() => {
-                  warnedRef.current.clear();
-                  setMarketLockAt(Date.now() + 60_000);
-                }}
-              >
-                Lock in 60s
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                disabled={!clientReady}
-                onClick={() => {
-                  setMarketLockAt(null);
-                  setState({ bettingOpen: false, showPhase: 'race' });
-                }}
-              >
-                Lock now
-              </button>
-            </>
-          ) : null}
-          {event.showPhase === 'championship' ? (
-            <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={() => goToPhase('intermission')}>
-              Intermission
-            </button>
-          ) : null}
           <button
             type="button"
             className="btn btn-ghost"
@@ -1624,12 +1338,6 @@ export function Stage() {
           </button>
         </div>
       ) : null}
-
-      {floats.map((f) => (
-        <span key={f.id} className="reaction-float" style={{ left: `${f.left}%` }} aria-hidden="true">
-          {f.glyph}
-        </span>
-      ))}
 
       {audio === 'blocked' || (audio === 'idle' && primed) ? (
         <button
@@ -1649,10 +1357,11 @@ export function Stage() {
 
       {toast ? (
         <div className="toast glass glass-strong fixed right-5 top-5 z-[95] max-w-xs px-5 py-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-(--tx)/50">Donation in</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-(--tx)/50">{toast.snailNo ? 'Snail sold' : 'Donation in'}</p>
           <p className="mt-1 font-semibold">
-            {toast.backerName || 'Anonymous'}{' '}
-            {toast.lane < 0 ? 'gave straight to the club' : `backed ${toast.snailName}`}
+            {toast.snailNo
+              ? `${toast.backerName || 'Someone'} bought snail ${toast.snailNo}, "${toast.snailName}"`
+              : `${toast.backerName || 'Anonymous'} ${toast.lane < 0 ? 'gave straight to the club' : `backed ${toast.snailName}`}`}
           </p>
           <p className="num text-2xl font-bold text-(--money-b)">{money(toast.cents)}</p>
         </div>
@@ -1671,19 +1380,15 @@ export function Stage() {
                 .slice()
                 .sort((a, b) => a.place - b.place)
         }
-        donations={allDonations}
-        bets={event.bets}
+        owners={owners}
         highlights={highlights}
         nextRaceNo={event.raceNumber + 1}
         sponsor={event.history[0]?.sponsor ?? ''}
-        phonePlayOpen={Boolean(phonePlay.session)}
         lastRace={racesRun >= event.plannedRaces}
         tote={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote}
         auction={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.auction}
         onClose={() => setOverlayOpen(false)}
       />
-
-      <Confetti fire={confettiKey} highlight={winnerColour} calm={event.calm} />
 
       {holding ? <div className="projector-hold" role="status">
         <ClubBrand className="hold-brand" />
@@ -1694,22 +1399,19 @@ export function Stage() {
         <ModeratorDesk
           packControlsRef={setPackControlsRoot}
           event={event} race={race} courseName={activeCourse.name}
-          raceNo={event.showPhase === 'results' ? event.raceNumber : nextRaceNo}
+          raceNo={shownRaceNo} nextRaceNo={nextRaceNo}
           fullscreen={display.fullscreen} wakeLock={display.wakeLock} audio={audio}
           holding={holding} fullCourse={fullCourse} locked={racing || event.eventMode === 'recorded' && event.packCurrent !== null}
           primaryLabel={event.showPhase !== 'race' ? showPhaseSpec(event.showPhase).advance : voidRecovery ? 'Retry void/rearm' : heldRaceStart ? 'Retry lock' : startDisabled ? race.phase === 'running' ? 'Race in progress' : 'Preparing race' : 'Start race'}
           primaryDisabled={!clientReady || (event.showPhase === 'race' ? startDisabled || event.eventMode === 'recorded' : racing || event.showPhase === 'finale')}
           canBack={!racing && ['racecard', 'market', 'race', 'intermission', 'finale'].includes(event.showPhase)}
-          startError={startError} marketLockAt={marketLockAt} winnerOpen={overlayOpen}
+          startError={startError} winnerOpen={overlayOpen}
           onPrimary={forwardAction} onBack={backAction}
           onSettings={() => setDrawerOpen(true)}
           onReturn={() => { setDrawerOpen(false); moderator.close(); }}
-          onHold={() => { if (!racing && !marketLockAt) { silence(); setHolding((v) => !v); } }}
+          onHold={() => { if (!racing) { silence(); setHolding((v) => !v); } }}
           onCamera={setFullCourse}
-          onVoid={() => { if (moderator.target?.window.confirm(`Void race ${nextRaceNo}? No result or settlement; selections reopen for the re-run.`)) voidCurrentRace(); }}
-          onMarketTimer={() => { warnedRef.current.clear(); setMarketLockAt(Date.now() + 60_000); }}
-          onCancelTimer={() => { warnedRef.current.clear(); setMarketLockAt(null); }}
-          onInterval={() => goToPhase('intermission')}
+          onVoid={() => { if (moderator.target?.window.confirm(`Void race ${nextRaceNo}? No result or settlement; the same ten snails re-run.`)) voidCurrentRace(); }}
           onDismissWinner={() => setOverlayOpen(false)}
         >
       <ControlDrawer
@@ -1794,64 +1496,5 @@ function FeedPill({ status, lastOk }: { status: string; lastOk: number }) {
       {status === 'live' ? <span className="live-dot" aria-hidden="true" /> : null}
       {label}
     </span>
-  );
-}
-
-function RecentDonations({ donations }: { donations: Donation[] }) {
-  const recent = donations.slice().sort((a, b) => b.createdAt - a.createdAt).slice(0, 14);
-
-  if (recent.length === 0) {
-    return (
-      <div className="ticker-wrap glass px-5 py-4 text-sm text-(--tx)/45">
-        No donations yet tonight. Scan the code to be the first.
-      </div>
-    );
-  }
-
-  /*
-   * A marquee only reads as one when it has enough in it to fill the rail.
-   * With two entries the duplicated copy needed for a seamless loop just
-   * looks like the same donation recorded twice, so short lists sit still.
-   */
-  const scroll = recent.length >= 5;
-
-  const entries = (copy: number) =>
-    recent.map((d) => (
-      <span key={`${copy}-${d.id}`} className="flex items-center gap-2 text-sm whitespace-nowrap">
-        <span
-          className="h-2 w-2 shrink-0 rounded-full"
-          style={{ background: laneColour(d.lane).shell }}
-        />
-        <span className="font-medium">{d.backerName || 'Anonymous'}</span>
-        <span className="text-(--tx)/45">
-          {d.lane < 0 ? 'straight to the club' : `on ${d.snailName}`}
-        </span>
-        <span className="num font-semibold text-(--money-b)">{money(d.cents)}</span>
-        {d.source === 'cash' ? (
-          <span className="rounded-full bg-(--tx)/10 px-2 text-[10px]">cash</span>
-        ) : null}
-      </span>
-    ));
-
-  return (
-    <div className="ticker-wrap glass overflow-hidden px-5 py-3.5">
-      <div className="flex items-center gap-3">
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.22em] text-(--tx)/40">
-          Latest
-        </span>
-        <div className="min-w-0 flex-1 overflow-hidden">
-          {scroll ? (
-            <div className="ticker-track">
-              <div className="flex shrink-0 gap-12">{entries(0)}</div>
-              <div className="flex shrink-0 gap-12" aria-hidden="true">
-                {entries(1)}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-x-8 gap-y-1.5">{entries(0)}</div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }

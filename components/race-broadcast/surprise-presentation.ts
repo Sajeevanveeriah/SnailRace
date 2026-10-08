@@ -61,6 +61,12 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['DRINKS BREAK'], value: { art: null, glyph: 'drinks-cart', symbol: '🥤', cue: 'burst' } },
   { matches: ['DEW'], value: { art: null, glyph: 'slime', symbol: '💧', cue: 'drop' } },
 
+  /* The deck: late and field-wide cards drawn on top of both books. */
+  { matches: ['BIG FREEZE', 'FREEZE'], value: { art: null, glyph: 'hand', symbol: '✋', cue: 'burst' } },
+  { matches: ['HEADWIND'], value: { art: null, glyph: 'wind', symbol: '💨', cue: 'burst' } },
+  { matches: ['REVERSE GEAR'], value: { art: null, glyph: 'u-turn', symbol: '↩', cue: 'cross' } },
+  { matches: ['LUCKY LAST'], value: { art: null, glyph: 'bolt', symbol: '⚡', cue: 'burst' } },
+
   /* The first book's lighter moments, now drawn rather than typed. */
   { matches: ['BANANA'], value: { art: null, glyph: 'banana', symbol: '🍌', cue: 'drop' } },
   { matches: ['ESPRESSO'], value: { art: null, glyph: 'coffee', symbol: '☕', cue: 'burst' } },

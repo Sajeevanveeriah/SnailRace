@@ -5,9 +5,13 @@ import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 import { normaliseCourseId } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
+import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, normaliseCard } from './card';
+import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
+  AudioMode,
   AuditEntry,
+  CameraMode,
   EventState,
   ToteSale,
   HeldRaceStartState,
@@ -59,23 +63,24 @@ export function freshState(): EventState {
     eventDate: '2026-10-24',
     startTime: '19:00',
     venue: 'Club rooms',
-    backingCents: 1000,
+    backingCents: DEFAULT_CARD.snailCents,
     timezone: 'Australia/Melbourne',
     eventMode: 'live',
-    plannedRaces: 6,
+    plannedRaces: RACES_ON_CARD,
     rehearsal: false,
     showPhase: 'lobby',
-    intensity: 'standard',
+    /* A card night is sold on surprises: the deck is dealt hard by default. */
+    intensity: 'chaos',
     racePack: null,
     packPlayed: [],
     packCurrent: null,
     phonePlay: null,
     heldRaceStart: null,
     voidRecovery: null,
-    fieldSize: 8,
+    fieldSize: SNAILS_PER_RACE,
     names: DEFAULT_NAMES.slice(),
     goalCents: 100_000,
-    goalShow: true,
+    goalShow: false,
     /*
      * 40 seconds a lap, three laps. Pace matters more than it looks: the
      * oval is about 2,200 course units round and a snail is 48 long, so a
@@ -93,6 +98,12 @@ export function freshState(): EventState {
     raceNumber: 0,
     sponsors: [],
     runnerSponsors: [],
+    card: { ...DEFAULT_CARD, names: DEFAULT_CARD.names.slice(), owners: DEFAULT_CARD.owners.slice(), claims: {} },
+    quaddie: { ...DEFAULT_QUADDIE, legs: DEFAULT_QUADDIE.legs.slice() },
+    quaddieEntries: [],
+    audioMode: 'music',
+    cameraMode: 'telecast',
+    dealtCards: [],
     cashTote: { ...DEFAULT_CASH_TOTE },
     toteSales: [],
     auctionBids: [],
@@ -106,7 +117,7 @@ export function freshState(): EventState {
     calm: false,
     sound: true,
     music: true,
-    caller: true,
+    caller: false,
     audioRev: AUDIO_REV,
     volume: 1,
     musicVolume: 0.72,
@@ -271,9 +282,18 @@ function merge(raw: string | null): EventState {
     const parsed = JSON.parse(raw) as Partial<EventState>;
     const names = Array.isArray(parsed.names) ? parsed.names.slice(0, MAX_FIELD) : base.names;
     while (names.length < MAX_FIELD) names.push(DEFAULT_NAMES[names.length % DEFAULT_NAMES.length]);
-    const phases: ShowPhase[] = [
-      'lobby', 'racecard', 'market', 'race', 'results', 'championship', 'intermission', 'finale',
-    ];
+    /* The market and the interval left the run of show with the card night;
+       a saved night parked on one reopens on the nearest surviving screen. */
+    const phases: ShowPhase[] = ['lobby', 'racecard', 'race', 'results', 'championship', 'finale'];
+    const audioModes: AudioMode[] = ['music', 'commentary', 'off'];
+    const cameraModes: CameraMode[] = ['telecast', 'full'];
+    const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
+      ? (parsed.audioMode as AudioMode)
+      : parsed.sound === false
+        ? 'off'
+        : parsed.caller === true && parsed.music === false
+          ? 'commentary'
+          : 'music';
     const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos'];
     const heldRaceStart = validHeldRaceStart(parsed.heldRaceStart);
     const recoveryValue = parsed.voidRecovery as VoidRecoveryState | null | undefined;
@@ -308,11 +328,15 @@ function merge(raw: string | null): EventState {
           ? parsed.backingCents
           : base.backingCents,
       eventMode: parsed.eventMode === 'recorded' ? 'recorded' : 'live',
-      plannedRaces: Math.min(12, Math.max(1, Number(parsed.plannedRaces) || base.plannedRaces)),
+      /* The card is ten races of ten. Fixed, so a backup cannot desynchronise
+         the snail numbers from the races they were sold into. */
+      plannedRaces: RACES_ON_CARD,
       rehearsal: parsed.rehearsal === true,
       showPhase: phases.includes(parsed.showPhase as ShowPhase)
         ? (parsed.showPhase as ShowPhase)
-        : 'lobby',
+        : parsed.showPhase === 'market'
+          ? 'racecard'
+          : 'lobby',
       intensity: intensities.includes(parsed.intensity as SurpriseIntensity)
         ? (parsed.intensity as SurpriseIntensity)
         : parsed.surprises === false
@@ -333,7 +357,18 @@ function merge(raw: string | null): EventState {
       heldRaceStart,
       voidRecovery,
       names,
-      fieldSize: validLiveFieldSize(parsed.fieldSize) ? parsed.fieldSize : base.fieldSize,
+      fieldSize: SNAILS_PER_RACE,
+      card: normaliseCard(parsed.card),
+      quaddie: normaliseQuaddie(parsed.quaddie),
+      quaddieEntries: Array.isArray(parsed.quaddieEntries) ? parsed.quaddieEntries.filter(validQuaddieEntry) : [],
+      audioMode,
+      sound: audioMode !== 'off',
+      music: audioMode === 'music',
+      caller: audioMode === 'commentary',
+      cameraMode: cameraModes.includes(parsed.cameraMode as CameraMode) ? (parsed.cameraMode as CameraMode) : 'telecast',
+      dealtCards: Array.isArray(parsed.dealtCards)
+        ? parsed.dealtCards.filter((x): x is string => typeof x === 'string').slice(0, 200)
+        : [],
       courseId: normaliseCourseId(parsed.courseId),
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],
@@ -493,3 +528,11 @@ const getServerSnapshot = () => serverState;
 export function useEvent(): EventState {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
+
+/** The three legacy flags, derived from the one audio choice the desk offers. */
+export const audioPatch = (mode: AudioMode): Pick<EventState, 'audioMode' | 'sound' | 'music' | 'caller'> => ({
+  audioMode: mode,
+  sound: mode !== 'off',
+  music: mode === 'music',
+  caller: mode === 'commentary',
+});

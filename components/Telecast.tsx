@@ -17,15 +17,22 @@ import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import { clockText, lapProgress } from '@/lib/broadcast';
 import type { SnailRun } from '@/lib/race-engine';
 import type { PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
-import type { RaceHistoryEntry, ToteDividend } from '@/lib/types';
-import { BroadcastTicker, OfficialResult, OnAirBug, StartListSlate } from './race-broadcast/BroadcastGraphics';
+import type { CameraMode, ToteDividend } from '@/lib/types';
+import { OfficialResult } from './race-broadcast/BroadcastGraphics';
 
 interface Props {
   names: string[];
+  /** Owner per lane, shown beside the name on the running order. */
+  owners?: string[];
   race: RaceController;
   surface: StageThemeId;
   laps: number;
   chase: boolean;
+  /**
+   * Telecast frames the leading pack, the way a horse race is shot; full
+   * shows the whole course. The on-screen toggle and the desk both flip it.
+   */
+  cameraMode?: CameraMode;
   calm: boolean;
   clubName: string;
   raceNo: number;
@@ -33,15 +40,15 @@ interface Props {
   replay?: boolean;
   fullCourse?: boolean;
   onCourseViewChange?: (value: boolean) => void;
-  /* Broadcast furniture. All optional so the replay player can stay lean. */
-  plannedRaces?: number;
   sponsor?: string;
-  runnerSponsors?: string[];
-  history?: RaceHistoryEntry[];
-  ticker?: string[];
   /** This race's settled cash tote, for the official result lower third. */
   toteResult?: ToteDividend | null;
+  /** Added to every lane number on screen, so race 3 shows snails 21 to 30. */
+  numberOffset?: number;
 }
+
+/** How many runners the telecast shot keeps in frame: the leader and three more. */
+export const LEAD_PACK = 4;
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
 /** A single course world owns the lane paint, runner feet and surprise props.
@@ -49,10 +56,12 @@ const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
  */
 export function Telecast({
   names,
+  owners = [],
   race,
   surface,
   laps,
   chase,
+  cameraMode = 'telecast',
   calm,
   clubName,
   raceNo,
@@ -60,19 +69,17 @@ export function Telecast({
   replay = false,
   fullCourse,
   onCourseViewChange,
-  plannedRaces = 1,
   sponsor,
-  runnerSponsors,
-  history = [],
-  ticker = [],
   toteResult,
+  numberOffset = 0,
 }: Props) {
   const { setPainter } = race;
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = calm || prefersReducedMotion;
   const [localCourseView, setCourseView] = useState(false);
-  const courseView = fullCourse ?? localCourseView;
+  const courseView = (fullCourse ?? localCourseView) || cameraMode === 'full';
   const courseViewRef = useRef(false);
+  const outOfShotRef = useRef<HTMLParagraphElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const nodesRef = useRef(new Map<number, SVGGElement>());
@@ -119,15 +126,36 @@ export function Telecast({
     };
     const paint: RacePainter['paint'] = (snails, info) => {
       snapshotRef.current = { snails, info };
-      const positions = snails.map((snail) => {
+      /*
+       * Every runner is placed on its lane every frame. The camera then
+       * frames only the leading pack: the leader and the next three, like a
+       * horse-race telecast that follows the front of the field and lets the
+       * tail drop out of shot. A strip under the picture names who is behind
+       * the shot, so no owner loses their snail.
+       */
+      const framed = new Set(info.ranked.slice(0, LEAD_PACK).map((s) => s.lane));
+      const positions: { x: number; y: number }[] = [];
+      const behind: number[] = [];
+      for (const snail of snails) {
         const node = nodesRef.current.get(snail.lane);
         node?.classList.toggle('retired', Boolean(snail.retired));
         node?.classList.toggle(
           'fx-up',
           snail.effect === 'boost' || snail.effect === 'surge',
         );
-        return place(snail.lane, snail.p);
-      });
+        const point = place(snail.lane, snail.p);
+        if (framed.has(snail.lane) || info.finalStraight) positions.push(point);
+        else behind.push(snail.lane);
+      }
+      if (outOfShotRef.current) {
+        const list = courseViewRef.current || info.finalStraight || !behind.length
+          ? ''
+          : `Behind the shot: ${info.ranked
+              .filter((s) => behind.includes(s.lane))
+              .map((s) => numberOffset + s.lane + 1)
+              .join('  ')}`;
+        if (outOfShotRef.current.textContent !== list) outOfShotRef.current.textContent = list;
+      }
       for (const snail of info.justFinished)
         nodesRef.current.get(snail.lane)?.classList.add('finished');
       if (clockRef.current)
@@ -139,7 +167,7 @@ export function Telecast({
           ? 'FINISH LINE'
           : courseViewRef.current
             ? 'FULL COURSE'
-            : 'FOLLOW FIELD';
+            : 'LEAD PACK';
       const moment = momentRef.current;
       if (moment && propRef.current) {
         const target = snails.find(
@@ -172,8 +200,8 @@ export function Telecast({
       ) {
         const xs = positions.map((p) => p.x),
           ys = positions.map((p) => p.y);
-        w = Math.max(260, Math.max(...xs) - Math.min(...xs) + 100);
-        h = Math.max(100, Math.max(...ys) - Math.min(...ys) + 90);
+        w = Math.max(320, Math.max(...xs) - Math.min(...xs) + 140);
+        h = Math.max(120, Math.max(...ys) - Math.min(...ys) + 110);
         x = (Math.min(...xs) + Math.max(...xs) - w) / 2;
         y = (Math.min(...ys) + Math.max(...ys) - h) / 2;
       }
@@ -214,7 +242,7 @@ export function Telecast({
       },
       paint,
     };
-  }, [geometry, laps, chase, reduceMotion, spriteScale]);
+  }, [geometry, laps, chase, reduceMotion, spriteScale, numberOffset]);
 
   useEffect(() => {
     setPainter(painter);
@@ -243,21 +271,6 @@ export function Telecast({
   const confirming = phase === 'confirming';
   const moment = phase === 'running' ? race.moment : null;
   const presentation = presentationForMoment(moment);
-  /* Tonight's finishing places per name, for the start-list slate. */
-  const formByName = useMemo(() => {
-    const map = new Map<string, number[]>();
-    for (const h of history.slice().reverse()) {
-      if (h.void) continue;
-      for (const r of h.results) {
-        if (r.status === 'retired') continue;
-        const list = map.get(r.name) ?? [];
-        list.push(r.place);
-        map.set(r.name, list);
-      }
-    }
-    return map;
-  }, [history]);
-  const showSlate = !replay && phase === 'idle';
   const showResult = (phase === 'confirming' || phase === 'done') && race.results.length > 0;
   const finishA = pointOnLane(geometry.boundaries[0], 0);
   const finishB = pointOnLane(
@@ -407,7 +420,7 @@ export function Telecast({
                   data-lane={lane}
                 >
                   <title>
-                    {lane + 1}. {name}
+                    {numberOffset + lane + 1}. {name}
                   </title>
                   <g className="tv-art">
                     <ellipse
@@ -448,7 +461,7 @@ export function Telecast({
                       fontSize="10"
                       fontWeight="800"
                     >
-                      {lane + 1}
+                      {numberOffset + lane + 1}
                     </text>
                   </g>
                 </g>
@@ -499,18 +512,6 @@ export function Telecast({
           </g>
         </svg>
       </div>
-      {showSlate ? (
-        <StartListSlate
-          names={names}
-          runnerSponsors={runnerSponsors}
-          formByName={formByName}
-          raceNo={raceNo}
-          plannedRaces={plannedRaces}
-          courseName={course.name}
-          laps={laps}
-          sponsor={sponsor}
-        />
-      ) : null}
       {showResult ? (
         <OfficialResult
           results={race.results}
@@ -518,16 +519,12 @@ export function Telecast({
           sponsor={sponsor}
           tote={toteResult}
           replay={replay}
-          runnerSponsors={runnerSponsors}
+          runnerSponsors={owners}
         />
       ) : null}
       <div className="course-director-bar">
-        {ticker.length ? (
-          <BroadcastTicker items={ticker} reduceMotion={reduceMotion} />
-        ) : (
-          <span>{clubName} / SAJ RACE NIGHT</span>
-        )}
-        <OnAirBug weather={race.weather} label={replay ? 'REPLAY' : 'NDCC RACE NIGHT'} />
+        <span>{clubName}</span>
+        <p ref={outOfShotRef} className="course-out-of-shot num" aria-live="off" />
         <button
           type="button"
           className="race-camera-toggle"
@@ -541,7 +538,7 @@ export function Telecast({
             if (snapshot) painter.paint(snapshot.snails, snapshot.info);
           }}
         >
-          {courseView ? 'Follow field' : 'Full course view'}
+          {courseView ? 'Lead pack' : 'Full course view'}
         </button>
       </div>
       <BroadcastHud
@@ -555,6 +552,8 @@ export function Telecast({
         }
         race={race}
         names={names}
+        owners={owners}
+        numberOffset={numberOffset}
         raceNo={raceNo}
         courseName={course.name}
         replay={replay}
