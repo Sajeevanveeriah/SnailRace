@@ -76,9 +76,10 @@ are unchanged.
 A $4 snail is a purchase of a named entry on the card. The app records it, puts
 the name on the board and never pays it out. Stripe donations through the older
 `/donate` route remain gifts with no return. The quaddie and the cash tote are
-the only products that pay money out, and both sit behind the operator's permit
-attestation. The app does not claim legal clearance for any of it; the club
-obtains the advice it needs for its own event.
+the only products that pay money out. The cash tote sits behind the operator's
+permit attestation; the quaddie is a plain switch in Admin, at the club's
+request. The app does not claim legal clearance for any of it; the club obtains
+the advice it needs for its own event.
 
 ## Projector experience
 
