@@ -19,14 +19,11 @@ import type { EventState } from '@/lib/types';
 /* ── Admin: the permit gate and the legs ───────────────────────────────── */
 
 /**
- * The quaddie is off until the club records the authority it holds to run
- * it. The app writes the attestation to the audit trail; it does not decide
- * the question and makes no claim about it.
+ * The quaddie is off until the operator switches it on for the night. Both
+ * changes go to the audit trail.
  */
 export function QuaddieSettingsPanel({ event, locked }: { event: EventState; locked: boolean }) {
   const q = event.quaddie;
-  const [reference, setReference] = useState(q.permitReference);
-  const [attest, setAttest] = useState(false);
   const live = quaddieIsLive(q);
   /* Money terms freeze with the first ticket: a payout is never recomputed
      under terms nobody bought under. Switching the quaddie off does not
@@ -37,14 +34,11 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
     setState((s) => ({ quaddie: { ...s.quaddie, ...patch } }));
 
   const enable = () => {
-    const ref = reference.trim();
-    if (!ref || !attest) return;
-    const at = nowMs();
-    save({ enabled: true, permitReference: ref, permitAcknowledgedAt: at });
+    save({ enabled: true });
     addAudit({
       kind: 'quaddie_enabled',
       raceNo: 0,
-      detail: `Quaddie enabled on races ${q.legs.join(', ')} under the club's stated authority "${ref}", attested by the operator at ${new Date(at).toLocaleString('en-AU')}.`,
+      detail: `Quaddie switched on by the operator on races ${q.legs.join(', ')} at ${new Date(nowMs()).toLocaleString('en-AU')}.`,
     });
   };
 
@@ -67,27 +61,17 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
     <section className="panel" aria-label="Quaddie">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h3 className="font-semibold">Quaddie</h3>
-        <span className={`fun-chip-tag ${live ? '!text-(--ok)' : ''}`}>{live ? 'LIVE under club authority' : 'off'}</span>
+        <span className={`fun-chip-tag ${live ? '!text-(--ok)' : ''}`}>{live ? 'LIVE' : 'off'}</span>
       </div>
       <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
         Four nominated races. One entry picks the winner of each; every entry with all four right shares the pool
-        after the club&apos;s share. This is a club product under the club&apos;s own authority, kept apart from the race
-        engine. Record the permit or authority reference and attest to it to switch it on.
+        after the club&apos;s share. It is a club product kept apart from the race engine. Switch it on for the night
+        and the desk takes entries until the first leg goes to the gate.
       </p>
       {!live ? (
-        <div className="grid gap-2">
-          <label className="fld">
-            <span>Permit or authority reference</span>
-            <input type="text" value={reference} maxLength={80} onChange={(e) => setReference(e.target.value)} />
-          </label>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} />
-            <span>I confirm the club holds the authority referenced above to run this quaddie tonight.</span>
-          </label>
-          <button type="button" className="btn btn-go" disabled={!reference.trim() || !attest} onClick={enable}>
-            Enable quaddie
-          </button>
-        </div>
+        <button type="button" className="btn btn-go" onClick={enable}>
+          Enable quaddie
+        </button>
       ) : (
         <button type="button" className="btn btn-ghost" onClick={disable} disabled={locked}>
           Switch the quaddie off

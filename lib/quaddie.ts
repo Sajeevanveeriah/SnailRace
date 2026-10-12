@@ -9,17 +9,14 @@ import type { RaceHistoryEntry } from './types';
  * entry that did. The club keeps a stated share, dividends round down to ten
  * cents, and a pool nobody wins stays with the club and the screen says so.
  *
- * Like the cash tote this is a PERMIT-GATED product. It is off until the
- * operator records the club's permit or authority reference and attests to
- * it, and nothing here is readable by the race engine. Entries are recorded
+ * It is a club product: off by default and switched on in Admin for the
+ * night. Nothing here is readable by the race engine. Entries are recorded
  * at the desk; the money is taken at the table or through the club's own
  * Stripe link and reconciled separately.
  */
 
 export interface QuaddieSettings {
   enabled: boolean;
-  permitAcknowledgedAt: number | null;
-  permitReference: string;
   /** The four race numbers, ascending. */
   legs: number[];
   /** One entry, in cents. */
@@ -40,8 +37,6 @@ export interface QuaddieEntry {
 
 export const DEFAULT_QUADDIE: QuaddieSettings = {
   enabled: false,
-  permitAcknowledgedAt: null,
-  permitReference: '',
   legs: [3, 5, 7, 9],
   entryCents: 1000,
   retainedPercent: 20,
@@ -50,28 +45,17 @@ export const DEFAULT_QUADDIE: QuaddieSettings = {
 export const QUADDIE_LEGS = 4;
 
 export const quaddieIsLive = (settings: QuaddieSettings): boolean =>
-  settings.enabled &&
-  settings.permitAcknowledgedAt !== null &&
-  settings.permitReference.trim().length > 0 &&
-  settings.legs.length === QUADDIE_LEGS;
+  settings.enabled && settings.legs.length === QUADDIE_LEGS;
 
 export function normaliseQuaddie(value: unknown): QuaddieSettings {
   const base = { ...DEFAULT_QUADDIE, legs: DEFAULT_QUADDIE.legs.slice() };
   if (!value || typeof value !== 'object') return base;
   const v = value as Partial<QuaddieSettings>;
-  const reference = typeof v.permitReference === 'string' ? v.permitReference.slice(0, 80) : '';
-  const acknowledgedAt =
-    typeof v.permitAcknowledgedAt === 'number' && Number.isFinite(v.permitAcknowledgedAt) && v.permitAcknowledgedAt > 0
-      ? v.permitAcknowledgedAt
-      : null;
   const legs = Array.isArray(v.legs)
     ? [...new Set(v.legs.filter((n): n is number => Number.isSafeInteger(n) && n >= 1 && n <= 12))].sort((a, b) => a - b)
     : base.legs;
   return {
-    /* Never live from storage without its attestation. */
-    enabled: v.enabled === true && acknowledgedAt !== null && reference.trim().length > 0,
-    permitAcknowledgedAt: acknowledgedAt,
-    permitReference: reference,
+    enabled: v.enabled === true,
     legs: legs.length === QUADDIE_LEGS ? legs : base.legs,
     entryCents:
       Number.isSafeInteger(v.entryCents) && Number(v.entryCents) >= 100 && Number(v.entryCents) <= 100_000

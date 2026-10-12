@@ -13,7 +13,7 @@ Prepared 7 October 2026 for the 24 October 2026 night. Rev00.
 | 5 | Telecast viewport, leading pack by default | Camera frames leader to fourth, strip names runners behind the shot, full course toggle, locked finish | `components/Telecast.tsx` (`LEAD_PACK`) |
 | 6 | Unpredictable, varied surprises | `DECK_CARDS`: nine late and field-wide cards, once-a-night dealt without replacement, reaches the finish straight | `lib/race-engine.ts`, `tests/deck.test.ts` |
 | 7 | Fewer graphics | Ticker, splits, slate, on-air bug, goal ring, confetti, pit board, standings, reactions removed | `components/Stage.tsx`, `components/Telecast.tsx` |
-| 8 | Quaddie on four races | Permit-gated quaddie, desk entries, live board after each leg, finale summary | `lib/quaddie.ts`, `components/QuaddiePanel.tsx` |
+| 8 | Quaddie on four races | Quaddie switched on in Admin, desk entries, live board after each leg, finale summary | `lib/quaddie.ts`, `components/QuaddiePanel.tsx` |
 | 9 | $4 a snail, scan and pay | Stripe Payment Link at the card price with number, name and owner fields; paid snails fill the roster | `app/api/payment-link/route.ts`, `lib/stripe-read.ts` |
 
 ## Rev01: the side-on race
@@ -23,7 +23,7 @@ After the first release the club showed a reference of the look they want for th
 ## Assumptions taken without an answer
 
 - The $4 snail is a named entry, not a stake: the app never pays it out. Cash prizes are the club's business off the app.
-- The quaddie pays out, so it sits behind the same attestation gate as the cash tote.
+- The quaddie is a club product switched on in Admin for the night; the permit attestation was removed at the club's request (Rev02).
 - Unsold snails still race, under their number, so the card never has a gap.
 - Phone Play, fun chips and Race Packs are off the projector and the desk but their code and routes remain, behind Admin.
 - Plague at the Line is the only deck card the room described; the rest are new.

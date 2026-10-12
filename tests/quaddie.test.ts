@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_QUADDIE, normaliseQuaddie, picksMatchLegs, quaddieIsLive, quaddieOpen, quaddieStatus, winnerSnailFor, type QuaddieEntry } from '../lib/quaddie';
 import type { RaceHistoryEntry } from '../lib/types';
 
-const live = () => normaliseQuaddie({ ...DEFAULT_QUADDIE, enabled: true, permitReference: 'Club authority 77', permitAcknowledgedAt: 1 });
+const live = () => normaliseQuaddie({ ...DEFAULT_QUADDIE, enabled: true });
 
 const won = (raceNo: number, lane: number): RaceHistoryEntry => ({
   raceNo, raceType: 'Heat', seedHex: 'ABCDEF01', fieldSize: 10, durationMs: 1, at: raceNo, potCents: 0, photoFinish: false,
@@ -12,10 +12,13 @@ const won = (raceNo: number, lane: number): RaceHistoryEntry => ({
 
 const entry = (id: string, holder: string, picks: number[]): QuaddieEntry => ({ id, holder, picks, createdAt: 1 });
 
-test('the quaddie is off by default and cannot go live without a permit attestation', () => {
+test('the quaddie is off by default and goes live with the switch alone', () => {
   assert.equal(quaddieIsLive(DEFAULT_QUADDIE), false);
-  assert.equal(quaddieIsLive(normaliseQuaddie({ ...DEFAULT_QUADDIE, enabled: true })), false);
-  assert.equal(quaddieIsLive(normaliseQuaddie({ ...DEFAULT_QUADDIE, enabled: true, permitReference: 'x' })), false);
+  assert.equal(quaddieIsLive(normaliseQuaddie({ ...DEFAULT_QUADDIE, enabled: 'yes' })), false);
+  /* A night saved under the old permit gate keeps its switch and drops the rest. */
+  const legacy = normaliseQuaddie({ ...DEFAULT_QUADDIE, enabled: true, permitReference: 'Club authority 77', permitAcknowledgedAt: 1 });
+  assert.equal(quaddieIsLive(legacy), true);
+  assert.equal('permitReference' in legacy, false);
   assert.equal(quaddieIsLive(live()), true);
   /* A backup cannot smuggle a fifth leg or a duplicate. */
   assert.deepEqual(normaliseQuaddie({ legs: [3, 3, 5, 7, 9] }).legs, [3, 5, 7, 9]);
