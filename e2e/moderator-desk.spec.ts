@@ -266,7 +266,7 @@ test('a live cash tote can be tallied from the desk and is settled on the projec
   expect(night.history[0].tote.poolCents).toBe(400);
 });
 
-test('a permit-attested quaddie takes entries at the desk and shows the board after a leg', async ({ page }) => {
+test('a quaddie switched on in Admin takes entries at the desk and shows the board after a leg', async ({ page }) => {
   test.setTimeout(90_000);
   /* Two races already stand, so the next race is leg one of the quaddie. */
   await page.evaluate(() => {
@@ -285,10 +285,8 @@ test('a permit-attested quaddie takes entries at the desk and shows the board af
   await expect(desk.getByRole('region', { name: 'Quaddie entries' })).toHaveCount(0);
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
   const quaddie = desk.getByRole('region', { name: 'Quaddie', exact: true });
-  await quaddie.getByLabel(/Permit or authority reference/i).fill('Club authority ref 77');
-  await quaddie.getByRole('checkbox').first().check();
   await quaddie.getByRole('button', { name: /Enable quaddie/i }).click();
-  await expect(quaddie).toContainText(/LIVE under/);
+  await expect(quaddie).toContainText(/LIVE/);
   await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
   { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await desk.getByRole('button', { name: /Hide/ }).click();

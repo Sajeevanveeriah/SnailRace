@@ -55,10 +55,9 @@ What changed from 4.2, point by point from the room's feedback:
 8. **Quaddie.** Four nominated races (default 3, 5, 7, 9), $10 a ticket,
    every four-leg winner shares the pool after the club's share, dividends
    rounded down to 10c, an unwon pool stays with the club and the screen says
-   so. The board shows who is still alive after each leg. Like the cash tote
-   it is **permit-gated**: off until the operator records the club's authority
-   reference and attests to it in Admin. `lib/quaddie.ts` imports nothing from
-   the race engine.
+   so. The board shows who is still alive after each leg. It is off until the
+   operator switches it on in Admin; both changes are written to the audit
+   trail. `lib/quaddie.ts` imports nothing from the race engine.
 9. **$4 and a QR.** One Stripe Payment Link sells a snail at the card price
    and asks for the number, the snail's name and the owner's name on Stripe's
    own page. With a Stripe key on the server the link is minted automatically

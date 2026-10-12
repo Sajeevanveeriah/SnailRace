@@ -571,7 +571,7 @@ export interface EventState {
    * people who bought them. Race N's field is always snails 10N-9 to 10N.
    */
   card: CardState;
-  /** The permit-gated quaddie on four nominated races. Off by default. */
+  /** The quaddie on four nominated races, switched on in Admin. Off by default. */
   quaddie: QuaddieSettings;
   quaddieEntries: QuaddieEntry[];
   /** Music, commentary or silence on the projector. */
