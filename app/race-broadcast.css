@@ -1634,7 +1634,7 @@
 .side-broadcast.race-motion-reduced .side-progress-fill { transition: none; }
 /* The stalls open at the off. */
 .side-broadcast .side-gates { transition: opacity .35s ease-out, transform .35s ease-out; transform-box: fill-box; transform-origin: top; }
-.side-broadcast .tv.racing .side-gates { opacity: 0; transform: scaleY(.05); }
+.side-broadcast .tv.gates-open .side-gates { opacity: 0; transform: scaleY(.05); }
 .side-broadcast.race-motion-reduced .side-gates { transition: none; }
 .side-broadcast .tv-top { background: #a81d2f; }
 @media (max-width: 900px) { .side-broadcast .course-scene { inset: 72px 8px 158px 8px; } .side-order li { min-width: 30px; height: 26px; font-size: 15px; } .side-order-label { display: none; } .side-togo { font-size: 14px; } }

@@ -284,6 +284,8 @@ export function Sidescroller({
     };
     const paint: RacePainter['paint'] = (snails, info) => {
       snapshotRef.current = { snails, info };
+      /* The stalls follow the race clock, so a replay or a seek opens and shuts them too. */
+      svgRef.current?.classList.toggle('gates-open', info.raceTimeMs > 0);
       for (const snail of snails) {
         const node = nodesRef.current.get(snail.lane);
         node?.classList.toggle('retired', Boolean(snail.retired));
@@ -396,7 +398,7 @@ export function Sidescroller({
       },
       reset: () => {
         snapshotRef.current = null;
-        svgRef.current?.classList.remove('racing');
+        svgRef.current?.classList.remove('racing', 'gates-open');
         const w = minW();
         camRef.current = { x: -260, w };
         nodesRef.current.forEach((node, lane) => {
