@@ -54,6 +54,8 @@
   --btn-sheet-fg: #fff;
   color-scheme: dark;
 }
+/* The winner card floats over a light-scheme page, so it sets its own ink too. */
+.winner-card { color: var(--broadcast-type); }
 
 .show-top {
   min-height: 78px;

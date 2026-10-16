@@ -520,6 +520,7 @@ export function Telecast({
           tote={toteResult}
           replay={replay}
           runnerSponsors={owners}
+          numberOffset={numberOffset}
         />
       ) : null}
       <div className="course-director-bar">

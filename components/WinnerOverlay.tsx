@@ -96,7 +96,7 @@ export function WinnerOverlay({
         </h2>
 
         <p className="num mt-3 text-lg font-semibold text-(--gold)">
-          Snail {snailNo}{owner ? ` · owned by ${owner}` : ''}
+          {winner.name === `Snail ${snailNo}` ? `No. ${snailNo}` : `Snail ${snailNo}`}{owner ? ` · owned by ${owner}` : ''}
         </p>
 
         {tote ? (
