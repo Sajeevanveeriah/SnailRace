@@ -98,6 +98,11 @@ jobs:
       - name: Disable Jekyll processing
         run: touch out/.nojekyll
 
+      # The live check after deploy reads this back, so it can tell this
+      # build apart from an older one or from a Jekyll render of the branch.
+      - name: Stamp the build with its commit
+        run: echo "$GITHUB_SHA" > out/deploy-sha.txt
+
       - name: Check the export is complete
         run: |
           test -f out/index.html || { echo "::error::out/index.html missing"; exit 1; }
@@ -127,29 +132,16 @@ jobs:
         uses: actions/deploy-pages@v4
 
       # A green deploy step only proves the artefact was handed over. This
-      # fetches the published URL and fails the job if the site is not actually
-      # serving the game, so an inactive site is a red build rather than a
-      # silent one.
+      # fetches the published URL and fails the job unless it is serving the
+      # game export built from this exact commit: a README rendered by Jekyll,
+      # a stale build or an inactive site is a red build rather than a silent
+      # one. See scripts/verify-pages.sh.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/verify-pages.sh
+          sparse-checkout-cone-mode: false
+
       - name: Verify the published site is live
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
-        run: |
-          echo "Checking $PAGE_URL"
-          for attempt in 1 2 3 4 5 6; do
-            code=$(curl -sSL -o page.html -w '%{http_code}' --max-time 30 "$PAGE_URL" || echo 000)
-            if [ "$code" = "200" ] && grep -qi 'snail' page.html; then
-              echo "Live: HTTP $code, $(wc -c < page.html) bytes."
-              {
-                echo "### Snail Race is live"
-                echo ""
-                echo "$PAGE_URL"
-                echo ""
-                echo "HTTP $code, $(wc -c < page.html) bytes, verified on attempt $attempt."
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            echo "Attempt $attempt: HTTP $code, retrying in 10s."
-            sleep 10
-          done
-          echo "::error::$PAGE_URL did not serve the game after 6 attempts (last HTTP $code)."
-          exit 1
+        run: bash scripts/verify-pages.sh "$PAGE_URL" "$GITHUB_SHA"

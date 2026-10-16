@@ -163,7 +163,11 @@ market stays closed for operator recovery.
 | GitHub Pages + Cloudflare Worker | Yes | Yes, through `NEXT_PUBLIC_LIVE_API_ORIGIN` | No; the Worker never handles donations | One SQLite-backed Durable Object per room |
 
 The Pages workflow removes `app/api` before static export, applies the repository
-base path, and optionally injects the exact HTTPS Cloudflare Worker origin. The
+base path, and optionally injects the exact HTTPS Cloudflare Worker origin. It
+stamps the export with `deploy-sha.txt`, and after deploying,
+`scripts/verify-pages.sh` fails the run unless the live URL serves the game
+built from that exact commit (not a stale build, and not the README rendered by
+Jekyll when the Pages source is left on branch serving). The
 Worker mirrors the live route contract, enforces an exact CORS allowlist and keeps
 operator capabilities out of URLs. See [the Cloudflare hand-off](cloudflare/README.md).
 
