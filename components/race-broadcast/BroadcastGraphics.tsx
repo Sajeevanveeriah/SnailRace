@@ -103,6 +103,7 @@ export function OfficialResult({
   tote,
   replay,
   runnerSponsors = [],
+  numberOffset = 0,
 }: {
   results: RaceResult[];
   raceNo: number;
@@ -110,6 +111,8 @@ export function OfficialResult({
   tote?: ToteDividend | null;
   replay: boolean;
   runnerSponsors?: string[];
+  /** Added to the lane: race 3's lane 1 is snail 21 on the card. */
+  numberOffset?: number;
 }) {
   const podium = results.slice(0, 3);
   if (!podium.length) return null;
@@ -125,7 +128,7 @@ export function OfficialResult({
           <li key={r.lane} className={`tv-result-row tv-result-${r.place}`} style={{ '--shell': laneColour(r.lane).shell } as React.CSSProperties}>
             <span className="tv-result-place num">{ordinal(r.place)}</span>
             <span className="tv-result-dot num" style={{ background: laneColour(r.lane).dark }}>
-              {r.lane + 1}
+              {numberOffset + r.lane + 1}
             </span>
             <span className="tv-result-name">
               {r.name}

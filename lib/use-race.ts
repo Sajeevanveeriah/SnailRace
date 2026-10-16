@@ -912,7 +912,7 @@ export function useRace(
       silence();
       call(WEATHER_CALL[drawn.weather], 'big');
       setPhase('countdown');
-      setStatus('On your marks');
+      setStatus("Under starter's orders");
 
       const steps = ['3', '2', '1', 'GO!'];
 

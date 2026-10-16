@@ -32,15 +32,18 @@ What changed from 4.2, point by point from the room's feedback:
    all 100) edits name and owner per number, imports a pasted list, and copies
    a CSV. A paid Stripe snail names itself. Names for a race lock when it is
    armed and are recorded with the result.
-5. **The side-on cartoon race.** The race screen is now a straight track seen
-   from the grandstand (`components/Sidescroller.tsx`): big numbered snails
-   crawling left to right, scenery sliding past behind them, a silhouetted
-   crowd in front, start and finish banners with the red line, and a 1-to-9
-   progress bar with the flag that fills as the leader goes. The camera pans
-   with the leading pack and the finish banner scrolls in for the run home;
-   the on-screen button and the desk flip to the full field at any time.
-   Surprises land on the snails they hit as large props. The top-down oval
-   remains in Admin under Track.
+5. **The side-on race, shot like a race night.** The race screen is a
+   straight seen side on (`components/Sidescroller.tsx`), laid out the way
+   horse racing and cartoon race-night films show it: one marked lane per
+   snail in racecard order, every snail the same size so no number is ever
+   hidden, starting stalls that open at the off ("Under starter's orders",
+   then "And they are away!"), distance posts counting down the metres to a
+   straight winning post judged on the nose, and a live POSITIONS strip
+   naming the running order leader first with the metres to go. The camera
+   follows the field and keeps every lane in frame; **Full field view** on
+   screen or on the desk takes in every runner. Surprises land on the snail
+   they hit, scaled to its lane. The top-down oval remains in Admin under
+   Track.
 6. **A deck of surprises.** On top of both existing books, `DECK_CARDS` in
    `lib/race-engine.ts` deals field-wide and late cards that reach the finish
    straight: Plague at the Line, Magpie at the Post, The Big Freeze, Headwind,

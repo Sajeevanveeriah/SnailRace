@@ -1618,13 +1618,23 @@
 .side-broadcast .side-leader { font: 700 12px/1.2 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #fff6d8; }
 .side-broadcast .tv-strap { inset: auto 12px 8px; }
 .side-broadcast .course-event-ticker { bottom: 112px; }
-/* The progress bar: nine marks and the flag, green fill for the leader. */
-.side-progress { position: absolute; left: 12px; right: 12px; bottom: 69px; height: 36px; background: #1e2a1a; border: 2px solid #2a1a1a; border-radius: 6px; overflow: hidden; z-index: 12; }
-.side-progress-fill { position: absolute; inset: 0; width: calc(var(--lead, 0) * 100%); background: #2fb24a; transition: width .25s linear; }
+/* The running order: saddlecloths in race order, leader first, then metres to go. */
+.side-broadcast .course-scene { bottom: 158px; }
+.side-broadcast .course-event-ticker { bottom: 118px; }
+.side-progress { position: absolute; left: 12px; right: 12px; bottom: 68px; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 10px 4px; background: #1e2a1a; border: 2px solid #2a1a1a; border-radius: 6px; overflow: hidden; z-index: 12; }
+.side-order-label { flex: none; color: #fff6d8; font: 900 12px/1 Arial, sans-serif; letter-spacing: .12em; }
+.side-order { flex: 1; min-width: 0; display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; overflow: hidden; }
+.side-order li { flex: none; display: grid; place-items: center; min-width: 40px; height: 32px; padding: 0 6px; border-radius: 6px; background: var(--shell); border: 2px solid #2a1a1a; color: #fff; font: 900 20px/1 'Arial Black', Arial, sans-serif; text-shadow: 0 0 3px #000, 0 1px 0 #000; }
+.side-order li[data-rank="1"] { outline: 3px solid #ffe36b; outline-offset: 1px; }
+.side-order li.done::after { content: ''; }
+.side-order li.retired { opacity: .45; }
+.side-togo { flex: none; color: #fff; font: 900 18px/1 Arial, sans-serif; white-space: nowrap; }
+.side-flag { flex: none; width: 28px; height: 28px; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / 14px 14px; border: 1px solid #fff; }
+.side-progress-fill { position: absolute; left: 0; bottom: 0; height: 4px; width: calc(var(--lead, 0) * 100%); background: #2fb24a; transition: width .25s linear; }
 .side-broadcast.race-motion-reduced .side-progress-fill { transition: none; }
-.side-progress ol { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(9, 1fr); }
-.side-progress li { border-left: 2px solid #ffffff80; display: flex; align-items: center; padding-left: 6px; color: #fff; font: 900 16px/1 Arial, sans-serif; }
-.side-progress li:first-child { border-left: 0; }
-.side-flag { position: absolute; right: 6px; top: 4px; width: 28px; height: 28px; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / 14px 14px; border: 1px solid #fff; }
+/* The stalls open at the off. */
+.side-broadcast .side-gates { transition: opacity .35s ease-out, transform .35s ease-out; transform-box: fill-box; transform-origin: top; }
+.side-broadcast .tv.racing .side-gates { opacity: 0; transform: scaleY(.05); }
+.side-broadcast.race-motion-reduced .side-gates { transition: none; }
 .side-broadcast .tv-top { background: #a81d2f; }
-@media (max-width: 900px) { .side-broadcast .course-scene { inset: 72px 8px 150px 8px; } .side-progress li { font-size: 12px; } }
+@media (max-width: 900px) { .side-broadcast .course-scene { inset: 72px 8px 158px 8px; } .side-order li { min-width: 30px; height: 26px; font-size: 15px; } .side-order-label { display: none; } .side-togo { font-size: 14px; } }
