@@ -7,12 +7,16 @@
 # title, _next assets, no Jekyll markers) and the deploy-sha.txt stamped by
 # the build must name this commit.
 #
+# Pages can take several minutes after the deploy step to serve new files
+# (3.5 minutes on 16 Oct 2026), so the default window is 60 tries 10 s apart.
+# A good deploy returns as soon as the stamp appears.
+#
 #   scripts/verify-pages.sh <page-url> <expected-sha> [attempts] [delay-seconds]
 set -u
 
 url="${1:?page url}"
 sha="${2:?expected commit sha}"
-attempts="${3:-18}"
+attempts="${3:-60}"
 delay="${4:-10}"
 url="${url%/}/"
 work="$(mktemp -d)"
