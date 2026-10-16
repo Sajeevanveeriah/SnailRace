@@ -599,7 +599,7 @@ export function Sidescroller({
       </div>
 
       {/* The running order, leader first, as a racing telecast shows it, and the distance to go. */}
-      <div className="side-progress" ref={barRef} role="progressbar" aria-label="Metres the leader has covered" aria-valuemin={0} aria-valuemax={RACE_METRES} aria-valuenow={0}>
+      <div className="side-progress" ref={barRef} role="progressbar" aria-label="Leader's progress to the finish, in metres" aria-valuemin={0} aria-valuemax={RACE_METRES} aria-valuenow={0}>
         <span className="side-order-label" aria-hidden="true">POSITIONS</span>
         <ol className="side-order" aria-hidden="true">
           {names.map((name, lane) => {
