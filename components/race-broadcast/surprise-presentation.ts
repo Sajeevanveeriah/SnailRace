@@ -19,7 +19,7 @@ export interface SurprisePresentation {
   glyph?: PropGlyphId;
   /** Text fallback for surfaces that cannot draw a prop. */
   symbol: string;
-  cue: 'roll' | 'spray' | 'cross' | 'dash' | 'drop' | 'swoop' | 'burst' | 'stomp' | 'gate' | 'launch' | 'pull';
+  cue: 'roll' | 'spray' | 'cross' | 'dash' | 'drop' | 'swoop' | 'burst' | 'stomp' | 'gate' | 'launch' | 'pull' | 'swing';
 }
 
 interface PresentableMoment extends RaceMoment {
@@ -42,6 +42,8 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['BUNCH-UP', 'MAGNET'], value: { art: null, glyph: 'magnet', symbol: '🧲', cue: 'pull' } },
   { matches: ['CATERPILLAR'], value: { art: null, glyph: 'caterpillar', symbol: '🐛', cue: 'cross' } },
   { matches: ['SPEED CAMERA'], value: { art: null, glyph: 'speed-camera', symbol: '📸', cue: 'burst' } },
+  { matches: ['THE BAT'], value: { art: null, glyph: 'bat', symbol: '🏏', cue: 'swing' } },
+  { matches: ['CONTAGIOUS'], value: { art: 'plague-cloud', symbol: '☣', cue: 'burst' } },
 
   /* Painted set pieces. */
   { matches: ['CRICKET BALL'], value: { art: 'cricket-ball', symbol: '●', cue: 'roll' } },

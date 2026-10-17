@@ -42,7 +42,8 @@ export type PropGlyphId =
   | 'rocket'
   | 'magnet'
   | 'caterpillar'
-  | 'speed-camera';
+  | 'speed-camera'
+  | 'bat';
 
 const ink = '#24171b';
 const cream = '#fff9ed';
@@ -314,6 +315,13 @@ export const PROP_GLYPHS: Record<PropGlyphId, ReactNode> = {
       <circle cx="30" cy="-12" r="9" fill={gold} stroke={ink} strokeWidth="1.5" />
       <circle cx="33" cy="-14" r="1.6" fill={ink} />
       <path d="M28 -20 l-2 -8 M34 -20 l3 -8" stroke={ink} strokeWidth="1.5" strokeLinecap="round" />
+    </g>
+  ),
+  bat: (
+    <g className="prop-bat">
+      <path d="M-6 -2 L-2 -22 L14 -60 Q20 -70 26 -66 Q32 -62 28 -52 L12 -16 L8 2 Z" fill={gold} stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M-8 4 L-2 -14 L8 -10 L2 8 Z" fill="#5b3a1e" stroke={ink} strokeWidth="2" />
+      <path d="M30 -70 l6 -6 M36 -58 l8 0 M22 -78 l0 -8" stroke={ink} strokeWidth="2.5" strokeLinecap="round" />
     </g>
   ),
   'speed-camera': (

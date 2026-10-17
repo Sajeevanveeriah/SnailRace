@@ -30,7 +30,9 @@ export function SurpriseLayer({
   const phase = race.phase as string;
   const moment = phase === 'running' ? race.moment : null;
   const presentation = presentationForMoment(moment);
-  if (!moment || !presentation) return null;
+  /* Only a staged surprise belongs here. A change of leader is called on
+     the commentary strap; it has no prop, no consequence and no phase. */
+  if (!moment || !presentation || !moment.phase) return null;
 
   const surprisePhase = moment.phase ?? 'effect';
   const affected = (moment.targetLanes ?? [])

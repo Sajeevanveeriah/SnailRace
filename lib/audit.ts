@@ -193,6 +193,11 @@ export const canonicalRacePlan = (plan: LockedRacePlan): string => {
     ...(plan.courseId === undefined ? [] : [plan.courseId]),
     plan.weather,
     plan.photoFinish,
+    /* v3: the clock-to-position profile. It changes every on-screen
+       position and the stored classification, so a plan with one cannot
+       verify after it is stripped. Plans without one keep their v1/v2
+       string and hash exactly. */
+    ...(plan.motion === undefined ? [] : [plan.motion]),
     runners,
     events,
     cues,
@@ -201,7 +206,8 @@ export const canonicalRacePlan = (plan: LockedRacePlan): string => {
     plan.stopAtMs,
   ];
 
-  return `ndcc-race-plan-v${plan.courseId === undefined ? 1 : 2}|${JSON.stringify(canonical)}`;
+  const version = plan.motion !== undefined ? 3 : plan.courseId === undefined ? 1 : 2;
+  return `ndcc-race-plan-v${version}|${JSON.stringify(canonical)}`;
 };
 
 export const planHashOf = (plan: LockedRacePlan): Promise<string> =>

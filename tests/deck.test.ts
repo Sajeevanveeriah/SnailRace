@@ -95,7 +95,7 @@ test('every deck card has a drawn prop and the plan hash input changes with the 
 });
 
 test('the twists are in the deck, spaced apart and clear of the comeback beats', () => {
-  for (const id of ['big-boot', 'snail-ale', 'watermelon', 'boom-gate', 'catapult', 'bunch-up', 'caterpillar', 'speed-camera']) {
+  for (const id of ['big-boot', 'snail-ale', 'watermelon', 'boom-gate', 'catapult', 'bunch-up', 'caterpillar', 'speed-camera', 'the-bat', 'contagion']) {
     assert.ok(DECK_CARDS.some((card) => card.id === id), `${id} is missing from the deck`);
   }
   let twists = 0;
@@ -106,7 +106,7 @@ test('the twists are in the deck, spaced apart and clear of the comeback beats',
     const plan = drawLockedRacePlan(seed, names, 120_000, true, 'chaos');
     const deck = deckEvents(plan).sort((a, b) => a.effectAtMs - b.effectAtMs);
     perRace += deck.length;
-    twists += deck.filter((e) => /BOOT|SNAIL ALE|WATERMELON|BOOM GATE|CATAPULT|BUNCH-UP|CATERPILLAR|SPEED CAMERA/.test(e.label)).length;
+    twists += deck.filter((e) => /BOOT|SNAIL ALE|WATERMELON|BOOM GATE|CATAPULT|BUNCH-UP|CATERPILLAR|SPEED CAMERA|THE BAT|CONTAGIOUS/.test(e.label)).length;
     for (let i = 1; i < deck.length; i++) {
       assert.ok(deck[i].effectAtMs - deck[i - 1].effectAtMs >= deckSpacingMs(plan.durationMs), `seed ${seed}: ${deck[i - 1].id} and ${deck[i].id} overlap`);
     }

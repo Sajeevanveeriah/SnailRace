@@ -329,19 +329,28 @@ const EFFECT_ON_AIR_MS = 2600;
 
 const phaseRank: Record<SurprisePhase, number> = { warning: 0, reveal: 1, effect: 2 };
 
-/** The twist on air at race-time `t`, from the locked plan's own events. */
+/**
+ * The twist on air at race-time `t`, from the locked plan's own events.
+ *
+ * A landing effect owns the screen for `EFFECT_ON_AIR_MS`; after that it
+ * has had its title and its prop merely stays with its snail, so a newer
+ * card's warning or reveal takes over the moment it starts (the tags keep
+ * the older consequence readable). Without that a long hold would swallow
+ * the next card's build-up.
+ */
 function stagedFromPlan(events: LockedRaceEvent[], t: number): StagedTwist | null {
-  let best: { event: LockedRaceEvent; phase: SurprisePhase } | null = null;
+  let best: { event: LockedRaceEvent; phase: SurprisePhase; rank: number } | null = null;
   for (const event of events) {
     if (t < event.warningAtMs) continue;
     const end = Math.max(event.effectEndMs, event.effectAtMs + EFFECT_ON_AIR_MS);
     if (t >= end) continue;
     const phase: SurprisePhase = t < event.revealAtMs ? 'warning' : t < event.effectAtMs ? 'reveal' : 'effect';
+    const rank = phase === 'effect' && t >= event.effectAtMs + EFFECT_ON_AIR_MS ? -1 : phaseRank[phase];
     if (
       !best ||
-      phaseRank[phase] > phaseRank[best.phase] ||
-      (phaseRank[phase] === phaseRank[best.phase] && event.effectAtMs > best.event.effectAtMs)
-    ) best = { event, phase };
+      rank > best.rank ||
+      (rank === best.rank && event.effectAtMs > best.event.effectAtMs)
+    ) best = { event, phase, rank };
   }
   if (!best) return null;
   const { event, phase } = best;
@@ -530,9 +539,11 @@ export function Sidescroller({
         let delta = 0;
         let live: LockedRaceEvent | undefined;
         if (snail.lockedMotion) {
-          live = snail.lockedMotion.events.find(
-            (event) => event.targetLanes.includes(snail.lane) && t >= event.effectAtMs && t < event.effectEndMs && (event.clockDeltaMsByLane[snail.lane] ?? 0) !== 0,
-          );
+          /* The newest consequence on this lane is the one to show: a boost
+             still easing in loses the tag to a hold that has just landed. */
+          live = snail.lockedMotion.events
+            .filter((event) => event.targetLanes.includes(snail.lane) && t >= event.effectAtMs && t < event.effectEndMs && (event.clockDeltaMsByLane[snail.lane] ?? 0) !== 0)
+            .sort((x, y) => y.effectAtMs - x.effectAtMs)[0];
           delta = live?.clockDeltaMsByLane[snail.lane] ?? 0;
         } else {
           delta = snail.effect === 'boost' || snail.effect === 'surge' ? 1 : snail.effect === 'stumble' || snail.effect === 'nap' || snail.effect === 'wander' ? -1 : 0;
@@ -597,7 +608,9 @@ export function Sidescroller({
           propRef.current.setAttribute('data-size', 'field');
           propRef.current.setAttribute('transform', `translate(${(left + right) / 2} ${TRACK_TOP + (TRACK_BOTTOM - TRACK_TOP) * 0.8}) scale(${Math.max(0.55, scale * 1.4)})`);
         } else {
-          const featured = snails.find((s) => s.lane === targets[0]);
+          /* The prop lands on the snail that wears the consequence: the one
+             the bat hit, not the one swinging it. */
+          const featured = snails.find((s) => s.lane === (held[0] ?? targets[0]));
           if (featured) {
             const geo = lanes[featured.lane];
             propRef.current.setAttribute('data-size', 'single');

@@ -1687,6 +1687,13 @@
 /* The catapult: the rocket rides the snail and fires up the course. */
 .side-broadcast .side-prop-launch[data-phase="effect"] .course-prop-motion { animation: side-launch 1.1s ease-out infinite; }
 @keyframes side-launch { from { transform: translate(-40px,0) rotate(25deg); opacity: 1; } to { transform: translate(260px,-260px) rotate(45deg); opacity: 0; } }
+/* The bat: wound up on the warning, swung down on the snail in front. */
+.side-broadcast .side-prop-swing .course-prop-motion { transform-origin: -40px 0; }
+.side-broadcast .side-prop-swing[data-phase="warning"] .course-prop-motion { animation: side-bat-wind 1s ease-in-out infinite alternate; }
+.side-broadcast .side-prop-swing[data-phase="reveal"] .course-prop-motion { animation: side-bat-wind .6s ease-in-out both; }
+.side-broadcast .side-prop-swing[data-phase="effect"] .course-prop-motion { animation: side-bat-swing .5s cubic-bezier(.7, 0, .3, 1) 4 alternate; }
+@keyframes side-bat-wind { from { transform: translate(-120px, -40px) rotate(-70deg); } to { transform: translate(-120px, -60px) rotate(-90deg); } }
+@keyframes side-bat-swing { from { transform: translate(-120px, -60px) rotate(-90deg); } to { transform: translate(-30px, 0) rotate(40deg); } }
 /* The magnet: pulses over the field and pulls. */
 .side-broadcast .side-prop-pull[data-phase="effect"] .course-prop-motion { animation: side-pull 1s ease-in-out infinite alternate; }
 @keyframes side-pull { from { transform: scale(1) translate(0,0); } to { transform: scale(1.18) translate(0,-30px); } }

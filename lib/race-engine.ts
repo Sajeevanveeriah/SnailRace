@@ -1494,6 +1494,39 @@ export const DECK_CARDS: readonly DeckCard[] = [
     },
   },
   {
+    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false,
+    from: 0.28, to: 0.74, boostTo: 0.03,
+    warning: 'One of the runners has found a cricket bat beside the track.',
+    calls: [
+      '{a} has pulled out a cricket bat and CLOBBERED the snail in front! Down it goes and {a} is through!',
+      'THE BAT! {a} has swung it straight at the snail ahead! That is not in the rules and nobody is stopping it!',
+    ],
+    deal: (rnd, lanes, durationMs) => {
+      /* A runner outside the lead picks up the bat; the snail directly in front of it wears it. */
+      const rank = 1 + Math.floor(rnd() * (lanes.length - 1));
+      const batter = lanes[rank];
+      const victim = lanes[rank - 1];
+      return { deltas: { [victim]: -share(rnd, durationMs, 0.06, 0.09), [batter]: share(rnd, durationMs, 0.02, 0.03) }, featured: batter };
+    },
+  },
+  {
+    id: 'contagion', label: 'CONTAGIOUS PLAGUE', kind: 'plague', tone: 'bad', sound: 'plague', once: true,
+    from: 0.4, to: 0.74, boostTo: 0,
+    warning: 'The vet is running towards the front of the field with a mask on.',
+    calls: ['PLAGUE at the front! {a} has caught it and it is SPREADING: everybody running near the leader has gone down with it!'],
+    deal: (rnd, lanes, durationMs) => {
+      /* The leader gets it worst; the nearer a runner is to the front, the more it catches. */
+      const deltas: Record<number, number> = {};
+      const spread = Math.min(lanes.length, 4);
+      lanes.slice(0, spread).forEach((lane, rank) => {
+        const from = [0.08, 0.06, 0.04, 0.025][rank];
+        const to = [0.1, 0.08, 0.06, 0.04][rank];
+        deltas[lane] = -share(rnd, durationMs, from, to);
+      });
+      return { deltas, featured: lanes[0] };
+    },
+  },
+  {
     id: 'speed-camera', label: 'SPEED CAMERA', kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
     from: 0.25, to: 0.72, boostTo: 0,
     warning: 'The stewards have set up a camera on the rail.',
@@ -1891,7 +1924,10 @@ export function drawLockedRacePlan(
      */
     let chosen: LockedRaceEvent[] | null = null;
     let fallback: LockedRaceEvent[] | null = null;
-    const deckAt = events.filter((e) => e.id.startsWith('deck-')).map((e) => e.effectAtMs);
+    /* Cards and a retirement each have their own title and prop on air;
+       the comeback keeps clear of both so its obstacle is not replaced
+       mid-sentence. */
+    const deckAt = events.filter((e) => e.id.startsWith('deck-') || e.id.startsWith('ret-')).map((e) => e.effectAtMs);
     const spacing = comebackClearanceMs(durationMs);
     for (let step = 0; step <= 44 && !chosen; step++) {
       const offset = step <= 24 ? step : -(step - 24);

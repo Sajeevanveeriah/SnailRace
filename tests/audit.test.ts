@@ -290,6 +290,7 @@ test('the race plan hash binds phases, consequences, cues and classification', a
     ['result retirement time', (plan) => { plan.results[7].retiredAtMs = 7_401; }],
     ['winner lane', (plan) => { plan.winnerLane = 1; }],
     ['stop time', (plan) => { plan.stopAtMs += 1; }],
+    ['motion profile', (plan) => { plan.motion = 'lively'; }],
   ];
 
   for (const [label, mutate] of mutations) {
@@ -320,4 +321,15 @@ test('result hash v2 binds status, progress and retirement metadata', async () =
     mutate(changed);
     assert.notEqual(await resultHashOf(changed.seedHex, changed.results), base, label);
   }
+});
+
+test('the motion profile is bound into a v3 plan hash and cannot be stripped', async () => {
+  const lively = clonePlan();
+  lively.courseId = 'boundary-oval';
+  lively.motion = 'lively';
+  assert.match(canonicalRacePlan(lively), /^ndcc-race-plan-v3\|/);
+  const stripped = structuredClone(lively);
+  delete stripped.motion;
+  assert.match(canonicalRacePlan(stripped), /^ndcc-race-plan-v2\|/);
+  assert.notEqual(await planHashOf(lively), await planHashOf(stripped));
 });

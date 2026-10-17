@@ -65,8 +65,10 @@ What changed from 4.2, point by point from the room's feedback:
    through, everybody behind waits at the barrier), The Catapult (a back
    marker is flung up the course), The Big Bunch-Up (a magnet drags the
    leaders back and pulls the tail up for a nose-to-nose finish),
-   Caterpillar Crossing (the middle of the field waits for every leg) and
-   Speed Camera (the leader is pulled over). Once-a-night cards are dealt
+   Caterpillar Crossing (the middle of the field waits for every leg),
+   Speed Camera (the leader is pulled over), The Bat (a runner clubs the
+   snail in front of it and slips through) and Contagious Plague (the
+   leader catches it and it spreads to whoever is running near the front). Once-a-night cards are dealt
    without replacement across the ten races (`dealtCards`), so the boot and
    the plague at the line are moments of the night, not of every race.
    Cards keep at least `deckSpacingMs` apart and clear of the comeback
@@ -139,7 +141,7 @@ The committed event book currently contains:
 | Delays | Shell Slip, Micro-Nap, Lettuce Break, Gravel Patch, Cramp, Wrong Way, Snail Mail, Stage Fright, Bogged, Tea Interval, Selfie Stop, Dew on the Outfield, Sunscreen Stop, Covers Crew |
 | Wild effects | Mystery Slime, Banana Peel, Snail Romance, Third Umpire, Sledged from Slips, Shell Swap, DRS Review, Mystery Spinner, Sightscreen Glare |
 | Field incidents | The Plague, Magpie Swoop, Sprinklers On, Rogue Cricket Ball, Dog on the Track, Lettuce on the Track, False Start Panic, Pitch Roller Crossing, Rain Squall, Mexican Wave, Seagull Raid, Ice Cream Van, Pitch Invader |
-| The deck | Plague at the Line, Magpie at the Post, The Big Freeze, Headwind, Reverse Gear, Lucky Last, Groundskeeper Shuffle, Late Shell Swap, Sprinklers in the Straight, The Big Boot, Snail Ale Happy Hour, Watermelon at the Post, Boom Gate, The Catapult, The Big Bunch-Up, Caterpillar Crossing, Speed Camera |
+| The deck | Plague at the Line, Magpie at the Post, The Big Freeze, Headwind, Reverse Gear, Lucky Last, Groundskeeper Shuffle, Late Shell Swap, Sprinklers in the Straight, The Big Boot, Snail Ale Happy Hour, Watermelon at the Post, Boom Gate, The Catapult, The Big Bunch-Up, Caterpillar Crossing, Speed Camera, The Bat, Contagious Plague |
 | Rare safe retirements | Groundskeeper Boot Scare, Boundary Bee Scare, Roller Obstruction, Loose Cricket Ball, Sprinkler Stop, Seagull Scare, Covers Call, Drinks Cart Crossing |
 
 Painted set pieces use the committed PNG props; everything else is drawn as a
