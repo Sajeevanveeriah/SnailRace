@@ -35,25 +35,50 @@ What changed from 4.2, point by point from the room's feedback:
 5. **The side-on race, shot like a race night.** The race screen is a
    straight seen side on (`components/Sidescroller.tsx`), laid out the way
    horse racing and cartoon race-night films show it: one marked lane per
-   snail in racecard order, every snail the same size so no number is ever
-   hidden, starting stalls that open at the off ("Under starter's orders",
-   then "And they are away!"), distance posts counting down the metres to a
-   straight winning post judged on the nose, and a live POSITIONS strip
-   naming the running order leader first with the metres to go. The camera
-   follows the field and keeps every lane in frame; **Full field view** on
-   screen or on the desk takes in every runner. Surprises land on the snail
-   they hit, scaled to its lane. The top-down oval remains in Admin under
-   Track.
-6. **A deck of surprises.** On top of both existing books, `DECK_CARDS` in
-   `lib/race-engine.ts` deals field-wide and late cards that reach the finish
-   straight: Plague at the Line, Magpie at the Post, The Big Freeze, Headwind,
-   Reverse Gear, Lucky Last, Groundskeeper Shuffle, Late Shell Swap,
-   Sprinklers in the Straight. Once-a-night cards are dealt without
-   replacement across the ten races (`dealtCards`), so the plague at the line
-   is the moment of the night, not of every race. Every card is a bounded,
-   persistent clock consequence inside the same per-lane cap, drawn and
-   hashed before countdown. Intensity: Calm deals none, Standard up to one,
-   Big night one or two, Chaos (the default) two or three, scaled to race length.
+   snail in racecard order, every snail the same size, starting stalls that
+   open at the off ("Under starter's orders", then "And they are away!"),
+   distance posts counting down the metres to a straight winning post judged
+   on the nose, and a live POSITIONS strip naming the running order leader
+   first with the metres to go. The camera rides tight with the leading pack
+   so the town, the fence signs and the crowd fly past; the lanes stack the
+   way the cartoon films stack a field, with every saddlecloth number kept
+   clear of the shell below it; **Full field view** on screen or on the desk
+   takes in every runner. The field runs at pace from the gates and jockeys
+   for position all the way (`motion: 'lively'` on the plan: a linear clock
+   with a bounded, clock-driven wobble, so a held snail freezes and nobody
+   can cross early or go backwards). Every twist is staged from the locked
+   plan: a warning card and a looming prop, the prop landing on the snail or
+   across the field and staying for as long as the consequence runs, a title
+   card with the numbers it hit and the seconds it cost them, and a tag over
+   every affected snail (STUCK 8.4s, +5.1s, OUT, WINNER!) while it shakes,
+   squashes, tips over or streaks away with speed lines. The top-down oval
+   remains in Admin under Track.
+6. **A deck of surprises and twists.** On top of both existing books,
+   `DECK_CARDS` in `lib/race-engine.ts` deals field-wide and late cards that
+   reach the finish straight: Plague at the Line, Magpie at the Post, The Big
+   Freeze, Headwind, Reverse Gear, Lucky Last, Groundskeeper Shuffle, Late
+   Shell Swap, Sprinklers in the Straight, and the physical twists of the
+   cartoon race-night films: The Big Boot (a giant boot stomps the leader
+   flat), Snail Ale Happy Hour (the field pulls in for a drink and the
+   designated driver flies), Watermelon at the Post (the leader stops for a
+   feed with the line in sight), Boom Gate (the first one to three get
+   through, everybody behind waits at the barrier), The Catapult (a back
+   marker is flung up the course), The Big Bunch-Up (a magnet drags the
+   leaders back and pulls the tail up for a nose-to-nose finish),
+   Caterpillar Crossing (the middle of the field waits for every leg),
+   Speed Camera (the leader is pulled over), The Bat (a runner clubs the
+   snail in front of it and slips through) and Contagious Plague (the
+   leader catches it and it spreads to whoever is running near the front). Once-a-night cards are dealt
+   without replacement across the ten races (`dealtCards`), so the boot and
+   the plague at the line are moments of the night, not of every race.
+   Cards keep at least `deckSpacingMs` apart and clear of the comeback
+   beats, so one story is on air at a time. Every card is a bounded,
+   persistent clock consequence inside the per-lane cap (`LANE_CLOCK_CAP`,
+   30% of race time over the whole race, no single hold above 15%), drawn and hashed before countdown, and every announced
+   surprise from the ordinary book is now at least a visible 2.5% of the
+   race. Intensity: Calm deals none, Standard two or three, Big night three
+   or four, Chaos (the default) four or five, scaled to race length (one card
+   per twenty seconds).
 7. **Fewer graphics.** See 1.
 8. **Quaddie.** Four nominated races (default 3, 5, 7, 9), $10 a ticket,
    every four-leg winner shares the pool after the club's share, dividends
@@ -116,6 +141,7 @@ The committed event book currently contains:
 | Delays | Shell Slip, Micro-Nap, Lettuce Break, Gravel Patch, Cramp, Wrong Way, Snail Mail, Stage Fright, Bogged, Tea Interval, Selfie Stop, Dew on the Outfield, Sunscreen Stop, Covers Crew |
 | Wild effects | Mystery Slime, Banana Peel, Snail Romance, Third Umpire, Sledged from Slips, Shell Swap, DRS Review, Mystery Spinner, Sightscreen Glare |
 | Field incidents | The Plague, Magpie Swoop, Sprinklers On, Rogue Cricket Ball, Dog on the Track, Lettuce on the Track, False Start Panic, Pitch Roller Crossing, Rain Squall, Mexican Wave, Seagull Raid, Ice Cream Van, Pitch Invader |
+| The deck | Plague at the Line, Magpie at the Post, The Big Freeze, Headwind, Reverse Gear, Lucky Last, Groundskeeper Shuffle, Late Shell Swap, Sprinklers in the Straight, The Big Boot, Snail Ale Happy Hour, Watermelon at the Post, Boom Gate, The Catapult, The Big Bunch-Up, Caterpillar Crossing, Speed Camera, The Bat, Contagious Plague |
 | Rare safe retirements | Groundskeeper Boot Scare, Boundary Bee Scare, Roller Obstruction, Loose Cricket Ball, Sprinkler Stop, Seagull Scare, Covers Call, Drinks Cart Crossing |
 
 Painted set pieces use the committed PNG props; everything else is drawn as a

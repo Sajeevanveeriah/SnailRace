@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { laneColour } from '@/lib/palette';
 import { ClubBrand } from './brand/ClubBrand';
 import { SurpriseLayer } from './race-broadcast/SurpriseLayer';
-import { presentationForMoment } from './race-broadcast/surprise-presentation';
+import { presentationForMoment, type SurprisePresentation } from './race-broadcast/surprise-presentation';
 import { PropGlyph } from './race-broadcast/prop-glyphs';
 import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import { OfficialResult } from './race-broadcast/BroadcastGraphics';
 import { clockText } from '@/lib/broadcast';
 import type { SnailRun } from '@/lib/race-engine';
-import type { PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
-import type { CameraMode, ToteDividend } from '@/lib/types';
+import type { PaintInfo, RaceController, RacePainter, SurprisePhase } from '@/lib/use-race';
+import type { CameraMode, LockedRaceEvent, ToteDividend } from '@/lib/types';
 
 /**
  * The side-on cartoon race.
@@ -21,10 +21,23 @@ import type { CameraMode, ToteDividend } from '@/lib/types';
  * snail per marked lane in racecard order (lowest number on top), starting
  * stalls that open at the off, distance posts counting down to a vertical
  * winning post, and a running-order strip along the bottom that names the
- * field leader first. Every snail is the same size and never hides another,
- * so every saddlecloth number stays readable. The first nose to the post is
- * the winner on screen, as it is in the result. The camera follows the field
- * and keeps every lane in frame; Full field view widens to every runner.
+ * field leader first. The first nose to the post is the winner on screen,
+ * as it is in the result.
+ *
+ * The camera is tight: it rides with the leading pack so the scenery flies
+ * past and a snail is a real size on the projector, and the POSITIONS strip
+ * names whoever has dropped out of shot. Full field view widens to every
+ * runner. The lanes overlap the way the cartoon films stack their runners,
+ * with every saddlecloth number kept clear of the shell below it, and the
+ * lower lane is always drawn in front so the stacking order never flickers.
+ *
+ * Surprises are physical gags. Every twist is staged from the locked plan
+ * itself, not from a passing banner: the warning sign goes up, the prop
+ * arrives, it lands on the snail (or across the whole field) and stays
+ * there for as long as the consequence runs, while the snail it hit shakes,
+ * squashes, or lights up and streaks away. A title card slams in with the
+ * numbers it hit and what it cost them, and a tag over every affected snail
+ * keeps that readable after the card has gone.
  *
  * Same painter seam as the oval: the engine hands over one progress number
  * per snail per frame and this only decides where on the screen it lands.
@@ -58,15 +71,15 @@ export const TRACK_LEN = 9000;
 /** Where every nose starts: the front of the stalls. */
 const START_X = 160;
 const VIEW_H = 1350;
-/** The narrowest shot, in world units. */
-const PACK_VIEW_W = 2600;
+/** The narrowest shot, in world units: close enough that a snail is a real size. */
+const PACK_VIEW_W = 1900;
 /** The widest the following shot goes before it lets the tail of the field go. */
-const FOLLOW_MAX_W = 4400;
+const FOLLOW_MAX_W = 3000;
 /** The marked lanes. Racecard order, lane 0 on top. */
 const TRACK_TOP = 540;
 const TRACK_BOTTOM = 1300;
-/** Every frame shows from the fence signs down to the front rail. */
-const REQUIRED_H = VIEW_H - 360;
+/** Every frame shows from the distance-post signs down to the crowd. */
+const REQUIRED_H = VIEW_H - 380;
 /** The straight is called in metres to go, like a race caller's distance posts. */
 export const RACE_METRES = 10;
 /** Kept for the oval's import shape; the straight follows the field instead. */
@@ -76,6 +89,8 @@ export const LEAD_PACK = 4;
 const ART_NOSE = 190;
 const ART_TAIL = 150;
 const ART_HEIGHT = 176;
+/** From the foot line up to the bottom of the saddlecloth number. */
+const ART_NUMBER_CLEARANCE = 124;
 
 export interface LaneGeometry {
   /** Top of the lane band. */
@@ -88,11 +103,15 @@ export interface LaneGeometry {
   scale: number;
 }
 
-/** Equal lanes, equal snails: no perspective, so no runner covers another. */
+/**
+ * Equal lanes, equal snails, no perspective. The snails are allowed to stand
+ * taller than their lane, like the cartoon films stack a field, but never so
+ * tall that the shell in the lane below covers a saddlecloth number.
+ */
 export function laneGeometry(lane: number, fieldSize: number): LaneGeometry {
   const n = Math.max(1, fieldSize);
   const pitch = (TRACK_BOTTOM - TRACK_TOP) / n;
-  const scale = Math.min(0.62, (pitch * 0.97) / ART_HEIGHT);
+  const scale = Math.min(0.8, (pitch * 0.95) / ART_NUMBER_CLEARANCE);
   const top = TRACK_TOP + lane * pitch;
   return { top, pitch, y: top + pitch - 8 * scale - pitch * 0.04, scale };
 }
@@ -150,22 +169,75 @@ function Building({ x, w, label, colour, dome = false }: { x: number; w: number;
   );
 }
 
+/** The snail-shell houses and the ambulance of a cartoon race-night town. */
+function ShellHouse({ x, colour }: { x: number; colour: string }) {
+  return (
+    <g transform={`translate(${x} 0)`}>
+      <path d="M0 700 Q0 580 80 580 Q160 580 160 660 Q160 700 120 700 Z" fill={colour} stroke="#2a1a1a" strokeWidth="4" />
+      <path d="M60 640 a36 36 0 1 1 72 0 a26 26 0 1 1 -52 0 a14 14 0 1 1 28 0" fill="none" stroke="#2a1a1a" strokeWidth="3" opacity=".4" />
+      <rect x="18" y="650" width="26" height="50" fill="#5b3a1e" stroke="#2a1a1a" strokeWidth="3" />
+      <rect x="104" y="636" width="22" height="22" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="3" />
+    </g>
+  );
+}
+
+function Ambulance({ x }: { x: number }) {
+  return (
+    <g transform={`translate(${x} 0)`}>
+      <g className="side-ambulance">
+      <rect x="0" y="636" width="150" height="54" rx="10" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
+      <rect x="104" y="648" width="36" height="24" fill="#8fc9f0" stroke="#2a1a1a" strokeWidth="3" />
+      <rect x="36" y="648" width="30" height="8" fill="#e8262b" />
+      <rect x="47" y="637" width="8" height="30" fill="#e8262b" />
+      <rect x="62" y="624" width="20" height="14" rx="4" fill="#3b93e6" stroke="#2a1a1a" strokeWidth="3" />
+      <circle cx="34" cy="692" r="12" fill="#2a1a1a" />
+      <circle cx="118" cy="692" r="12" fill="#2a1a1a" />
+      </g>
+    </g>
+  );
+}
+
 function Scenery({ clubName }: { clubName: string }) {
   const short = clubName.split(' ')[0].toUpperCase();
   return (
     <g transform="translate(0 -220)">
       <Tree x={120} />
       <Building x={300} w={220} label="CLUBROOMS" colour="#f0a25a" />
-      <Tree x={620} />
-      <Building x={760} w={260} label="CANTEEN" colour="#8fc9f0" dome />
-      <Tree x={1120} />
-      <Building x={1300} w={240} label={short} colour="#c98bd8" />
+      <ShellHouse x={560} colour="#c98bd8" />
+      <Tree x={760} />
+      <Building x={860} w={260} label="CANTEEN" colour="#8fc9f0" dome />
+      <Ambulance x={1150} />
+      <Building x={1340} w={240} label={short} colour="#c98bd8" />
       <Tree x={1640} />
-      <Building x={1820} w={300} label="SNAIL TV" colour="#f4f1ea" dome />
-      <Tree x={2220} />
-      <Building x={2400} w={220} label="NETS" colour="#9cd36f" />
-      <Tree x={2760} />
-      <Tree x={2980} />
+      <Building x={1760} w={300} label="SNAIL TV" colour="#f4f1ea" dome />
+      <ShellHouse x={2100} colour="#f0a25a" />
+      <Tree x={2320} />
+      <Building x={2420} w={220} label="NETS" colour="#9cd36f" />
+      <ShellHouse x={2700} colour="#8fc9f0" />
+      <Tree x={2920} />
+      <Tree x={3080} />
+    </g>
+  );
+}
+
+/** The crowd on the front rail: a row of heads and arms that bob while they race. */
+function Crowd() {
+  const heads = Array.from({ length: 26 }, (_, i) => i);
+  return (
+    <g className="side-crowd">
+      {heads.map((i) => {
+        const x = i * (SCENE_W / 26) + ((i * 37) % 50);
+        const h = 54 + ((i * 13) % 24);
+        const fill = i % 3 === 0 ? '#4a2a5e' : i % 3 === 1 ? '#5a3272' : '#3f2554';
+        return (
+          <g key={i} transform={`translate(${x} ${VIEW_H + 40})`}>
+            <g className={`side-fan side-fan-${i % 3}`}>
+              <path d={`M-30 0 L-22 -${h} L-34 -${h + 30} L-26 -${h + 36} L-12 -${h + 4} L12 -${h + 4} L26 -${h + 36} L34 -${h + 30} L22 -${h} L30 0Z`} fill={fill} />
+              <circle cx="0" cy={-h - 20} r="24" fill={fill} />
+            </g>
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -183,8 +255,15 @@ function SnailSprite({ lane, number, name, scale, nodeRef }: {
   return (
     <g ref={nodeRef} className="tv-runner side-runner" data-lane={lane} data-scale={scale}>
       <title>{number}. {name}</title>
+      {/* Speed lines and dust when a snail is streaking. */}
+      <g className="side-speed" transform={`scale(${scale}) translate(${-ART_NOSE} 0)`} aria-hidden="true">
+        <path d="M-170 -110 H-280 M-180 -70 H-320 M-170 -30 H-270" stroke="#fff" strokeWidth="12" strokeLinecap="round" opacity=".85" />
+        <circle className="side-dust side-dust-1" cx="-190" cy="0" r="22" fill="#e9dcc0" opacity=".8" />
+        <circle className="side-dust side-dust-2" cx="-230" cy="-10" r="16" fill="#e9dcc0" opacity=".7" />
+      </g>
       <g className="side-art" transform={`scale(${scale}) translate(${-ART_NOSE} 0)`}>
         <ellipse cx="0" cy="8" rx="150" ry="14" fill="#000" opacity=".18" />
+        <g className="side-body">
         {/* foot */}
         <path className="side-foot" d="M-150 0 Q-150 -40 -100 -46 L120 -46 Q190 -46 190 -4 Q190 8 170 8 L-130 8 Q-150 8 -150 0Z" fill="#e9b96a" stroke="#2a1a1a" strokeWidth="5" />
         {/* eye stalks */}
@@ -193,18 +272,129 @@ function SnailSprite({ lane, number, name, scale, nodeRef }: {
           <path d="M165 -44 L210 -108" stroke="#e9b96a" strokeWidth="9" strokeLinecap="round" />
           <circle cx="186" cy="-124" r="11" fill="#fff" stroke="#2a1a1a" strokeWidth="4" />
           <circle cx="211" cy="-112" r="11" fill="#fff" stroke="#2a1a1a" strokeWidth="4" />
-          <circle cx="189" cy="-124" r="4" fill="#1b1a19" />
-          <circle cx="214" cy="-112" r="4" fill="#1b1a19" />
+          <circle className="side-pupil" cx="189" cy="-124" r="4" fill="#1b1a19" />
+          <circle className="side-pupil" cx="214" cy="-112" r="4" fill="#1b1a19" />
         </g>
         {/* shell */}
-        <ellipse cx="-20" cy="-82" rx="112" ry="84" fill={c.shell} stroke="#2a1a1a" strokeWidth="6" />
-        <path d="M-20 -82 m-70 0 a70 70 0 1 1 140 0 a50 50 0 1 1 -100 0 a30 30 0 1 1 60 0" fill="none" stroke="#2a1a1a" strokeWidth="5" opacity=".35" />
-        <text x="-20" y={number >= 10 ? -46 : -42} textAnchor="middle" fontSize={number >= 100 ? 78 : number >= 10 ? 104 : 120} fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" stroke="#2a1a1a" strokeWidth="8" paintOrder="stroke">{number}</text>
+        <g className="side-shell">
+          <ellipse cx="-20" cy="-82" rx="112" ry="84" fill={c.shell} stroke="#2a1a1a" strokeWidth="6" />
+          <path d="M-20 -82 m-70 0 a70 70 0 1 1 140 0 a50 50 0 1 1 -100 0 a30 30 0 1 1 60 0" fill="none" stroke="#2a1a1a" strokeWidth="5" opacity=".35" />
+          <text x="-20" y={number >= 10 ? -46 : -42} textAnchor="middle" fontSize={number >= 100 ? 78 : number >= 10 ? 104 : 120} fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" stroke="#2a1a1a" strokeWidth="8" paintOrder="stroke">{number}</text>
+        </g>
         {/* mouth */}
-        <path d="M150 -16 Q165 -8 178 -18" fill="none" stroke="#2a1a1a" strokeWidth="4" strokeLinecap="round" />
+        <path className="side-mouth" d="M150 -16 Q165 -8 178 -18" fill="none" stroke="#2a1a1a" strokeWidth="4" strokeLinecap="round" />
+        </g>
+        {/* dizzy stars while stuck */}
+        <g className="side-dizzy" aria-hidden="true">
+          <path d="M-60 -200 l12 27 30 3 -22 20 6 30 -26 -15 -26 15 6 -30 -22 -20 30 -3Z" fill="#ffe36b" stroke="#2a1a1a" strokeWidth="4" />
+          <path d="M40 -225 l9 20 22 3 -16 15 4 22 -19 -12 -19 12 4 -22 -16 -15 22 -3Z" fill="#ffe36b" stroke="#2a1a1a" strokeWidth="4" />
+        </g>
       </g>
     </g>
   );
+}
+
+/** The tag over a snail: what just happened to it, in words the back row can read. Drawn above every prop. */
+function SnailTag({ lane, nodeRef }: { lane: number; nodeRef: (node: SVGGElement | null) => void }) {
+  return (
+    <g ref={nodeRef} className="side-tag" data-lane={lane} aria-hidden="true">
+      <rect className="side-tag-box" x="-90" y="-44" width="180" height="48" rx="10" />
+      <text className="side-tag-text" x="0" y="-10" textAnchor="middle" fontSize="34" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" />
+    </g>
+  );
+}
+
+/* ── Staging a twist from the plan ───────────────────────────────────── */
+
+interface StagedTwist {
+  key: string;
+  eventId: string;
+  phase: SurprisePhase;
+  label: string;
+  kind: string;
+  tone: 'good' | 'bad' | 'wild';
+  targetLanes: number[];
+  /** Signed clock shift per affected lane, when the engine knows it. */
+  deltaByLane: Record<number, number>;
+  consequence?: 'advance' | 'delay' | 'retire';
+  warningText: string;
+  commentaryText: string;
+  big: boolean;
+  /** Where this came from, so the two paths can never both draw a prop. */
+  source: 'plan' | 'moment';
+}
+
+/** How long an effect stays staged on screen after it lands, at least. */
+const EFFECT_ON_AIR_MS = 2600;
+
+const phaseRank: Record<SurprisePhase, number> = { warning: 0, reveal: 1, effect: 2 };
+
+/**
+ * The twist on air at race-time `t`, from the locked plan's own events.
+ *
+ * A landing effect owns the screen for `EFFECT_ON_AIR_MS`; after that it
+ * has had its title and its prop merely stays with its snail, so a newer
+ * card's warning or reveal takes over the moment it starts (the tags keep
+ * the older consequence readable). Without that a long hold would swallow
+ * the next card's build-up.
+ */
+function stagedFromPlan(events: LockedRaceEvent[], t: number): StagedTwist | null {
+  let best: { event: LockedRaceEvent; phase: SurprisePhase; rank: number } | null = null;
+  for (const event of events) {
+    if (t < event.warningAtMs) continue;
+    const end = Math.max(event.effectEndMs, event.effectAtMs + EFFECT_ON_AIR_MS);
+    if (t >= end) continue;
+    const phase: SurprisePhase = t < event.revealAtMs ? 'warning' : t < event.effectAtMs ? 'reveal' : 'effect';
+    const rank = phase === 'effect' && t >= event.effectAtMs + EFFECT_ON_AIR_MS ? -1 : phaseRank[phase];
+    if (
+      !best ||
+      rank > best.rank ||
+      (rank === best.rank && event.effectAtMs > best.event.effectAtMs)
+    ) best = { event, phase, rank };
+  }
+  if (!best) return null;
+  const { event, phase } = best;
+  return {
+    key: `${event.id}:${phase}`,
+    eventId: event.id,
+    phase,
+    label: event.label,
+    kind: event.kind,
+    tone: event.tone,
+    targetLanes: event.targetLanes,
+    deltaByLane: event.clockDeltaMsByLane,
+    consequence: event.consequence === 'retire' ? 'retire' : event.consequence === 'advance' ? 'advance' : 'delay',
+    warningText: event.warningText,
+    commentaryText: event.commentaryText,
+    big: event.targetLanes.length > 1,
+    source: 'plan',
+  };
+}
+
+function consequenceWords(staged: StagedTwist, names: string[], numberOffset: number): string {
+  if (staged.consequence === 'retire') return 'OUT OF THE RACE';
+  const lanes = staged.targetLanes;
+  const deltas = lanes.map((lane) => staged.deltaByLane[lane] ?? 0);
+  const held = lanes.filter((lane, i) => deltas[i] < 0);
+  const sent = lanes.filter((lane, i) => deltas[i] > 0);
+  const seconds = (ms: number) => `${(Math.abs(ms) / 1000).toFixed(1)}s`;
+  const who = (list: number[]) =>
+    list.length === 1
+      ? `${numberOffset + list[0] + 1} ${names[list[0]] ?? ''}`.trim()
+      : list.length >= Math.ceil(names.length / 2) && list.length > 2
+        ? list.length === names.length ? 'THE FIELD' : `${list.length} OF THE FIELD`
+        : list.map((lane) => `${numberOffset + lane + 1}`).join(' ');
+  const parts: string[] = [];
+  if (held.length) {
+    const worst = Math.min(...held.map((lane) => staged.deltaByLane[lane] ?? 0));
+    parts.push(`${who(held)} HELD ${seconds(worst)}`);
+  }
+  if (sent.length) {
+    const most = Math.max(...sent.map((lane) => staged.deltaByLane[lane] ?? 0));
+    parts.push(`${who(sent)} +${seconds(most)}`);
+  }
+  if (!parts.length) parts.push(staged.consequence === 'advance' ? 'BOOST' : 'HELD UP');
+  return parts.join('  ');
 }
 
 /* ── The renderer ─────────────────────────────────────────────────────── */
@@ -235,6 +425,7 @@ export function Sidescroller({
   const sceneRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const nodesRef = useRef(new Map<number, SVGGElement>());
+  const tagNodesRef = useRef(new Map<number, SVGGElement>());
   const layerRefs = useRef<Record<string, SVGGElement | null>>({});
   const propRef = useRef<SVGGElement>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
@@ -246,11 +437,16 @@ export function Sidescroller({
   const momentRef = useRef(race.moment);
   const aspectRef = useRef(16 / 9);
   const camRef = useRef({ x: -200, w: PACK_VIEW_W });
+  /* The twist on air, derived from the plan on every frame; React only hears
+     about it when it changes, which is a handful of times a race. */
+  const stagedRef = useRef<StagedTwist | null>(null);
+  const [staged, setStaged] = useState<StagedTwist | null>(null);
+  const tagRef = useRef(new Map<number, string>());
 
   const lanes = useMemo(() => names.map((_, lane) => laneGeometry(lane, names.length)), [names]);
   const snailLen = (ART_NOSE + ART_TAIL) * (lanes[0]?.scale ?? 0.5);
   const signs = useMemo(() => {
-    const list = [clubName.toUpperCase(), 'SNAIL RACING', sponsor ? `PRESENTED BY ${sponsor.toUpperCase()}` : 'A NIGHT AT THE RACES', ...sponsors.map((s) => s.toUpperCase())];
+    const list = [clubName.toUpperCase(), 'SNAIL RACING', sponsor ? `PRESENTED BY ${sponsor.toUpperCase()}` : 'A NIGHT AT THE RACES', 'DRINK SNAIL ALE', ...sponsors.map((s) => s.toUpperCase())];
     return list.filter(Boolean);
   }, [clubName, sponsor, sponsors]);
 
@@ -261,6 +457,7 @@ export function Sidescroller({
       const x = worldX(progress);
       node?.setAttribute('transform', `translate(${x} ${geo.y})`);
       node?.setAttribute('data-progress', String(progress));
+      tagNodesRef.current.get(lane)?.setAttribute('transform', `translate(${x - ART_NOSE * geo.scale + 20} ${geo.y - ART_HEIGHT * geo.scale - 26})`);
       return x;
     };
     /** The narrowest shot that still shows every lane at this screen shape. */
@@ -282,31 +479,104 @@ export function Sidescroller({
         el.classList.toggle('retired', Boolean(s.retired));
       });
     };
+    const setTag = (lane: number, text: string, tone: string) => {
+      if (tagRef.current.get(lane) === `${tone}|${text}`) return;
+      tagRef.current.set(lane, `${tone}|${text}`);
+      const tag = tagNodesRef.current.get(lane);
+      const label = tag?.querySelector('.side-tag-text') as SVGTextElement | null;
+      const box = tag?.querySelector('.side-tag-box') as SVGRectElement | null;
+      if (!tag || !label || !box) return;
+      label.textContent = text;
+      tag.setAttribute('data-tone', tone);
+      tag.classList.toggle('on', Boolean(text));
+      const w = Math.max(120, text.length * 21 + 36);
+      box.setAttribute('x', String(-w / 2));
+      box.setAttribute('width', String(w));
+    };
     const paint: RacePainter['paint'] = (snails, info) => {
       snapshotRef.current = { snails, info };
+      const t = info.raceTimeMs;
       /* The stalls follow the race clock, so a replay or a seek opens and shuts them too. */
-      svgRef.current?.classList.toggle('gates-open', info.raceTimeMs > 0);
+      svgRef.current?.classList.toggle('gates-open', t > 0);
+      svgRef.current?.classList.toggle('run-home', info.finalStraight);
+
+      /* Stage the twist from the plan itself: it is on air from its warning
+         until its consequence has run, which is how long the room needs. */
+      const planEvents = snails[0]?.lockedMotion?.events;
+      let next: StagedTwist | null = null;
+      if (planEvents) {
+        next = stagedFromPlan(planEvents, t);
+      } else {
+        const moment = momentRef.current;
+        if (moment && info.leadP <= 1) {
+          next = {
+            key: `moment-${moment.id}`,
+            eventId: moment.eventId ?? `moment-${moment.id}`,
+            phase: moment.phase ?? 'effect',
+            label: moment.label ?? moment.text,
+            kind: moment.kind ?? '',
+            tone: moment.tone === 'good' ? 'good' : moment.tone === 'bad' ? 'bad' : 'wild',
+            targetLanes: moment.targetLanes ?? [info.ranked[0]?.lane ?? 0],
+            deltaByLane: moment.deltaMs && moment.targetLanes?.length ? { [moment.targetLanes[0]]: moment.deltaMs } : {},
+            consequence: moment.consequence,
+            warningText: moment.text,
+            commentaryText: moment.text,
+            big: Boolean(moment.big),
+            source: 'moment',
+          };
+        }
+      }
+      if ((next?.key ?? null) !== (stagedRef.current?.key ?? null)) {
+        stagedRef.current = next;
+        setStaged(next);
+      }
+
       for (const snail of snails) {
         const node = nodesRef.current.get(snail.lane);
-        node?.classList.toggle('retired', Boolean(snail.retired));
-        node?.classList.toggle('fx-up', snail.effect === 'boost' || snail.effect === 'surge');
-        node?.classList.toggle('fx-down', snail.effect === 'stumble' || snail.effect === 'nap');
+        if (!node) continue;
+        node.classList.toggle('retired', Boolean(snail.retired));
+        /* The reaction follows the consequence, not the name of the gag. */
+        let delta = 0;
+        let live: LockedRaceEvent | undefined;
+        if (snail.lockedMotion) {
+          /* The newest consequence on this lane is the one to show: a boost
+             still easing in loses the tag to a hold that has just landed. */
+          live = snail.lockedMotion.events
+            .filter((event) => event.targetLanes.includes(snail.lane) && t >= event.effectAtMs && t < event.effectEndMs && (event.clockDeltaMsByLane[snail.lane] ?? 0) !== 0)
+            .sort((x, y) => y.effectAtMs - x.effectAtMs)[0];
+          delta = live?.clockDeltaMsByLane[snail.lane] ?? 0;
+        } else {
+          delta = snail.effect === 'boost' || snail.effect === 'surge' ? 1 : snail.effect === 'stumble' || snail.effect === 'nap' || snail.effect === 'wander' ? -1 : 0;
+        }
+        const up = !snail.done && delta > 0;
+        const down = !snail.done && !snail.retired && delta < 0;
+        /* When most of the field is stuck, the title says so; a tag on every
+           snail would only pile up where the lanes stack. Tag the exceptions. */
+        const fieldHold = Boolean(live) && live!.targetLanes.filter((lane) => (live!.clockDeltaMsByLane[lane] ?? 0) < 0).length >= Math.ceil(snails.length / 2);
+        node.classList.toggle('fx-up', up);
+        node.classList.toggle('fx-down', down);
+        const place1 = snail.done && !snail.retired && snail.place === 1;
+        if (snail.retired) setTag(snail.lane, 'OUT', 'out');
+        else if (place1) setTag(snail.lane, 'WINNER!', 'win');
+        else if (up) setTag(snail.lane, live ? `+${(delta / 1000).toFixed(1)}s` : 'BOOST', 'up');
+        else if (down && !fieldHold) setTag(snail.lane, live ? `STUCK ${(-delta / 1000).toFixed(1)}s` : 'STUCK', 'down');
+        else setTag(snail.lane, '', 'none');
         place(snail.lane, snail.p);
       }
       for (const snail of info.justFinished) nodesRef.current.get(snail.lane)?.classList.add('finished');
 
       /*
-       * Camera: follow the field. The leader is always in shot with room to
-       * run into; runners behind are added in running order while they fit
-       * the widest following shot, so a strung-out field keeps the race up
-       * front on screen and the running-order strip names the rest. Full
+       * Camera: ride with the leading pack. The leader is always in shot with
+       * room to run into; runners behind are added in running order while
+       * they fit a tight following shot, so the picture stays close and the
+       * scenery moves, and the running-order strip names the rest. Full
        * field view takes everyone. Every lane is always in frame.
        */
       const aspect = aspectRef.current;
       const narrowest = minW();
-      const maxW = courseViewRef.current ? Infinity : Math.max(narrowest, Math.min(FOLLOW_MAX_W, narrowest * 1.7));
+      const maxW = courseViewRef.current ? Infinity : Math.max(narrowest, Math.min(FOLLOW_MAX_W, narrowest * 1.3));
       const order = info.ranked.length ? info.ranked : snails;
-      const headroom = 420;
+      const headroom = 380;
       const leadX = worldX(order[0]?.p ?? 0);
       let right = leadX + headroom;
       let left = leadX - snailLen - 140;
@@ -318,22 +588,38 @@ export function Sidescroller({
       }
 
       /* The prop sits on the snail it hits; a field-wide one sits mid-shot. */
-      const moment = momentRef.current;
-      if (moment && propRef.current) {
-        const targets = moment.targetLanes ?? [info.ranked[0]?.lane ?? 0];
-        const big = targets.length > 2;
-        const target = snails.find((s) => s.lane === targets[0]);
+      const twist = stagedRef.current;
+      if (twist && propRef.current) {
+        const targets = twist.targetLanes.length ? twist.targetLanes : [info.ranked[0]?.lane ?? 0];
+        const presentation = presentationForMoment({ id: 0, text: twist.commentaryText, tone: 'hot', label: twist.label, kind: twist.kind });
+        const cue = presentation?.cue ?? 'drop';
         const scale = lanes[0]?.scale ?? 0.5;
-        if (big) {
+        const big = targets.length > 2 || cue === 'pull';
+        const held = targets.filter((lane) => (twist.deltaByLane[lane] ?? 0) < 0);
+        if (cue === 'gate') {
+          /* The gate drops just in front of the first snail it stopped. */
+          const stopped = snails.filter((s) => held.includes(s.lane));
+          const frontP = stopped.length ? Math.max(...stopped.map((s) => s.p)) : (order[0]?.p ?? 0);
+          const x = worldX(frontP) + 150;
           propRef.current.setAttribute('data-size', 'field');
-          propRef.current.setAttribute('transform', `translate(${(left + right) / 2} ${TRACK_TOP + (TRACK_BOTTOM - TRACK_TOP) * 0.78}) scale(${Math.max(0.6, scale * 1.6)})`);
-        } else if (target) {
-          const geo = lanes[target.lane];
-          propRef.current.setAttribute('data-size', 'single');
-          const ahead = moment.phase === 'warning' ? 220 : moment.phase === 'reveal' ? 110 : 0;
-          const x = worldX(target.p) + ahead;
-          propRef.current.setAttribute('transform', `translate(${x} ${geo.y}) scale(${Math.max(0.42, scale * 1.15)})`);
-          right = Math.max(right, x + 240);
+          propRef.current.setAttribute('transform', `translate(${x} ${TRACK_BOTTOM + 10}) scale(${Math.max(0.7, scale * 2.2)})`);
+          right = Math.max(right, x + 260);
+        } else if (big) {
+          propRef.current.setAttribute('data-size', 'field');
+          propRef.current.setAttribute('transform', `translate(${(left + right) / 2} ${TRACK_TOP + (TRACK_BOTTOM - TRACK_TOP) * 0.8}) scale(${Math.max(0.55, scale * 1.4)})`);
+        } else {
+          /* The prop lands on the snail that wears the consequence: the one
+             the bat hit, not the one swinging it. */
+          const featured = snails.find((s) => s.lane === (held[0] ?? targets[0]));
+          if (featured) {
+            const geo = lanes[featured.lane];
+            propRef.current.setAttribute('data-size', 'single');
+            const ahead = twist.phase === 'warning' ? 260 : twist.phase === 'reveal' ? 120 : 0;
+            const x = worldX(featured.p) - (cue === 'stomp' ? snailLen * 0.35 : 0) + ahead;
+            const propScale = Math.max(0.5, scale * (cue === 'stomp' ? 2.2 : 1.35));
+            propRef.current.setAttribute('transform', `translate(${x} ${geo.y}) scale(${propScale})`);
+            right = Math.max(right, x + 280);
+          }
         }
       }
 
@@ -351,7 +637,7 @@ export function Sidescroller({
       const viewH = viewW / aspect;
       const viewY = VIEW_H - viewH;
       svgRef.current?.setAttribute('viewBox', `${cam.x} ${viewY} ${viewW} ${viewH}`);
-      /* Parallax: the sky stays, hills drift, buildings slide, the fence moves with the track. */
+      /* Parallax: the sky stays, hills drift, buildings slide, the fence and crowd move with the track. */
       const layers = layerRefs.current;
       const shift = (name: string, factor: number) => {
         const g = layers[name];
@@ -363,9 +649,10 @@ export function Sidescroller({
       shift('lake', 0.25);
       shift('buildings', 0.5);
       shift('fence', 1);
+      shift('crowd', 1);
       layers.sky?.setAttribute('transform', `translate(${cam.x} 0)`);
 
-      if (clockRef.current) clockRef.current.textContent = clockText(info.raceTimeMs);
+      if (clockRef.current) clockRef.current.textContent = clockText(t);
       const lead = Math.min(1, Math.max(0, info.leadP));
       if (barRef.current) {
         barRef.current.style.setProperty('--lead', String(lead));
@@ -398,12 +685,19 @@ export function Sidescroller({
       },
       reset: () => {
         snapshotRef.current = null;
-        svgRef.current?.classList.remove('racing', 'gates-open');
+        svgRef.current?.classList.remove('racing', 'gates-open', 'run-home');
         const w = minW();
         camRef.current = { x: -260, w };
+        stagedRef.current = null;
+        setStaged(null);
+        tagRef.current.clear();
         nodesRef.current.forEach((node, lane) => {
           place(lane, 0);
           node.classList.remove('finished', 'retired', 'fx-up', 'fx-down');
+          const tag = tagNodesRef.current.get(lane);
+          tag?.classList.remove('on');
+          const label = tag?.querySelector('.side-tag-text');
+          if (label) label.textContent = '';
         });
         orderRefs.current.forEach((el, lane) => {
           el.dataset.rank = String(lane + 1);
@@ -420,7 +714,7 @@ export function Sidescroller({
         const viewH = w / aspectRef.current;
         svgRef.current?.setAttribute('viewBox', `-260 ${VIEW_H - viewH} ${w} ${viewH}`);
         const layers = layerRefs.current;
-        for (const name of ['mountains', 'lake', 'buildings', 'fence']) layers[name]?.setAttribute('transform', `translate(${-260 - SCENE_W} 0)`);
+        for (const name of ['mountains', 'lake', 'buildings', 'fence', 'crowd']) layers[name]?.setAttribute('transform', `translate(${-260 - SCENE_W} 0)`);
         layers.sky?.setAttribute('transform', 'translate(-260 0)');
       },
       paint,
@@ -451,13 +745,16 @@ export function Sidescroller({
 
   const phase = race.phase as string;
   const confirming = phase === 'confirming';
-  const moment = phase === 'running' ? race.moment : null;
-  const presentation = presentationForMoment(moment);
+  const twist = phase === 'running' ? staged : null;
+  const presentation: SurprisePresentation | null = twist
+    ? presentationForMoment({ id: 0, text: twist.commentaryText, tone: 'hot', label: twist.label, kind: twist.kind })
+    : null;
   const showResult = (phase === 'confirming' || phase === 'done') && race.results.length > 0;
   const label = replay ? 'REPLAY' : confirming ? 'FINISH' : phase === 'done' ? 'OFFICIAL' : phase === 'void' ? 'VOID' : phase === 'idle' ? 'READY' : 'LIVE';
   const announcement = confirming || phase === 'done' || phase === 'void' ? race.status : race.commentary || race.status;
   /* Scenery is drawn three times across so a shift never shows an edge. */
   const copies = [0, 1, 2];
+  const twistNumbers = twist ? twist.targetLanes.map((lane) => ({ lane, n: numberOffset + lane + 1, c: laneColour(lane) })) : [];
 
   return (
     <div
@@ -518,7 +815,7 @@ export function Sidescroller({
           {lanes.slice(1).map((geo, i) => (
             <line key={`rail-${i}`} x1="-4000" x2={TRACK_LEN + 4000} y1={geo.top} y2={geo.top} stroke="#fff" strokeWidth="4" strokeDasharray="40 30" opacity=".55" />
           ))}
-          {/* The inside rail, and the front rail with grass in front of it. */}
+          {/* The inside rail, and the front rail with the crowd in front of it. */}
           <rect x="-4000" y={TRACK_TOP - 12} width={TRACK_LEN + 8000} height="14" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
           <rect x="-4000" y={TRACK_BOTTOM} width={TRACK_LEN + 8000} height={VIEW_H - TRACK_BOTTOM + 40} fill="#5fa83a" />
           <rect x="-4000" y={TRACK_BOTTOM + 4} width={TRACK_LEN + 8000} height="14" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
@@ -579,8 +876,8 @@ export function Sidescroller({
               />
             ))}
           </g>
-          {moment && presentation ? (
-            <g ref={propRef} className={`course-prop side-prop side-prop-${presentation.cue}`} data-phase={moment.phase ?? 'effect'} aria-hidden="true">
+          {twist && presentation ? (
+            <g key={twist.key} ref={propRef} className={`course-prop side-prop side-prop-${presentation.cue}`} data-phase={twist.phase} data-tone={twist.tone} aria-hidden="true">
               <ellipse className="course-impact" rx="150" ry="40" fill="none" stroke="#ffe6a5" strokeWidth="10" />
               <g className="course-prop-motion side-prop-motion">
                 {presentation.art ? (
@@ -595,7 +892,56 @@ export function Sidescroller({
               </g>
             </g>
           ) : null}
+          <g className="side-tags">
+            {names.map((_, lane) => (
+              <SnailTag
+                key={lane}
+                lane={lane}
+                nodeRef={(node) => {
+                  if (node) tagNodesRef.current.set(lane, node);
+                  else tagNodesRef.current.delete(lane);
+                }}
+              />
+            ))}
+          </g>
+          {/* The crowd in front of the rail, drawn last so it stands in front of the track. */}
+          <g ref={(g) => { layerRefs.current.crowd = g; }}>
+            {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Crowd /></g>)}
+          </g>
         </svg>
+
+        {/* The title card: the twist, who it hit, and what it cost them. */}
+        {twist ? (
+          <div key={twist.key} className={`side-splash side-splash-${twist.phase} tone-${twist.tone}`} data-twist={twist.eventId} aria-hidden="true">
+            {twist.phase === 'warning' ? (
+              <>
+                <span className="side-splash-kicker">INCOMING</span>
+                <strong className="side-splash-title">{twist.warningText}</strong>
+              </>
+            ) : twist.phase === 'reveal' ? (
+              <>
+                <span className="side-splash-kicker">LOOK OUT</span>
+                <strong className="side-splash-title">{twist.label}</strong>
+                <span className="side-splash-numbers">
+                  {twistNumbers.map(({ lane, n, c }) => (
+                    <i key={lane} style={{ '--shell': c.shell } as CSSProperties}>{n}</i>
+                  ))}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="side-splash-kicker">{twist.consequence === 'retire' ? 'RETIRED' : twist.consequence === 'advance' ? 'BOOST' : twist.big ? 'FIELD TWIST' : 'TWIST'}</span>
+                <strong className="side-splash-title">{twist.label}</strong>
+                <span className="side-splash-numbers">
+                  {twistNumbers.map(({ lane, n, c }) => (
+                    <i key={lane} style={{ '--shell': c.shell } as CSSProperties}>{n}</i>
+                  ))}
+                </span>
+                <span className="side-splash-cost">{consequenceWords(twist, names, numberOffset)}</span>
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* The running order, leader first, as a racing telecast shows it, and the distance to go. */}

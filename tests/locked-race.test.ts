@@ -4,6 +4,7 @@ import {
   drawLockedRacePlan,
   drawRace,
   instantiateLockedRace,
+  LANE_CLOCK_CAP,
   lockedProgressAt,
   LOCKED_RACE_FIELD_SIZE,
   MAX_LOCKED_RACE_FIELD_SIZE,
@@ -212,11 +213,51 @@ test('comeback effects change the classification, remain bounded and respect sur
     if (lockedProgressAt(without, plan.winnerLane, at) < Math.max(...names.map((_, lane) => lockedProgressAt(without, lane, at)))) resultChanges++;
     for (const runner of plan.runners) {
       const delta = plan.events.reduce((sum, event) => sum + (event.clockDeltaMsByLane[runner.lane] ?? 0), 0);
-      assert.ok(Math.abs(delta) <= plan.durationMs * 0.16);
+      assert.ok(Math.abs(delta) <= plan.durationMs * LANE_CLOCK_CAP);
     }
   }
   assert.ok(resultChanges > 100, 'The comeback must affect the result, not only the picture');
   assert.equal(drawLockedRacePlan(42, names, 60_000, false).events.length, 0);
   assert.equal(drawLockedRacePlan(42, names, 60_000, true, 'calm').events.filter((e) => e.id.endsWith('-leader')).length, 1);
   assert.equal(drawLockedRacePlan(42, names, 60_000, true).events.filter((e) => e.id.endsWith('-leader')).length, 2);
+});
+
+test('the lively motion profile runs at pace from the gates and never changes who crosses or when', () => {
+  for (let seed = 1; seed <= 120; seed++) {
+    const plan = drawLockedRacePlan(seed, names, 60_000, true, 'chaos');
+    assert.equal(plan.motion, 'lively');
+    for (const runner of plan.runners) {
+      const retired = plan.events.some((e) => e.consequence === 'retire' && e.targetLanes.includes(runner.lane));
+      /* Off the gates at pace: a tenth of the race covers close to a tenth of the track. */
+      if (!plan.events.some((e) => e.targetLanes.includes(runner.lane) && e.effectAtMs < plan.durationMs * 0.1)) {
+        const early = lockedProgressAt(plan, runner.lane, plan.durationMs * 0.1);
+        assert.ok(early > 0.065 && early < 0.14, `lane ${runner.lane} in seed ${seed} covered ${early} by a tenth of the race`);
+      }
+      let last = -1;
+      for (let t = 0; t <= plan.stopAtMs; t += 25) {
+        const p = lockedProgressAt(plan, runner.lane, t);
+        assert.ok(p + 1e-9 >= last, `lane ${runner.lane} went backwards at ${t}ms in seed ${seed}`);
+        last = p;
+      }
+      /* Nobody is on the line before the winner's stop frame. */
+      if (!retired && runner.lane !== plan.winnerLane) assert.ok(lockedProgressAt(plan, runner.lane, plan.stopAtMs) < 1);
+    }
+    assert.equal(lockedProgressAt(plan, plan.winnerLane, plan.stopAtMs), 1);
+    /* The animation agrees with the plan's own classification. */
+    const race = instantiateLockedRace(plan);
+    let placed = 0;
+    for (let raceT = 0; raceT <= plan.stopAtMs; raceT += 40) {
+      const { crossed } = stepRace(race.snails, raceT, 40, placed);
+      if (crossed.length) placed = crossed[crossed.length - 1].place;
+    }
+    stepRace(race.snails, plan.stopAtMs, 1, placed);
+    const winner = race.snails.find((s) => s.lane === plan.winnerLane)!;
+    assert.ok(winner.done && winner.place === 1);
+    for (const result of plan.results) {
+      assert.equal(Number(race.snails[result.lane].p.toFixed(6)), result.progressAtStop);
+    }
+  }
+  /* An archived plan without the profile still animates on the old curve. */
+  const legacy = { ...drawLockedRacePlan(9, names, 30_000, true, 'chaos'), motion: undefined };
+  assert.ok(lockedProgressAt(legacy, legacy.winnerLane, 3000) < 0.03);
 });

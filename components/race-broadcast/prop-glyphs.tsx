@@ -35,7 +35,15 @@ export type PropGlyphId =
   | 'warning'
   | 'slime'
   | 'hand'
-  | 'u-turn';
+  | 'u-turn'
+  | 'ale'
+  | 'watermelon'
+  | 'boom-gate'
+  | 'rocket'
+  | 'magnet'
+  | 'caterpillar'
+  | 'speed-camera'
+  | 'bat';
 
 const ink = '#24171b';
 const cream = '#fff9ed';
@@ -251,6 +259,78 @@ export const PROP_GLYPHS: Record<PropGlyphId, ReactNode> = {
     <g fill="none" stroke={cream} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
       <path d="M-18 -4 V-30 a18 18 0 0 1 36 0 V-16" />
       <path d="M10 -24 l8 8 l8 -8" />
+    </g>
+  ),
+  /* The twists. */
+  ale: (
+    <g>
+      <path d="M-20 -44 H14 V-4 Q14 0 10 0 H-16 Q-20 0 -20 -4 Z" fill={gold} stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M14 -36 h8 a6 6 0 0 1 6 6 v12 a6 6 0 0 1 -6 6 h-8" fill="none" stroke={ink} strokeWidth="2.5" />
+      <path d="M-24 -46 Q-20 -58 -8 -54 Q-2 -64 10 -56 Q22 -58 18 -44 Z" fill={cream} stroke={ink} strokeWidth="1.8" />
+      <path d="M-12 -36 V-10 M2 -36 V-10" stroke="#fff5cc" strokeWidth="3" strokeLinecap="round" opacity=".8" />
+    </g>
+  ),
+  watermelon: (
+    <g>
+      <path d="M-30 -10 A30 30 0 0 1 30 -10 Z" fill="#2f8f3a" stroke={ink} strokeWidth="2" />
+      <path d="M-25 -10 A25 25 0 0 1 25 -10 Z" fill="#ff5a6e" stroke={ink} strokeWidth="1.5" />
+      <circle cx="-10" cy="-18" r="2.2" fill={ink} />
+      <circle cx="4" cy="-24" r="2.2" fill={ink} />
+      <circle cx="12" cy="-15" r="2.2" fill={ink} />
+    </g>
+  ),
+  'boom-gate': (
+    <g>
+      <rect x="-30" y="-20" width="12" height="22" fill={ink} />
+      <circle cx="-24" cy="-26" r="5" fill="#ff3b3b" stroke={ink} strokeWidth="1.5" />
+      <g className="prop-gate-arm">
+        <rect x="-26" y="-34" width="60" height="8" rx="2" fill={cream} stroke={ink} strokeWidth="1.5" />
+        <rect x="-14" y="-34" width="10" height="8" fill={maroon} />
+        <rect x="6" y="-34" width="10" height="8" fill={maroon} />
+        <rect x="26" y="-34" width="8" height="8" fill={maroon} />
+      </g>
+    </g>
+  ),
+  rocket: (
+    <g>
+      <path d="M0 -62 Q16 -44 14 -16 H-14 Q-16 -44 0 -62 Z" fill={cream} stroke={ink} strokeWidth="2" />
+      <path d="M-14 -30 L-26 -12 H-14 Z M14 -30 L26 -12 H14 Z" fill={maroon} stroke={ink} strokeWidth="1.5" />
+      <circle cx="0" cy="-38" r="5" fill={blue} stroke={ink} strokeWidth="1.5" />
+      <path d="M-8 -16 Q0 4 8 -16 Z" fill={gold} stroke={ink} strokeWidth="1.5" />
+    </g>
+  ),
+  magnet: (
+    <g>
+      <path d="M-24 -10 V-34 a24 24 0 0 1 48 0 V-10 H10 V-34 a10 10 0 0 0 -20 0 V-10 Z" fill="#d12a2a" stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <rect x="-24" y="-18" width="14" height="10" fill={cream} stroke={ink} strokeWidth="1.5" />
+      <rect x="10" y="-18" width="14" height="10" fill={cream} stroke={ink} strokeWidth="1.5" />
+    </g>
+  ),
+  caterpillar: (
+    <g>
+      <circle cx="-24" cy="-10" r="8" fill="#8ee05d" stroke={ink} strokeWidth="1.5" />
+      <circle cx="-10" cy="-14" r="8" fill="#6fcf45" stroke={ink} strokeWidth="1.5" />
+      <circle cx="4" cy="-10" r="8" fill="#8ee05d" stroke={ink} strokeWidth="1.5" />
+      <circle cx="18" cy="-14" r="8" fill="#6fcf45" stroke={ink} strokeWidth="1.5" />
+      <circle cx="30" cy="-12" r="9" fill={gold} stroke={ink} strokeWidth="1.5" />
+      <circle cx="33" cy="-14" r="1.6" fill={ink} />
+      <path d="M28 -20 l-2 -8 M34 -20 l3 -8" stroke={ink} strokeWidth="1.5" strokeLinecap="round" />
+    </g>
+  ),
+  bat: (
+    <g className="prop-bat">
+      <path d="M-6 -2 L-2 -22 L14 -60 Q20 -70 26 -66 Q32 -62 28 -52 L12 -16 L8 2 Z" fill={gold} stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M-8 4 L-2 -14 L8 -10 L2 8 Z" fill="#5b3a1e" stroke={ink} strokeWidth="2" />
+      <path d="M30 -70 l6 -6 M36 -58 l8 0 M22 -78 l0 -8" stroke={ink} strokeWidth="2.5" strokeLinecap="round" />
+    </g>
+  ),
+  'speed-camera': (
+    <g>
+      <rect x="-6" y="-22" width="12" height="22" fill={ink} />
+      <rect x="-24" y="-44" width="48" height="24" rx="4" fill="#3a3f4a" stroke={ink} strokeWidth="2" />
+      <circle cx="-8" cy="-32" r="7" fill={blue} stroke={cream} strokeWidth="2" />
+      <rect x="6" y="-38" width="12" height="8" fill={cream} />
+      <path className="prop-flash" d="M-34 -52 l6 6 M34 -52 l-6 6 M0 -56 v8" stroke={gold} strokeWidth="3" strokeLinecap="round" />
     </g>
   ),
 };

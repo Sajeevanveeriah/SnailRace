@@ -44,6 +44,7 @@ import type {
   LockedRaceEvent,
   LockedRacePlan,
   LockedRaceRunner,
+  MotionProfile,
   RaceResult,
 } from './types';
 import type { CourseId } from './courses';
@@ -958,6 +959,7 @@ export interface SnailRun {
   lockedMotion?: {
     baseFinishMs: number;
     events: LockedRaceEvent[];
+    motion?: MotionProfile;
   };
   retired?: boolean;
   retiredAtMs?: number;
@@ -1191,12 +1193,37 @@ function effectiveClockAt(
   return Math.max(0, clock);
 }
 
+/**
+ * The lively profile: at pace from the gates, and every runner jockeying
+ * around its own line.
+ *
+ * `u` is the runner's effective clock as a share of its base finish time.
+ * The first engine mapped it through a smoothstep, which is why the field
+ * crawled off the gates and crawled again at the post: the derivative of
+ * that curve is zero at both ends. This one is linear, with a wobble whose
+ * phase is driven by the same effective clock, so a held runner's wobble
+ * freezes with it and a boosted one surges with it.
+ *
+ * Fairness is unchanged. The wobble is zero at u = 0 and u = 1, so a runner
+ * is on the line exactly when its clock reaches its base finish time, and
+ * its amplitude is bounded so the curve is strictly increasing: the on-screen
+ * position is still a pure, monotone function of the race clock and can
+ * never run backwards or cross the post early.
+ */
+export function livelyProgress(runner: LockedRaceRunner, u: number): number {
+  const k = (runner.w1 * runner.baseFinishMs) / 4000;
+  const amplitude = Math.min(0.02, 0.85 / (Math.PI + k));
+  return u + amplitude * Math.sin(Math.PI * u) * Math.sin(k * u + runner.ph1);
+}
+
 function progressForLockedRunner(
   runner: LockedRaceRunner,
   events: LockedRaceEvent[],
   raceT: number,
+  motion?: MotionProfile,
 ): number {
   const u = clamp(effectiveClockAt(runner, events, raceT) / runner.baseFinishMs, 0, 1);
+  if (motion === 'lively') return clamp(livelyProgress(runner, u), 0, 1);
   return u * u * (3 - 2 * u);
 }
 
@@ -1204,7 +1231,7 @@ function progressForLockedRunner(
 export function lockedProgressAt(plan: LockedRacePlan, lane: number, raceT: number): number {
   const runner = plan.runners.find((candidate) => candidate.lane === lane);
   if (!runner) return 0;
-  const progress = progressForLockedRunner(runner, plan.events, raceT);
+  const progress = progressForLockedRunner(runner, plan.events, raceT, plan.motion);
   return lane === plan.winnerLane && raceT < plan.stopAtMs && progress >= 1
     ? 1 - Number.EPSILON
     : progress;
@@ -1231,6 +1258,17 @@ function consequenceFor(delta: number): LockedRaceEvent['consequence'] {
 
 /** Races shorter than this cannot fit a late card and its four beats. */
 export const DECK_MIN_DURATION_MS = 20_000;
+/**
+ * The most one runner's clock can be shifted over a race, as a share of race
+ * time, every book and card added together. Wide enough that a night of
+ * twists lands on screen, narrow enough that no snail teleports or stands
+ * still for a third of the race.
+ */
+export const LANE_CLOCK_CAP = 0.3;
+/** Two cards on air at once is noise, not drama: the least gap between them. */
+export const deckSpacingMs = (durationMs: number): number => Math.max(4500, Math.round(durationMs * 0.05));
+/** How close a comeback beat may sit to a dealt card: its warning and chase must not overlap the card's own title. */
+export const comebackClearanceMs = (durationMs: number): number => Math.round(deckSpacingMs(durationMs) * 0.75);
 
 export interface DeckCard {
   id: string;
@@ -1373,6 +1411,128 @@ export const DECK_CARDS: readonly DeckCard[] = [
       return { deltas, featured: lanes[0] };
     },
   },
+
+  /* ── The twists: physical gags the whole room can read ─────────────── */
+  {
+    id: 'big-boot', label: 'THE BIG BOOT', kind: 'stumble', tone: 'bad', sound: 'down', once: true,
+    from: 0.3, to: 0.7, boostTo: 0,
+    warning: 'A very large shadow has fallen across the leader\'s lane.',
+    calls: [
+      'THE BOOT! A giant boot has come down right on top of {a}! The leader is flat as a pancake!',
+      'STOMP! {a} has been trodden on with the race in hand! Can it shake itself out?',
+    ],
+    deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.09, 0.12) }, featured: lanes[0] }),
+  },
+  {
+    id: 'snail-ale', label: 'SNAIL ALE HAPPY HOUR', kind: 'nap', tone: 'wild', sound: 'weird', once: false,
+    from: 0.35, to: 0.7, boostTo: 0.05,
+    warning: 'The Snail Ale sign has just lit up beside the track.',
+    calls: ['HAPPY HOUR! The whole field has pulled in for a Snail Ale... except {a}, the designated driver, who is OFF!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const driver = lanes[Math.floor(rnd() * lanes.length)];
+      for (const lane of lanes) deltas[lane] = lane === driver ? share(rnd, durationMs, 0.03, 0.05) : -share(rnd, durationMs, 0.05, 0.08);
+      return { deltas, featured: driver };
+    },
+  },
+  {
+    id: 'watermelon', label: 'WATERMELON AT THE POST', kind: 'nap', tone: 'bad', sound: 'nap', once: true,
+    from: 0.78, to: 0.86, boostTo: 0,
+    warning: 'Somebody has left a slice of watermelon near the winning post.',
+    calls: ['WATERMELON! {a} has stopped for a feed with the line RIGHT THERE! The rest of them are coming!'],
+    deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lanes[0] }),
+  },
+  {
+    id: 'boom-gate', label: 'BOOM GATE', kind: 'chaos', tone: 'wild', sound: 'siren', once: false,
+    from: 0.28, to: 0.68, boostTo: 0,
+    warning: 'The boom gate lights have started flashing across the course.',
+    calls: ['BOOM GATE DOWN! {a} got through and everybody behind it is stuck at the barrier!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const through = 1 + Math.floor(rnd() * Math.min(3, lanes.length - 2));
+      for (const lane of lanes.slice(through)) deltas[lane] = -share(rnd, durationMs, 0.05, 0.08);
+      return { deltas, featured: lanes[through - 1] };
+    },
+  },
+  {
+    id: 'catapult', label: 'THE CATAPULT', kind: 'surge', tone: 'good', sound: 'up', once: false,
+    from: 0.3, to: 0.72, boostTo: 0.12,
+    warning: 'The groundskeeper is winding something up behind the back markers.',
+    calls: ['CATAPULT! {a} has been FLUNG up the course! It is airborne and it is flying past them!'],
+    deal: (rnd, lanes, durationMs) => {
+      const back = lanes.slice(Math.floor(lanes.length / 2));
+      const lane = back[Math.floor(rnd() * back.length)];
+      return { deltas: { [lane]: share(rnd, durationMs, 0.09, 0.12) }, featured: lane };
+    },
+  },
+  {
+    id: 'bunch-up', label: 'THE BIG BUNCH-UP', kind: 'chaos', tone: 'wild', sound: 'wave', once: true,
+    from: 0.58, to: 0.76, boostTo: 0.08,
+    warning: 'The stewards have wheeled a giant magnet onto the home straight.',
+    calls: ['THE MAGNET! The leaders are being dragged back and the tail is being pulled up! {a} and the whole field are nose to nose!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const n = lanes.length;
+      const swing = share(rnd, durationMs, 0.06, 0.08);
+      lanes.forEach((lane, rank) => {
+        const bias = (n - 1 - 2 * rank) / (n - 1);
+        deltas[lane] = Math.round(swing * bias);
+      });
+      return { deltas, featured: lanes[n - 1] };
+    },
+  },
+  {
+    id: 'caterpillar', label: 'CATERPILLAR CROSSING', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
+    from: 0.3, to: 0.7, boostTo: 0,
+    warning: 'A very long caterpillar is heading for the middle of the course.',
+    calls: ['CATERPILLAR! It is right across the middle of the field and {a} has to wait for every one of those legs!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const middle = lanes.slice(1, Math.max(2, lanes.length - 1));
+      for (const lane of middle) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: middle[0] };
+    },
+  },
+  {
+    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false,
+    from: 0.28, to: 0.74, boostTo: 0.03,
+    warning: 'One of the runners has found a cricket bat beside the track.',
+    calls: [
+      '{a} has pulled out a cricket bat and CLOBBERED the snail in front! Down it goes and {a} is through!',
+      'THE BAT! {a} has swung it straight at the snail ahead! That is not in the rules and nobody is stopping it!',
+    ],
+    deal: (rnd, lanes, durationMs) => {
+      /* A runner outside the lead picks up the bat; the snail directly in front of it wears it. */
+      const rank = 1 + Math.floor(rnd() * (lanes.length - 1));
+      const batter = lanes[rank];
+      const victim = lanes[rank - 1];
+      return { deltas: { [victim]: -share(rnd, durationMs, 0.06, 0.09), [batter]: share(rnd, durationMs, 0.02, 0.03) }, featured: batter };
+    },
+  },
+  {
+    id: 'contagion', label: 'CONTAGIOUS PLAGUE', kind: 'plague', tone: 'bad', sound: 'plague', once: true,
+    from: 0.4, to: 0.74, boostTo: 0,
+    warning: 'The vet is running towards the front of the field with a mask on.',
+    calls: ['PLAGUE at the front! {a} has caught it and it is SPREADING: everybody running near the leader has gone down with it!'],
+    deal: (rnd, lanes, durationMs) => {
+      /* The leader gets it worst; the nearer a runner is to the front, the more it catches. */
+      const deltas: Record<number, number> = {};
+      const spread = Math.min(lanes.length, 4);
+      lanes.slice(0, spread).forEach((lane, rank) => {
+        const from = [0.08, 0.06, 0.04, 0.025][rank];
+        const to = [0.1, 0.08, 0.06, 0.04][rank];
+        deltas[lane] = -share(rnd, durationMs, from, to);
+      });
+      return { deltas, featured: lanes[0] };
+    },
+  },
+  {
+    id: 'speed-camera', label: 'SPEED CAMERA', kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
+    from: 0.25, to: 0.72, boostTo: 0,
+    warning: 'The stewards have set up a camera on the rail.',
+    calls: ['FLASH! {a} has been pulled over for speeding! The leader is parked while the stewards write it up!'],
+    deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.06, 0.09) }, featured: lanes[0] }),
+  },
 ];
 
 /** Once-a-night card ids a plan dealt, to be excluded from later races. */
@@ -1410,6 +1570,7 @@ export function drawLockedRacePlan(
      The legacy result remains available for old histories; the plan below
      gives those surprises persistent consequences and draws a new result. */
   const source = drawRace(seed, names, durationMs, surprises, intensity);
+  const motion: MotionProfile = 'lively';
   /* Keep the fourth beat before even the earliest mechanically possible
      finish (84% after the cumulative consequence cap). At normal show
      lengths this remains the familiar quarter-second commentary beat. */
@@ -1449,9 +1610,13 @@ export function drawLockedRacePlan(
     if (comebackTimes.some((at) => sourceEnd >= at - warningLead &&
       effectAtMs - warningLead <= at + chaseOffset + comebackSpan)) continue;
     const key = event.group ?? event.id;
-    const cap = Math.round(durationMs * 0.06);
-    let delta = clamp(Math.round(event.mag * durationMs * 0.55), -cap, cap);
-    const minimum = Math.max(50, Math.round(durationMs * 0.004));
+    /* A surprise the room is told about has to be one the room can see. The
+       first engine let a nudge of half a percent through, which read as a
+       prop over a snail that then did nothing; the floor is now a visible
+       stop or lunge of two and a half percent of the race. */
+    const cap = Math.round(durationMs * 0.08);
+    let delta = clamp(Math.round(event.mag * durationMs * 0.8), -cap, cap);
+    const minimum = Math.max(50, Math.round(durationMs * 0.025));
     if (Math.abs(delta) < minimum) delta = (event.mag < 0 ? -1 : 1) * minimum;
 
     const hit = grouped.get(key);
@@ -1494,15 +1659,28 @@ export function drawLockedRacePlan(
   /* Bound the sum per lane. Intensity may deal more events, but it cannot turn
      one runner's clock into an implausible teleport or an endless stop. */
   const totals = new Array<number>(names.length).fill(0);
-  const totalCap = Math.round(durationMs * 0.16);
+  const totalCap = Math.round(durationMs * LANE_CLOCK_CAP);
+  /* Below this a consequence cannot be seen from the back of the room, and
+     a surprise that is announced and then does nothing is a broken promise:
+     a lane whose cap leaves less than this drops out of the event instead. */
+  const visibleMs = Math.round(durationMs * 0.02);
   for (const event of events) {
     event.targetLanes.sort((a, b) => a - b);
+    const kept: number[] = [];
     for (const lane of event.targetLanes) {
       const wanted = event.clockDeltaMsByLane[lane] ?? 0;
       const next = clamp(totals[lane] + wanted, -totalCap, totalCap);
-      event.clockDeltaMsByLane[lane] = next - totals[lane];
+      const delta = next - totals[lane];
+      if (Math.abs(delta) < visibleMs) {
+        delete event.clockDeltaMsByLane[lane];
+        continue;
+      }
+      event.clockDeltaMsByLane[lane] = delta;
       totals[lane] = next;
+      kept.push(lane);
     }
+    event.targetLanes = kept;
+    if (!kept.length) continue;
     const firstDelta = event.clockDeltaMsByLane[event.targetLanes[0]] ?? 0;
     event.consequence = consequenceFor(firstDelta);
     const targetNames = event.targetLanes.map((lane) => names[lane]);
@@ -1513,6 +1691,7 @@ export function drawLockedRacePlan(
     event.commentaryText = fillRunner(event.commentaryText, targetNames[0]);
     event.revealAtMs = Math.max(event.warningAtMs + 1, event.revealAtMs);
   }
+  for (let i = events.length - 1; i >= 0; i--) if (!events[i].targetLanes.length) events.splice(i, 1);
 
   /* Retirement is a race-level rarity, never multiplied by the intensity
      preset and never more than one runner. */
@@ -1569,10 +1748,10 @@ export function drawLockedRacePlan(
     : intensity === 'calm'
       ? 0
       : intensity === 'standard'
-        ? (deckRnd() < 0.5 ? 1 : 0)
+        ? 2 + (deckRnd() < 0.5 ? 1 : 0)
         : intensity === 'big'
-          ? 1 + (deckRnd() < 0.5 ? 1 : 0)
-          : 2 + (deckRnd() < 0.5 ? 1 : 0);
+          ? 3 + (deckRnd() < 0.5 ? 1 : 0)
+          : 4 + (deckRnd() < 0.5 ? 1 : 0);
   /* A card needs about twenty seconds of race to land and be read. */
   const deckCount = Math.min(wantedCards, Math.floor(durationMs / DECK_MIN_DURATION_MS));
   if (deckCount > 0) {
@@ -1595,9 +1774,16 @@ export function drawLockedRacePlan(
           const retirement = retirementFor(events, runner.lane);
           return !retirement || retirement.effectAtMs > at;
         })
-        .sort((a, b) => progressForLockedRunner(b, events, at) - progressForLockedRunner(a, events, at))
+        .sort((a, b) => progressForLockedRunner(b, events, at, motion) - progressForLockedRunner(a, events, at, motion))
         .map((runner) => runner.lane);
     let dealt = 0;
+    const spacing = deckSpacingMs(durationMs);
+    const dealtAt: number[] = [];
+    /* One story at a time: a card keeps clear of every other card and of
+       the comeback beats, which have their own warning, obstacle and chase. */
+    const crowded = (at: number): boolean =>
+      dealtAt.some((other) => Math.abs(other - at) < spacing) ||
+      comebackTimes.some((ct) => at > ct - spacing && at < ct + Math.max(spacing, chaseOffset + 1500));
     for (const card of available) {
       if (dealt >= deckCount) break;
       /* The whole four-beat sequence and its consequence must be readable
@@ -1608,9 +1794,14 @@ export function drawLockedRacePlan(
          to seven percent of the race, so that much is reserved as well. */
       const comebackReserve = comebackTimes.length ? Math.round(durationMs * 0.07) : 0;
       const latest = earliestCrossing() - maxBoost - comebackReserve - commentaryDelayMs - 400;
-      let effectAtMs = Math.round(durationMs * (card.from + deckRnd() * (card.to - card.from)));
-      if (effectAtMs > latest) effectAtMs = latest;
-      if (effectAtMs < durationMs * 0.2 || effectAtMs - warningLead <= 0) continue;
+      let effectAtMs = -1;
+      for (let attempt = 0; attempt < 4 && effectAtMs < 0; attempt++) {
+        let at = Math.round(durationMs * (card.from + deckRnd() * (card.to - card.from)));
+        if (at > latest) at = latest;
+        if (at < durationMs * 0.2 || at - warningLead <= 0 || crowded(at)) continue;
+        effectAtMs = at;
+      }
+      if (effectAtMs < 0) continue;
       const lanes = activeLanes(effectAtMs);
       if (lanes.length < 2) continue;
       const plan = card.deal(deckRnd, lanes, durationMs);
@@ -1620,7 +1811,7 @@ export function drawLockedRacePlan(
         const lane = Number(laneKey);
         const next = clamp(totals[lane] + wanted, -totalCap, totalCap);
         const delta = next - totals[lane];
-        if (!delta) continue;
+        if (Math.abs(delta) < visibleMs) continue;
         /* Two delays on one lane at the same time would run its clock
            backwards, so a hold waits for a free lane; a boost may overlap. */
         const until = effectAtMs + Math.max(Math.abs(delta), 350);
@@ -1664,6 +1855,7 @@ export function drawLockedRacePlan(
         commentaryText: fillRunner(plan.call ?? card.calls[Math.floor(deckRnd() * card.calls.length)], names[plan.featured ?? targetLanes[0]]),
       });
       dealt += 1;
+      dealtAt.push(effectAtMs);
     }
     events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
   }
@@ -1695,51 +1887,94 @@ export function drawLockedRacePlan(
         from <= e.effectEndMs + 300,
     );
   for (const [index, wanted] of comebackTimes.entries()) {
-    let at = wanted;
-    let field: LockedRaceRunner[] = [];
-    let fitted = false;
     const latestStart = Math.min(
       ...runners.map((runner) => lockedCrossingTime(runner, events)).filter((t): t is number => t !== null),
     ) - Math.round(durationMs * 0.07) - comebackSpan - 400;
-    for (let step = 0; step <= 20 && !fitted; step++) {
-      at = wanted + Math.round(step * durationMs * 0.0075);
-      if (at > latestStart) break;
-      field = runners.filter((runner) => {
-        const retirement = retirementFor(events, runner.lane);
-        return !retirement || retirement.effectAtMs > at;
-      })
-        .sort((a, b) => progressForLockedRunner(b, events, at) - progressForLockedRunner(a, events, at));
-      if (field.length < 2) break;
-      /* Only a second delay on a held lane is unsafe; a boost can overlap
-         anything, so the chaser never needs to wait. */
-      fitted = !laneHeld(field[0].lane, at, at + comebackSpan);
-    }
-    if (!fitted) continue;
-    const leader = field[0];
-    const chaser = field[1];
     const spec = setbacks[Math.floor(directorRnd() * setbacks.length)];
-    const delay = Math.min(totalCap + totals[leader.lane], Math.round(durationMs * (0.105 + directorRnd() * 0.02)));
-    const boost = Math.min(totalCap - totals[chaser.lane], Math.round(durationMs * (0.045 + directorRnd() * 0.025)));
-    const addBeat = (runner: LockedRaceRunner, start: number, delta: number, chase: boolean) => {
-      if (!delta) return;
-      totals[runner.lane] += delta;
+    /* The lively profile covers the track at a constant pace, so a hold has
+       to be longer than it was under the old mid-race easing to read as the
+       same distance lost: this is the beat the whole room watches. */
+    const wantedDelay = Math.round(durationMs * (0.13 + directorRnd() * 0.02));
+    const wantedBoost = Math.round(durationMs * (0.06 + directorRnd() * 0.025));
+    const beat = (runner: LockedRaceRunner, start: number, delta: number, chase: boolean): LockedRaceEvent => {
       const label = chase ? 'NDCC CROWD LIFT' : spec.label;
-      events.push({
+      return {
         id: `comeback-${index}-${chase ? 'chase' : 'leader'}`,
         kind: chase ? 'surge' : spec.kind, label,
         tone: chase ? 'good' : 'bad', sound: chase ? 'up' : spec.sound,
         targetLanes: [runner.lane], consequence: consequenceFor(delta),
         warningAtMs: start - warningLead, revealAtMs: start - Math.round(warningLead / 2),
         effectAtMs: start, commentaryAtMs: start + commentaryDelayMs,
-        effectEndMs: start + comebackSpan,
+        /* The window must cover the whole hold: a later card checks it
+           before holding the same lane again. */
+        effectEndMs: start + Math.max(comebackSpan, Math.abs(delta)),
         clockDeltaMsByLane: { [runner.lane]: delta },
         warningText: chase ? 'The NDCC crowd is getting behind the chase.' : spec.warning,
         revealText: `${runner.name}: ${label}`,
         commentaryText: chase ? `${runner.name} finds another gear with the NDCC crowd behind them!` : fillRunner(spec.call, runner.name),
-      });
+      };
     };
-    addBeat(leader, at, -delay, false);
-    addBeat(chaser, at + chaseOffset, boost, true);
+    /*
+     * Search forward first, then back towards the gates. A slot is taken
+     * only when the hold really changes the lead on screen: the deck may
+     * already have spent most of the leader's clock budget, in which case
+     * the shortened hold is not the story and a later or earlier moment,
+     * with a different leader or a bigger gap behind it, is tried instead.
+     * The first slot that merely fits is kept as the fallback.
+     */
+    let chosen: LockedRaceEvent[] | null = null;
+    let fallback: LockedRaceEvent[] | null = null;
+    /* Cards and a retirement each have their own title and prop on air;
+       the comeback keeps clear of both so its obstacle is not replaced
+       mid-sentence. */
+    const deckAt = events.filter((e) => e.id.startsWith('deck-') || e.id.startsWith('ret-')).map((e) => e.effectAtMs);
+    const spacing = comebackClearanceMs(durationMs);
+    for (let step = 0; step <= 44 && !chosen; step++) {
+      const offset = step <= 24 ? step : -(step - 24);
+      const at = wanted + Math.round(offset * durationMs * 0.0075);
+      if (at > latestStart || at - warningLead <= 0) continue;
+      const field = runners.filter((runner) => {
+        const retirement = retirementFor(events, runner.lane);
+        return !retirement || retirement.effectAtMs > at;
+      })
+        .sort((a, b) => progressForLockedRunner(b, events, at, motion) - progressForLockedRunner(a, events, at, motion));
+      if (field.length < 2) break;
+      const leader = field[0];
+      const chaser = field[1];
+      /* The hold must end before the next hold already dealt on this lane:
+         two at once would run its clock backwards. Trim it to the gap. */
+      const nextHoldAt = Math.min(
+        ...events
+          .filter((e) => e.targetLanes.includes(leader.lane) && (e.clockDeltaMsByLane[leader.lane] ?? 0) < 0 && e.effectAtMs > at)
+          .map((e) => e.effectAtMs),
+      );
+      const delay = Math.min(totalCap + totals[leader.lane], wantedDelay, nextHoldAt - at - 400);
+      const boost = Math.min(totalCap - totals[chaser.lane], wantedBoost);
+      /* A hold the room cannot see is not a comeback: if the deck has spent
+         this leader's clock budget, look for another moment. */
+      if (delay < durationMs * 0.04) continue;
+      /* Only a second delay on a held lane is unsafe; a boost can overlap
+         anything, so the chaser never needs to wait. The check covers the
+         whole hold, which can outlast the on-air span. */
+      if (laneHeld(leader.lane, at, at + Math.max(comebackSpan, delay))) continue;
+      const trial = [beat(leader, at, -delay, false), ...(boost > 0 ? [beat(chaser, at + chaseOffset, boost, true)] : [])];
+      /* Keep the beat clear of the deck so one story is on air at a time;
+         a crowded slot is a last resort, never the first choice. */
+      const crowded = deckAt.some((other) => Math.abs(other - at) < spacing || Math.abs(other - (at + chaseOffset)) < spacing);
+      if (crowded) { fallback ??= trial; continue; }
+      fallback = fallback && !deckAt.some((other) => Math.abs(other - fallback![0].effectAtMs) < spacing) ? fallback : trial;
+      const withTrial = [...events, ...trial];
+      const end = at + comebackSpan;
+      const leaderAfter = progressForLockedRunner(leader, withTrial, end, motion);
+      const passed = field.some((runner) => runner !== leader && progressForLockedRunner(runner, withTrial, end, motion) > leaderAfter);
+      if (passed) chosen = trial;
+    }
+    const dealtBeats = chosen ?? fallback;
+    if (!dealtBeats) continue;
+    for (const event of dealtBeats) {
+      totals[event.targetLanes[0]] += event.clockDeltaMsByLane[event.targetLanes[0]];
+      events.push(event);
+    }
   }
   events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
 
@@ -1800,7 +2035,7 @@ export function drawLockedRacePlan(
     .sort((a, b) => {
       if (a.lane === winnerLane) return -1;
       if (b.lane === winnerLane) return 1;
-      const dp = progressForLockedRunner(b, events, stopAtMs) - progressForLockedRunner(a, events, stopAtMs);
+      const dp = progressForLockedRunner(b, events, stopAtMs, motion) - progressForLockedRunner(a, events, stopAtMs, motion);
       return dp || (priority.get(a.lane)! - priority.get(b.lane)!);
     });
   const retired = runners
@@ -1809,7 +2044,7 @@ export function drawLockedRacePlan(
   const classified = [...active, ...retired];
   const results: RaceResult[] = classified.map((runner, index) => {
     const retirement = retirementFor(events, runner.lane);
-    const progress = progressForLockedRunner(runner, events, stopAtMs);
+    const progress = progressForLockedRunner(runner, events, stopAtMs, motion);
     if (retirement) {
       return {
         lane: runner.lane,
@@ -1848,6 +2083,7 @@ export function drawLockedRacePlan(
     courseId,
     weather: source.weather,
     photoFinish: secondAt - stopAtMs <= durationMs * 0.015,
+    motion,
     runners,
     events,
     cues: cues.filter((cue) => cue.atMs < stopAtMs),
@@ -1908,6 +2144,7 @@ export function instantiateLockedRace(plan: LockedRacePlan): DrawnRace {
       lockedMotion: {
         baseFinishMs: runner.baseFinishMs,
         events: plan.events,
+        motion: plan.motion,
       },
       retired: false,
       lockedPlace: result.place,
@@ -1962,7 +2199,7 @@ export function stepRace(
         ph2: s.ph2,
       };
       const retirement = retirementFor(s.lockedMotion.events, s.lane);
-      let p = progressForLockedRunner(runner, s.lockedMotion.events, raceT);
+      let p = progressForLockedRunner(runner, s.lockedMotion.events, raceT, s.lockedMotion.motion);
       if (!retirement && raceT < s.T && p >= 1) p = 1 - Number.EPSILON;
       const activeEvent = s.lockedMotion.events.find(
         (event) =>
