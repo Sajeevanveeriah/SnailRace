@@ -71,7 +71,9 @@ What changed from 4.2, point by point from the room's feedback:
    leader catches it and it spreads to whoever is running near the front). Once-a-night cards are dealt
    without replacement across the ten races (`dealtCards`), so the boot and
    the plague at the line are moments of the night, not of every race.
-   Cards keep at least `deckSpacingMs` apart and clear of the comeback
+   The Bat and Contagious Plague carry a `weight` of 3, so the bat comes up
+   in about half of two-minute Chaos races and a plague in two thirds of
+   them. Cards keep at least `deckSpacingMs` apart and clear of the comeback
    beats, so one story is on air at a time. Every card is a bounded,
    persistent clock consequence inside the per-lane cap (`LANE_CLOCK_CAP`,
    30% of race time over the whole race, no single hold above 15%), drawn and hashed before countdown, and every announced

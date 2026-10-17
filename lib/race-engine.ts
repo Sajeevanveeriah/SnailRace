@@ -1278,6 +1278,8 @@ export interface DeckCard {
   sound: EventSound;
   /** Dealt at most once a night. */
   once: boolean;
+  /** How often the card comes up against the rest of the deck; 1 when absent. */
+  weight?: number;
   /** Window of race distance the card may land in, 0 to 1. */
   from: number;
   to: number;
@@ -1494,7 +1496,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     },
   },
   {
-    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false,
+    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false, weight: 3,
     from: 0.28, to: 0.74, boostTo: 0.03,
     warning: 'One of the runners has found a cricket bat beside the track.',
     calls: [
@@ -1510,7 +1512,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     },
   },
   {
-    id: 'contagion', label: 'CONTAGIOUS PLAGUE', kind: 'plague', tone: 'bad', sound: 'plague', once: true,
+    id: 'contagion', label: 'CONTAGIOUS PLAGUE', kind: 'plague', tone: 'bad', sound: 'plague', once: false, weight: 3,
     from: 0.4, to: 0.74, boostTo: 0,
     warning: 'The vet is running towards the front of the field with a mask on.',
     calls: ['PLAGUE at the front! {a} has caught it and it is SPREADING: everybody running near the leader has gone down with it!'],
@@ -1755,12 +1757,19 @@ export function drawLockedRacePlan(
   /* A card needs about twenty seconds of race to land and be read. */
   const deckCount = Math.min(wantedCards, Math.floor(durationMs / DECK_MIN_DURATION_MS));
   if (deckCount > 0) {
-    const available = DECK_CARDS.filter((card) => !(card.once && dealtCards.includes(card.id)));
-    for (let j = available.length - 1; j > 0; j--) {
-      const k = Math.floor(deckRnd() * (j + 1));
-      const t = available[j];
-      available[j] = available[k];
-      available[k] = t;
+    /* A weighted draw without replacement: the crowd favourites (the bat,
+       the plagues) come up more often than the rest of the deck. */
+    const pool = DECK_CARDS.filter((card) => !(card.once && dealtCards.includes(card.id)));
+    const available: DeckCard[] = [];
+    while (pool.length) {
+      const total = pool.reduce((sum, card) => sum + (card.weight ?? 1), 0);
+      let roll = deckRnd() * total;
+      let index = 0;
+      while (index < pool.length - 1 && roll >= (pool[index].weight ?? 1)) {
+        roll -= pool[index].weight ?? 1;
+        index += 1;
+      }
+      available.push(pool.splice(index, 1)[0]);
     }
     const earliestCrossing = (): number =>
       Math.min(
