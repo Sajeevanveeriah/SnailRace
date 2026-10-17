@@ -19,7 +19,7 @@ export interface SurprisePresentation {
   glyph?: PropGlyphId;
   /** Text fallback for surfaces that cannot draw a prop. */
   symbol: string;
-  cue: 'roll' | 'spray' | 'cross' | 'dash' | 'drop' | 'swoop' | 'burst';
+  cue: 'roll' | 'spray' | 'cross' | 'dash' | 'drop' | 'swoop' | 'burst' | 'stomp' | 'gate' | 'launch' | 'pull';
 }
 
 interface PresentableMoment extends RaceMoment {
@@ -32,6 +32,17 @@ const PRESENTATIONS: ReadonlyArray<{
   matches: readonly string[];
   value: SurprisePresentation;
 }> = [
+  /* The twists: physical gags, matched first so their wording cannot fall
+     through to an older entry. */
+  { matches: ['BIG BOOT'], value: { art: 'groundskeeper-boot', symbol: '🥾', cue: 'stomp' } },
+  { matches: ['SNAIL ALE'], value: { art: null, glyph: 'ale', symbol: '🍺', cue: 'drop' } },
+  { matches: ['WATERMELON'], value: { art: null, glyph: 'watermelon', symbol: '🍉', cue: 'drop' } },
+  { matches: ['BOOM GATE'], value: { art: null, glyph: 'boom-gate', symbol: '🚧', cue: 'gate' } },
+  { matches: ['CATAPULT'], value: { art: null, glyph: 'rocket', symbol: '🚀', cue: 'launch' } },
+  { matches: ['BUNCH-UP', 'MAGNET'], value: { art: null, glyph: 'magnet', symbol: '🧲', cue: 'pull' } },
+  { matches: ['CATERPILLAR'], value: { art: null, glyph: 'caterpillar', symbol: '🐛', cue: 'cross' } },
+  { matches: ['SPEED CAMERA'], value: { art: null, glyph: 'speed-camera', symbol: '📸', cue: 'burst' } },
+
   /* Painted set pieces. */
   { matches: ['CRICKET BALL'], value: { art: 'cricket-ball', symbol: '●', cue: 'roll' } },
   { matches: ['SPRINKLER'], value: { art: 'sprinkler', symbol: '💦', cue: 'spray' } },

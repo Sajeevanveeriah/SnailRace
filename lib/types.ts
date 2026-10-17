@@ -140,6 +140,14 @@ export interface LockedRacePlan {
   courseId?: CourseId;
   weather: 'clear' | 'drizzle' | 'downpour';
   photoFinish: boolean;
+  /**
+   * How the race clock becomes a position on the track. Absent on plans from
+   * the first consequential engine, which eased the whole race in and out
+   * and read as a crawl off the gates. `lively` runs at pace from the off
+   * and lets every runner jockey around its line, without changing who
+   * crosses first or when.
+   */
+  motion?: MotionProfile;
   runners: LockedRaceRunner[];
   events: LockedRaceEvent[];
   cues: LockedRaceCue[];
@@ -148,6 +156,9 @@ export interface LockedRacePlan {
   /** Race-time of the first active runner crossing. */
   stopAtMs: number;
 }
+
+/** Clock-to-position profile of a locked race. See `LockedRacePlan.motion`. */
+export type MotionProfile = 'lively';
 
 /**
  * A surprise that landed during a race: a turbo boost, a shell slip, a nap.

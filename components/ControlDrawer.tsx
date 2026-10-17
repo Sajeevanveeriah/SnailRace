@@ -960,9 +960,9 @@ export function ControlDrawer({
                     onChange={(e) => setState({ intensity: e.target.value as SurpriseIntensity })}
                   >
                     <option value="calm">Calm night (no deck)</option>
-                    <option value="standard">Standard (up to one deck card)</option>
-                    <option value="big">Big night (one or two)</option>
-                    <option value="chaos">Chaos (two or three)</option>
+                    <option value="standard">Standard (two or three deck cards)</option>
+                    <option value="big">Big night (three or four)</option>
+                    <option value="chaos">Chaos (four or five)</option>
                   </select>
                 </label>
               </div>

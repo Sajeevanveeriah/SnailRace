@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import {
   DECK_CARDS,
   DECK_MIN_DURATION_MS,
+  LANE_CLOCK_CAP,
   dealtDeckCards,
+  deckSpacingMs,
+  comebackClearanceMs,
   drawLockedRacePlan,
   lockedProgressAt,
 } from '../lib/race-engine';
@@ -48,7 +51,7 @@ test('no lane clock ever runs backwards, and the per-lane cap holds, deck includ
     const plan = drawLockedRacePlan(seed, names, 45_000, true, 'chaos');
     for (const runner of plan.runners) {
       const delta = plan.events.reduce((sum, e) => sum + (e.clockDeltaMsByLane[runner.lane] ?? 0), 0);
-      assert.ok(Math.abs(delta) <= plan.durationMs * 0.16);
+      assert.ok(Math.abs(delta) <= plan.durationMs * LANE_CLOCK_CAP);
       let last = 0;
       for (let t = 0; t <= plan.stopAtMs; t += 40) {
         const p = lockedProgressAt(plan, runner.lane, t);
@@ -89,4 +92,48 @@ test('every deck card has a drawn prop and the plan hash input changes with the 
   const a = drawLockedRacePlan(7, names, 40_000, true, 'chaos');
   const b = drawLockedRacePlan(7, names, 40_000, true, 'chaos');
   assert.deepEqual(a, b);
+});
+
+test('the twists are in the deck, spaced apart and clear of the comeback beats', () => {
+  for (const id of ['big-boot', 'snail-ale', 'watermelon', 'boom-gate', 'catapult', 'bunch-up', 'caterpillar', 'speed-camera']) {
+    assert.ok(DECK_CARDS.some((card) => card.id === id), `${id} is missing from the deck`);
+  }
+  let twists = 0;
+  let perRace = 0;
+  let collisions = 0;
+  let beats = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    const plan = drawLockedRacePlan(seed, names, 120_000, true, 'chaos');
+    const deck = deckEvents(plan).sort((a, b) => a.effectAtMs - b.effectAtMs);
+    perRace += deck.length;
+    twists += deck.filter((e) => /BOOT|SNAIL ALE|WATERMELON|BOOM GATE|CATAPULT|BUNCH-UP|CATERPILLAR|SPEED CAMERA/.test(e.label)).length;
+    for (let i = 1; i < deck.length; i++) {
+      assert.ok(deck[i].effectAtMs - deck[i - 1].effectAtMs >= deckSpacingMs(plan.durationMs), `seed ${seed}: ${deck[i - 1].id} and ${deck[i].id} overlap`);
+    }
+    for (const beat of plan.events.filter((e) => e.id.startsWith('comeback-') && e.id.endsWith('-leader'))) {
+      beats += 1;
+      for (const card of deck) {
+        if (Math.abs(card.effectAtMs - beat.effectAtMs) < comebackClearanceMs(plan.durationMs)) collisions += 1;
+      }
+    }
+  }
+  /* A crowded slot is the comeback's last resort, so it is rare, never the rule. */
+  assert.ok(collisions <= 20, `${collisions} comeback beats landed on top of a card over 200 races`);
+  assert.ok(beats >= 340, `only ${beats} comeback beats over 200 two-minute races`);
+  assert.ok(perRace / 200 >= 3.5, `a two-minute chaos race averaged only ${perRace / 200} cards`);
+  assert.ok(twists >= 200, `only ${twists} twists over 200 races`);
+  const standard = Array.from({ length: 100 }, (_, i) => deckEvents(drawLockedRacePlan(i + 1, names, 120_000, true, 'standard')).length);
+  assert.ok(standard.reduce((a, b) => a + b, 0) / 100 >= 1.8, 'a standard night deals at least two cards a race on average');
+  assert.equal(deckEvents(drawLockedRacePlan(3, names, 120_000, true, 'calm')).length, 0);
+});
+
+test('every announced surprise from the ordinary book is visible on the track', () => {
+  for (let seed = 1; seed <= 100; seed++) {
+    const plan = drawLockedRacePlan(seed, names, 90_000, true, 'chaos');
+    for (const event of plan.events) {
+      if (event.consequence === 'retire') continue;
+      const biggest = Math.max(...event.targetLanes.map((lane) => Math.abs(event.clockDeltaMsByLane[lane] ?? 0)));
+      assert.ok(biggest >= plan.durationMs * 0.02, `${event.id} in seed ${seed} shifts a clock by only ${biggest}ms`);
+    }
+  }
 });
