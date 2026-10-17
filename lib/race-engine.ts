@@ -1960,7 +1960,7 @@ export function drawLockedRacePlan(
       const trial = [beat(leader, at, -delay, false), ...(boost > 0 ? [beat(chaser, at + chaseOffset, boost, true)] : [])];
       /* Keep the beat clear of the deck so one story is on air at a time;
          a crowded slot is a last resort, never the first choice. */
-      const crowded = deckAt.some((other) => Math.abs(other - at) < spacing);
+      const crowded = deckAt.some((other) => Math.abs(other - at) < spacing || Math.abs(other - (at + chaseOffset)) < spacing);
       if (crowded) { fallback ??= trial; continue; }
       fallback = fallback && !deckAt.some((other) => Math.abs(other - fallback![0].effectAtMs) < spacing) ? fallback : trial;
       const withTrial = [...events, ...trial];

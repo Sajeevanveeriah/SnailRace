@@ -112,8 +112,10 @@ test('the twists are in the deck, spaced apart and clear of the comeback beats',
     }
     for (const beat of plan.events.filter((e) => e.id.startsWith('comeback-') && e.id.endsWith('-leader'))) {
       beats += 1;
+      const chase = plan.events.find((e) => e.id === beat.id.replace('-leader', '-chase'));
       for (const card of deck) {
-        if (Math.abs(card.effectAtMs - beat.effectAtMs) < comebackClearanceMs(plan.durationMs)) collisions += 1;
+        const near = (anchor: number) => Math.abs(card.effectAtMs - anchor) < comebackClearanceMs(plan.durationMs);
+        if (near(beat.effectAtMs) || (chase && near(chase.effectAtMs))) collisions += 1;
       }
     }
   }
