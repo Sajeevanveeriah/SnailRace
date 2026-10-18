@@ -366,7 +366,8 @@ function stagedFromPlan(events: LockedRaceEvent[], t: number): StagedTwist | nul
     consequence: event.consequence === 'retire' ? 'retire' : event.consequence === 'advance' ? 'advance' : 'delay',
     warningText: event.warningText,
     commentaryText: event.commentaryText,
-    big: event.targetLanes.length > 1,
+    /* Two snails is a duel (the bat and its victim, a shell swap); a field twist is three or more. */
+    big: event.targetLanes.length > 2,
     source: 'plan',
   };
 }
