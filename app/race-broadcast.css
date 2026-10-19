@@ -1762,3 +1762,46 @@
 .side-broadcast.race-motion-reduced .side-gates { transition: none; }
 .side-broadcast .tv-top { background: #a81d2f; }
 @media (max-width: 900px) { .side-broadcast .course-scene { inset: 72px 8px 158px 8px; } .side-order li { min-width: 30px; height: 26px; font-size: 15px; } .side-order-label { display: none; } .side-togo { font-size: 14px; } .side-splash { padding: 8px 14px; gap: 4px; } }
+
+/* ── Commentary on top, bigger and simpler ─────────────────────────────────
+   The call sits under the title bar, clear of the course, so it never covers
+   a runner; the surprise strip and the running order share the bottom. */
+.race-broadcast.course-broadcast .tv-strap { inset: 80px 12px auto; height: 64px; min-height: 0; }
+.race-broadcast.course-broadcast .tv-strap-line { padding: 6px 18px; font-size: clamp(18px, 2.1vw, 38px); font-weight: 800; line-height: 1.15; }
+.race-broadcast.course-broadcast .tv-strap-badge { font-size: clamp(11px, 0.9vw, 15px); }
+.race-broadcast.course-broadcast .course-director-bar { top: 150px; height: 28px; font-size: 13px; }
+.race-broadcast.course-broadcast .course-scene { top: 184px; bottom: 60px; }
+.race-broadcast.course-broadcast .race-standings { top: 184px; bottom: 60px; }
+.race-broadcast.course-broadcast .course-event-ticker { inset: auto 12px 8px; height: 44px; gap: 16px; padding: 0 16px; font-size: clamp(16px, 1.7vw, 28px); }
+.race-broadcast.course-broadcast .course-event-phase { font-size: clamp(11px, 0.9vw, 15px); letter-spacing: .14em; }
+.race-broadcast.course-broadcast .tv-result { bottom: 60px; }
+.race-broadcast.course-broadcast .tv-slate { top: 184px; bottom: 60px; }
+
+.race-broadcast.side-broadcast .course-scene { top: 184px; bottom: 120px; }
+.race-broadcast.side-broadcast .course-event-ticker { inset: auto 12px 66px; }
+.race-broadcast.side-broadcast .tv-result { bottom: 120px; }
+.race-broadcast.side-broadcast .side-leader { font-size: clamp(13px, 1.1vw, 18px); }
+.side-progress { bottom: 8px; height: 54px; }
+.side-order li { min-width: 52px; height: 42px; font-size: 26px; }
+.side-order-label { font-size: 14px; }
+.side-togo { font-size: 24px; }
+.side-flag { width: 34px; height: 34px; background-size: 17px 17px; }
+.side-splash { top: 1%; gap: 6px 16px; padding: 4px 20px; }
+.side-splash-kicker { font-size: clamp(11px, 1.1vw, 16px); }
+.side-splash-title { font-size: clamp(22px, 2.6vw, 52px); }
+.side-splash-warning .side-splash-title { font-size: clamp(16px, 1.8vw, 32px); }
+
+@media (max-width: 900px) {
+  .race-broadcast.side-broadcast .course-scene { top: 184px; bottom: 120px; left: 8px; right: 8px; }
+  .side-order li { min-width: 34px; height: 30px; font-size: 17px; }
+  .side-togo { font-size: 16px; }
+}
+@media (max-width: 600px) {
+  .race-broadcast.course-broadcast .tv-strap { inset: 70px 8px auto; height: 52px; }
+  .race-broadcast.course-broadcast .tv-strap-line { font-size: 14px; padding: 4px 10px; }
+  .race-broadcast.course-broadcast .course-director-bar { top: 126px; }
+  .race-broadcast.side-broadcast .course-scene { top: 158px; }
+  .race-broadcast.course-broadcast .race-standings { top: 158px; bottom: auto; }
+  .race-broadcast.course-broadcast .course-scene { top: 240px; }
+  .race-broadcast.course-broadcast .course-event-ticker { left: 8px; right: 8px; height: 36px; font-size: 13px; }
+}

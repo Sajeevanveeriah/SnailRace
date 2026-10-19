@@ -38,7 +38,7 @@ import { funChipPoolsFor } from '@/lib/tote';
 import { sponsorFor } from '@/lib/standings';
 import { money } from '@/lib/money';
 import { MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
-import { courseById, courseForRace } from '@/lib/courses';
+import { courseById, designForRace } from '@/lib/courses';
 import {
   audioState,
   initVoice,
@@ -122,12 +122,18 @@ export function Stage() {
   const names = useMemo(() => cardRaceNames(event.card, shownRaceNo), [event.card, shownRaceNo]);
   const owners = useMemo(() => cardRaceOwners(event.card, shownRaceNo), [event.card, shownRaceNo]);
   const fieldNames = useMemo(() => cardRaceNames(event.card, nextRaceNo), [event.card, nextRaceNo]);
-  const finishedCourseId = event.showPhase === 'results'
-    ? event.history.find((entry) => entry.raceNo === event.raceNumber && !entry.void)?.courseId
+  /* The enabled track designs take turns; this is the one the next race runs on. */
+  const nextDesign = designForRace(event.trackDesigns, event.trackShape, nextRaceNo);
+  const finishedEntry = event.showPhase === 'results'
+    ? event.history.find((entry) => entry.raceNo === event.raceNumber && !entry.void)
     : undefined;
+  const finishedCourseId = finishedEntry?.courseId;
   const activeCourse = courseById(
-    event.heldRaceStart?.plan.courseId ?? finishedCourseId ?? courseForRace(nextRaceNo).id,
+    event.heldRaceStart?.plan.courseId ?? finishedCourseId ?? nextDesign.courseId,
   );
+  /* The view on the projector: the held race's, the finished race's, or the next one's. */
+  const shownTrackShape =
+    event.heldRaceStart?.config.trackShape ?? finishedEntry?.trackShape ?? nextDesign.trackShape;
   const sponsor = useMemo(
     () => sponsorFor(event.sponsors, nextRaceNo),
     [event.sponsors, nextRaceNo],
@@ -278,7 +284,7 @@ export function Stage() {
         snailOffset: (raceNo - 1) * 10,
         laps: armed?.config.laps,
         surprises: armed?.config.surprises,
-        trackShape: armed?.config.trackShape ?? event.trackShape,
+        trackShape: armed?.config.trackShape ?? nextDesign.trackShape,
         courseId: armed?.config.courseId ?? activeCourse.id,
         intensity: armed?.config.intensity ?? event.intensity,
         lockedAt: armed?.lockedAt,
@@ -316,7 +322,7 @@ export function Stage() {
       setHighlights(reel);
       setOverlayOpen(true);
     },
-    [event.raceDurationMs, event.raceType, event.trackShape, event.intensity, event.card, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
+    [event.raceDurationMs, event.raceType, nextDesign.trackShape, event.intensity, event.card, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
   );
 
   const race = useRace(onFinish);
@@ -522,7 +528,7 @@ export function Stage() {
       return;
     }
 
-    const laps = event.trackShape === 'circuit' ? event.laps : 1;
+    const laps = nextDesign.trackShape === 'circuit' ? event.laps : 1;
     const lockedAt = nowMs();
     const oddsAtLock: Record<number, number> = {};
     for (const lane of lanes) oddsAtLock[lane.lane] = lane.odds;
@@ -534,7 +540,7 @@ export function Stage() {
       event.surprises,
       event.intensity,
       laps,
-      event.trackShape,
+      nextDesign.trackShape,
       activeCourse.id,
       event.dealtCards,
     );
@@ -546,7 +552,7 @@ export function Stage() {
       durationMs: event.raceDurationMs,
       laps,
       surprises: event.surprises,
-      trackShape: event.trackShape,
+      trackShape: nextDesign.trackShape,
       courseId: activeCourse.id,
       intensity: event.intensity,
     };
@@ -628,7 +634,7 @@ export function Stage() {
     event.raceType,
     event.surprises,
     event.intensity,
-    event.trackShape,
+    nextDesign.trackShape,
     activeCourse.id,
     event.laps,
     event.phonePlay,
@@ -1242,7 +1248,7 @@ export function Stage() {
           <div className="stage-track flex min-w-0 flex-col gap-4">
             {event.eventMode === 'recorded' ? (
               <PackRunner onResult={onPackResult} onVoid={onPackVoid} controlsTarget={packControlsRoot} />
-            ) : event.trackShape === 'circuit' ? (
+            ) : shownTrackShape === 'circuit' ? (
               // The imperative SVG painter starts after saved state is restored.
               clientReady ? (
                 <Telecast

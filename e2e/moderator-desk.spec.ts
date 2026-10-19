@@ -185,14 +185,14 @@ test('the obstacle stays visible before the crowd-lift cue replaces it', async (
   await desk.getByRole('button', { name: 'Start race', exact: true }).click();
   const signal = page.locator('.course-event-ticker');
   await expect(signal).toContainText(/LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/, { timeout: 15_000 });
-  await expect(signal).toContainText('DELAY');
+  await expect(signal).toContainText('TWIST');
   await expect(page.locator('.course-prop-image')).toBeVisible();
   await expect(signal).toContainText('NDCC CROWD LIFT', { timeout: 10_000 });
   const log = await page.evaluate(
     () => (window as unknown as { __tickerLog: { t: number; label: string; text: string; prop: boolean }[] }).__tickerLog,
   );
   const setback = /LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/;
-  const effectAt = log.findIndex((row) => setback.test(row.label) && row.text.includes('DELAY'));
+  const effectAt = log.findIndex((row) => setback.test(row.label) && row.text.includes('TWIST'));
   expect(effectAt, JSON.stringify(log)).toBeGreaterThanOrEqual(0);
   const replacedAt = log.findIndex((row, i) => i > effectAt && row.label !== log[effectAt].label);
   expect(replacedAt, JSON.stringify(log)).toBeGreaterThan(effectAt);

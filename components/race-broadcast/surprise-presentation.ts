@@ -44,6 +44,12 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['SPEED CAMERA'], value: { art: null, glyph: 'speed-camera', symbol: '📸', cue: 'burst' } },
   { matches: ['THE BAT'], value: { art: null, glyph: 'bat', symbol: '🏏', cue: 'swing' } },
   { matches: ['CONTAGIOUS'], value: { art: 'plague-cloud', symbol: '☣', cue: 'burst' } },
+  { matches: ['SAUSAGE SIZZLE'], value: { art: null, glyph: 'sausage', symbol: '🌭', cue: 'drop' } },
+  { matches: ['KOOKABURRA'], value: { art: null, glyph: 'kookaburra', symbol: '🐦', cue: 'drop' } },
+  { matches: ['TRAMPOLINE'], value: { art: null, glyph: 'trampoline', symbol: '⤴', cue: 'launch' } },
+  { matches: ['WOMBAT'], value: { art: null, glyph: 'wombat', symbol: '🐾', cue: 'cross' } },
+  { matches: ['MOWER'], value: { art: null, glyph: 'mower', symbol: '🚜', cue: 'dash' } },
+  { matches: ['HAILSTORM'], value: { art: null, glyph: 'rain-cloud', symbol: '🌨', cue: 'burst' } },
 
   /* Painted set pieces. */
   { matches: ['CRICKET BALL'], value: { art: 'cricket-ball', symbol: '●', cue: 'roll' } },
@@ -57,7 +63,6 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['PLAGUE'], value: { art: 'plague-cloud', symbol: '☣', cue: 'burst' } },
 
   /* The second book: vector props. */
-  { matches: ['SEAGULL'], value: { art: null, glyph: 'seagull', symbol: '🐦', cue: 'swoop' } },
   { matches: ['ICE CREAM'], value: { art: null, glyph: 'ice-cream-van', symbol: '🍦', cue: 'cross' } },
   { matches: ['RAIN SQUALL', 'RAIN'], value: { art: null, glyph: 'rain-cloud', symbol: '🌧', cue: 'burst' } },
   { matches: ['MEXICAN WAVE', 'HOME CROWD ROAR'], value: { art: null, glyph: 'crowd-wave', symbol: '🙌', cue: 'burst' } },

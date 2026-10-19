@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Snail } from './Snail';
+import { SponsorReel } from './SponsorReel';
 import { laneColour } from '@/lib/palette';
 import { money } from '@/lib/money';
 import { ordinal } from '@/lib/race-engine';
@@ -13,7 +14,6 @@ export function WinnerOverlay({
   raceNo,
   results,
   owners = [],
-  highlights,
   nextRaceNo,
   sponsor,
   lastRace = false,
@@ -64,6 +64,7 @@ export function WinnerOverlay({
         aria-label="Close winner announcement"
         onClick={onClose}
       /> : <div className="overlay-scrim" />}
+      <div className="winner-row relative">
       <div
         role={audienceOnly ? "region" : "dialog"}
         aria-modal={audienceOnly ? undefined : true}
@@ -147,34 +148,6 @@ export function WinnerOverlay({
           ))}
         </ol>
 
-        {highlights.length > 0 ? (
-          <div className="mt-6 text-left">
-            <p className="eyebrow mb-2">What happened out there</p>
-            {/* A marathon deals a dozen surprises; the card scrolls rather than grows. */}
-            <ul className="flex max-h-44 flex-col gap-1 overflow-y-auto pr-1">
-              {highlights.map((h, i) => (
-                <li
-                  key={`${h.atMs}-${h.lane}-${i}`}
-                  className="flex items-center gap-2.5 rounded-lg bg-(--tx)/5 px-3 py-1.5 text-xs"
-                >
-                  <span className="num w-11 shrink-0 text-(--tx)/40">
-                    {(h.atMs / 1000).toFixed(1)}s
-                  </span>
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ background: laneColour(h.lane).shell }}
-                    aria-hidden="true"
-                  />
-                  <span className="truncate font-medium">{h.name}</span>
-                  <span className="ml-auto shrink-0 text-[10px] font-bold tracking-[0.16em] text-(--tx)/55">
-                    {h.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
         <p className="mt-6 text-sm font-medium text-(--tx)/70">
           {lastRace
             ? 'That was the last race on the card. Thank you for racing with us.'
@@ -184,6 +157,8 @@ export function WinnerOverlay({
         {!audienceOnly ? <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>
           Close <kbd>Esc</kbd>
         </button> : null}
+      </div>
+      <SponsorReel key={raceNo} raceNo={raceNo} />
       </div>
     </div>
   );

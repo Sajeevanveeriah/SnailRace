@@ -1316,6 +1316,66 @@ kbd {
   100% { opacity: 1; transform: none; }
 }
 
+/* The winner and, beside it, the sponsors' advert break. */
+.winner-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 64rem;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+.winner-row > .winner-card { flex: 1 1 26rem; max-width: 32rem; }
+.sponsor-reel {
+  flex: 1 1 22rem;
+  max-width: 30rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.75rem;
+  border-radius: 28px;
+  background: #fff;
+  color: #1b1a19;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.35);
+  animation: winner 0.8s var(--ease-spring) 0.25s both;
+}
+.sponsor-reel-kicker {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(0.9rem, 1.3vw, 1.25rem);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #a81d2f;
+}
+.sponsor-reel-stage { position: relative; flex: 1; min-height: 14rem; display: grid; overflow: hidden; }
+.sponsor-reel-slide {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  margin: 0;
+  animation: sponsor-in 0.6s ease-out both;
+}
+.sponsor-reel-slide img { width: 100%; max-height: 12rem; object-fit: contain; }
+.sponsor-reel-slide figcaption { font-size: clamp(1.1rem, 1.8vw, 1.6rem); font-weight: 800; text-align: center; }
+@keyframes sponsor-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+.sponsor-reel-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.sponsor-reel-dots li { width: 8px; height: 8px; border-radius: 50%; background: #1b1a1930; }
+.sponsor-reel-dots li.on { background: #a81d2f; }
+@media (prefers-reduced-motion: reduce) {
+  .sponsor-reel, .sponsor-reel-slide { animation: none; }
+}
+.calm .sponsor-reel, .calm .sponsor-reel-slide { animation: none; }
+
 .toast {
   animation: toast-in 0.55s var(--ease-spring) both;
 }
