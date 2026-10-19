@@ -193,6 +193,7 @@ export const snailCountLock = (
     quaddieEntries?: { void?: boolean }[];
     toteSales?: { void?: boolean }[];
     auctionBids?: { void?: boolean }[];
+    cashLedger?: { void?: boolean }[];
   },
   raceLocked: boolean,
 ): string =>
@@ -202,8 +203,8 @@ export const snailCountLock = (
       ? 'Locked once the first race has run. Reset the night to change it.'
       : (event.quaddieEntries ?? []).some((e) => !e.void)
         ? 'Locked once a quaddie ticket is sold: its picks are tied to tonight\'s races.'
-        : [...(event.toteSales ?? []), ...(event.auctionBids ?? [])].some((e) => !e.void)
-          ? 'Locked once a tote ticket or auction bid is taken: it is tied to a lane in tonight\'s races.'
+        : [...(event.toteSales ?? []), ...(event.auctionBids ?? []), ...(event.cashLedger ?? [])].some((e) => !e.void)
+          ? 'Locked once cash, a tote ticket or an auction bid is taken: it is tied to a lane in tonight\'s races.'
           : '';
 
 /**

@@ -188,5 +188,6 @@ test('counts that cannot make fields of eight to ten are refused or stepped down
 test('a tote ticket or auction bid locks the number of snails', () => {
   assert.match(snailCountLock({ history: [], toteSales: [{}] }, false), /tote/);
   assert.match(snailCountLock({ history: [], auctionBids: [{}] }, false), /auction/);
+  assert.match(snailCountLock({ history: [], cashLedger: [{}] }, false), /cash/);
   assert.equal(snailCountLock({ history: [], toteSales: [{ void: true }], auctionBids: [] }, false), '');
 });

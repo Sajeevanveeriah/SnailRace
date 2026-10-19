@@ -107,7 +107,7 @@ export function hostLineFor(phase: ShowPhase, ctx: HostContext): string {
       return pickFor(
         [
           `The field is heading to the gate for race ${ctx.raceNo}. Find your snail and get behind it.`,
-          `Race ${ctx.raceNo}. Ten snails, ten owners, one winner. Cheer yours home.`,
+          `Race ${ctx.raceNo}. Every snail has an owner and only one wins. Cheer yours home.`,
           `They are coming out for race ${ctx.raceNo}. Owners, this is your moment.`,
         ],
         `${ctx.eventName}:${ctx.raceNo}:race`,
