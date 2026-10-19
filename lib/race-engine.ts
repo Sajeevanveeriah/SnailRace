@@ -1531,7 +1531,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     },
   },
   {
-    id: 'speed-camera', label: "OFFICER JACK'S SPEED CAMERA", kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
+    id: 'speed-camera', label: 'OFFICER JACKS SPEED CAMERA', kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
     from: 0.25, to: 0.72, boostTo: 0,
     warning: 'Officer Jack has set up his speed camera on the rail.',
     calls: ['FLASH! Officer Jack has pulled {a} over for speeding! The leader is parked while he writes it up!'],

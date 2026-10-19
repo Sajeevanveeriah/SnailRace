@@ -28,7 +28,7 @@ From the club's feedback after the first rehearsal:
    seconds at most), Big night four or five, Standard three or four.
 5. **Magpies, not seagulls.** The old Seagull Raid is a Magpie Raid, so the
    words match the magpie on screen.
-6. **Officer Jack's Speed Camera.** The speed camera is the club
+6. **Officer Jacks Speed Camera.** The speed camera is the club
    president's.
 7. **Sponsors.** The club's sixteen sponsor logos (from ndcc.com.au, in
    `public/sponsors/`, listed in `lib/club-sponsors.ts`) roll one at a time
@@ -93,7 +93,7 @@ What changed from 4.2, point by point from the room's feedback:
    marker is flung up the course), The Big Bunch-Up (a magnet drags the
    leaders back and pulls the tail up for a nose-to-nose finish),
    Caterpillar Crossing (the middle of the field waits for every leg),
-   Officer Jack's Speed Camera (the leader is pulled over), The Bat (a runner clubs the
+   Officer Jacks Speed Camera (the leader is pulled over), The Bat (a runner clubs the
    snail in front of it and slips through) and Contagious Plague (the
    leader catches it and it spreads to whoever is running near the front). Once-a-night cards are dealt
    without replacement across the ten races (`dealtCards`), so the boot and
