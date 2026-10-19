@@ -1,20 +1,85 @@
 /**
- * The card: one hundred snails, ten races of ten.
+ * The card: by default one hundred snails, ten races of ten.
  *
  * A supporter buys a numbered snail and names it. The number fixes the race:
  * snails 1 to 10 run in race 1, 11 to 20 in race 2, and so on. Nothing about
  * the purchase, the name or the owner reaches the race engine; the card only
- * decides which ten names stand at the gate for a given race number.
+ * decides which names stand at the gate for a given race number.
+ *
+ * The desk can set how many snails are on sale. The card is then split into
+ * as few races as keep every field at ten or under, as evenly as it divides:
+ * 64 snails is seven races, one of ten and six of nine.
  */
 
+/** The most snails in one race when the card is split. */
 export const SNAILS_PER_RACE = 10;
 export const RACES_ON_CARD = 10;
 export const SNAILS_ON_CARD = SNAILS_PER_RACE * RACES_ON_CARD;
+/** A race needs at least this many runners (the engine's live minimum). */
+export const MIN_SNAILS_PER_RACE = 8;
+/** Bounds on how many snails the desk can put on sale. */
+export const MIN_SNAILS_ON_CARD = MIN_SNAILS_PER_RACE;
+export const MAX_SNAILS_ON_CARD = 200;
+
+export interface CardLayout {
+  snails: number;
+  races: number;
+  /** Runners per race, race 1 first. */
+  sizes: number[];
+  /** First snail number of each race, race 1 first. */
+  starts: number[];
+}
+
+export const clampSnailCount = (value: unknown): number => {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return SNAILS_ON_CARD;
+  return Math.min(MAX_SNAILS_ON_CARD, Math.max(MIN_SNAILS_ON_CARD, n));
+};
+
+/** Split a card of this many snails into races of ten or under, as evenly as possible. */
+export function cardLayout(snailCount: number = SNAILS_ON_CARD): CardLayout {
+  const snails = clampSnailCount(snailCount);
+  let races = Math.ceil(snails / SNAILS_PER_RACE);
+  /* Never leave a field below the minimum; a small card runs fewer, fuller races. */
+  if (Math.floor(snails / races) < MIN_SNAILS_PER_RACE) races = Math.max(1, Math.floor(snails / MIN_SNAILS_PER_RACE));
+  const base = Math.floor(snails / races);
+  const extra = snails % races;
+  const sizes = Array.from({ length: races }, (_, i) => base + (i < extra ? 1 : 0));
+  const starts: number[] = [];
+  let next = 1;
+  for (const size of sizes) {
+    starts.push(next);
+    next += size;
+  }
+  return { snails, races, sizes, starts };
+}
+
+const layouts = new Map<number, CardLayout>();
+const layoutFor = (snailCount: number): CardLayout => {
+  let layout = layouts.get(snailCount);
+  if (!layout) {
+    layout = cardLayout(snailCount);
+    layouts.set(snailCount, layout);
+  }
+  return layout;
+};
+
+/** How a layout reads on a poster: "10 races of 10", "7 races: 1 of 10, 6 of 9". */
+export function describeLayout(layout: CardLayout): string {
+  const counts = new Map<number, number>();
+  for (const size of layout.sizes) counts.set(size, (counts.get(size) ?? 0) + 1);
+  const races = `${layout.races} ${layout.races === 1 ? 'race' : 'races'}`;
+  if (counts.size === 1) return `${races} of ${layout.sizes[0]}`;
+  const parts = [...counts.entries()].sort((a, b) => b[0] - a[0]).map(([size, n]) => `${n} of ${size}`);
+  return `${races}: ${parts.join(', ')}`;
+}
 
 /** The advertised price of one snail, in cents. */
 export const DEFAULT_SNAIL_CENTS = 400;
 
 export interface CardState {
+  /** Snails on sale tonight; the races are split from this. */
+  snailCount: number;
   /** Snail name per number, index 0 is snail 1. Empty until bought or typed. */
   names: string[];
   /** Owner shown on the board per number. Empty for an unsold snail. */
@@ -44,6 +109,7 @@ export interface CardState {
 }
 
 export const DEFAULT_CARD: CardState = {
+  snailCount: SNAILS_ON_CARD,
   names: new Array<string>(SNAILS_ON_CARD).fill(''),
   owners: new Array<string>(SNAILS_ON_CARD).fill(''),
   claims: {},
@@ -52,18 +118,33 @@ export const DEFAULT_CARD: CardState = {
   paymentLinkMinted: false,
 };
 
-export const validSnailNo = (n: unknown): n is number =>
-  Number.isSafeInteger(n) && Number(n) >= 1 && Number(n) <= SNAILS_ON_CARD;
+export const validSnailNo = (n: unknown, snailCount: number = SNAILS_ON_CARD): n is number =>
+  Number.isSafeInteger(n) && Number(n) >= 1 && Number(n) <= clampSnailCount(snailCount);
 
-/** Which race a snail number runs in: 1 to 10 in race 1, 11 to 20 in race 2. */
-export const raceForSnail = (snailNo: number): number => Math.ceil(snailNo / SNAILS_PER_RACE);
+/** Which race a snail number runs in: 1 to 10 in race 1, 11 to 20 in race 2 on the default card. */
+export const raceForSnail = (snailNo: number, snailCount: number = SNAILS_ON_CARD): number => {
+  const { starts } = layoutFor(snailCount);
+  let race = 1;
+  while (race < starts.length && starts[race] <= snailNo) race += 1;
+  return race;
+};
+
+/** Snail numbers before this race's first, so lane i is snail offset + i + 1. */
+export const snailOffsetForRace = (raceNo: number, snailCount: number = SNAILS_ON_CARD): number =>
+  snailsForRace(raceNo, snailCount)[0] - 1;
 
 /** Lane index, 0-based, within its race. */
-export const laneForSnail = (snailNo: number): number => (snailNo - 1) % SNAILS_PER_RACE;
+export const laneForSnail = (snailNo: number, snailCount: number = SNAILS_ON_CARD): number =>
+  snailNo - layoutFor(snailCount).starts[raceForSnail(snailNo, snailCount) - 1];
 
 /** The snail numbers, in lane order, for a race number. */
-export const snailsForRace = (raceNo: number): number[] =>
-  Array.from({ length: SNAILS_PER_RACE }, (_, lane) => (raceNo - 1) * SNAILS_PER_RACE + lane + 1);
+export const snailsForRace = (raceNo: number, snailCount: number = SNAILS_ON_CARD): number[] => {
+  const layout = layoutFor(snailCount);
+  /* A race past the end of a shrunk card keeps the last race's shape. */
+  const i = Math.min(Math.max(raceNo, 1), layout.races) - 1;
+  const first = raceNo > layout.races ? layout.starts[i] + (raceNo - layout.races) * SNAILS_PER_RACE : layout.starts[i];
+  return Array.from({ length: layout.sizes[i] }, (_, lane) => first + lane);
+};
 
 const MAX_NAME = 24;
 const MAX_OWNER = 24;
@@ -77,21 +158,53 @@ export const snailDisplayName = (card: CardState, snailNo: number): string =>
 
 /** Ten names in lane order for a race on the card. Never empty, never shorter. */
 export function cardRaceNames(card: CardState, raceNo: number): string[] {
-  return snailsForRace(raceNo).map((n) => snailDisplayName(card, n));
+  return snailsForRace(raceNo, card.snailCount).map((n) => snailDisplayName(card, n));
 }
 
 export const cardRaceOwners = (card: CardState, raceNo: number): string[] =>
-  snailsForRace(raceNo).map((n) => card.owners[n - 1]?.trim() ?? '');
+  snailsForRace(raceNo, card.snailCount).map((n) => card.owners[n - 1]?.trim() ?? '');
 
 export const isSold = (card: CardState, snailNo: number): boolean =>
   Boolean(card.names[snailNo - 1]?.trim() || card.owners[snailNo - 1]?.trim());
 
 export const soldCount = (card: CardState): number =>
-  Array.from({ length: SNAILS_ON_CARD }, (_, i) => i + 1).filter((n) => isSold(card, n)).length;
+  Array.from({ length: card.snailCount }, (_, i) => i + 1).filter((n) => isSold(card, n)).length;
+
+/** The highest numbered snail with an owner or a name, 0 when none. */
+export const highestSold = (card: CardState): number => {
+  for (let n = card.snailCount; n >= 1; n--) if (isSold(card, n)) return n;
+  return 0;
+};
+
+/**
+ * Why the desk cannot change the number of snails now: once a race has run,
+ * its snail numbers are on the record, and an armed race has hashed its names.
+ */
+export const snailCountLock = (
+  event: { history: { void?: boolean }[] },
+  raceLocked: boolean,
+): string =>
+  raceLocked
+    ? 'Locked while a race is at the gate.'
+    : event.history.some((h) => !h.void)
+      ? 'Locked once the first race has run. Reset the night to change it.'
+      : '';
+
+/**
+ * Put a different number of snails on sale. Names and owners already on the
+ * card keep their numbers; the card cannot shrink below a snail that is sold.
+ */
+export function resizeCard(card: CardState, snailCount: number): CardState | { error: string } {
+  const next = clampSnailCount(snailCount);
+  const sold = highestSold(card);
+  if (next < sold) return { error: `Snail ${sold} is already sold, so the card cannot go below ${sold}.` };
+  const pad = (list: string[]) => Array.from({ length: next }, (_, i) => list[i] ?? '');
+  return { ...card, snailCount: next, names: pad(card.names), owners: pad(card.owners) };
+}
 
 /** The lowest unsold number, or null once the card is full. */
 export function nextFreeSnail(card: CardState): number | null {
-  for (let n = 1; n <= SNAILS_ON_CARD; n++) if (!isSold(card, n)) return n;
+  for (let n = 1; n <= card.snailCount; n++) if (!isSold(card, n)) return n;
   return null;
 }
 
@@ -105,16 +218,20 @@ export function normaliseCard(value: unknown): CardState {
   };
   if (!value || typeof value !== 'object') return base;
   const v = value as Partial<CardState>;
+  const count = v.snailCount === undefined ? SNAILS_ON_CARD : clampSnailCount(v.snailCount);
+  base.snailCount = count;
+  base.names = new Array<string>(count).fill('');
+  base.owners = new Array<string>(count).fill('');
   if (Array.isArray(v.names)) {
-    for (let i = 0; i < SNAILS_ON_CARD; i++) base.names[i] = clean(v.names[i], MAX_NAME);
+    for (let i = 0; i < count; i++) base.names[i] = clean(v.names[i], MAX_NAME);
   }
   if (Array.isArray(v.owners)) {
-    for (let i = 0; i < SNAILS_ON_CARD; i++) base.owners[i] = clean(v.owners[i], MAX_OWNER);
+    for (let i = 0; i < count; i++) base.owners[i] = clean(v.owners[i], MAX_OWNER);
   }
   if (v.claims && typeof v.claims === 'object') {
     for (const [key, id] of Object.entries(v.claims)) {
       const n = Number(key);
-      if (validSnailNo(n) && typeof id === 'string' && id) base.claims[n] = id.slice(0, 80);
+      if (validSnailNo(n, count) && typeof id === 'string' && id) base.claims[n] = id.slice(0, 80);
     }
   }
   if (Number.isSafeInteger(v.snailCents) && Number(v.snailCents) >= 100 && Number(v.snailCents) <= 100_000) {
@@ -180,7 +297,11 @@ export function applyPurchases(
   let changed = false;
   const conflicts: SnailPurchase[] = [];
   for (const p of purchases) {
-    if (!validSnailNo(p.snailNo)) continue;
+    /* A number past the end of tonight's card was paid for all the same. */
+    if (!validSnailNo(p.snailNo, card.snailCount)) {
+      if (validSnailNo(p.snailNo, MAX_SNAILS_ON_CARD)) conflicts.push(p);
+      continue;
+    }
     const i = p.snailNo - 1;
     const claimed = next.claims[p.snailNo];
     if (claimed && claimed !== p.id) {
@@ -213,7 +334,7 @@ export function applyPurchases(
  * A Stripe CSV export pasted whole works when its columns are in that order.
  * Lines without a valid number are skipped and counted.
  */
-export function parseRosterPaste(text: string): { rows: { snailNo: number; name: string; owner: string }[]; skipped: number } {
+export function parseRosterPaste(text: string, snailCount: number = SNAILS_ON_CARD): { rows: { snailNo: number; name: string; owner: string }[]; skipped: number } {
   const rows: { snailNo: number; name: string; owner: string }[] = [];
   let skipped = 0;
   for (const raw of text.split(/\r?\n/)) {
@@ -221,7 +342,7 @@ export function parseRosterPaste(text: string): { rows: { snailNo: number; name:
     if (!line) continue;
     const parts = line.split(/\s*[,;\t]\s*/);
     const n = Number(parts[0]?.replace(/[^\d]/g, ''));
-    if (!validSnailNo(n)) {
+    if (!validSnailNo(n, snailCount)) {
       skipped += 1;
       continue;
     }
@@ -233,9 +354,9 @@ export function parseRosterPaste(text: string): { rows: { snailNo: number; name:
 /** The roster as CSV, for a printed sheet or a spreadsheet. */
 export function rosterCsv(card: CardState): string {
   const lines = ['snail,race,lane,name,owner'];
-  for (let n = 1; n <= SNAILS_ON_CARD; n++) {
+  for (let n = 1; n <= card.snailCount; n++) {
     const q = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    lines.push([n, raceForSnail(n), laneForSnail(n) + 1, q(card.names[n - 1] ?? ''), q(card.owners[n - 1] ?? '')].join(','));
+    lines.push([n, raceForSnail(n, card.snailCount), laneForSnail(n, card.snailCount) + 1, q(card.names[n - 1] ?? ''), q(card.owners[n - 1] ?? '')].join(','));
   }
   return lines.join('\n');
 }

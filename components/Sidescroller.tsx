@@ -123,6 +123,27 @@ const worldX = (p: number): number => START_X + p * (TRACK_LEN - START_X);
 
 const SCENE_W = 3200;
 
+/*
+ * Each depth of the picture (sky, hills, lake, buildings, and the track world
+ * itself) is painted once into its own layer and slid by the camera with a
+ * CSS transform. Moving a painted layer is nearly free; re-drawing the whole
+ * scene every frame, which a changing viewBox forces, is what made the
+ * following shot stutter while the full-course view stayed smooth.
+ */
+const LAYER_TOP = VIEW_H - 1700;
+const LAYER_H = 1820;
+/** Local box of a repeating scenery layer: three copies and a margin. */
+const SCENERY_BOX = { x: -400, w: SCENE_W * 3 + 800 };
+/** Local box of the track world, wide enough for any shot the camera takes. */
+const WORLD_BOX = { x: -1500, w: TRACK_LEN + 3000 };
+type LayerName = 'sky' | 'mountains' | 'lake' | 'buildings' | 'world';
+const SCENERY_LAYERS: { name: Exclude<LayerName, 'world'>; factor: number }[] = [
+  { name: 'sky', factor: 0 },
+  { name: 'mountains', factor: 0.12 },
+  { name: 'lake', factor: 0.25 },
+  { name: 'buildings', factor: 0.5 },
+];
+
 function Mountains() {
   return (
     <g transform="translate(0 -220)">
@@ -403,6 +424,10 @@ export function Sidescroller({
   const nodesRef = useRef(new Map<number, SVGGElement>());
   const tagNodesRef = useRef(new Map<number, SVGGElement>());
   const layerRefs = useRef<Record<string, SVGGElement | null>>({});
+  const layerWrapRefs = useRef<Partial<Record<LayerName, HTMLDivElement | null>>>({});
+  /** World units to layer pixels, fixed per screen size so layers paint once. */
+  const rasterRef = useRef(1);
+  const sceneWidthRef = useRef(0);
   const propRef = useRef<SVGGElement>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -470,6 +495,49 @@ export function Sidescroller({
       const w = Math.max(120, text.length * 21 + 36);
       box.setAttribute('x', String(-w / 2));
       box.setAttribute('width', String(w));
+    };
+    /** Where a repeating layer drawn at this parallax factor starts, in world x. */
+    const sceneryAt = (camX: number, factor: number) =>
+      factor === 0 ? camX : camX + ((-camX * factor) % SCENE_W) - SCENE_W;
+    /*
+     * Point the camera at world x camX with a shot viewW by viewH, bottom
+     * anchored on the ground line. Only layer transforms change; the fence and
+     * crowd copies jump a whole scenery width now and then, never per frame.
+     */
+    const frame = (camX: number, viewW: number, viewH: number) => {
+      const sceneW = sceneWidthRef.current;
+      if (!sceneW) return;
+      const viewY = VIEW_H - viewH;
+      const k = rasterRef.current;
+      const s = sceneW / viewW;
+      const place = (name: LayerName, boxX: number, originX: number) => {
+        const el = layerWrapRefs.current[name];
+        if (!el) return;
+        const tx = (boxX + originX - camX) * s;
+        const ty = (LAYER_TOP - viewY) * s;
+        el.style.transform = `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0) scale(${(s / k).toFixed(5)})`;
+      };
+      for (const layer of SCENERY_LAYERS) place(layer.name, SCENERY_BOX.x, sceneryAt(camX, layer.factor));
+      place('world', WORLD_BOX.x, 0);
+      const repeat = `translate(${sceneryAt(camX, 1)} 0)`;
+      for (const name of ['fence', 'crowd']) {
+        const g = layerRefs.current[name];
+        if (g && g.getAttribute('transform') !== repeat) g.setAttribute('transform', repeat);
+      }
+    };
+    /** Size every layer for this screen: crisp at the closest shot the camera takes. */
+    const sizeLayers = () => {
+      const sceneW = sceneWidthRef.current;
+      if (!sceneW) return;
+      const k = sceneW / minW();
+      rasterRef.current = k;
+      for (const name of [...SCENERY_LAYERS.map((l) => l.name), 'world' as const]) {
+        const el = layerWrapRefs.current[name];
+        if (!el) continue;
+        const w = name === 'world' ? WORLD_BOX.w : SCENERY_BOX.w;
+        el.style.width = `${Math.ceil(w * k)}px`;
+        el.style.height = `${Math.ceil(LAYER_H * k)}px`;
+      }
     };
     const paint: RacePainter['paint'] = (snails, info) => {
       snapshotRef.current = { snails, info };
@@ -608,22 +676,7 @@ export function Sidescroller({
       /* Never narrower than every lane allows, even mid-ease. */
       const viewW = Math.max(cam.w, narrowest);
       const viewH = viewW / aspect;
-      const viewY = VIEW_H - viewH;
-      svgRef.current?.setAttribute('viewBox', `${cam.x} ${viewY} ${viewW} ${viewH}`);
-      /* Parallax: the sky stays, hills drift, buildings slide, the fence and crowd move with the track. */
-      const layers = layerRefs.current;
-      const shift = (name: string, factor: number) => {
-        const g = layers[name];
-        if (!g) return;
-        const offset = -cam.x * factor;
-        g.setAttribute('transform', `translate(${cam.x + (offset % SCENE_W) - SCENE_W} 0)`);
-      };
-      shift('mountains', 0.12);
-      shift('lake', 0.25);
-      shift('buildings', 0.5);
-      shift('fence', 1);
-      shift('crowd', 1);
-      layers.sky?.setAttribute('transform', `translate(${cam.x} 0)`);
+      frame(cam.x, viewW, viewH);
 
       if (clockRef.current) clockRef.current.textContent = clockText(t);
       const lead = Math.min(1, Math.max(0, info.leadP));
@@ -645,19 +698,24 @@ export function Sidescroller({
     return {
       measure: () => {
         const scene = sceneRef.current;
-        if (scene?.clientHeight) aspectRef.current = scene.clientWidth / scene.clientHeight;
+        if (scene?.clientHeight) {
+          aspectRef.current = scene.clientWidth / scene.clientHeight;
+          sceneWidthRef.current = scene.clientWidth;
+          sizeLayers();
+        }
         const snapshot = snapshotRef.current;
         if (snapshot) paint(snapshot.snails, snapshot.info);
         else {
           const w = minW();
-          svgRef.current?.setAttribute('viewBox', `-260 ${VIEW_H - w / aspectRef.current} ${w} ${w / aspectRef.current}`);
+          frame(-260, w, w / aspectRef.current);
         }
       },
       start: () => {
-        svgRef.current?.classList.add('racing');
+        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art').forEach((svg) => svg.classList.add('racing'));
       },
       reset: () => {
         snapshotRef.current = null;
+        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art').forEach((svg) => svg.classList.remove('racing'));
         svgRef.current?.classList.remove('racing', 'gates-open', 'run-home');
         const w = minW();
         camRef.current = { x: -260, w };
@@ -684,11 +742,7 @@ export function Sidescroller({
         }
         if (toGoRef.current) toGoRef.current.textContent = `${RACE_METRES.toFixed(1)} m to go`;
         if (leaderRef.current) leaderRef.current.textContent = '';
-        const viewH = w / aspectRef.current;
-        svgRef.current?.setAttribute('viewBox', `-260 ${VIEW_H - viewH} ${w} ${viewH}`);
-        const layers = layerRefs.current;
-        for (const name of ['mountains', 'lake', 'buildings', 'fence', 'crowd']) layers[name]?.setAttribute('transform', `translate(${-260 - SCENE_W} 0)`);
-        layers.sky?.setAttribute('transform', 'translate(-260 0)');
+        frame(-260, w, w / aspectRef.current);
       },
       paint,
     };
@@ -738,15 +792,8 @@ export function Sidescroller({
       data-renderer="sidescroller"
     >
       <div className="course-scene side-scene" ref={sceneRef}>
-        <svg
-          ref={svgRef}
-          className="tv"
-          viewBox={`-260 ${VIEW_H - REQUIRED_H} ${REQUIRED_H * (16 / 9)} ${REQUIRED_H}`}
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={`Straight track: ${names.length} snails racing side on to the finish`}
-        >
-          <g ref={(g) => { layerRefs.current.sky = g; }}>
+        <div className="side-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.sky = el; }}>
+          <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
             <rect className="tv-art-background" x="-20000" y="-20000" width="60000" height="20600" fill="#7cc6ff" />
             <circle cx="2100" cy="140" r="90" fill="#ffe36b" />
             <g fill="#fff" opacity=".9">
@@ -755,16 +802,32 @@ export function Sidescroller({
               <ellipse cx="1500" cy="150" rx="190" ry="50" />
               <ellipse cx="1560" cy="128" rx="100" ry="44" />
             </g>
-          </g>
-          <g ref={(g) => { layerRefs.current.mountains = g; }}>
+          </svg>
+        </div>
+        <div className="side-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.mountains = el; }}>
+          <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
             {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Mountains /></g>)}
-          </g>
-          <g ref={(g) => { layerRefs.current.lake = g; }}>
+          </svg>
+        </div>
+        <div className="side-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.lake = el; }}>
+          <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
             {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Lake /></g>)}
-          </g>
-          <g ref={(g) => { layerRefs.current.buildings = g; }}>
+          </svg>
+        </div>
+        <div className="side-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.buildings = el; }}>
+          <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
             {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Scenery clubName={clubName} /></g>)}
-          </g>
+          </svg>
+        </div>
+        <div className="side-layer side-world" ref={(el) => { layerWrapRefs.current.world = el; }}>
+        <svg
+          ref={svgRef}
+          className="tv"
+          viewBox={`${WORLD_BOX.x} ${LAYER_TOP} ${WORLD_BOX.w} ${LAYER_H}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`Straight track: ${names.length} snails racing side on to the finish`}
+        >
           {/* The fence and its signs move with the track. */}
           <g ref={(g) => { layerRefs.current.fence = g; }}>
             {copies.map((i) => (
@@ -890,6 +953,7 @@ export function Sidescroller({
             {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Crowd /></g>)}
           </g>
         </svg>
+        </div>
 
         {/* The title card: just the name of the twist. The prop shows who it hit. */}
         {twist ? (

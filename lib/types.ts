@@ -14,7 +14,8 @@ import type { QuaddieEntry, QuaddieSettings } from './quaddie';
 export type DonationSource = 'stripe' | 'cash';
 
 /** What plays on the projector. One choice, never three toggles. */
-export type AudioMode = 'music' | 'commentary' | 'off';
+/** 'both' plays the music under the caller; the music dips while a line is spoken. */
+export type AudioMode = 'music' | 'commentary' | 'both' | 'off';
 
 /** How the race is framed: the leading pack, or the whole course. */
 export type CameraMode = 'telecast' | 'full';
@@ -240,7 +241,7 @@ export type ShowPhase =
   | 'finale';
 
 /** How busy the Surprise Director is allowed to be. Never touches results. */
-export type SurpriseIntensity = 'calm' | 'standard' | 'big' | 'chaos';
+export type SurpriseIntensity = 'calm' | 'standard' | 'big' | 'chaos' | 'mayhem';
 
 /* ── Recorded Race Packs ───────────────────────────────────────────────── */
 

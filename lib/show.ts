@@ -101,7 +101,7 @@ export function hostLineFor(phase: ShowPhase, ctx: HostContext): string {
     case 'racecard':
     case 'market':
       return ctx.raceNo === 1
-        ? `Tonight's card: ${ctx.plannedRaces} races of ten snails, every one named by the person who bought it. Every snail has an equal chance.`
+        ? `Tonight's card: ${ctx.plannedRaces} races, every snail named by the person who bought it. Every snail has an equal chance.`
         : `Here is the field for race ${ctx.raceNo} of ${ctx.plannedRaces}${ctx.sponsor ? `, proudly sponsored by ${ctx.sponsor}` : ''}.`;
     case 'race':
       return pickFor(

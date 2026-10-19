@@ -1,5 +1,6 @@
 'use client';
 
+import { SNAILS_ON_CARD, snailOffsetForRace, snailsForRace } from '@/lib/card';
 import { useEffect, useRef } from 'react';
 import { Snail } from './Snail';
 import { SponsorReel } from './SponsorReel';
@@ -20,6 +21,7 @@ export function WinnerOverlay({
   tote,
   auction,
   onClose,
+  snailCount = SNAILS_ON_CARD,
 }: {
   open: boolean;
   audienceOnly?: boolean;
@@ -36,6 +38,8 @@ export function WinnerOverlay({
   tote?: ToteDividend;
   auction?: AuctionSettlement;
   onClose: () => void;
+  /** Snails on tonight's card, which fixes the numbers in each race. */
+  snailCount?: number;
 }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
@@ -54,7 +58,8 @@ export function WinnerOverlay({
   const winner = results[0];
   const c = laneColour(winner.lane);
   const owner = owners[winner.lane]?.trim() ?? '';
-  const snailNo = (raceNo - 1) * 10 + winner.lane + 1;
+  const snailNo = snailOffsetForRace(raceNo, snailCount) + winner.lane + 1;
+  const nextSnails = snailsForRace(nextRaceNo, snailCount);
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center p-4">
@@ -151,7 +156,7 @@ export function WinnerOverlay({
         <p className="mt-6 text-sm font-medium text-(--tx)/70">
           {lastRace
             ? 'That was the last race on the card. Thank you for racing with us.'
-            : `Race ${nextRaceNo} is next: snails ${(nextRaceNo - 1) * 10 + 1} to ${nextRaceNo * 10}.`}
+            : `Race ${nextRaceNo} is next: snails ${nextSnails[0]} to ${nextSnails[nextSnails.length - 1]}.`}
         </p>
 
         {!audienceOnly ? <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>

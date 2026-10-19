@@ -2,7 +2,7 @@
 
 import type { AudioMode } from '@/lib/types';
 
-/** Music, commentary or nothing. One choice; the desk shows the same one. */
+/** Music, commentary, both, or nothing. One choice; the desk shows the same one. */
 export function AudioModePicker({
   mode,
   canSpeak,
@@ -15,10 +15,11 @@ export function AudioModePicker({
   const options: { id: AudioMode; label: string }[] = [
     { id: 'music', label: 'Music' },
     { id: 'commentary', label: 'Commentary' },
+    { id: 'both', label: 'Both' },
     { id: 'off', label: 'Off' },
   ];
   return (
-    <span className="seg" style={{ '--seg-n': 3 } as React.CSSProperties} role="group" aria-label="Audio">
+    <span className="seg" style={{ '--seg-n': options.length } as React.CSSProperties} role="group" aria-label="Audio">
       <span
         className="seg-thumb"
         style={{ '--seg-i': options.findIndex((o) => o.id === mode) } as React.CSSProperties}
@@ -29,8 +30,8 @@ export function AudioModePicker({
           key={o.id}
           type="button"
           aria-pressed={mode === o.id}
-          disabled={o.id === 'commentary' && !canSpeak}
-          title={o.id === 'commentary' && !canSpeak ? 'No voice is available on this device' : undefined}
+          disabled={(o.id === 'commentary' || o.id === 'both') && !canSpeak}
+          title={(o.id === 'commentary' || o.id === 'both') && !canSpeak ? 'No voice is available on this device' : o.id === 'both' ? 'Music and commentary together' : undefined}
           onClick={() => onChange(o.id)}
         >
           {o.label}

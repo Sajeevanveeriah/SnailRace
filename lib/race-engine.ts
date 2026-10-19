@@ -672,6 +672,8 @@ export const INTENSITY_FACTOR = {
   standard: 1,
   big: 1.35,
   chaos: 1.75,
+  /* Nothing is safe: the most surprises the book and the deck will deal. */
+  mayhem: 2.2,
 } as const;
 
 export type IntensityId = keyof typeof INTENSITY_FACTOR;
@@ -1498,7 +1500,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     },
   },
   {
-    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false, weight: 5,
+    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false, weight: 8,
     from: 0.28, to: 0.74, boostTo: 0.03,
     warning: 'One of the runners has found a cricket bat beside the track.',
     calls: [
@@ -1597,6 +1599,120 @@ export const DECK_CARDS: readonly DeckCard[] = [
       const back = lanes.slice(-Math.min(3, lanes.length - 1));
       for (const lane of back) deltas[lane] = share(rnd, durationMs, 0.04, 0.07);
       return { deltas, featured: back[0] };
+    },
+  },
+  /* ── Mayhem: twists that can land on anyone, from the leader to last ── */
+  {
+    id: 'leaf-blower', label: 'LEAF BLOWER', kind: 'chaos', tone: 'wild', sound: 'wave', once: false,
+    from: 0.25, to: 0.75, boostTo: 0.07,
+    warning: 'The groundskeeper has a leaf blower and no idea which way it is pointing.',
+    calls: [
+      'The LEAF BLOWER has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!',
+      'The LEAF BLOWER is pointing up the course and the back markers are flying! {a} is riding the breeze!',
+    ],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const half = Math.max(1, Math.floor(lanes.length / 2));
+      /* Which way it points is a coin toss: hold the front or blow the back on. */
+      if (rnd() < 0.5) {
+        for (const lane of lanes.slice(0, half)) deltas[lane] = -share(rnd, durationMs, 0.03, 0.06);
+        return { deltas, featured: lanes[0], call: 'The LEAF BLOWER has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!' };
+      }
+      for (const lane of lanes.slice(half)) deltas[lane] = share(rnd, durationMs, 0.03, 0.07);
+      return { deltas, featured: lanes[half], call: 'The LEAF BLOWER is pointing up the course and the back markers are flying! {a} is riding the breeze!' };
+    },
+  },
+  {
+    id: 'tremor', label: 'EARTH TREMOR', kind: 'chaos', tone: 'wild', sound: 'wave', once: true,
+    from: 0.3, to: 0.78, boostTo: 0.05,
+    warning: 'The drinks on the bar have started to rattle.',
+    calls: ['EARTH TREMOR! The whole track has shaken and nobody knows where they are! {a} has come out of it best!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      let featured = lanes[0];
+      let best = -Infinity;
+      for (const lane of lanes) {
+        const shift = Math.round(durationMs * (rnd() * 0.1 - 0.05));
+        deltas[lane] = shift;
+        if (shift > best) {
+          best = shift;
+          featured = lane;
+        }
+      }
+      return { deltas, featured };
+    },
+  },
+  {
+    id: 'lucky-dip', label: 'LUCKY DIP', kind: 'chaos', tone: 'wild', sound: 'weird', once: false,
+    from: 0.25, to: 0.74, boostTo: 0.08,
+    warning: 'A bucket of numbered shells has appeared at the rail.',
+    calls: ['LUCKY DIP! Two snails get a shove and two get a shell full of sand! {a} drew the good one!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const pool = [...lanes];
+      const pick = () => pool.splice(Math.floor(rnd() * pool.length), 1)[0];
+      const winners = [pick(), pick()].filter((lane) => lane !== undefined);
+      const losers = [pick(), pick()].filter((lane) => lane !== undefined);
+      for (const lane of winners) deltas[lane] = share(rnd, durationMs, 0.05, 0.08);
+      for (const lane of losers) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: winners[0] };
+    },
+  },
+  {
+    id: 'possum', label: 'POSSUM ON THE LOOSE', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
+    from: 0.25, to: 0.76, boostTo: 0,
+    warning: 'Something has fallen out of the gum tree by the scoreboard.',
+    calls: ['A POSSUM has dropped out of the tree right in front of {a}! It is not moving and neither is the snail!'],
+    deal: (rnd, lanes, durationMs) => {
+      const lane = lanes[Math.floor(rnd() * lanes.length)];
+      return { deltas: { [lane]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+    },
+  },
+  {
+    id: 'drone', label: 'RUNAWAY DRONE', kind: 'swoop', tone: 'bad', sound: 'swoop', once: false,
+    from: 0.25, to: 0.74, boostTo: 0,
+    warning: 'The club drone has stopped answering the remote.',
+    calls: ['The RUNAWAY DRONE has buzzed the field and {a} has ducked into its shell! So has the one beside it!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const at = Math.floor(rnd() * (lanes.length - 1));
+      for (const lane of lanes.slice(at, at + 2)) deltas[lane] = -share(rnd, durationMs, 0.05, 0.08);
+      return { deltas, featured: lanes[at] };
+    },
+  },
+  {
+    id: 'slip-slide', label: "SLIP 'N' SLIDE", kind: 'surge', tone: 'good', sound: 'up', once: false,
+    from: 0.25, to: 0.72, boostTo: 0.08,
+    warning: 'Somebody has rolled a slip and slide across the course.',
+    calls: ["SLIP 'N' SLIDE! {a} has hit the wet plastic and gone sliding up the field! Two more are right behind!"],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const pool = [...lanes];
+      const picked: number[] = [];
+      while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+      for (const lane of picked) deltas[lane] = share(rnd, durationMs, 0.04, 0.08);
+      return { deltas, featured: picked[0] };
+    },
+  },
+  {
+    id: 'cheer-squad', label: 'CHEER SQUAD', kind: 'surge', tone: 'good', sound: 'up', once: false,
+    from: 0.35, to: 0.76, boostTo: 0.1,
+    warning: 'The junior cheer squad has found the back of the field.',
+    calls: ['The CHEER SQUAD is screaming for {a} at the back and it is FLYING! From last to somewhere!'],
+    deal: (rnd, lanes, durationMs) => {
+      const lane = lanes[lanes.length - 1];
+      return { deltas: { [lane]: share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+    },
+  },
+  {
+    id: 'road-works', label: 'ROAD WORKS', kind: 'stumble', tone: 'bad', sound: 'down', once: false,
+    from: 0.3, to: 0.76, boostTo: 0,
+    warning: 'A man in a hi-vis vest is putting out cones ahead of the leaders.',
+    calls: ['ROAD WORKS! The cones are out and {a} has to wait for the lollipop sign! The leaders are stuck in the queue!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      for (const lane of lanes.slice(0, 2)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: lanes[0] };
     },
   },
   {
@@ -1837,7 +1953,9 @@ export function drawLockedRacePlan(
         ? 3 + (deckRnd() < 0.5 ? 1 : 0)
         : intensity === 'big'
           ? 4 + (deckRnd() < 0.5 ? 1 : 0)
-          : 5 + (deckRnd() < 0.5 ? 1 : 0);
+          : intensity === 'chaos'
+            ? 5 + (deckRnd() < 0.5 ? 1 : 0)
+            : 7 + Math.floor(deckRnd() * 3);
   /* A card needs about fifteen seconds of race to land and be read. */
   const deckCount = Math.min(wantedCards, Math.floor(durationMs / DECK_SECONDS_PER_CARD_MS));
   if (deckCount > 0) {
@@ -1870,7 +1988,8 @@ export function drawLockedRacePlan(
         .sort((a, b) => progressForLockedRunner(b, events, at, motion) - progressForLockedRunner(a, events, at, motion))
         .map((runner) => runner.lane);
     let dealt = 0;
-    const spacing = deckSpacingMs(durationMs);
+    /* Mayhem lets twists come thick and fast, closer together than any other night. */
+    const spacing = intensity === 'mayhem' ? Math.round(deckSpacingMs(durationMs) * 0.6) : deckSpacingMs(durationMs);
     const dealtAt: number[] = [];
     /* One story at a time: a card keeps clear of every other card and of
        the comeback beats, which have their own warning, obstacle and chase. */
@@ -1888,7 +2007,7 @@ export function drawLockedRacePlan(
       const comebackReserve = comebackTimes.length ? Math.round(durationMs * 0.07) : 0;
       const latest = earliestCrossing() - maxBoost - comebackReserve - commentaryDelayMs - 400;
       let effectAtMs = -1;
-      for (let attempt = 0; attempt < 4 && effectAtMs < 0; attempt++) {
+      for (let attempt = 0; attempt < (intensity === 'mayhem' ? 10 : 4) && effectAtMs < 0; attempt++) {
         let at = Math.round(durationMs * (card.from + deckRnd() * (card.to - card.from)));
         if (at > latest) at = latest;
         if (at < durationMs * 0.2 || at - warningLead <= 0 || crowded(at)) continue;

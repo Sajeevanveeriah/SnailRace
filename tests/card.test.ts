@@ -4,7 +4,10 @@ import {
   DEFAULT_CARD,
   SNAILS_ON_CARD,
   applyPurchases,
+  cardLayout,
   cardRaceNames,
+  describeLayout,
+  resizeCard,
   laneForSnail,
   nextFreeSnail,
   normaliseCard,
@@ -124,4 +127,43 @@ test('a full refund releases the slot it bought, and only that slot', () => {
   /* The minted flag only survives alongside a valid link. */
   assert.equal(normaliseCard({ paymentLinkUrl: 'https://buy.stripe.com/x', paymentLinkMinted: true }).paymentLinkMinted, true);
   assert.equal(normaliseCard({ paymentLinkMinted: true }).paymentLinkMinted, false);
+});
+
+test('a card of 64 snails splits into seven even races of ten or under', () => {
+  const layout = cardLayout(64);
+  assert.equal(layout.races, 7);
+  assert.deepEqual(layout.sizes, [10, 9, 9, 9, 9, 9, 9]);
+  assert.equal(describeLayout(layout), '7 races: 1 of 10, 6 of 9');
+  assert.deepEqual(snailsForRace(1, 64), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(snailsForRace(2, 64), [11, 12, 13, 14, 15, 16, 17, 18, 19]);
+  assert.equal(raceForSnail(64, 64), 7);
+  assert.equal(laneForSnail(20, 64), 0);
+  assert.equal(raceForSnail(20, 64), 3);
+  /* Every number runs exactly once, every field is a legal size. */
+  for (const n of [8, 9, 11, 17, 33, 64, 99, 100, 101, 150, 200]) {
+    const l = cardLayout(n);
+    assert.equal(l.sizes.reduce((a, b) => a + b, 0), n);
+    assert.ok(l.sizes.every((size) => size >= 8 && size <= 20), `${n}: ${l.sizes.join(',')}`);
+    const seen = Array.from({ length: l.races }, (_, i) => snailsForRace(i + 1, n)).flat();
+    assert.deepEqual(seen, Array.from({ length: n }, (_, i) => i + 1));
+  }
+  assert.equal(describeLayout(cardLayout(100)), '10 races of 10');
+});
+
+test('the card cannot shrink below a sold snail and keeps names on resize', () => {
+  const card = fresh();
+  card.names[69] = 'Seventy';
+  const blocked = resizeCard(card, 64);
+  assert.ok('error' in blocked);
+  card.names[69] = '';
+  card.names[9] = 'Ten';
+  const smaller = resizeCard(card, 64);
+  assert.ok(!('error' in smaller));
+  if ('error' in smaller) return;
+  assert.equal(smaller.snailCount, 64);
+  assert.equal(smaller.names.length, 64);
+  assert.equal(smaller.names[9], 'Ten');
+  assert.equal(cardRaceNames(smaller, 2).length, 9);
+  const restored = normaliseCard(JSON.parse(JSON.stringify(smaller)));
+  assert.equal(restored.snailCount, 64);
 });

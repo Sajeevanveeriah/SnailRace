@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStripe, META, APP_TAG, SNAIL_FIELDS } from '@/lib/stripe';
 import { MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { DEFAULT_SNAIL_CENTS, SNAILS_ON_CARD } from '@/lib/card';
+import { DEFAULT_SNAIL_CENTS, SNAILS_ON_CARD, clampSnailCount } from '@/lib/card';
 import { checkOrigin } from '@/lib/server-origin';
 
 export const runtime = 'nodejs';
@@ -48,8 +48,10 @@ export async function POST(request: Request) {
   let eventId = '';
   let kind: LinkKind = 'donation';
   let snailCents = DEFAULT_SNAIL_CENTS;
+  let snails = SNAILS_ON_CARD;
   try {
-    const body = (await request.json()) as { eventId?: string; kind?: string; cents?: number };
+    const body = (await request.json()) as { eventId?: string; kind?: string; cents?: number; snails?: number };
+    if (body.snails !== undefined) snails = clampSnailCount(body.snails);
     eventId = String(body.eventId ?? '')
       .replace(/[^\w-]/g, '')
       .slice(0, 40);
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'eventId is required.' }, { status: 400 });
   }
 
-  const cacheKey = `${kind}:${eventId}:${snailCents}`;
+  const cacheKey = `${kind}:${eventId}:${snailCents}:${snails}`;
   const cached = linkCache.get(cacheKey);
   if (cached) {
     return NextResponse.json({ ok: true, url: cached.url, id: cached.id });
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
         custom_fields: [
           {
             key: SNAIL_FIELDS.number,
-            label: { type: 'custom', custom: `Snail number (1 to ${SNAILS_ON_CARD}, ask the table which are free)` },
+            label: { type: 'custom', custom: `Snail number (1 to ${snails}, ask the table which are free)` },
             type: 'numeric',
             numeric: { minimum_length: 1, maximum_length: 3 },
           },

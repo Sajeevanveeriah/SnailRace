@@ -9,7 +9,7 @@ import { audioPatch, setState } from '@/lib/event-store';
 import { isAuctionRace, toteIsLive } from '@/lib/cash-tote';
 import { AuctionDesk, ToteTally } from './CashTotePanel';
 import { showPhaseSpec } from '@/lib/show';
-import { cardRaceNames, cardRaceOwners } from '@/lib/card';
+import { cardRaceNames, cardRaceOwners, snailCountLock, snailsForRace } from '@/lib/card';
 import { quaddieIsLive } from '@/lib/quaddie';
 import { useCanSpeak } from '@/lib/use-can-speak';
 import { initVoice, primeAudio } from '@/lib/sound';
@@ -66,7 +66,7 @@ const sequence: { id: EventState['showPhase']; name: string }[] = [
 
 const notes: Record<string, string> = {
   lobby: 'Welcome the room. Point at the QR: buy a snail, name it. Open the racecard when ready.',
-  racecard: 'Read out the ten snails and their owners. Then send them to the gate.',
+  racecard: 'Read out the snails and their owners. Then send them to the gate.',
   race: 'Press Start. The projector runs the race. Let the finish play out.',
   results: 'Name the winner and the owner. Then move on.',
   championship: 'Read out who is still alive in the quaddie, then the next race.',
@@ -96,9 +96,10 @@ export function ModeratorDesk(p: Props) {
   const lockedRaceNo = p.locked ? p.nextRaceNo : null;
   /* After race ten the roster has nothing next; show the last field. */
   const rosterRaceNo = Math.min(event.plannedRaces, p.nextRaceNo);
+  const deskSnails = snailsForRace(p.raceNo, event.card.snailCount);
   const setAudio = (mode: AudioMode) => {
     primeAudio();
-    if (mode === 'commentary') initVoice();
+    if (mode === 'commentary' || mode === 'both') initVoice();
     setState(audioPatch(mode));
   };
 
@@ -122,7 +123,7 @@ export function ModeratorDesk(p: Props) {
           <section className="desk-program" aria-label="Projector status">
             <p className="desk-label">On the projector</p>
             <h2>{title}</h2>
-            <p className="desk-race-title">Race {p.raceNo} of {event.plannedRaces} - snails {(p.raceNo - 1) * 10 + 1} to {p.raceNo * 10} - {p.courseName}</p>
+            <p className="desk-race-title">Race {p.raceNo} of {event.plannedRaces} - snails {deskSnails[0]} to {deskSnails[deskSnails.length - 1]} - {p.courseName}</p>
             <p className="desk-status" role="status">
               {p.holding ? 'The audience sees the holding screen. The show is held.' : event.showPhase === 'race' || event.showPhase === 'results' ? race.status : `The audience sees the ${title.toLowerCase()} screen.`}
             </p>
@@ -146,7 +147,7 @@ export function ModeratorDesk(p: Props) {
 
           <section className="desk-panel desk-roster" aria-label="Roster">
             <h2>Roster <span className="num desk-label">race {rosterRaceNo}</span></h2>
-            <RosterPanel card={event.card} raceNo={rosterRaceNo} lockedRaceNo={lockedRaceNo} compact />
+            <RosterPanel card={event.card} raceNo={rosterRaceNo} lockedRaceNo={lockedRaceNo} compact resizeLockedReason={snailCountLock(event, lockedRaceNo !== null)} />
           </section>
 
           {quaddieIsLive(event.quaddie) ? <QuaddieDesk event={event} racing={p.locked} nextRaceNo={p.nextRaceNo} /> : null}
@@ -165,6 +166,7 @@ export function ModeratorDesk(p: Props) {
               <div className="desk-camera" role="radiogroup" aria-label="Audio mode">
                 <label><input type="radio" name="desk-audio" checked={event.audioMode === 'music'} onChange={() => setAudio('music')} /> Music</label>
                 <label><input type="radio" name="desk-audio" checked={event.audioMode === 'commentary'} disabled={!canSpeak} onChange={() => setAudio('commentary')} /> Commentary</label>
+                <label><input type="radio" name="desk-audio" checked={event.audioMode === 'both'} disabled={!canSpeak} onChange={() => setAudio('both')} /> Music and commentary</label>
                 <label><input type="radio" name="desk-audio" checked={event.audioMode === 'off'} onChange={() => setAudio('off')} /> Off</label>
               </div>
               <label className="desk-volume">Volume <input type="range" min="0" max="1" step="0.05" value={event.volume} onChange={(e) => setState({ volume: Number(e.target.value) })} /><output>{Math.round(event.volume * 100)}%</output></label>
@@ -185,7 +187,7 @@ export function ModeratorDesk(p: Props) {
         <section className="desk-order" aria-label="Live running order">
           <h2>Running order</h2>
           <ol>{rows.map((row) => <li key={row.lane}>
-            <span className="desk-lane" style={{ background: laneColour(row.lane).shell }}>{(p.raceNo - 1) * 10 + row.lane + 1}</span>
+            <span className="desk-lane" style={{ background: laneColour(row.lane).shell }}>{deskSnails[0] + row.lane}</span>
             <span>{lineup[row.lane]}{owners[row.lane] ? <small className="desk-owner"> {owners[row.lane]}</small> : null}</span><span className="desk-gap">{row.gapText}</span>
           </li>)}</ol>
           {race.commentary ? <p className="desk-commentary">{race.commentary}</p> : null}
