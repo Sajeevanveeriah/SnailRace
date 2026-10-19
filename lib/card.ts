@@ -30,18 +30,25 @@ export interface CardLayout {
   starts: number[];
 }
 
+/** True when this many snails split into races of eight to ten (11 to 15, 21 to 23 and 31 do not). */
+export const snailCountFits = (n: number): boolean =>
+  Number.isSafeInteger(n) && n >= MIN_SNAILS_ON_CARD && n <= MAX_SNAILS_ON_CARD &&
+  Math.ceil(n / SNAILS_PER_RACE) <= Math.floor(n / MIN_SNAILS_PER_RACE);
+
+/** Bounded, and stepped down to the nearest count that splits into fields of eight to ten. */
 export const clampSnailCount = (value: unknown): number => {
-  const n = Math.round(Number(value));
+  let n = Math.round(Number(value));
   if (!Number.isFinite(n)) return SNAILS_ON_CARD;
-  return Math.min(MAX_SNAILS_ON_CARD, Math.max(MIN_SNAILS_ON_CARD, n));
+  n = Math.min(MAX_SNAILS_ON_CARD, Math.max(MIN_SNAILS_ON_CARD, n));
+  while (!snailCountFits(n)) n -= 1;
+  return n;
 };
 
-/** Split a card of this many snails into races of ten or under, as evenly as possible. */
+/** Split a card of this many snails into races of eight to ten, as evenly as possible. */
 export function cardLayout(snailCount: number = SNAILS_ON_CARD): CardLayout {
   const snails = clampSnailCount(snailCount);
-  let races = Math.ceil(snails / SNAILS_PER_RACE);
-  /* Never leave a field below the minimum; a small card runs fewer, fuller races. */
-  if (Math.floor(snails / races) < MIN_SNAILS_PER_RACE) races = Math.max(1, Math.floor(snails / MIN_SNAILS_PER_RACE));
+  /* clampSnailCount only returns counts that fit, so the fewest races of ten also keep every field at eight or more. */
+  const races = Math.ceil(snails / SNAILS_PER_RACE);
   const base = Math.floor(snails / races);
   const extra = snails % races;
   const sizes = Array.from({ length: races }, (_, i) => base + (i < extra ? 1 : 0));
@@ -181,7 +188,12 @@ export const highestSold = (card: CardState): number => {
  * its snail numbers are on the record, and an armed race has hashed its names.
  */
 export const snailCountLock = (
-  event: { history: { void?: boolean }[]; quaddieEntries?: { void?: boolean }[] },
+  event: {
+    history: { void?: boolean }[];
+    quaddieEntries?: { void?: boolean }[];
+    toteSales?: { void?: boolean }[];
+    auctionBids?: { void?: boolean }[];
+  },
   raceLocked: boolean,
 ): string =>
   raceLocked
@@ -190,13 +202,21 @@ export const snailCountLock = (
       ? 'Locked once the first race has run. Reset the night to change it.'
       : (event.quaddieEntries ?? []).some((e) => !e.void)
         ? 'Locked once a quaddie ticket is sold: its picks are tied to tonight\'s races.'
-        : '';
+        : [...(event.toteSales ?? []), ...(event.auctionBids ?? [])].some((e) => !e.void)
+          ? 'Locked once a tote ticket or auction bid is taken: it is tied to a lane in tonight\'s races.'
+          : '';
 
 /**
  * Put a different number of snails on sale. Names and owners already on the
  * card keep their numbers; the card cannot shrink below a snail that is sold.
  */
 export function resizeCard(card: CardState, snailCount: number): CardState | { error: string } {
+  const asked = Math.round(Number(snailCount));
+  if (Number.isFinite(asked) && asked >= MIN_SNAILS_ON_CARD && asked <= MAX_SNAILS_ON_CARD && !snailCountFits(asked)) {
+    let up = asked;
+    while (!snailCountFits(up)) up += 1;
+    return { error: `${asked} snails cannot split into races of eight to ten. Try ${clampSnailCount(asked)} or ${up}.` };
+  }
   const next = clampSnailCount(snailCount);
   const sold = highestSold(card);
   if (next < sold) return { error: `Snail ${sold} is already sold, so the card cannot go below ${sold}.` };

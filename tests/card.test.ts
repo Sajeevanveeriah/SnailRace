@@ -15,6 +15,7 @@ import {
   raceForSnail,
   releaseRefunded,
   rosterCsv,
+  snailCountFits,
   snailCountLock,
   snailsForRace,
   soldCount,
@@ -141,10 +142,11 @@ test('a card of 64 snails splits into seven even races of ten or under', () => {
   assert.equal(laneForSnail(20, 64), 0);
   assert.equal(raceForSnail(20, 64), 3);
   /* Every number runs exactly once, every field is a legal size. */
-  for (const n of [8, 9, 11, 17, 33, 64, 99, 100, 101, 150, 200]) {
+  for (let n = 8; n <= 200; n += 1) {
+    if (!snailCountFits(n)) continue;
     const l = cardLayout(n);
     assert.equal(l.sizes.reduce((a, b) => a + b, 0), n);
-    assert.ok(l.sizes.every((size) => size >= 8 && size <= 20), `${n}: ${l.sizes.join(',')}`);
+    assert.ok(l.sizes.every((size) => size >= 8 && size <= 10), `${n}: ${l.sizes.join(',')}`);
     const seen = Array.from({ length: l.races }, (_, i) => snailsForRace(i + 1, n)).flat();
     assert.deepEqual(seen, Array.from({ length: n }, (_, i) => i + 1));
   }
@@ -173,4 +175,18 @@ test('a sold quaddie ticket locks the number of snails', () => {
   assert.equal(snailCountLock({ history: [], quaddieEntries: [] }, false), '');
   assert.equal(snailCountLock({ history: [], quaddieEntries: [{ void: true }] }, false), '');
   assert.match(snailCountLock({ history: [], quaddieEntries: [{}] }, false), /quaddie/);
+});
+
+test('counts that cannot make fields of eight to ten are refused or stepped down', () => {
+  const misfits = Array.from({ length: 193 }, (_, i) => i + 8).filter((n) => !snailCountFits(n));
+  assert.deepEqual(misfits, [11, 12, 13, 14, 15, 21, 22, 23, 31]);
+  assert.equal(cardLayout(23).snails, 20);
+  const card = resizeCard(fresh(), 23);
+  assert.ok('error' in card && /Try 20 or 24/.test(card.error));
+});
+
+test('a tote ticket or auction bid locks the number of snails', () => {
+  assert.match(snailCountLock({ history: [], toteSales: [{}] }, false), /tote/);
+  assert.match(snailCountLock({ history: [], auctionBids: [{}] }, false), /auction/);
+  assert.equal(snailCountLock({ history: [], toteSales: [{ void: true }], auctionBids: [] }, false), '');
 });

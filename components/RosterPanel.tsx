@@ -12,6 +12,7 @@ import {
   raceForSnail,
   resizeCard,
   rosterCsv,
+  snailCountFits,
   snailsForRace,
   soldCount,
 } from '@/lib/card';
@@ -154,7 +155,9 @@ export function RosterPanel({
         </button>
         <p className="desk-label">
           {resizeLockedReason ||
-            describeLayout(cardLayout(Number(countDraft) || card.snailCount))}
+            (snailCountFits(Number(countDraft))
+              ? describeLayout(cardLayout(Number(countDraft)))
+              : `Pick ${MIN_SNAILS_ON_CARD} to ${MAX_SNAILS_ON_CARD} snails that split into races of eight to ten.`)}
         </p>
       </div>
       {pasteOpen ? (
