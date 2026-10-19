@@ -8,7 +8,34 @@ one-volunteer run of show.
 This repository implements an original NDCC production. It uses its own club
 crest, runner art, copy, commentary and cricket-ground surprises.
 
-## Current release - the card night (5.0)
+## Current release - simpler screens and sponsors (5.1)
+
+From the club's feedback after the first rehearsal:
+
+1. **No annotations on the snails.** The title card names the twist and
+   nothing else: no list of numbers it hit, no seconds held or gained, and no
+   STUCK or +4.2s tags over the shells. The saddlecloth number on each snail
+   is all the room needs. The surprise strip shows the twist's name only.
+2. **Commentary on top.** The commentary strap sits under the title bar,
+   clear of the course, in bigger type; the surprise strip and the running
+   order share the bottom.
+3. **Track designs, ticked.** Admin, Race setup, Track designs: tick any of
+   the side-on straight and the four top-down circuits and they take turns
+   race by race. A night that never ticks anything keeps its old setting.
+4. **More chaos.** Six new deck cards: Sausage Sizzle, Kookaburra Laugh, The
+   Trampoline, Wombat Crossing, Ride-on Mower and Hailstorm (once a night).
+   Chaos now deals five or six cards in a two-minute race (one per fifteen
+   seconds at most), Big night four or five, Standard three or four.
+5. **Magpies, not seagulls.** The old Seagull Raid is a Magpie Raid, so the
+   words match the magpie on screen.
+6. **Officer Jacks Speed Camera.** The speed camera is the club
+   president's.
+7. **Sponsors.** The club's sixteen sponsor logos (from ndcc.com.au, in
+   `public/sponsors/`, listed in `lib/club-sponsors.ts`) roll one at a time
+   beside the winner after every race, and two of them ride on the fence
+   boards each race.
+
+## The card night (5.0)
 
 The night is a **card of one hundred snails**: ten races of ten. A supporter
 buys a numbered snail for $4, names it, and that number fixes its race (1 to
@@ -66,12 +93,12 @@ What changed from 4.2, point by point from the room's feedback:
    marker is flung up the course), The Big Bunch-Up (a magnet drags the
    leaders back and pulls the tail up for a nose-to-nose finish),
    Caterpillar Crossing (the middle of the field waits for every leg),
-   Speed Camera (the leader is pulled over), The Bat (a runner clubs the
+   Officer Jacks Speed Camera (the leader is pulled over), The Bat (a runner clubs the
    snail in front of it and slips through) and Contagious Plague (the
    leader catches it and it spreads to whoever is running near the front). Once-a-night cards are dealt
    without replacement across the ten races (`dealtCards`), so the boot and
    the plague at the line are moments of the night, not of every race.
-   The Bat and Contagious Plague carry a `weight` of 3, so the bat comes up
+   The Bat carries a `weight` of 5 and Contagious Plague 3, so the bat comes up
    in about half of two-minute Chaos races and a plague in two thirds of
    them. Cards keep at least `deckSpacingMs` apart and clear of the comeback
    beats, so one story is on air at a time. Every card is a bounded,

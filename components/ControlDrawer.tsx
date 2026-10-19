@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { TRACK_DESIGNS, enabledTrackDesigns, type TrackDesignId } from '@/lib/courses';
 import Link from 'next/link';
 import { addAudit, audioPatch, auditChainSettled, currentState, hydrate, resetEvent, restore, setState, useEvent } from '@/lib/event-store';
 import { commitmentOf, planHashOf, resultHashOf, shortHash, verifyAuditChain, type RaceConfig } from '@/lib/audit';
@@ -169,11 +170,19 @@ export function ControlDrawer({
    * keeps `raceDurationMs` meaning the same thing it always has for the
    * engine, the history and the straight track.
    */
-  const laps = event.trackShape === 'circuit' ? Math.max(1, event.laps) : 1;
+  const designs = enabledTrackDesigns(event.trackDesigns, event.trackShape);
+  const anyCircuit = designs.some((id) => id !== 'straight');
+  const laps = anyCircuit ? Math.max(1, event.laps) : 1;
   const lapMs = Math.round(event.raceDurationMs / laps);
+  /* Switch a design on or off. One always stays on: a night needs a track. */
+  const toggleDesign = (id: TrackDesignId, on: boolean) => {
+    const next = TRACK_DESIGNS.map((d) => d.id).filter((d) => (d === id ? on : designs.includes(d)));
+    if (!next.length) return;
+    setState({ trackDesigns: next, trackShape: next[0] === 'straight' ? 'lanes' : 'circuit' });
+  };
 
   const setLength = (nextLapMs: number, nextLaps: number) => {
-    const l = event.trackShape === 'circuit' ? Math.max(1, nextLaps) : 1;
+    const l = anyCircuit ? Math.max(1, nextLaps) : 1;
     setState({ laps: l, raceDurationMs: nextLapMs * l });
   };
 
@@ -856,7 +865,7 @@ export function ControlDrawer({
               ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="fld">
-                  <span>{event.trackShape === 'circuit' ? 'Lap length' : 'Race length'}</span>
+                  <span>{anyCircuit ? 'Lap length' : 'Race length'}</span>
                   <select
                     value={lapMs}
                     disabled={locked}
@@ -870,21 +879,7 @@ export function ControlDrawer({
                   </select>
                 </label>
 
-                <label className="fld">
-                  <span>Track</span>
-                  <select
-                    value={event.trackShape}
-                    disabled={locked}
-                    onChange={(e) =>
-                      setState({ trackShape: e.target.value as 'circuit' | 'lanes' })
-                    }
-                  >
-                    <option value="lanes">Side-on cartoon straight</option>
-                    <option value="circuit">Top-down oval</option>
-                  </select>
-                </label>
-
-                {event.trackShape === 'circuit' ? (
+                {anyCircuit ? (
                   <label className="fld">
                     <span>Laps</span>
                     <select
@@ -914,13 +909,34 @@ export function ControlDrawer({
                 </label>
               </div>
               <p className="mt-3 text-[11px] leading-snug text-(--tx)/50">
-                {event.trackShape === 'circuit'
+                {anyCircuit
                   ? `${event.laps} ${event.laps === 1 ? 'lap' : 'laps'} at ${Math.round(lapMs / 1000)}s = a ${raceLength} race, at about ${pace} body-lengths a second. A snail reads as a snail at about one; much above two and it looks like a beetle.`
                   : `A ${raceLength} race.`}
               </p>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 Every race is ten snails: the ten numbers sold into it on the card.
               </p>
+              <fieldset className="mt-3" disabled={locked}>
+                <legend className="text-sm font-medium">Track designs</legend>
+                <p className="mt-1 text-[11px] leading-snug text-(--tx)/50">
+                  Tick as many as you like. The ticked designs take turns, race by race
+                  {designs.length > 1 ? `: race ${nextRaceNo} runs on ${TRACK_DESIGNS.find((d) => d.id === designs[(nextRaceNo - 1) % designs.length])?.name ?? ''}.` : '.'}
+                  {anyCircuit && designs.includes('straight') ? ' A straight race runs the whole race length; a circuit race splits it into laps.' : ''}
+                </p>
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {TRACK_DESIGNS.map((d) => (
+                    <label key={d.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={designs.includes(d.id)}
+                        disabled={locked || (designs.length === 1 && designs.includes(d.id))}
+                        onChange={(e) => toggleDesign(d.id, e.target.checked)}
+                      />
+                      {d.name}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label className="mt-3 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -960,9 +976,9 @@ export function ControlDrawer({
                     onChange={(e) => setState({ intensity: e.target.value as SurpriseIntensity })}
                   >
                     <option value="calm">Calm night (no deck)</option>
-                    <option value="standard">Standard (two or three deck cards)</option>
-                    <option value="big">Big night (three or four)</option>
-                    <option value="chaos">Chaos (four or five)</option>
+                    <option value="standard">Standard (three or four deck cards)</option>
+                    <option value="big">Big night (four or five)</option>
+                    <option value="chaos">Chaos (five or six)</option>
                   </select>
                 </label>
               </div>

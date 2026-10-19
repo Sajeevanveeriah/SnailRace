@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { courseForRace, RACE_COURSES } from '../lib/courses';
+import { courseForRace, designForRace, enabledTrackDesigns, normaliseTrackDesigns, RACE_COURSES } from '../lib/courses';
 import { EVENT_SPECS, RETIREMENT_SPECS, SWARM_SPECS } from '../lib/race-engine';
 import { presentationForMoment } from '../components/race-broadcast/surprise-presentation';
 import { PROP_GLYPHS } from '../components/race-broadcast/prop-glyphs';
@@ -47,7 +47,7 @@ test('the second surprise book is dealt alongside the first and stays original',
   const labels = new Set([...EVENT_SPECS, ...SWARM_SPECS].map((spec) => spec.label));
   for (const expected of [
     'SIGHTSCREEN SHORTCUT', 'TEA INTERVAL', 'SELFIE STOP', 'DRS REVIEW', 'MYSTERY SPINNER',
-    'RAIN SQUALL', 'MEXICAN WAVE', 'SEAGULL RAID', 'ICE CREAM VAN', 'PITCH INVADER',
+    'RAIN SQUALL', 'MEXICAN WAVE', 'MAGPIE RAID', 'ICE CREAM VAN', 'PITCH INVADER',
   ]) {
     assert.ok(labels.has(expected), `${expected} missing from the event book`);
   }
@@ -63,4 +63,16 @@ test('the second surprise book is dealt alongside the first and stays original',
     assert.match(spec.commentary, /safe/i, `${spec.label} must say the runner is safe`);
     assert.match(spec.commentary, /race is over/i);
   }
+});
+
+test('ticked track designs take turns race by race, and an unpicked night keeps its old view', () => {
+  assert.deepEqual(designForRace(null, 'lanes', 1), { trackShape: 'lanes', courseId: courseForRace(1).id });
+  assert.deepEqual(designForRace(null, 'circuit', 3), { trackShape: 'circuit', courseId: courseForRace(3).id });
+  const designs = normaliseTrackDesigns(['floodlight-eight', 'straight', 'nonsense', 'straight']);
+  assert.deepEqual(designs, ['straight', 'floodlight-eight']);
+  assert.equal(designForRace(designs, 'lanes', 1).trackShape, 'lanes');
+  assert.deepEqual(designForRace(designs, 'lanes', 2), { trackShape: 'circuit', courseId: 'floodlight-eight' });
+  assert.equal(designForRace(designs, 'lanes', 3).trackShape, 'lanes');
+  assert.equal(normaliseTrackDesigns([]), null);
+  assert.deepEqual(enabledTrackDesigns(null, 'circuit'), RACE_COURSES.map((c) => c.id));
 });

@@ -354,7 +354,7 @@ export function Telecast({
               y="383"
               textAnchor="middle"
             >
-              RACE NIGHT / SAJ
+              SNAIL RACE NIGHT
             </text>
             <path
               d={geometry.centre.path}

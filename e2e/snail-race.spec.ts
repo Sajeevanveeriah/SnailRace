@@ -279,7 +279,7 @@ test('surprises announce warning, reveal and effect with a visible prop or symbo
   expect(snapshot.prop, 'a prop or symbol is drawn on the course').not.toBeNull();
   expect(snapshot.prop!.width).toBeGreaterThan(0);
   expect(snapshot.ticker!.y).toBeGreaterThanOrEqual(snapshot.scene!.y + snapshot.scene!.height);
-  expect(snapshot.ticker!.height).toBeLessThanOrEqual(35);
+  expect(snapshot.ticker!.height).toBeLessThanOrEqual(48);
 });
 
 test('first finisher freezes the field and opens one result within one second', async ({

@@ -9,6 +9,7 @@ import { PropGlyph } from './race-broadcast/prop-glyphs';
 import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import { OfficialResult } from './race-broadcast/BroadcastGraphics';
 import { clockText } from '@/lib/broadcast';
+import { sponsorsFromRace } from '@/lib/club-sponsors';
 import type { SnailRun } from '@/lib/race-engine';
 import type { PaintInfo, RaceController, RacePainter, SurprisePhase } from '@/lib/use-race';
 import type { CameraMode, LockedRaceEvent, ToteDividend } from '@/lib/types';
@@ -36,8 +37,8 @@ import type { CameraMode, LockedRaceEvent, ToteDividend } from '@/lib/types';
  * arrives, it lands on the snail (or across the whole field) and stays
  * there for as long as the consequence runs, while the snail it hit shakes,
  * squashes, or lights up and streaks away. A title card slams in with the
- * numbers it hit and what it cost them, and a tag over every affected snail
- * keeps that readable after the card has gone.
+ * name of the twist and nothing else: the room reads who it hit from the
+ * prop and the saddlecloth numbers, not from a table of seconds.
  *
  * Same painter seam as the oval: the engine hands over one progress number
  * per snail per frame and this only decides where on the screen it lands.
@@ -372,32 +373,6 @@ function stagedFromPlan(events: LockedRaceEvent[], t: number): StagedTwist | nul
   };
 }
 
-function consequenceWords(staged: StagedTwist, names: string[], numberOffset: number): string {
-  if (staged.consequence === 'retire') return 'OUT OF THE RACE';
-  const lanes = staged.targetLanes;
-  const deltas = lanes.map((lane) => staged.deltaByLane[lane] ?? 0);
-  const held = lanes.filter((lane, i) => deltas[i] < 0);
-  const sent = lanes.filter((lane, i) => deltas[i] > 0);
-  const seconds = (ms: number) => `${(Math.abs(ms) / 1000).toFixed(1)}s`;
-  const who = (list: number[]) =>
-    list.length === 1
-      ? `${numberOffset + list[0] + 1} ${names[list[0]] ?? ''}`.trim()
-      : list.length >= Math.ceil(names.length / 2) && list.length > 2
-        ? list.length === names.length ? 'THE FIELD' : `${list.length} OF THE FIELD`
-        : list.map((lane) => `${numberOffset + lane + 1}`).join(' ');
-  const parts: string[] = [];
-  if (held.length) {
-    const worst = Math.min(...held.map((lane) => staged.deltaByLane[lane] ?? 0));
-    parts.push(`${who(held)} HELD ${seconds(worst)}`);
-  }
-  if (sent.length) {
-    const most = Math.max(...sent.map((lane) => staged.deltaByLane[lane] ?? 0));
-    parts.push(`${who(sent)} +${seconds(most)}`);
-  }
-  if (!parts.length) parts.push(staged.consequence === 'advance' ? 'BOOST' : 'HELD UP');
-  return parts.join('  ');
-}
-
 /* ── The renderer ─────────────────────────────────────────────────────── */
 
 export function Sidescroller({
@@ -447,9 +422,11 @@ export function Sidescroller({
   const lanes = useMemo(() => names.map((_, lane) => laneGeometry(lane, names.length)), [names]);
   const snailLen = (ART_NOSE + ART_TAIL) * (lanes[0]?.scale ?? 0.5);
   const signs = useMemo(() => {
-    const list = [clubName.toUpperCase(), 'SNAIL RACING', sponsor ? `PRESENTED BY ${sponsor.toUpperCase()}` : 'A NIGHT AT THE RACES', 'DRINK SNAIL ALE', ...sponsors.map((s) => s.toUpperCase())];
+    const list = [clubName.toUpperCase(), sponsor ? `PRESENTED BY ${sponsor.toUpperCase()}` : 'SNAIL RACING', ...sponsors.map((s) => s.toUpperCase())];
     return list.filter(Boolean);
   }, [clubName, sponsor, sponsors]);
+  /* Two club sponsors' logos on the fence each race, a different pair every race. */
+  const fenceLogos = useMemo(() => sponsorsFromRace(raceNo).slice(0, 2), [raceNo]);
 
   const painter = useMemo<RacePainter>(() => {
     const place = (lane: number, progress: number) => {
@@ -551,16 +528,11 @@ export function Sidescroller({
         }
         const up = !snail.done && delta > 0;
         const down = !snail.done && !snail.retired && delta < 0;
-        /* When most of the field is stuck, the title says so; a tag on every
-           snail would only pile up where the lanes stack. Tag the exceptions. */
-        const fieldHold = Boolean(live) && live!.targetLanes.filter((lane) => (live!.clockDeltaMsByLane[lane] ?? 0) < 0).length >= Math.ceil(snails.length / 2);
         node.classList.toggle('fx-up', up);
         node.classList.toggle('fx-down', down);
         const place1 = snail.done && !snail.retired && snail.place === 1;
-        if (snail.retired) setTag(snail.lane, 'OUT', 'out');
-        else if (place1) setTag(snail.lane, 'WINNER!', 'win');
-        else if (up) setTag(snail.lane, live ? `+${(delta / 1000).toFixed(1)}s` : 'BOOST', 'up');
-        else if (down && !fieldHold) setTag(snail.lane, live ? `STUCK ${(-delta / 1000).toFixed(1)}s` : 'STUCK', 'down');
+        /* The snail's own number says who it is; the only word over a shell is the winner's. */
+        if (place1) setTag(snail.lane, 'WINNER!', 'win');
         else setTag(snail.lane, '', 'none');
         place(snail.lane, snail.p);
       }
@@ -755,7 +727,6 @@ export function Sidescroller({
   const announcement = confirming || phase === 'done' || phase === 'void' ? race.status : race.commentary || race.status;
   /* Scenery is drawn three times across so a shift never shows an edge. */
   const copies = [0, 1, 2];
-  const twistNumbers = twist ? twist.targetLanes.map((lane) => ({ lane, n: numberOffset + lane + 1, c: laneColour(lane) })) : [];
 
   return (
     <div
@@ -799,10 +770,19 @@ export function Sidescroller({
             {copies.map((i) => (
               <g key={i} transform={`translate(${i * SCENE_W} 0)`}>
                 <rect x="0" y="468" width={SCENE_W} height="60" fill="#e8e4dc" stroke="#2a1a1a" strokeWidth="4" />
-                {signs.slice(0, 4).map((text, k) => (
+                {[signs[0], fenceLogos[0], signs[1], fenceLogos[1]].map((board, k) => (
                   <g key={k} transform={`translate(${k * (SCENE_W / 4) + 160} 0)`}>
-                    <rect x="0" y="476" width="520" height="44" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="3" />
-                    <text x="260" y="509" textAnchor="middle" fontSize="30" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">{text}</text>
+                    {typeof board === 'string' ? (
+                      <>
+                        <rect x="0" y="476" width="520" height="44" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="3" />
+                        <text x="260" y="509" textAnchor="middle" fontSize="30" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">{board}</text>
+                      </>
+                    ) : board ? (
+                      <g className="side-fence-logo">
+                        <rect x="60" y="440" width="400" height="88" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
+                        <image href={board.src} x="68" y="444" width="384" height="80" preserveAspectRatio="xMidYMid meet" />
+                      </g>
+                    ) : null}
                   </g>
                 ))}
               </g>
@@ -911,7 +891,7 @@ export function Sidescroller({
           </g>
         </svg>
 
-        {/* The title card: the twist, who it hit, and what it cost them. */}
+        {/* The title card: just the name of the twist. The prop shows who it hit. */}
         {twist ? (
           <div key={twist.key} className={`side-splash side-splash-${twist.phase} tone-${twist.tone}`} data-twist={twist.eventId} aria-hidden="true">
             {twist.phase === 'warning' ? (
@@ -923,23 +903,9 @@ export function Sidescroller({
               <>
                 <span className="side-splash-kicker">LOOK OUT</span>
                 <strong className="side-splash-title">{twist.label}</strong>
-                <span className="side-splash-numbers">
-                  {twistNumbers.map(({ lane, n, c }) => (
-                    <i key={lane} style={{ '--shell': c.shell } as CSSProperties}>{n}</i>
-                  ))}
-                </span>
               </>
             ) : (
-              <>
-                <span className="side-splash-kicker">{twist.consequence === 'retire' ? 'RETIRED' : twist.consequence === 'advance' ? 'BOOST' : twist.big ? 'FIELD TWIST' : 'TWIST'}</span>
-                <strong className="side-splash-title">{twist.label}</strong>
-                <span className="side-splash-numbers">
-                  {twistNumbers.map(({ lane, n, c }) => (
-                    <i key={lane} style={{ '--shell': c.shell } as CSSProperties}>{n}</i>
-                  ))}
-                </span>
-                <span className="side-splash-cost">{consequenceWords(twist, names, numberOffset)}</span>
-              </>
+              <strong className="side-splash-title">{twist.label}</strong>
             )}
           </div>
         ) : null}

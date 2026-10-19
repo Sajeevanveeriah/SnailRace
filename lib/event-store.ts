@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
-import { normaliseCourseId } from './courses';
+import { normaliseCourseId, normaliseTrackDesigns } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
 import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, normaliseCard } from './card';
@@ -93,6 +93,7 @@ export function freshState(): EventState {
        as an option in Admin. */
     trackShape: 'lanes',
     courseId: 'boundary-oval',
+    trackDesigns: null,
     laps: 3,
     chaseCam: true,
     surprises: true,
@@ -372,6 +373,7 @@ function merge(raw: string | null): EventState {
         ? parsed.dealtCards.filter((x): x is string => typeof x === 'string').slice(0, 200)
         : [],
       courseId: normaliseCourseId(parsed.courseId),
+      trackDesigns: normaliseTrackDesigns(parsed.trackDesigns),
       cashLedger: Array.isArray(parsed.cashLedger) ? parsed.cashLedger : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],
       bets: Array.isArray(parsed.bets) ? parsed.bets : [],

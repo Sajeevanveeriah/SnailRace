@@ -1,31 +1,18 @@
 'use client';
 
 import { presentationForMoment } from './surprise-presentation';
-import type { RaceController, RaceMoment } from '@/lib/use-race';
+import type { RaceController } from '@/lib/use-race';
 
-function consequenceText(
-  deltaMs: number | undefined,
-  consequence: RaceMoment['consequence'],
-): string {
-  if (consequence === 'retire') return 'RETIRED SAFELY';
-  if (!deltaMs)
-    return consequence === 'advance'
-      ? 'BOOST ACTIVE'
-      : consequence === 'delay'
-        ? 'DELAY ACTIVE'
-        : 'IMPACT ACTIVE';
-  const seconds = Math.abs(deltaMs / 1000).toFixed(1);
-  return consequence === 'advance'
-    ? `${seconds}s ADVANTAGE`
-    : `${seconds}s DELAY`;
-}
-
+/**
+ * The surprise strip: what the twist is called and nothing more. Who it hit
+ * is on the course, where the prop lands on the snails' own numbers; the
+ * room is not asked to read seconds or a list of names.
+ */
 export function SurpriseLayer({
   race,
-  names,
 }: {
   race: RaceController;
-  names: string[];
+  names?: string[];
 }) {
   const phase = race.phase as string;
   const moment = phase === 'running' ? race.moment : null;
@@ -35,16 +22,17 @@ export function SurpriseLayer({
   if (!moment || !presentation || !moment.phase) return null;
 
   const surprisePhase = moment.phase ?? 'effect';
-  const affected = (moment.targetLanes ?? [])
-    .map((lane) => names[lane] ?? `Lane ${lane + 1}`)
-    .join(', ');
   const eventLabel = moment.label ?? moment.text;
-  const consequence =
+  const kicker =
     surprisePhase === 'warning'
-      ? 'APPROACHING'
+      ? 'INCOMING'
       : surprisePhase === 'reveal'
-        ? 'IMPACT IMMINENT'
-        : consequenceText(moment.deltaMs, moment.consequence);
+        ? 'LOOK OUT'
+        : moment.consequence === 'retire'
+          ? 'OUT'
+          : moment.consequence === 'advance'
+            ? 'BOOST'
+            : 'TWIST';
 
   return (
     <div
@@ -53,11 +41,10 @@ export function SurpriseLayer({
       role="status"
       aria-live="assertive"
       aria-atomic="true"
-      aria-label={`${surprisePhase}: ${eventLabel}${affected ? `. Affected: ${affected}` : ''}. ${consequence}`}
+      aria-label={`${kicker}: ${eventLabel}`}
     >
-      <span className="course-event-phase">{consequence}</span>
+      <span className="course-event-phase">{kicker}</span>
       <strong>{eventLabel}</strong>
-      <span className="course-event-affected">{affected || 'The field'}</span>
     </div>
   );
 }

@@ -578,10 +578,10 @@ export const SWARM_SPECS: SwarmSpec[] = [
     magFrom: 0.04, magTo: 0.08, spanFrom: 0.1, spanTo: 0.18, from: 0.18, to: 0.72,
   },
   {
-    kind: 'swoop', label: 'SEAGULL RAID', tone: 'bad', sound: 'swoop', weight: 6,
+    kind: 'swoop', label: 'MAGPIE RAID', tone: 'bad', sound: 'swoop', weight: 6,
     calls: [
-      'SEAGULLS! Somebody dropped a chip and the whole flock has come through the field!',
-      'A seagull raid! They are after the lettuce and they have scattered the runners!',
+      'MAGPIES! Somebody dropped a chip and the whole family has come through the field!',
+      'A magpie raid! They are after the lettuce and they have scattered the runners!',
     ],
     shareFrom: 0.25, shareTo: 0.5,
     magFrom: -0.085, magTo: -0.04, spanFrom: 0.06, spanTo: 0.12, from: 0.15, to: 0.76,
@@ -1134,10 +1134,10 @@ export const RETIREMENT_SPECS = [
     commentary: '{a} is safe and drying off beside the course, but their race is over.',
   },
   {
-    code: 'seagull-scare',
-    label: 'SEAGULL SCARE',
-    reveal: 'A seagull has swooped at {a}, and the marshal is walking it off the course.',
-    commentary: '{a} is safe under the marshal\'s hat after that seagull scare, but their race is over.',
+    code: 'magpie-scare',
+    label: 'MAGPIE SCARE',
+    reveal: 'A magpie has swooped at {a}, and the marshal is walking it off the course.',
+    commentary: '{a} is safe under the marshal\'s hat after that magpie scare, but their race is over.',
   },
   {
     code: 'covers-call',
@@ -1258,6 +1258,8 @@ function consequenceFor(delta: number): LockedRaceEvent['consequence'] {
 
 /** Races shorter than this cannot fit a late card and its four beats. */
 export const DECK_MIN_DURATION_MS = 20_000;
+/** How much race each dealt card needs to land and be read. */
+export const DECK_SECONDS_PER_CARD_MS = 15_000;
 /**
  * The most one runner's clock can be shifted over a race, as a share of race
  * time, every book and card added together. Wide enough that a night of
@@ -1496,7 +1498,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     },
   },
   {
-    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false, weight: 3,
+    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false, weight: 5,
     from: 0.28, to: 0.74, boostTo: 0.03,
     warning: 'One of the runners has found a cricket bat beside the track.',
     calls: [
@@ -1529,11 +1531,93 @@ export const DECK_CARDS: readonly DeckCard[] = [
     },
   },
   {
-    id: 'speed-camera', label: 'SPEED CAMERA', kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
+    id: 'speed-camera', label: 'OFFICER JACKS SPEED CAMERA', kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
     from: 0.25, to: 0.72, boostTo: 0,
-    warning: 'The stewards have set up a camera on the rail.',
-    calls: ['FLASH! {a} has been pulled over for speeding! The leader is parked while the stewards write it up!'],
+    warning: 'Officer Jack has set up his speed camera on the rail.',
+    calls: ['FLASH! Officer Jack has pulled {a} over for speeding! The leader is parked while he writes it up!'],
     deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.06, 0.09) }, featured: lanes[0] }),
+  },
+  /* ── More chaos: the second wave of twists ─────────────────────────── */
+  {
+    id: 'sausage-sizzle', label: 'SAUSAGE SIZZLE', kind: 'nap', tone: 'wild', sound: 'weird', once: false,
+    from: 0.3, to: 0.74, boostTo: 0,
+    warning: 'Somebody has fired up the barbecue beside the track.',
+    calls: ['SAUSAGE SIZZLE! The leaders have stopped for a snag in bread and {a} has gone straight past them!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const hungry = Math.max(2, Math.ceil(lanes.length / 2));
+      for (const lane of lanes.slice(0, hungry)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: lanes[hungry] ?? lanes[lanes.length - 1] };
+    },
+  },
+  {
+    id: 'kookaburra', label: 'KOOKABURRA LAUGH', kind: 'stumble', tone: 'bad', sound: 'weird', once: false,
+    from: 0.25, to: 0.74, boostTo: 0,
+    warning: 'A kookaburra has landed on the rail and is looking at the field.',
+    calls: ['The kookaburra has started laughing and {a} has stopped to laugh along! So have the ones beside it!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const at = Math.floor(rnd() * (lanes.length - 2));
+      for (const lane of lanes.slice(at, at + 3)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: lanes[at] };
+    },
+  },
+  {
+    id: 'trampoline', label: 'THE TRAMPOLINE', kind: 'surge', tone: 'good', sound: 'up', once: false,
+    from: 0.3, to: 0.72, boostTo: 0.1,
+    warning: 'Somebody has dragged a trampoline onto the course.',
+    calls: ['BOING! {a} has hit the trampoline and bounced halfway up the course!'],
+    deal: (rnd, lanes, durationMs) => {
+      const middle = lanes.slice(1, Math.max(2, lanes.length - 1));
+      const lane = middle[Math.floor(rnd() * middle.length)];
+      return { deltas: { [lane]: share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+    },
+  },
+  {
+    id: 'wombat', label: 'WOMBAT CROSSING', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
+    from: 0.3, to: 0.72, boostTo: 0,
+    warning: 'Something round and furry is heading for the track.',
+    calls: ['A WOMBAT has sat down in the middle of the course and {a} cannot get round it!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const pool = [...lanes];
+      const picked: number[] = [];
+      while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+      for (const lane of picked) deltas[lane] = -share(rnd, durationMs, 0.05, 0.08);
+      return { deltas, featured: picked[0] };
+    },
+  },
+  {
+    id: 'mower', label: 'RIDE-ON MOWER', kind: 'surge', tone: 'good', sound: 'up', once: false,
+    from: 0.3, to: 0.7, boostTo: 0.07,
+    warning: 'The groundskeeper has started the ride-on mower behind the field.',
+    calls: ['The ride-on mower is on the course and the back markers are flying to get out of its way! {a} leads the escape!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      const back = lanes.slice(-Math.min(3, lanes.length - 1));
+      for (const lane of back) deltas[lane] = share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: back[0] };
+    },
+  },
+  {
+    id: 'hailstorm', label: 'HAILSTORM', kind: 'plague', tone: 'bad', sound: 'rain', once: true,
+    from: 0.35, to: 0.8, boostTo: 0,
+    warning: 'The sky over the pavilion has gone very dark, very fast.',
+    calls: ['HAIL! Every snail has pulled its head in! {a} is the first one brave enough to come out!'],
+    deal: (rnd, lanes, durationMs) => {
+      const deltas: Record<number, number> = {};
+      let featured = lanes[0];
+      let least = Infinity;
+      for (const lane of lanes) {
+        const hold = share(rnd, durationMs, 0.03, 0.07);
+        deltas[lane] = -hold;
+        if (hold < least) {
+          least = hold;
+          featured = lane;
+        }
+      }
+      return { deltas, featured };
+    },
   },
 ];
 
@@ -1750,12 +1834,12 @@ export function drawLockedRacePlan(
     : intensity === 'calm'
       ? 0
       : intensity === 'standard'
-        ? 2 + (deckRnd() < 0.5 ? 1 : 0)
+        ? 3 + (deckRnd() < 0.5 ? 1 : 0)
         : intensity === 'big'
-          ? 3 + (deckRnd() < 0.5 ? 1 : 0)
-          : 4 + (deckRnd() < 0.5 ? 1 : 0);
-  /* A card needs about twenty seconds of race to land and be read. */
-  const deckCount = Math.min(wantedCards, Math.floor(durationMs / DECK_MIN_DURATION_MS));
+          ? 4 + (deckRnd() < 0.5 ? 1 : 0)
+          : 5 + (deckRnd() < 0.5 ? 1 : 0);
+  /* A card needs about fifteen seconds of race to land and be read. */
+  const deckCount = Math.min(wantedCards, Math.floor(durationMs / DECK_SECONDS_PER_CARD_MS));
   if (deckCount > 0) {
     /* A weighted draw without replacement: the crowd favourites (the bat,
        the plagues) come up more often than the rest of the deck. */
@@ -1792,7 +1876,7 @@ export function drawLockedRacePlan(
        the comeback beats, which have their own warning, obstacle and chase. */
     const crowded = (at: number): boolean =>
       dealtAt.some((other) => Math.abs(other - at) < spacing) ||
-      comebackTimes.some((ct) => at > ct - spacing && at < ct + Math.max(spacing, chaseOffset + 1500));
+      comebackTimes.some((ct) => at > ct - spacing * 1.5 && at < ct + Math.max(spacing * 1.5, chaseOffset + 2500));
     for (const card of available) {
       if (dealt >= deckCount) break;
       /* The whole four-beat sequence and its consequence must be readable

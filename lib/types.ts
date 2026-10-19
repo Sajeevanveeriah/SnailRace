@@ -7,7 +7,7 @@
  * Any value crossing the network boundary is in cents.
  */
 
-import type { CourseId } from './courses';
+import type { CourseId, TrackDesignId } from './courses';
 import type { CardState } from './card';
 import type { QuaddieEntry, QuaddieSettings } from './quaddie';
 
@@ -565,6 +565,11 @@ export interface EventState {
   trackShape: 'lanes' | 'circuit';
   /** Which circuit, when trackShape is 'circuit'. */
   courseId: CourseId;
+  /**
+   * The race views switched on for the night, taking turns race by race.
+   * Null until the operator picks; then `trackShape` alone decides.
+   */
+  trackDesigns: TrackDesignId[] | null;
   /** Laps of the circuit. Total race time is lap length times laps. */
   laps: number;
   /** Let the camera director cut between shots, or hold the whole course. */

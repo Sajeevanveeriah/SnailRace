@@ -9,7 +9,6 @@ import type { ReactNode } from 'react';
  * to ship, and on some venue machines it is a hollow box.
  */
 export type PropGlyphId =
-  | 'seagull'
   | 'ice-cream-van'
   | 'rain-cloud'
   | 'crowd-wave'
@@ -43,7 +42,12 @@ export type PropGlyphId =
   | 'magnet'
   | 'caterpillar'
   | 'speed-camera'
-  | 'bat';
+  | 'bat'
+  | 'sausage'
+  | 'kookaburra'
+  | 'trampoline'
+  | 'wombat'
+  | 'mower';
 
 const ink = '#24171b';
 const cream = '#fff9ed';
@@ -52,16 +56,6 @@ const maroon = '#b3141c';
 const blue = '#1c4fa0';
 
 export const PROP_GLYPHS: Record<PropGlyphId, ReactNode> = {
-  seagull: (
-    <g>
-      <path d="M4 -36 Q -14 -52 -30 -40 Q -16 -42 -6 -32 Z" fill={cream} stroke={ink} strokeWidth="1.5" />
-      <path d="M4 -36 Q 22 -52 38 -40 Q 24 -42 14 -32 Z" fill={cream} stroke={ink} strokeWidth="1.5" />
-      <ellipse cx="4" cy="-30" rx="12" ry="7" fill={cream} stroke={ink} strokeWidth="1.5" />
-      <circle cx="13" cy="-33" r="5" fill={cream} stroke={ink} strokeWidth="1.5" />
-      <path d="M17 -33 L26 -31 L17 -29 Z" fill={gold} stroke={ink} strokeWidth="1" />
-      <circle cx="14" cy="-34" r="1.2" fill={ink} />
-    </g>
-  ),
   'ice-cream-van': (
     <g>
       <rect x="-30" y="-40" width="52" height="30" rx="4" fill={cream} stroke={ink} strokeWidth="2" />
@@ -331,6 +325,59 @@ export const PROP_GLYPHS: Record<PropGlyphId, ReactNode> = {
       <circle cx="-8" cy="-32" r="7" fill={blue} stroke={cream} strokeWidth="2" />
       <rect x="6" y="-38" width="12" height="8" fill={cream} />
       <path className="prop-flash" d="M-34 -52 l6 6 M34 -52 l-6 6 M0 -56 v8" stroke={gold} strokeWidth="3" strokeLinecap="round" />
+    </g>
+  ),
+  sausage: (
+    <g>
+      <rect x="-30" y="-14" width="60" height="6" rx="2" fill="#3a3f4a" stroke={ink} strokeWidth="1.5" />
+      <path d="M-24 -8 L-28 2 M24 -8 L28 2" stroke={ink} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M-22 -16 Q-24 -30 0 -30 Q24 -30 22 -16 Z" fill="#f2d39a" stroke={ink} strokeWidth="1.8" />
+      <rect x="-20" y="-30" width="40" height="9" rx="4.5" fill="#a8452a" stroke={ink} strokeWidth="1.5" />
+      <path d="M-14 -26 Q-6 -22 2 -26 T16 -26" fill="none" stroke="#f5c400" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M-10 -38 q-4 -6 0 -10 M2 -40 q-4 -6 0 -10 M14 -38 q-4 -6 0 -10" fill="none" stroke="#c9c2b5" strokeWidth="2" strokeLinecap="round" />
+    </g>
+  ),
+  kookaburra: (
+    <g>
+      <rect x="-30" y="-10" width="60" height="5" fill={cream} stroke={ink} strokeWidth="1.5" />
+      <path d="M-10 -10 Q-22 -30 -6 -40 Q8 -46 14 -34 Q18 -22 6 -10 Z" fill="#c9a77c" stroke={ink} strokeWidth="1.8" />
+      <path d="M-12 -14 Q-26 -26 -20 -36 Q-12 -30 -4 -18 Z" fill="#6b4a2e" stroke={ink} strokeWidth="1.5" />
+      <circle cx="6" cy="-38" r="9" fill={cream} stroke={ink} strokeWidth="1.8" />
+      <path d="M0 -40 L14 -40" stroke="#6b4a2e" strokeWidth="2.5" />
+      <path d="M13 -38 L30 -36 L13 -32 Z" fill="#3a3f4a" stroke={ink} strokeWidth="1.2" />
+      <circle cx="9" cy="-41" r="1.6" fill={ink} />
+      <path d="M20 -50 l4 -4 M26 -46 l6 -2 M16 -54 l1 -6" stroke={gold} strokeWidth="2.2" strokeLinecap="round" />
+    </g>
+  ),
+  trampoline: (
+    <g>
+      <path d="M-28 -16 L-24 0 M28 -16 L24 0 M0 -16 L0 0" stroke={ink} strokeWidth="2.5" strokeLinecap="round" />
+      <ellipse cx="0" cy="-16" rx="30" ry="7" fill={blue} stroke={ink} strokeWidth="2" />
+      <ellipse cx="0" cy="-17" rx="22" ry="4" fill="#123a7a" />
+      <path d="M-12 -30 Q0 -58 12 -30" fill="none" stroke={gold} strokeWidth="2.5" strokeDasharray="4 4" />
+      <path d="M8 -36 l6 6 l-8 2" fill="none" stroke={gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  ),
+  wombat: (
+    <g>
+      <ellipse cx="0" cy="-16" rx="26" ry="16" fill="#8a7a6a" stroke={ink} strokeWidth="2" />
+      <circle cx="20" cy="-22" r="11" fill="#9a8a7a" stroke={ink} strokeWidth="2" />
+      <circle cx="14" cy="-32" r="4" fill="#8a7a6a" stroke={ink} strokeWidth="1.5" />
+      <circle cx="26" cy="-32" r="4" fill="#8a7a6a" stroke={ink} strokeWidth="1.5" />
+      <ellipse cx="28" cy="-19" rx="4" ry="3" fill={ink} />
+      <circle cx="20" cy="-25" r="1.6" fill={ink} />
+      <path d="M-18 -2 v2 M-6 -1 v2 M8 -1 v2" stroke={ink} strokeWidth="3" strokeLinecap="round" />
+    </g>
+  ),
+  mower: (
+    <g>
+      <rect x="-26" y="-22" width="44" height="14" rx="3" fill="#2f8f3a" stroke={ink} strokeWidth="2" />
+      <rect x="-6" y="-38" width="14" height="16" rx="2" fill={gold} stroke={ink} strokeWidth="1.8" />
+      <path d="M8 -38 L20 -46" stroke={ink} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="-16" cy="-6" r="8" fill={ink} />
+      <circle cx="14" cy="-6" r="6" fill={ink} />
+      <circle cx="-16" cy="-6" r="3" fill={cream} />
+      <path d="M-34 -10 l-6 -4 M-34 -4 l-8 0 M-34 2 l-6 3" stroke="#7cc96a" strokeWidth="2.5" strokeLinecap="round" />
     </g>
   ),
 };
