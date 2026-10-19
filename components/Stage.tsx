@@ -77,6 +77,11 @@ export function Stage() {
   }, []);
   const [packControlsRoot, setPackControlsRoot] = useState<HTMLDivElement | null>(null);
   const audienceOnly = Boolean(moderator.target) || display.fullscreen;
+  /* The audience view locks page scroll with a body class rather than body:has(), which restyled the page every frame. */
+  useEffect(() => {
+    document.body.classList.toggle('projector-audience-on', audienceOnly);
+    return () => document.body.classList.remove('projector-audience-on');
+  }, [audienceOnly]);
 
   const [clientReady, setClientReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);

@@ -136,13 +136,30 @@ const LAYER_H = 1820;
 const SCENERY_BOX = { x: -400, w: SCENE_W * 3 + 800 };
 /** Local box of the track world, wide enough for any shot the camera takes. */
 const WORLD_BOX = { x: -1500, w: TRACK_LEN + 3000 };
-type LayerName = 'sky' | 'mountains' | 'lake' | 'buildings' | 'world';
+type LayerName = 'sky' | 'mountains' | 'lake' | 'buildings' | 'fence' | 'world' | 'crowd';
+/*
+ * The fence and the crowd move with the track but repeat, so each is its own
+ * layer at factor 1: the world layer never repaints for them, and the crowd's
+ * bob runs on the compositor instead of restyling the world every frame.
+ */
 const SCENERY_LAYERS: { name: Exclude<LayerName, 'world'>; factor: number }[] = [
   { name: 'sky', factor: 0 },
   { name: 'mountains', factor: 0.12 },
   { name: 'lake', factor: 0.25 },
   { name: 'buildings', factor: 0.5 },
+  { name: 'fence', factor: 1 },
+  { name: 'crowd', factor: 1 },
 ];
+/** The crowd bobs in three groups, out of step, so the stand never moves as one. */
+const CROWD_PHASES = [0, 1, 2];
+/*
+ * Each runner, with its tag, is drawn into its own small chip that the camera
+ * world carries and a transform slides along. Moving a snail inside the world
+ * picture made the browser redraw the track under it every frame; a chip is
+ * painted once and only its own little animations repaint.
+ */
+const CHIP = { x: -720, y: -340, w: 1160, h: 420 };
+const wallClockMs = () => performance.now();
 
 function Mountains() {
   return (
@@ -242,9 +259,9 @@ function Scenery({ clubName }: { clubName: string }) {
   );
 }
 
-/** The crowd on the front rail: a row of heads and arms that bob while they race. */
-function Crowd() {
-  const heads = Array.from({ length: 26 }, (_, i) => i);
+/** The crowd on the front rail: one of the three groups of heads and arms that bob while they race. */
+function Crowd({ phase }: { phase: number }) {
+  const heads = Array.from({ length: 26 }, (_, i) => i).filter((i) => i % 3 === phase);
   return (
     <g className="side-crowd">
       {heads.map((i) => {
@@ -253,7 +270,7 @@ function Crowd() {
         const fill = i % 3 === 0 ? '#4a2a5e' : i % 3 === 1 ? '#5a3272' : '#3f2554';
         return (
           <g key={i} transform={`translate(${x} ${VIEW_H + 40})`}>
-            <g className={`side-fan side-fan-${i % 3}`}>
+            <g className="side-fan">
               <path d={`M-30 0 L-22 -${h} L-34 -${h + 30} L-26 -${h + 36} L-12 -${h + 4} L12 -${h + 4} L26 -${h + 36} L34 -${h + 30} L22 -${h} L30 0Z`} fill={fill} />
               <circle cx="0" cy={-h - 20} r="24" fill={fill} />
             </g>
@@ -317,11 +334,13 @@ function SnailSprite({ lane, number, name, scale, nodeRef }: {
 }
 
 /** The tag over a snail: what just happened to it, in words the back row can read. Drawn above every prop. */
-function SnailTag({ lane, nodeRef }: { lane: number; nodeRef: (node: SVGGElement | null) => void }) {
+function SnailTag({ lane, offset, nodeRef }: { lane: number; offset: string; nodeRef: (node: SVGGElement | null) => void }) {
   return (
+    <g transform={offset}>
     <g ref={nodeRef} className="side-tag" data-lane={lane} aria-hidden="true">
       <rect className="side-tag-box" x="-90" y="-44" width="180" height="48" rx="10" />
       <text className="side-tag-text" x="0" y="-10" textAnchor="middle" fontSize="34" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" />
+    </g>
     </g>
   );
 }
@@ -423,8 +442,9 @@ export function Sidescroller({
   const svgRef = useRef<SVGSVGElement>(null);
   const nodesRef = useRef(new Map<number, SVGGElement>());
   const tagNodesRef = useRef(new Map<number, SVGGElement>());
-  const layerRefs = useRef<Record<string, SVGGElement | null>>({});
-  const layerWrapRefs = useRef<Partial<Record<LayerName, HTMLDivElement | null>>>({});
+  const chipsRef = useRef(new Map<number, SVGSVGElement>());
+  const chipLayerRef = useRef<HTMLDivElement>(null);
+    const layerWrapRefs = useRef<Partial<Record<LayerName, HTMLDivElement | null>>>({});
   /** World units to layer pixels, fixed per screen size so layers paint once. */
   const rasterRef = useRef(1);
   const sceneWidthRef = useRef(0);
@@ -438,6 +458,7 @@ export function Sidescroller({
   const momentRef = useRef(race.moment);
   const aspectRef = useRef(16 / 9);
   const camRef = useRef({ x: -200, w: PACK_VIEW_W });
+  const lastPaintRef = useRef(0);
   /* The twist on air, derived from the plan on every frame; React only hears
      about it when it changes, which is a handful of times a race. */
   const stagedRef = useRef<StagedTwist | null>(null);
@@ -455,12 +476,12 @@ export function Sidescroller({
 
   const painter = useMemo<RacePainter>(() => {
     const place = (lane: number, progress: number) => {
-      const node = nodesRef.current.get(lane);
       const geo = lanes[lane];
       const x = worldX(progress);
-      node?.setAttribute('transform', `translate(${x} ${geo.y})`);
-      node?.setAttribute('data-progress', String(progress));
-      tagNodesRef.current.get(lane)?.setAttribute('transform', `translate(${x - ART_NOSE * geo.scale + 20} ${geo.y - ART_HEIGHT * geo.scale - 26})`);
+      const k = rasterRef.current;
+      const chip = chipsRef.current.get(lane);
+      if (chip) chip.style.transform = `translate3d(${((x + CHIP.x - WORLD_BOX.x) * k).toFixed(2)}px, ${((geo.y + CHIP.y - LAYER_TOP) * k).toFixed(2)}px, 0)`;
+      nodesRef.current.get(lane)?.setAttribute('data-progress', String(progress));
       return x;
     };
     /** The narrowest shot that still shows every lane at this screen shape. */
@@ -519,11 +540,6 @@ export function Sidescroller({
       };
       for (const layer of SCENERY_LAYERS) place(layer.name, SCENERY_BOX.x, sceneryAt(camX, layer.factor));
       place('world', WORLD_BOX.x, 0);
-      const repeat = `translate(${sceneryAt(camX, 1)} 0)`;
-      for (const name of ['fence', 'crowd']) {
-        const g = layerRefs.current[name];
-        if (g && g.getAttribute('transform') !== repeat) g.setAttribute('transform', repeat);
-      }
     };
     /** Size every layer for this screen: crisp at the closest shot the camera takes. */
     const sizeLayers = () => {
@@ -538,6 +554,8 @@ export function Sidescroller({
         el.style.width = `${Math.ceil(w * k)}px`;
         el.style.height = `${Math.ceil(LAYER_H * k)}px`;
       }
+      chipLayerRef.current?.style.setProperty('--chip-w', `${(CHIP.w * k).toFixed(2)}px`);
+      chipLayerRef.current?.style.setProperty('--chip-h', `${(CHIP.h * k).toFixed(2)}px`);
     };
     const paint: RacePainter['paint'] = (snails, info) => {
       snapshotRef.current = { snails, info };
@@ -545,6 +563,7 @@ export function Sidescroller({
       /* The stalls follow the race clock, so a replay or a seek opens and shuts them too. */
       svgRef.current?.classList.toggle('gates-open', t > 0);
       svgRef.current?.classList.toggle('run-home', info.finalStraight);
+      layerWrapRefs.current.crowd?.classList.toggle('run-home', info.finalStraight);
 
       /* Stage the twist from the plan itself: it is on air from its warning
          until its consequence has run, which is how long the room needs. */
@@ -670,7 +689,12 @@ export function Sidescroller({
       let targetX = right - wantW + (wantW - (right - left)) * 0.5 * (courseViewRef.current ? 1 : 0.3);
       targetX = Math.max(-260, Math.min(TRACK_LEN + 460 - wantW, targetX));
       const cam = camRef.current;
-      const ease = reduceMotion ? 1 : 0.1;
+      /* Eased by elapsed time, not per frame, so a late frame catches up
+         instead of letting the snails slide against the scenery. */
+      const now = wallClockMs();
+      const dt = lastPaintRef.current ? Math.min(100, now - lastPaintRef.current) : 16.7;
+      lastPaintRef.current = now;
+      const ease = reduceMotion ? 1 : 1 - Math.pow(0.9, dt / 16.7);
       cam.x += (targetX - cam.x) * ease;
       cam.w += (wantW - cam.w) * ease;
       /* Never narrower than every lane allows, even mid-ease. */
@@ -678,7 +702,8 @@ export function Sidescroller({
       const viewH = viewW / aspect;
       frame(cam.x, viewW, viewH);
 
-      if (clockRef.current) clockRef.current.textContent = clockText(t);
+      const clock = clockText(t);
+      if (clockRef.current && clockRef.current.textContent !== clock) clockRef.current.textContent = clock;
       const lead = Math.min(1, Math.max(0, info.leadP));
       if (barRef.current) {
         barRef.current.style.setProperty('--lead', String(lead));
@@ -707,18 +732,24 @@ export function Sidescroller({
         if (snapshot) paint(snapshot.snails, snapshot.info);
         else {
           const w = minW();
+          /* The opening shot is where the race camera starts, so the gates opening is not a jump cut. */
+          camRef.current = { x: -260, w };
           frame(-260, w, w / aspectRef.current);
+          /* The chips are sized in layer pixels, so a new size moves them too. */
+          nodesRef.current.forEach((node, lane) => place(lane, Number(node.dataset.progress ?? 0)));
         }
       },
       start: () => {
-        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art').forEach((svg) => svg.classList.add('racing'));
+        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, svg.side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.add('racing'));
       },
       reset: () => {
         snapshotRef.current = null;
-        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art').forEach((svg) => svg.classList.remove('racing'));
+        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, svg.side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.remove('racing'));
         svgRef.current?.classList.remove('racing', 'gates-open', 'run-home');
+        layerWrapRefs.current.crowd?.classList.remove('run-home');
         const w = minW();
         camRef.current = { x: -260, w };
+        lastPaintRef.current = 0;
         stagedRef.current = null;
         setStaged(null);
         tagRef.current.clear();
@@ -819,6 +850,33 @@ export function Sidescroller({
             {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Scenery clubName={clubName} /></g>)}
           </svg>
         </div>
+        {/* The fence and its signs move with the track. */}
+        <div className="side-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.fence = el; }}>
+          <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
+            <g>
+              {copies.map((i) => (
+                <g key={i} transform={`translate(${i * SCENE_W} 0)`}>
+                  <rect x="0" y="468" width={SCENE_W} height="60" fill="#e8e4dc" stroke="#2a1a1a" strokeWidth="4" />
+                  {[signs[0], fenceLogos[0], signs[1], fenceLogos[1]].map((board, k) => (
+                    <g key={k} transform={`translate(${k * (SCENE_W / 4) + 160} 0)`}>
+                      {typeof board === 'string' ? (
+                        <>
+                          <rect x="0" y="476" width="520" height="44" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="3" />
+                          <text x="260" y="509" textAnchor="middle" fontSize="30" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">{board}</text>
+                        </>
+                      ) : board ? (
+                        <g className="side-fence-logo">
+                          <rect x="60" y="440" width="400" height="88" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
+                          <image href={board.src} x="68" y="444" width="384" height="80" preserveAspectRatio="xMidYMid meet" />
+                        </g>
+                      ) : null}
+                    </g>
+                  ))}
+                </g>
+              ))}
+            </g>
+          </svg>
+        </div>
         <div className="side-layer side-world" ref={(el) => { layerWrapRefs.current.world = el; }}>
         <svg
           ref={svgRef}
@@ -828,29 +886,6 @@ export function Sidescroller({
           role="img"
           aria-label={`Straight track: ${names.length} snails racing side on to the finish`}
         >
-          {/* The fence and its signs move with the track. */}
-          <g ref={(g) => { layerRefs.current.fence = g; }}>
-            {copies.map((i) => (
-              <g key={i} transform={`translate(${i * SCENE_W} 0)`}>
-                <rect x="0" y="468" width={SCENE_W} height="60" fill="#e8e4dc" stroke="#2a1a1a" strokeWidth="4" />
-                {[signs[0], fenceLogos[0], signs[1], fenceLogos[1]].map((board, k) => (
-                  <g key={k} transform={`translate(${k * (SCENE_W / 4) + 160} 0)`}>
-                    {typeof board === 'string' ? (
-                      <>
-                        <rect x="0" y="476" width="520" height="44" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="3" />
-                        <text x="260" y="509" textAnchor="middle" fontSize="30" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">{board}</text>
-                      </>
-                    ) : board ? (
-                      <g className="side-fence-logo">
-                        <rect x="60" y="440" width="400" height="88" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
-                        <image href={board.src} x="68" y="444" width="384" height="80" preserveAspectRatio="xMidYMid meet" />
-                      </g>
-                    ) : null}
-                  </g>
-                ))}
-              </g>
-            ))}
-          </g>
           {/* The track itself is world-fixed: one marked lane per snail. */}
           <rect x="-4000" y={TRACK_TOP} width={TRACK_LEN + 8000} height={TRACK_BOTTOM - TRACK_TOP} fill="#9a8a62" />
           {lanes.map((geo, lane) => (
@@ -905,21 +940,6 @@ export function Sidescroller({
             <line x1="0" x2="0" y1={TRACK_TOP} y2={TRACK_BOTTOM} stroke="#fff" strokeWidth="6" strokeDasharray="28 28" opacity=".7" />
             <rect x="-8" y="460" width="16" height={TRACK_TOP - 460} fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
           </g>
-          <g className="tv-runners side-runners">
-            {names.map((name, lane) => (
-              <SnailSprite
-                key={lane}
-                lane={lane}
-                number={numberOffset + lane + 1}
-                name={name}
-                scale={lanes[lane].scale}
-                nodeRef={(node) => {
-                  if (node) nodesRef.current.set(lane, node);
-                  else nodesRef.current.delete(lane);
-                }}
-              />
-            ))}
-          </g>
           {twist && presentation ? (
             <g key={twist.key} ref={propRef} className={`course-prop side-prop side-prop-${presentation.cue}`} data-phase={twist.phase} data-tone={twist.tone} aria-hidden="true">
               <ellipse className="course-impact" rx="150" ry="40" fill="none" stroke="#ffe6a5" strokeWidth="10" />
@@ -936,23 +956,49 @@ export function Sidescroller({
               </g>
             </g>
           ) : null}
-          <g className="side-tags">
-            {names.map((_, lane) => (
-              <SnailTag
-                key={lane}
+        </svg>
+        <div className="side-runner-layer tv-runners side-runners" ref={chipLayerRef}>
+          {names.map((name, lane) => (
+            <svg
+              key={lane}
+              className="side-runner-chip"
+              viewBox={`${CHIP.x} ${CHIP.y} ${CHIP.w} ${CHIP.h}`}
+              ref={(node) => {
+                if (node) chipsRef.current.set(lane, node);
+                else chipsRef.current.delete(lane);
+              }}
+            >
+              <SnailSprite
                 lane={lane}
+                number={numberOffset + lane + 1}
+                name={name}
+                scale={lanes[lane].scale}
+                nodeRef={(node) => {
+                  if (node) nodesRef.current.set(lane, node);
+                  else nodesRef.current.delete(lane);
+                }}
+              />
+              <SnailTag
+                lane={lane}
+                offset={`translate(${-ART_NOSE * lanes[lane].scale + 20} ${-ART_HEIGHT * lanes[lane].scale - 26})`}
                 nodeRef={(node) => {
                   if (node) tagNodesRef.current.set(lane, node);
                   else tagNodesRef.current.delete(lane);
                 }}
               />
-            ))}
-          </g>
-          {/* The crowd in front of the rail, drawn last so it stands in front of the track. */}
-          <g ref={(g) => { layerRefs.current.crowd = g; }}>
-            {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Crowd /></g>)}
-          </g>
-        </svg>
+            </svg>
+          ))}
+        </div>
+        </div>
+        {/* The crowd in front of the rail, a layer above the track. */}
+        <div className="side-layer side-crowd-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.crowd = el; }}>
+          {CROWD_PHASES.map((phase) => (
+            <div key={phase} className={`side-crowd-phase side-crowd-phase-${phase}`}>
+              <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
+                {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Crowd phase={phase} /></g>)}
+              </svg>
+            </div>
+          ))}
         </div>
 
         {/* The title card: just the name of the twist. The prop shows who it hit. */}
