@@ -154,9 +154,10 @@ export function Stage() {
   const raceDonationCents = useMemo(
     () =>
       liveDonations
-        .filter((donation) => donation.raceNo === nextRaceNo)
+        /* A Stripe snail purchase is tagged by number; its race depends on tonight's card size. */
+        .filter((donation) => (donation.snailNo ? raceForSnail(donation.snailNo, event.card.snailCount) : donation.raceNo) === nextRaceNo)
         .reduce((sum, donation) => sum + donation.cents, 0),
-    [liveDonations, nextRaceNo],
+    [liveDonations, nextRaceNo, event.card.snailCount],
   );
 
   /* Fixed fair-play prices for the lock snapshot and any Phone Play room. */

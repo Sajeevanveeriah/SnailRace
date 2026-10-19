@@ -129,9 +129,10 @@ export function quaddieStatus(
   settings: QuaddieSettings,
   entries: QuaddieEntry[],
   history: RaceHistoryEntry[],
+  snailCount: number = SNAILS_ON_CARD,
 ): QuaddieStatus {
   const live = quaddieIsLive(settings);
-  const standing = entries.filter((e) => !e.void && picksMatchLegs(e.picks, settings.legs));
+  const standing = entries.filter((e) => !e.void && picksMatchLegs(e.picks, settings.legs, snailCount));
   const poolCents = standing.length * settings.entryCents;
   const retainedCents = Math.round((poolCents * settings.retainedPercent) / 100);
   const returnedCents = poolCents - retainedCents;

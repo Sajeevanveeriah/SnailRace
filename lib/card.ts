@@ -181,14 +181,16 @@ export const highestSold = (card: CardState): number => {
  * its snail numbers are on the record, and an armed race has hashed its names.
  */
 export const snailCountLock = (
-  event: { history: { void?: boolean }[] },
+  event: { history: { void?: boolean }[]; quaddieEntries?: { void?: boolean }[] },
   raceLocked: boolean,
 ): string =>
   raceLocked
     ? 'Locked while a race is at the gate.'
     : event.history.some((h) => !h.void)
       ? 'Locked once the first race has run. Reset the night to change it.'
-      : '';
+      : (event.quaddieEntries ?? []).some((e) => !e.void)
+        ? 'Locked once a quaddie ticket is sold: its picks are tied to tonight\'s races.'
+        : '';
 
 /**
  * Put a different number of snails on sale. Names and owners already on the

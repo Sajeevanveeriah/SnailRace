@@ -125,7 +125,7 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
 
 export function QuaddieDesk({ event, racing, nextRaceNo }: { event: EventState; racing: boolean; nextRaceNo: number }) {
   const settings = event.quaddie;
-  const status = quaddieStatus(settings, event.quaddieEntries, event.history);
+  const status = quaddieStatus(settings, event.quaddieEntries, event.history, event.card.snailCount);
   const open = quaddieOpen(settings, event.history, racing, nextRaceNo);
   const [holder, setHolder] = useState('');
   const [picks, setPicks] = useState<number[]>(() => settings.legs.map((leg) => snailsForRace(leg, event.card.snailCount)[0]));

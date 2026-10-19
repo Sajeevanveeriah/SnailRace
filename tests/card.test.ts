@@ -15,6 +15,7 @@ import {
   raceForSnail,
   releaseRefunded,
   rosterCsv,
+  snailCountLock,
   snailsForRace,
   soldCount,
 } from '../lib/card';
@@ -166,4 +167,10 @@ test('the card cannot shrink below a sold snail and keeps names on resize', () =
   assert.equal(cardRaceNames(smaller, 2).length, 9);
   const restored = normaliseCard(JSON.parse(JSON.stringify(smaller)));
   assert.equal(restored.snailCount, 64);
+});
+
+test('a sold quaddie ticket locks the number of snails', () => {
+  assert.equal(snailCountLock({ history: [], quaddieEntries: [] }, false), '');
+  assert.equal(snailCountLock({ history: [], quaddieEntries: [{ void: true }] }, false), '');
+  assert.match(snailCountLock({ history: [], quaddieEntries: [{}] }, false), /quaddie/);
 });

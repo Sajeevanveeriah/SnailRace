@@ -83,3 +83,11 @@ test('legs only count in order and entries close at the first leg', () => {
   assert.equal(quaddieOpen(settings, [won(3, 1)], false, 4), false);
   assert.equal(quaddieOpen(DEFAULT_QUADDIE, [], false, 1), false);
 });
+
+test('a resized card keeps quaddie tickets standing in the right legs', () => {
+  const settings = normaliseQuaddie({ ...DEFAULT_QUADDIE, enabled: true, legs: [3, 4, 5, 6] });
+  /* 64 snails: race 3 is 20 to 28, race 4 is 29 to 37, race 5 is 38 to 46, race 6 is 47 to 55. */
+  const picks = [20, 29, 38, 47];
+  assert.equal(quaddieStatus(settings, [entry('a', 'Priya', picks)], [], 64).entries, 1);
+  assert.equal(quaddieStatus(settings, [entry('a', 'Priya', picks)], []).entries, 0);
+});

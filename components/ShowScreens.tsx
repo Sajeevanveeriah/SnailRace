@@ -168,7 +168,7 @@ function RacecardScreen({
   const owners = cardRaceOwners(event.card, raceNo);
   const numbers = snailsForRace(raceNo, event.card.snailCount);
   const unsold = numbers.filter((n) => !event.card.names[n - 1]?.trim() && !event.card.owners[n - 1]?.trim());
-  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
   const leg = quaddie.live ? event.quaddie.legs.indexOf(raceNo) : -1;
   return (
     <section className="show-body">
@@ -209,7 +209,7 @@ function RacecardScreen({
 }
 
 export function QuaddieBoard({ event }: { event: EventState }) {
-  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
   if (!status.live) {
     return (
       <section className="show-body show-center">
@@ -295,7 +295,7 @@ function Finale({ event, nightCents }: { event: EventState; nightCents: number }
   const sponsors = [...new Set([...event.sponsors, ...event.history.map((h) => h.sponsor ?? '')])]
     .map((s) => s.trim())
     .filter(Boolean);
-  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
   const proceeds = toteProceeds(event.history);
   return (
     <section className="show-body show-center">
