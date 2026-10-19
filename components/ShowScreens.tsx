@@ -126,7 +126,12 @@ function Lobby({ event, snailLinkUrl }: { event: EventState; snailLinkUrl: strin
             <span>Buy one, name it, cheer it home.</span>
           </p>
           <ul className="mt-6 grid gap-2 text-[15px] text-(--tx)/70">
-            <li>Your snail number decides its race: 1 to 10 run first, 11 to 20 next, and so on.</li>
+            <li>
+              Your snail number decides its race: {snailsForRace(1, event.card.snailCount)[0]} to {snailsForRace(1, event.card.snailCount).at(-1)} run first
+              {cardLayout(event.card.snailCount).races > 1
+                ? `, ${snailsForRace(2, event.card.snailCount)[0]} to ${snailsForRace(2, event.card.snailCount).at(-1)} next, and so on.`
+                : '.'}
+            </li>
             <li>Every snail wins with exactly the same chance, drawn before the off.</li>
             <li>{sold} of {event.card.snailCount} snails have an owner so far.</li>
           </ul>

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { addAudit, setState } from '@/lib/event-store';
 import { money } from '@/lib/money';
 import { newId, nowMs } from '@/lib/ids';
-import { cardRaceNames, raceForSnail, snailsForRace, validSnailNo } from '@/lib/card';
+import { cardLayout, cardRaceNames, raceForSnail, snailsForRace, validSnailNo } from '@/lib/card';
 import {
   QUADDIE_LEGS,
   picksMatchLegs,
@@ -69,8 +69,8 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
         and the desk takes entries until the first leg goes to the gate.
       </p>
       {!live ? (
-        <button type="button" className="btn btn-go" onClick={enable}>
-          Enable quaddie
+        <button type="button" className="btn btn-go" onClick={enable} disabled={cardLayout(event.card.snailCount).races < 4}>
+          {cardLayout(event.card.snailCount).races < 4 ? 'Needs four races on the card' : 'Enable quaddie'}
         </button>
       ) : (
         <button type="button" className="btn btn-ghost" onClick={disable} disabled={locked}>

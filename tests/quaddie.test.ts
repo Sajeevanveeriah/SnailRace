@@ -91,3 +91,8 @@ test('a resized card keeps quaddie tickets standing in the right legs', () => {
   assert.equal(quaddieStatus(settings, [entry('a', 'Priya', picks)], [], 64).entries, 1);
   assert.equal(quaddieStatus(settings, [entry('a', 'Priya', picks)], []).entries, 0);
 });
+
+test('legs on a twenty-race card survive a reload', () => {
+  assert.deepEqual(normaliseQuaddie({ ...DEFAULT_QUADDIE, legs: [14, 16, 18, 20] }).legs, [14, 16, 18, 20]);
+  assert.deepEqual(normaliseQuaddie({ ...DEFAULT_QUADDIE, legs: [14, 16, 18, 21] }).legs, [3, 5, 7, 9]);
+});

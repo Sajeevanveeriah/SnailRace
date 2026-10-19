@@ -445,7 +445,10 @@ export function setState(patch: Partial<EventState> | ((s: EventState) => Partia
     const races = cardLayout(state.card.snailCount).races;
     state.plannedRaces = races;
     /* A quaddie leg past the last race could never be run: spread the four legs over the card. */
-    if (state.quaddie.legs.some((leg) => leg > races) && races >= 4) {
+    if (races < 4) {
+      /* Four legs need four races: a smaller card cannot run a quaddie. */
+      if (state.quaddie.enabled) state.quaddie = { ...state.quaddie, enabled: false };
+    } else if (state.quaddie.legs.some((leg) => leg > races)) {
       const legs = [races - 6, races - 4, races - 2, races].map((leg) => Math.max(1, leg));
       state.quaddie = { ...state.quaddie, legs: new Set(legs).size === 4 ? legs : [races - 3, races - 2, races - 1, races] };
     }

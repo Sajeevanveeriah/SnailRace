@@ -1,4 +1,4 @@
-import { MAX_SNAILS_ON_CARD, SNAILS_ON_CARD, raceForSnail, validSnailNo } from './card';
+import { MAX_SNAILS_ON_CARD, SNAILS_ON_CARD, cardLayout, raceForSnail, validSnailNo } from './card';
 import type { RaceHistoryEntry } from './types';
 
 /**
@@ -52,7 +52,7 @@ export function normaliseQuaddie(value: unknown): QuaddieSettings {
   if (!value || typeof value !== 'object') return base;
   const v = value as Partial<QuaddieSettings>;
   const legs = Array.isArray(v.legs)
-    ? [...new Set(v.legs.filter((n): n is number => Number.isSafeInteger(n) && n >= 1 && n <= 12))].sort((a, b) => a - b)
+    ? [...new Set(v.legs.filter((n): n is number => Number.isSafeInteger(n) && n >= 1 && n <= cardLayout(MAX_SNAILS_ON_CARD).races))].sort((a, b) => a - b)
     : base.legs;
   return {
     enabled: v.enabled === true,

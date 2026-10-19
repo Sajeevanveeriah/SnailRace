@@ -16,7 +16,7 @@ import { addAudit, audioPatch, currentState, hydrate, useEvent, setState } from 
 import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
 import { hostLineFor, nextShowPhase, showPhaseSpec } from '@/lib/show';
-import { applyPurchases, cardRaceNames, cardRaceOwners, raceForSnail, releaseRefunded, snailOffsetForRace, type SnailPurchase } from '@/lib/card';
+import { applyPurchases, cardRaceNames, cardRaceOwners, raceForSnail, validSnailNo, releaseRefunded, snailOffsetForRace, type SnailPurchase } from '@/lib/card';
 import { quaddieIsLive } from '@/lib/quaddie';
 import { usePhonePlay } from '@/lib/use-phone-play';
 import { ShowOverlay } from './ShowScreens';
@@ -155,7 +155,7 @@ export function Stage() {
     () =>
       liveDonations
         /* A Stripe snail purchase is tagged by number; its race depends on tonight's card size. */
-        .filter((donation) => (donation.snailNo ? raceForSnail(donation.snailNo, event.card.snailCount) : donation.raceNo) === nextRaceNo)
+        .filter((donation) => (donation.snailNo ? validSnailNo(donation.snailNo, event.card.snailCount) && raceForSnail(donation.snailNo, event.card.snailCount) : donation.raceNo) === nextRaceNo)
         .reduce((sum, donation) => sum + donation.cents, 0),
     [liveDonations, nextRaceNo, event.card.snailCount],
   );
