@@ -62,6 +62,11 @@ const PAN_EASE_S = 0.35;
 const ZOOM_EASE_S = 0.8;
 /** Real time between paints; the race clock slows for photo finishes. */
 const wallClockMs = () => performance.now();
+const setText = (el: Element | null, text: string) => {
+  if (el && el.textContent !== text) el.textContent = text;
+};
+/** Half the side of each runner's own layer, in course units. */
+const CHIP = 60;
 
 /** A single course world owns the lane paint, runner feet and surprise props.
  * The camera only moves the painted world; it can never move a snail off its lane.
@@ -99,6 +104,15 @@ export function Telecast({
   /** The shot on screen now, eased towards each frame's target. */
   const shotRectRef = useRef<{ x: number; y: number; w: number; h: number; at: number } | null>(null);
   const nodesRef = useRef(new Map<number, SVGGElement>());
+  /*
+   * Every runner sits in its own small composited layer above the course, so a
+   * moving snail is a compositor move: the big course picture is painted once
+   * and never repainted under them.
+   */
+  const chipsRef = useRef(new Map<number, SVGSVGElement>());
+  const runnerLayerRef = useRef<HTMLDivElement>(null);
+  /** Last transforms written per runner, so an unchanged one is never rewritten. */
+  const writtenRef = useRef(new Map<string, string>());
   const propRef = useRef<SVGGElement>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
   const lapRef = useRef<HTMLSpanElement>(null);
@@ -116,28 +130,50 @@ export function Telecast({
   const spriteScale = Math.min(1, geometry.laneWidth / 36);
 
   const painter = useMemo<RacePainter>(() => {
+    /** Where course units land inside the camera layer: its scale and the letterbox offset. */
+    const metrics = () => {
+      const { w: sw, h: sh } = sceneSizeRef.current;
+      const dw = sw * CAMERA_RASTER,
+        dh = sh * CAMERA_RASTER;
+      const m = Math.min(dw / 1200, dh / 720) || 1;
+      return { m, ox: (dw - 1200 * m) / 2, oy: (dh - 720 * m) / 2 };
+    };
+    /** Write an attribute only when it changes: an unchanged write still repaints. */
+    const write = (el: Element | null | undefined, key: string, attr: string, value: string) => {
+      if (!el || writtenRef.current.get(key) === value) return;
+      writtenRef.current.set(key, value);
+      el.setAttribute(attr, value);
+    };
     const place = (lane: number, progress: number) => {
       const point = pointOnLane(
         geometry.lanes[lane],
         lapProgress(progress, laps),
       );
       const node = nodesRef.current.get(lane);
-      node?.setAttribute('transform', `translate(${point.x} ${point.y})`);
+      const chip = chipsRef.current.get(lane);
+      if (chip) {
+        const { m, ox, oy } = metrics();
+        chip.style.transform = `translate3d(${(ox + m * (point.x - CHIP)).toFixed(2)}px, ${(oy + m * (point.y - CHIP)).toFixed(2)}px, 0)`;
+      }
       node?.setAttribute('data-progress', String(progress));
-      node
-        ?.querySelector('.course-runner-number')
-        ?.setAttribute(
-          'transform',
-          `translate(${-Math.cos((point.angle * Math.PI) / 180) * 36 * spriteScale} ${-Math.sin((point.angle * Math.PI) / 180) * 36 * spriteScale}) scale(${Math.max(0.3, spriteScale)})`,
-        );
+      /* Rounded to a tenth of a degree: on a straight the turn stops changing and the layer stops repainting. */
+      const angle = Math.round(point.angle * 10) / 10;
+      const cos = Math.cos((angle * Math.PI) / 180);
+      const sin = Math.sin((angle * Math.PI) / 180);
+      write(
+        node?.querySelector('.course-runner-number'),
+        `n${lane}`,
+        'transform',
+        `translate(${(-cos * 36 * spriteScale).toFixed(1)} ${(-sin * 36 * spriteScale).toFixed(1)}) scale(${Math.max(0.3, spriteScale)})`,
+      );
 
       // Turn the artwork with the lane tangent; its centre stays on the painted lane.
-      node
-        ?.querySelector('.tv-art')
-        ?.setAttribute(
-          'transform',
-          `rotate(${point.angle + (Math.cos((point.angle * Math.PI) / 180) < 0 ? 180 : 0)}) scale(${Math.cos((point.angle * Math.PI) / 180) < 0 ? -spriteScale : spriteScale} ${spriteScale})`,
-        );
+      write(
+        node?.querySelector('.tv-art'),
+        `a${lane}`,
+        'transform',
+        `rotate(${angle + (cos < 0 ? 180 : 0)}) scale(${cos < 0 ? -spriteScale : spriteScale} ${spriteScale})`,
+      );
       return point;
     };
     const paint: RacePainter['paint'] = (snails, info) => {
@@ -174,16 +210,10 @@ export function Telecast({
       }
       for (const snail of info.justFinished)
         nodesRef.current.get(snail.lane)?.classList.add('finished');
-      if (clockRef.current)
-        clockRef.current.textContent = clockText(info.raceTimeMs);
-      if (lapRef.current)
-        lapRef.current.textContent = `LAP ${Math.min(laps, Math.floor(info.leadP * laps) + 1)}/${laps}`;
-      if (shotRef.current)
-        shotRef.current.textContent = info.finalStraight
-          ? 'FINISH LINE'
-          : courseViewRef.current
-            ? 'FULL COURSE'
-            : 'LEAD PACK';
+      /* Text is only written when it changes: a rewrite every frame relays out the whole page. */
+      setText(clockRef.current, clockText(info.raceTimeMs));
+      setText(lapRef.current, `LAP ${Math.min(laps, Math.floor(info.leadP * laps) + 1)}/${laps}`);
+      setText(shotRef.current, info.finalStraight ? 'FINISH LINE' : courseViewRef.current ? 'FULL COURSE' : 'LEAD PACK');
       const moment = momentRef.current;
       if (moment && propRef.current) {
         const target = snails.find(
@@ -290,19 +320,26 @@ export function Telecast({
         if (scene?.clientHeight) {
           aspectRef.current = scene.clientWidth / scene.clientHeight;
           sceneSizeRef.current = { w: scene.clientWidth, h: scene.clientHeight };
+          runnerLayerRef.current?.style.setProperty('--chip', `${(2 * CHIP * metrics().m).toFixed(2)}px`);
         }
         shotRectRef.current = null;
         const snapshot = snapshotRef.current;
         if (snapshot) paint(snapshot.snails, snapshot.info);
-        else frameWhole();
+        else {
+          frameWhole();
+          nodesRef.current.forEach((node, lane) => place(lane, Number(node.getAttribute('data-progress') ?? 0)));
+        }
       },
       start: () => {
         svgRef.current?.classList.add('racing');
+        runnerLayerRef.current?.classList.add('racing');
       },
       reset: () => {
         snapshotRef.current = null;
         svgRef.current?.classList.remove('racing');
+        runnerLayerRef.current?.classList.remove('racing');
         shotRectRef.current = null;
+        writtenRef.current.clear();
         frameWhole();
         nodesRef.current.forEach((node, lane) => {
           place(lane, 0);
@@ -480,10 +517,62 @@ export function Telecast({
             >
               START / FINISH
             </text>
-            <g className="tv-runners">
+            {moment && presentation ? (
+              <g
+                ref={propRef}
+                className={`course-prop course-prop-${presentation.cue}`}
+                data-phase={moment.phase ?? 'effect'}
+                aria-hidden="true"
+              >
+                <ellipse
+                  className="course-impact"
+                  rx="33"
+                  ry="13"
+                  fill="none"
+                  stroke="#ffe6a5"
+                  strokeWidth="3"
+                />
+                <g className="course-prop-motion">
+                  {presentation.art ? (
+                    <image
+                      className="course-prop-image"
+                      href={`${ART_BASE}/surprises/${presentation.art}.png`}
+                      x="-32"
+                      y="-62"
+                      width="64"
+                      height="64"
+                    />
+                  ) : presentation.glyph ? (
+                    <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph}>
+                      <PropGlyph id={presentation.glyph} />
+                    </g>
+                  ) : (
+                    <text
+                      className="course-prop-symbol"
+                      y="-12"
+                      textAnchor="middle"
+                      fontSize="36"
+                    >
+                      {presentation.symbol}
+                    </text>
+                  )}
+                </g>
+              </g>
+            ) : null}
+          </g>
+        </svg>
+          <div className="tv-runner-layer tv-runners" ref={runnerLayerRef} aria-hidden="true">
               {names.map((name, lane) => (
-                <g
+                <svg
                   key={lane}
+                  className="tv-runner-chip"
+                  viewBox={`${-CHIP} ${-CHIP} ${2 * CHIP} ${2 * CHIP}`}
+                  ref={(chip) => {
+                    if (chip) chipsRef.current.set(lane, chip);
+                    else chipsRef.current.delete(lane);
+                  }}
+                >
+                <g
                   ref={(node) => {
                     if (node) nodesRef.current.set(lane, node);
                     else nodesRef.current.delete(lane);
@@ -537,52 +626,9 @@ export function Telecast({
                     </text>
                   </g>
                 </g>
+                </svg>
               ))}
-            </g>
-            {moment && presentation ? (
-              <g
-                ref={propRef}
-                className={`course-prop course-prop-${presentation.cue}`}
-                data-phase={moment.phase ?? 'effect'}
-                aria-hidden="true"
-              >
-                <ellipse
-                  className="course-impact"
-                  rx="33"
-                  ry="13"
-                  fill="none"
-                  stroke="#ffe6a5"
-                  strokeWidth="3"
-                />
-                <g className="course-prop-motion">
-                  {presentation.art ? (
-                    <image
-                      className="course-prop-image"
-                      href={`${ART_BASE}/surprises/${presentation.art}.png`}
-                      x="-32"
-                      y="-62"
-                      width="64"
-                      height="64"
-                    />
-                  ) : presentation.glyph ? (
-                    <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph}>
-                      <PropGlyph id={presentation.glyph} />
-                    </g>
-                  ) : (
-                    <text
-                      className="course-prop-symbol"
-                      y="-12"
-                      textAnchor="middle"
-                      fontSize="36"
-                    >
-                      {presentation.symbol}
-                    </text>
-                  )}
-                </g>
-              </g>
-            ) : null}
-          </g>
-        </svg>
+          </div>
         </div>
       </div>
       {showResult ? (

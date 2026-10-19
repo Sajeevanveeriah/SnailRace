@@ -78,7 +78,8 @@
 .projector-hold h2 { font-size: clamp(48px, 7vw, 110px); line-height: 1.1; margin: 36px 0 16px; font-weight: 800; }
 .projector-hold p { font-size: clamp(20px, 2.5vw, 36px); }
 .hold-brand { max-width: 420px; }
-body:has(.projector-audience) { overflow: hidden; }
+/* A body class, not body:has(): :has() on the body restyled the whole page on every race frame. */
+body.projector-audience-on { overflow: hidden; }
 
 @media (max-width: 900px) {
   .desk-layout { grid-template-columns: 1fr; padding: 16px; }
