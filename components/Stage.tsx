@@ -16,7 +16,7 @@ import { addAudit, audioPatch, currentState, hydrate, useEvent, setState } from 
 import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
 import { hostLineFor, nextShowPhase, showPhaseSpec } from '@/lib/show';
-import { applyPurchases, cardRaceNames, cardRaceOwners, raceForSnail, releaseRefunded, type SnailPurchase } from '@/lib/card';
+import { applyPurchases, cardRaceNames, cardRaceOwners, raceForSnail, validSnailNo, releaseRefunded, snailOffsetForRace, type SnailPurchase } from '@/lib/card';
 import { quaddieIsLive } from '@/lib/quaddie';
 import { usePhonePlay } from '@/lib/use-phone-play';
 import { ShowOverlay } from './ShowScreens';
@@ -154,9 +154,10 @@ export function Stage() {
   const raceDonationCents = useMemo(
     () =>
       liveDonations
-        .filter((donation) => donation.raceNo === nextRaceNo)
+        /* A Stripe snail purchase is tagged by number; its race depends on tonight's card size. */
+        .filter((donation) => (donation.snailNo ? validSnailNo(donation.snailNo, event.card.snailCount) && raceForSnail(donation.snailNo, event.card.snailCount) : donation.raceNo) === nextRaceNo)
         .reduce((sum, donation) => sum + donation.cents, 0),
-    [liveDonations, nextRaceNo],
+    [liveDonations, nextRaceNo, event.card.snailCount],
   );
 
   /* Fixed fair-play prices for the lock snapshot and any Phone Play room. */
@@ -200,25 +201,26 @@ export function Stage() {
      * once the race has settled; manual edits are disabled for the same
      * reason, and Stripe gets no exception.
      */
+    const snailCount = event.card.snailCount;
     const purchases: SnailPurchase[] = feed.donations
-      .filter((d) => !d.void && d.snailNo && raceForSnail(d.snailNo) !== lockedRaceNo)
+      .filter((d) => !d.void && d.snailNo && raceForSnail(d.snailNo, snailCount) !== lockedRaceNo)
       .map((d) => ({ snailNo: d.snailNo!, snailName: d.snailName, owner: d.backerName, id: d.id }));
     /* A fully refunded purchase releases the slot it bought. */
-    const refunded = feed.donations.filter((d) => d.void && d.snailNo && raceForSnail(d.snailNo) !== lockedRaceNo).map((d) => d.id);
+    const refunded = feed.donations.filter((d) => d.void && d.snailNo && raceForSnail(d.snailNo, snailCount) !== lockedRaceNo).map((d) => d.id);
     if (!purchases.length && !refunded.length) return;
     const id = window.setTimeout(() => {
       /* Re-check inside the deferred callback: arming may have begun since. */
-      if (armedRef.current && purchases.some((p) => raceForSnail(p.snailNo) === armedRef.current!.raceNo)) return;
+      if (armedRef.current && purchases.some((p) => raceForSnail(p.snailNo, snailCount) === armedRef.current!.raceNo)) return;
       const before = currentState().card;
       const freed = releaseRefunded(before, refunded);
       const applied = applyPurchases(freed.card, purchases);
       if (freed.released.length || applied.changed) setState({ card: applied.card });
       for (const n of freed.released) {
-        addAudit({ kind: 'note', raceNo: raceForSnail(n), detail: `Snail ${n} released: its card payment was refunded in full.` });
+        addAudit({ kind: 'note', raceNo: raceForSnail(n, snailCount), detail: `Snail ${n} released: its card payment was refunded in full.` });
       }
       const fresh = purchases.filter((p) => !freed.card.claims[p.snailNo] && applied.card.claims[p.snailNo] === p.id);
       for (const p of fresh) {
-        addAudit({ kind: 'snail_sold', raceNo: raceForSnail(p.snailNo), detail: `Snail ${p.snailNo} sold by card: "${p.snailName}" for ${p.owner || 'an anonymous owner'}.` });
+        addAudit({ kind: 'snail_sold', raceNo: raceForSnail(p.snailNo, snailCount), detail: `Snail ${p.snailNo} sold by card: "${p.snailName}" for ${p.owner || 'an anonymous owner'}.` });
       }
       /* A paid number that was already taken is a real problem for a real
          person at the bar: it goes to the audit trail and the desk notice. */
@@ -227,17 +229,17 @@ export function Stage() {
         reportedConflictsRef.current.add(c.id);
         addAudit({
           kind: 'note',
-          raceNo: raceForSnail(c.snailNo),
-          detail: `CONFLICT: ${c.owner || 'a buyer'} paid for snail ${c.snailNo} ("${c.snailName}", Stripe ${c.id}) but that number is already taken. Resolve at the desk and refund or reassign.`,
+          raceNo: raceForSnail(c.snailNo, snailCount),
+          detail: `CONFLICT: ${c.owner || 'a buyer'} paid for snail ${c.snailNo} ("${c.snailName}", Stripe ${c.id}) but that number ${c.snailNo > snailCount ? `is past the ${snailCount} snails on the card` : 'is already taken'}. Resolve at the desk and refund or reassign.`,
         });
       }
       setState((s) => {
-        const pending = applied.conflicts.map((c) => `Snail ${c.snailNo} was paid for by ${c.owner || 'a buyer'} but is already taken`);
+        const pending = applied.conflicts.map((c) => `Snail ${c.snailNo} was paid for by ${c.owner || 'a buyer'} but ${c.snailNo > snailCount ? 'is not on the card' : 'is already taken'}`);
         return pending.join('; ') === s.card.conflictNotice ? {} : { card: { ...s.card, conflictNotice: pending.join('; ') } };
       });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [feed.donations, lockedRaceNo, preparingRace, heldRaceStart, nextRaceNo]);
+  }, [feed.donations, lockedRaceNo, preparingRace, heldRaceStart, nextRaceNo, event.card.snailCount]);
 
   /** Set once Phone Play mounts; onFinish settles the room through it. */
   const phonePlayRef = useRef<((raceNo: number, results: RaceResult[]) => Promise<void>) | null>(
@@ -281,7 +283,7 @@ export function Stage() {
         source: 'engine',
         names: armed?.config.names ?? names,
         owners: cardRaceOwners(event.card, raceNo),
-        snailOffset: (raceNo - 1) * 10,
+        snailOffset: snailOffsetForRace(raceNo, event.card.snailCount),
         laps: armed?.config.laps,
         surprises: armed?.config.surprises,
         trackShape: armed?.config.trackShape ?? nextDesign.trackShape,
@@ -753,7 +755,7 @@ export function Stage() {
       sponsor,
       names: armed?.config.names ?? fieldNames,
       owners: cardRaceOwners(event.card, raceNo),
-      snailOffset: (raceNo - 1) * 10,
+      snailOffset: snailOffsetForRace(raceNo, event.card.snailCount),
       lockedAt: armed?.lockedAt,
       startedAt: armed?.startedAt,
       commitHash: armed?.commitHash || undefined,
@@ -1113,7 +1115,7 @@ export function Stage() {
       } else if (k === 'c') setState({ calm: !event.calm });
       else if (k === 's') setState(audioPatch(event.audioMode === 'off' ? 'music' : 'off'));
       else if (k === 'a') {
-        const order: AudioMode[] = ['music', 'commentary', 'off'];
+        const order: AudioMode[] = ['music', 'commentary', 'both', 'off'];
         setState(audioPatch(order[(order.indexOf(event.audioMode) + 1) % order.length]));
       }
       else if (k === 'f' && e.currentTarget === window) void toggleFullscreen();
@@ -1144,7 +1146,7 @@ export function Stage() {
         const res = await fetch('/api/payment-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ eventId: event.eventId, kind: 'snail', cents: event.card.snailCents }),
+          body: JSON.stringify({ eventId: event.eventId, kind: 'snail', cents: event.card.snailCents, snails: event.card.snailCount }),
         });
         const body = (await res.json()) as { ok: boolean; url?: string };
         if (cancel || !body.ok || !body.url) return;
@@ -1163,7 +1165,7 @@ export function Stage() {
     return () => {
       cancel = true;
     };
-  }, [event.eventId, event.card.snailCents]);
+  }, [event.eventId, event.card.snailCents, event.card.snailCount]);
 
   const snailLinkUrl = event.card.paymentLinkUrl;
 
@@ -1238,7 +1240,7 @@ export function Stage() {
             >
               Calm
             </button>
-            <AudioModePicker mode={event.audioMode} canSpeak={canSpeak} onChange={(mode) => { primeAudio(); if (mode === 'commentary') initVoice(); setState(audioPatch(mode)); }} />
+            <AudioModePicker mode={event.audioMode} canSpeak={canSpeak} onChange={(mode) => { primeAudio(); if (mode === 'commentary' || mode === 'both') initVoice(); setState(audioPatch(mode)); }} />
             <ThemeToggle />
           </div>
         </header>
@@ -1267,7 +1269,7 @@ export function Stage() {
                   onCourseViewChange={setCameraFull}
                   sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
                   toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
-                  numberOffset={(shownRaceNo - 1) * 10}
+                  numberOffset={snailOffsetForRace(shownRaceNo, event.card.snailCount)}
                 />
               ) : (
                 <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1286,7 +1288,7 @@ export function Stage() {
                 sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
                 sponsors={event.sponsors}
                 toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
-                numberOffset={(shownRaceNo - 1) * 10}
+                numberOffset={snailOffsetForRace(shownRaceNo, event.card.snailCount)}
               />
             ) : (
               <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1459,6 +1461,7 @@ export function Stage() {
         owners={owners}
         highlights={highlights}
         nextRaceNo={event.raceNumber + 1}
+        snailCount={event.card.snailCount}
         sponsor={event.history[0]?.sponsor ?? ''}
         lastRace={racesRun >= event.plannedRaces}
         tote={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote}
@@ -1487,7 +1490,7 @@ export function Stage() {
           onReturn={() => { setDrawerOpen(false); moderator.close(); }}
           onHold={() => { if (!racing) { silence(); setHolding((v) => !v); } }}
           onCamera={setCameraFull}
-          onVoid={() => { if (moderator.target?.window.confirm(`Void race ${nextRaceNo}? No result or settlement; the same ten snails re-run.`)) voidCurrentRace(); }}
+          onVoid={() => { if (moderator.target?.window.confirm(`Void race ${nextRaceNo}? No result or settlement; the same snails re-run.`)) voidCurrentRace(); }}
           onDismissWinner={() => setOverlayOpen(false)}
         >
       <ControlDrawer

@@ -146,3 +146,24 @@ test('every announced surprise from the ordinary book is visible on the track', 
     }
   }
 });
+
+test('mayhem deals more twists than chaos and still keeps every lane inside the cap', () => {
+  let chaos = 0;
+  let mayhem = 0;
+  for (let seed = 1; seed <= 100; seed++) {
+    chaos += deckEvents(drawLockedRacePlan(seed, names, 120_000, true, 'chaos')).length;
+    const plan = drawLockedRacePlan(seed, names, 120_000, true, 'mayhem');
+    mayhem += deckEvents(plan).length;
+    for (const runner of plan.runners) {
+      const delta = plan.events.reduce((sum, e) => sum + (e.clockDeltaMsByLane[runner.lane] ?? 0), 0);
+      assert.ok(Math.abs(delta) <= plan.durationMs * LANE_CLOCK_CAP);
+      let last = 0;
+      for (let t = 0; t <= plan.stopAtMs; t += 80) {
+        const p = lockedProgressAt(plan, runner.lane, t);
+        assert.ok(p + 1e-9 >= last, `lane ${runner.lane} went backwards at ${t}ms in seed ${seed}`);
+        last = p;
+      }
+    }
+  }
+  assert.ok(mayhem > chaos * 1.2, `mayhem dealt ${mayhem} against chaos ${chaos}`);
+});

@@ -1390,6 +1390,8 @@
 /* The circuit is a reserved stage, not scenery underneath floating graphics. */
 .course-broadcast { --tower-width: clamp(210px, 19vw, 300px); background: #13382d; }
 .course-broadcast .course-scene { position: absolute; inset: 108px calc(var(--tower-width) + 28px) 112px 12px; overflow: hidden; border: 1px solid #ffffff20; border-radius: 12px; background: #245b46; }
+/* The camera moves an already painted course (see CAMERA_RASTER in Telecast). */
+.course-broadcast .course-camera { position: absolute; left: 0; top: 0; width: 200%; height: 200%; transform-origin: 0 0; transform: scale(0.5); will-change: transform; background: #245b46; }
 .course-broadcast .course-scene .tv { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; max-height: none; }
 .course-broadcast .tv-top { height: 72px; min-height: 72px; padding: 6px 16px; gap: 10px; border-bottom-width: 3px; }
 .course-broadcast .tv-club-brand { flex: 0 1 265px; }
@@ -1596,6 +1598,11 @@
 .side-broadcast { --tower-width: 0px; background: #5aa9e6; }
 .side-broadcast .course-scene { inset: 108px 12px 150px 12px; background: #7cc6ff; border-color: #2a1a1a66; }
 .side-broadcast .course-scene .tv { width: 100%; height: 100%; }
+/* Painted once per screen size and slid by the camera (see LAYER_TOP in Sidescroller). */
+.side-broadcast .side-scene { background: #7cc6ff; }
+.side-broadcast .side-layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; pointer-events: none; }
+.side-broadcast .side-world { pointer-events: auto; }
+.side-broadcast .side-layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; max-height: none; }
 .side-broadcast .race-standings { display: none; }
 .side-broadcast .tv-runner { transition: none; }
 .side-broadcast .tv-snail-sprite { animation: none; transform: none; }
@@ -1654,7 +1661,7 @@
 .side-broadcast .tv.racing .side-fan-2 { animation-delay: -.7s; }
 .side-broadcast .tv.racing.run-home .side-fan { animation-duration: .45s; }
 @keyframes side-fan { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
-.side-broadcast .tv.racing .side-ambulance { animation: side-ambulance 1s steps(2) infinite; }
+.side-broadcast .racing .side-ambulance { animation: side-ambulance 1s steps(2) infinite; }
 @keyframes side-ambulance { to { transform: translateX(10px); } }
 
 /* Props: the gag arrives, lands, and stays on its snail while the consequence runs. */

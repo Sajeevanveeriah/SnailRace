@@ -7,7 +7,7 @@ import { RunnerLineup } from './race-broadcast/RunnerLineup';
 import { showPhaseSpec } from '@/lib/show';
 import { money, moneyShort } from '@/lib/money';
 import { eventWhen } from '@/lib/event-when';
-import { cardRaceNames, cardRaceOwners, snailsForRace, soldCount, SNAILS_ON_CARD } from '@/lib/card';
+import { cardLayout, cardRaceNames, cardRaceOwners, describeLayout, snailsForRace, soldCount } from '@/lib/card';
 import { quaddieStatus } from '@/lib/quaddie';
 import { laneColour } from '@/lib/palette';
 import { toteProceeds } from '@/lib/cash-tote';
@@ -119,16 +119,21 @@ function Lobby({ event, snailLinkUrl }: { event: EventState; snailLinkUrl: strin
           <h2 className="display text-balance text-6xl leading-[0.98]">{event.eventName}</h2>
           {when ? <p className="show-when num mt-3">{when}</p> : null}
           <p className="mt-4 text-xl text-(--tx)/65">
-            {event.plannedRaces} races. Ten snails a race. {SNAILS_ON_CARD} snails on the card.
+            {event.card.snailCount} snails on the card in {describeLayout(cardLayout(event.card.snailCount))}.
           </p>
           <p className="show-backing mt-4">
             <span className="show-backing-price num">{moneyShort(event.card.snailCents)} a snail</span>
             <span>Buy one, name it, cheer it home.</span>
           </p>
           <ul className="mt-6 grid gap-2 text-[15px] text-(--tx)/70">
-            <li>Your snail number decides its race: 1 to 10 run first, 11 to 20 next, and so on.</li>
+            <li>
+              Your snail number decides its race: {snailsForRace(1, event.card.snailCount)[0]} to {snailsForRace(1, event.card.snailCount).at(-1)} run first
+              {cardLayout(event.card.snailCount).races > 1
+                ? `, ${snailsForRace(2, event.card.snailCount)[0]} to ${snailsForRace(2, event.card.snailCount).at(-1)} next, and so on.`
+                : '.'}
+            </li>
             <li>Every snail wins with exactly the same chance, drawn before the off.</li>
-            <li>{sold} of {SNAILS_ON_CARD} snails have an owner so far.</li>
+            <li>{sold} of {event.card.snailCount} snails have an owner so far.</li>
           </ul>
           <p className="show-slogan mt-6">Slow race. Big cheers.</p>
           {sponsors.length ? (
@@ -166,9 +171,9 @@ function RacecardScreen({
 }) {
   const names = cardRaceNames(event.card, raceNo);
   const owners = cardRaceOwners(event.card, raceNo);
-  const numbers = snailsForRace(raceNo);
+  const numbers = snailsForRace(raceNo, event.card.snailCount);
   const unsold = numbers.filter((n) => !event.card.names[n - 1]?.trim() && !event.card.owners[n - 1]?.trim());
-  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
   const leg = quaddie.live ? event.quaddie.legs.indexOf(raceNo) : -1;
   return (
     <section className="show-body">
@@ -183,7 +188,7 @@ function RacecardScreen({
             {sponsor ? <span className="text-(--gold)">Sponsored by {sponsor}</span> : null}
           </div>
         </div>
-        <RunnerLineup names={names} numberOffset={(raceNo - 1) * 10} dense />
+        <RunnerLineup names={names} numberOffset={numbers[0] - 1} dense />
         <ol className="show-owner-grid" aria-label={`Owners for race ${raceNo}`}>
           {numbers.map((snailNo, lane) => (
             <li key={snailNo} className={owners[lane] || names[lane] !== `Snail ${snailNo}` ? '' : 'show-owner-unsold'}>
@@ -209,7 +214,7 @@ function RacecardScreen({
 }
 
 export function QuaddieBoard({ event }: { event: EventState }) {
-  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
   if (!status.live) {
     return (
       <section className="show-body show-center">
@@ -288,13 +293,14 @@ function Finale({ event, nightCents }: { event: EventState; nightCents: number }
     .sort((a, b) => a.raceNo - b.raceNo)
     .map((h) => {
       const w = h.results.find((r) => r.place === 1);
-      return w ? { raceNo: h.raceNo, name: w.name, snailNo: (h.raceNo - 1) * 10 + w.lane + 1, owner: event.card.owners[(h.raceNo - 1) * 10 + w.lane] ?? '' } : null;
+      const offset = h.snailOffset ?? (h.raceNo - 1) * 10;
+      return w ? { raceNo: h.raceNo, name: w.name, snailNo: offset + w.lane + 1, owner: h.owners?.[w.lane] ?? event.card.owners[offset + w.lane] ?? '' } : null;
     })
     .filter((x): x is { raceNo: number; name: string; snailNo: number; owner: string } => x !== null);
   const sponsors = [...new Set([...event.sponsors, ...event.history.map((h) => h.sponsor ?? '')])]
     .map((s) => s.trim())
     .filter(Boolean);
-  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history);
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
   const proceeds = toteProceeds(event.history);
   return (
     <section className="show-body show-center">

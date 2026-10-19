@@ -5,7 +5,7 @@ import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 import { normaliseCourseId, normaliseTrackDesigns } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
-import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, normaliseCard } from './card';
+import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, cardLayout, normaliseCard } from './card';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
@@ -196,7 +196,7 @@ function validHeldRaceStart(value: unknown): HeldRaceStartState | null {
   const config = held.config;
   const plan = held.plan;
   const odds = held.oddsAtLock;
-  const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos'];
+  const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos', 'mayhem'];
   const trackShapes = ['lanes', 'circuit'];
   const names = config?.names;
 
@@ -288,7 +288,7 @@ function merge(raw: string | null): EventState {
     /* The market and the interval left the run of show with the card night;
        a saved night parked on one reopens on the nearest surviving screen. */
     const phases: ShowPhase[] = ['lobby', 'racecard', 'race', 'results', 'championship', 'finale'];
-    const audioModes: AudioMode[] = ['music', 'commentary', 'off'];
+    const audioModes: AudioMode[] = ['music', 'commentary', 'both', 'off'];
     const cameraModes: CameraMode[] = ['telecast', 'full'];
     const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
       ? (parsed.audioMode as AudioMode)
@@ -296,8 +296,10 @@ function merge(raw: string | null): EventState {
         ? 'off'
         : parsed.caller === true && parsed.music === false
           ? 'commentary'
-          : 'music';
-    const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos'];
+          : parsed.caller === true && parsed.music === true
+            ? 'both'
+            : 'music';
+    const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos', 'mayhem'];
     const heldRaceStart = validHeldRaceStart(parsed.heldRaceStart);
     const recoveryValue = parsed.voidRecovery as VoidRecoveryState | null | undefined;
     const recoveryShow = recoveryValue?.openShow;
@@ -331,9 +333,9 @@ function merge(raw: string | null): EventState {
           ? parsed.backingCents
           : base.backingCents,
       eventMode: parsed.eventMode === 'recorded' ? 'recorded' : 'live',
-      /* The card is ten races of ten. Fixed, so a backup cannot desynchronise
-         the snail numbers from the races they were sold into. */
-      plannedRaces: RACES_ON_CARD,
+      /* The races come from the card's snail count, never from the backup, so
+         a backup cannot desynchronise the snail numbers from their races. */
+      plannedRaces: cardLayout(normaliseCard(parsed.card).snailCount).races,
       rehearsal: parsed.rehearsal === true,
       showPhase: phases.includes(parsed.showPhase as ShowPhase)
         ? (parsed.showPhase as ShowPhase)
@@ -366,8 +368,8 @@ function merge(raw: string | null): EventState {
       quaddieEntries: Array.isArray(parsed.quaddieEntries) ? parsed.quaddieEntries.filter(validQuaddieEntry) : [],
       audioMode,
       sound: audioMode !== 'off',
-      music: audioMode === 'music',
-      caller: audioMode === 'commentary',
+      music: audioMode === 'music' || audioMode === 'both',
+      caller: audioMode === 'commentary' || audioMode === 'both',
       cameraMode: cameraModes.includes(parsed.cameraMode as CameraMode) ? (parsed.cameraMode as CameraMode) : 'telecast',
       dealtCards: Array.isArray(parsed.dealtCards)
         ? parsed.dealtCards.filter((x): x is string => typeof x === 'string').slice(0, 200)
@@ -438,6 +440,19 @@ export function setState(patch: Partial<EventState> | ((s: EventState) => Partia
   if (typeof patch === 'function') syncFromStorage();
   const next = typeof patch === 'function' ? patch(state) : patch;
   state = { ...state, ...next };
+  /* The number of races always follows the snails on the card. */
+  if (next.card) {
+    const races = cardLayout(state.card.snailCount).races;
+    state.plannedRaces = races;
+    /* A quaddie leg past the last race could never be run: spread the four legs over the card. */
+    if (races < 4) {
+      /* Four legs need four races: a smaller card cannot run a quaddie. */
+      if (state.quaddie.enabled) state.quaddie = { ...state.quaddie, enabled: false };
+    } else if (state.quaddie.legs.some((leg) => leg > races)) {
+      const legs = [races - 6, races - 4, races - 2, races].map((leg) => Math.max(1, leg));
+      state.quaddie = { ...state.quaddie, legs: new Set(legs).size === 4 ? legs : [races - 3, races - 2, races - 1, races] };
+    }
+  }
   persist();
   emit();
 }
@@ -537,6 +552,6 @@ export function useEvent(): EventState {
 export const audioPatch = (mode: AudioMode): Pick<EventState, 'audioMode' | 'sound' | 'music' | 'caller'> => ({
   audioMode: mode,
   sound: mode !== 'off',
-  music: mode === 'music',
-  caller: mode === 'commentary',
+  music: mode === 'music' || mode === 'both',
+  caller: mode === 'commentary' || mode === 'both',
 });

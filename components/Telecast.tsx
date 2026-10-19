@@ -51,8 +51,20 @@ interface Props {
 export const LEAD_PACK = 4;
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
+/**
+ * The camera layer is drawn at this multiple of the scene and moved with a
+ * CSS transform, so the browser slides an already painted picture instead of
+ * repainting the whole course every frame. Shots tighter than this go soft.
+ */
+const CAMERA_RASTER = 2;
+/** Seconds for the camera to cover most of the way to a new shot. */
+const PAN_EASE_S = 0.35;
+const ZOOM_EASE_S = 0.8;
+/** Real time between paints; the race clock slows for photo finishes. */
+const wallClockMs = () => performance.now();
+
 /** A single course world owns the lane paint, runner feet and surprise props.
- * Camera changes only the SVG viewBox; it can never move a snail off its lane.
+ * The camera only moves the painted world; it can never move a snail off its lane.
  */
 export function Telecast({
   names,
@@ -82,6 +94,10 @@ export function Telecast({
   const outOfShotRef = useRef<HTMLParagraphElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const cameraRef = useRef<HTMLDivElement>(null);
+  const sceneSizeRef = useRef({ w: 0, h: 0 });
+  /** The shot on screen now, eased towards each frame's target. */
+  const shotRectRef = useRef<{ x: number; y: number; w: number; h: number; at: number } | null>(null);
   const nodesRef = useRef(new Map<number, SVGGElement>());
   const propRef = useRef<SVGGElement>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
@@ -216,15 +232,69 @@ export function Telecast({
         y -= (next - h) / 2;
         h = next;
       }
-      svgRef.current?.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+      /*
+       * Ease towards the new shot rather than cutting to it. The pack changes
+       * shape every time a runner joins or drops out of the leading four, and
+       * a camera that follows that frame by frame lurches.
+       */
+      const now = wallClockMs();
+      const prev = shotRectRef.current;
+      const settle = !prev || reduceMotion || Math.abs(prev.w / w - 1) > 1.5;
+      if (prev && !settle) {
+        const dt = Math.min(0.1, Math.max(0, (now - prev.at) / 1000));
+        const pan = 1 - Math.exp(-dt / PAN_EASE_S);
+        const zoom = 1 - Math.exp(-dt / ZOOM_EASE_S);
+        const cx = prev.x + prev.w / 2 + (x + w / 2 - prev.x - prev.w / 2) * pan;
+        const cy = prev.y + prev.h / 2 + (y + h / 2 - prev.y - prev.h / 2) * pan;
+        const nw = prev.w + (w - prev.w) * zoom;
+        const nh = nw / aspect;
+        x = cx - nw / 2;
+        y = cy - nh / 2;
+        w = nw;
+        h = nh;
+      }
+      shotRectRef.current = { x, y, w, h, at: now };
+      frame(x, y, w);
+    };
+    /* Place the painted world so the shot (x, y, w) fills the scene. */
+    const frame = (x: number, y: number, w: number) => {
+      const camera = cameraRef.current;
+      const { w: sw, h: sh } = sceneSizeRef.current;
+      if (!camera || !sw || !sh) return;
+      const dw = sw * CAMERA_RASTER,
+        dh = sh * CAMERA_RASTER;
+      const m = Math.min(dw / 1200, dh / 720);
+      const ox = (dw - 1200 * m) / 2,
+        oy = (dh - 720 * m) / 2;
+      const s = sw / w / m;
+      camera.style.transform = `translate3d(${(-s * (ox + m * x)).toFixed(2)}px, ${(-s * (oy + m * y)).toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+    };
+    const frameWhole = () => {
+      const aspect = aspectRef.current;
+      let w = 1200,
+        h = 720,
+        x = 0,
+        y = 0;
+      if (w / h < aspect) {
+        w = h * aspect;
+        x = (1200 - w) / 2;
+      } else {
+        h = w / aspect;
+        y = (720 - h) / 2;
+      }
+      frame(x, y, w);
     };
     return {
       measure: () => {
         const scene = sceneRef.current;
-        if (scene?.clientHeight)
+        if (scene?.clientHeight) {
           aspectRef.current = scene.clientWidth / scene.clientHeight;
+          sceneSizeRef.current = { w: scene.clientWidth, h: scene.clientHeight };
+        }
+        shotRectRef.current = null;
         const snapshot = snapshotRef.current;
         if (snapshot) paint(snapshot.snails, snapshot.info);
+        else frameWhole();
       },
       start: () => {
         svgRef.current?.classList.add('racing');
@@ -232,7 +302,8 @@ export function Telecast({
       reset: () => {
         snapshotRef.current = null;
         svgRef.current?.classList.remove('racing');
-        svgRef.current?.setAttribute('viewBox', '0 0 1200 720');
+        shotRectRef.current = null;
+        frameWhole();
         nodesRef.current.forEach((node, lane) => {
           place(lane, 0);
           node.classList.remove('finished', 'retired', 'fx-up');
@@ -288,6 +359,7 @@ export function Telecast({
       data-camera={courseView ? 'course' : 'trackside'}
     >
       <div className="course-scene" ref={sceneRef}>
+        <div className="course-camera" ref={cameraRef}>
         <svg
           ref={svgRef}
           className="tv"
@@ -511,6 +583,7 @@ export function Telecast({
             ) : null}
           </g>
         </svg>
+        </div>
       </div>
       {showResult ? (
         <OfficialResult

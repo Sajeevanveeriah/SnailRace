@@ -1,6 +1,6 @@
 import type Stripe from 'stripe';
 import { META, APP_TAG, SNAIL_FIELDS } from './stripe';
-import { laneForSnail, raceForSnail, validSnailNo } from './card';
+import { MAX_SNAILS_ON_CARD, laneForSnail, raceForSnail, validSnailNo } from './card';
 import type { Donation } from './types';
 
 /**
@@ -25,7 +25,8 @@ export function snailPurchaseOf(
     return '';
   };
   const snailNo = Number(read(SNAIL_FIELDS.number).replace(/[^\d]/g, ''));
-  if (!validSnailNo(snailNo)) return null;
+  /* The card size lives on the stage; it re-checks the number against its own card. */
+  if (!validSnailNo(snailNo, MAX_SNAILS_ON_CARD)) return null;
   return {
     snailNo,
     snailName: read(SNAIL_FIELDS.name).trim().slice(0, 24),

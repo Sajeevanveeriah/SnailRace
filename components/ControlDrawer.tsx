@@ -14,7 +14,7 @@ import { Preflight } from './Preflight';
 import { RosterPanel } from './RosterPanel';
 import { QuaddieSettingsPanel } from './QuaddiePanel';
 import { AudioModePicker } from './AudioModePicker';
-import { cardRaceNames } from '@/lib/card';
+import { cardLayout, cardRaceNames, describeLayout, snailCountLock } from '@/lib/card';
 import type { usePhonePlay } from '@/lib/use-phone-play';
 import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
@@ -914,7 +914,7 @@ export function ControlDrawer({
                   : `A ${raceLength} race.`}
               </p>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                Every race is ten snails: the ten numbers sold into it on the card.
+                Every race runs the numbers sold into it on the card: {describeLayout(cardLayout(event.card.snailCount))}. Change the snails on sale under The card.
               </p>
               <fieldset className="mt-3" disabled={locked}>
                 <legend className="text-sm font-medium">Track designs</legend>
@@ -979,6 +979,7 @@ export function ControlDrawer({
                     <option value="standard">Standard (three or four deck cards)</option>
                     <option value="big">Big night (four or five)</option>
                     <option value="chaos">Chaos (five or six)</option>
+                    <option value="mayhem">Mayhem (seven to nine, anyone can be hit)</option>
                   </select>
                 </label>
               </div>
@@ -1118,7 +1119,7 @@ export function ControlDrawer({
                     canSpeak={canSpeak}
                     onChange={(mode) => {
                       primeAudio();
-                      if (mode === 'commentary') initVoice();
+                      if (mode === 'commentary' || mode === 'both') initVoice();
                       setState(audioPatch(mode));
                     }}
                   />
@@ -1270,7 +1271,7 @@ export function ControlDrawer({
                 export with Paste list.
               </p>
               <div className="mt-4">
-                <RosterPanel card={event.card} raceNo={nextRaceNo} lockedRaceNo={locked ? nextRaceNo : null} />
+                <RosterPanel card={event.card} raceNo={nextRaceNo} lockedRaceNo={locked ? nextRaceNo : null} resizeLockedReason={snailCountLock(event, locked)} />
               </div>
             </section>
 

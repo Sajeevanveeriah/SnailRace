@@ -50,6 +50,14 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['WOMBAT'], value: { art: null, glyph: 'wombat', symbol: '🐾', cue: 'cross' } },
   { matches: ['MOWER'], value: { art: null, glyph: 'mower', symbol: '🚜', cue: 'dash' } },
   { matches: ['HAILSTORM'], value: { art: null, glyph: 'rain-cloud', symbol: '🌨', cue: 'burst' } },
+  { matches: ['LEAF BLOWER'], value: { art: null, glyph: 'wind', symbol: '💨', cue: 'burst' } },
+  { matches: ['EARTH TREMOR'], value: { art: null, glyph: 'warning', symbol: '⚠', cue: 'burst' } },
+  { matches: ['LUCKY DIP'], value: { art: null, glyph: 'swap', symbol: '⇄', cue: 'burst' } },
+  { matches: ['POSSUM'], value: { art: null, glyph: 'wombat', symbol: '🐾', cue: 'drop' } },
+  { matches: ['RUNAWAY DRONE'], value: { art: null, glyph: 'camera', symbol: '📷', cue: 'swoop' } },
+  { matches: ["SLIP 'N' SLIDE"], value: { art: null, glyph: 'slime', symbol: '💧', cue: 'dash' } },
+  { matches: ['CHEER SQUAD'], value: { art: null, glyph: 'megaphone', symbol: '📣', cue: 'burst' } },
+  { matches: ['ROAD WORKS'], value: { art: null, glyph: 'warning', symbol: '⚠', cue: 'drop' } },
 
   /* Painted set pieces. */
   { matches: ['CRICKET BALL'], value: { art: 'cricket-ball', symbol: '●', cue: 'roll' } },

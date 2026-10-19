@@ -4,7 +4,10 @@ import {
   DEFAULT_CARD,
   SNAILS_ON_CARD,
   applyPurchases,
+  cardLayout,
   cardRaceNames,
+  describeLayout,
+  resizeCard,
   laneForSnail,
   nextFreeSnail,
   normaliseCard,
@@ -12,6 +15,8 @@ import {
   raceForSnail,
   releaseRefunded,
   rosterCsv,
+  snailCountFits,
+  snailCountLock,
   snailsForRace,
   soldCount,
 } from '../lib/card';
@@ -124,4 +129,65 @@ test('a full refund releases the slot it bought, and only that slot', () => {
   /* The minted flag only survives alongside a valid link. */
   assert.equal(normaliseCard({ paymentLinkUrl: 'https://buy.stripe.com/x', paymentLinkMinted: true }).paymentLinkMinted, true);
   assert.equal(normaliseCard({ paymentLinkMinted: true }).paymentLinkMinted, false);
+});
+
+test('a card of 64 snails splits into seven even races of ten or under', () => {
+  const layout = cardLayout(64);
+  assert.equal(layout.races, 7);
+  assert.deepEqual(layout.sizes, [10, 9, 9, 9, 9, 9, 9]);
+  assert.equal(describeLayout(layout), '7 races: 1 of 10, 6 of 9');
+  assert.deepEqual(snailsForRace(1, 64), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(snailsForRace(2, 64), [11, 12, 13, 14, 15, 16, 17, 18, 19]);
+  assert.equal(raceForSnail(64, 64), 7);
+  assert.equal(laneForSnail(20, 64), 0);
+  assert.equal(raceForSnail(20, 64), 3);
+  /* Every number runs exactly once, every field is a legal size. */
+  for (let n = 8; n <= 200; n += 1) {
+    if (!snailCountFits(n)) continue;
+    const l = cardLayout(n);
+    assert.equal(l.sizes.reduce((a, b) => a + b, 0), n);
+    assert.ok(l.sizes.every((size) => size >= 8 && size <= 10), `${n}: ${l.sizes.join(',')}`);
+    const seen = Array.from({ length: l.races }, (_, i) => snailsForRace(i + 1, n)).flat();
+    assert.deepEqual(seen, Array.from({ length: n }, (_, i) => i + 1));
+  }
+  assert.equal(describeLayout(cardLayout(100)), '10 races of 10');
+});
+
+test('the card cannot shrink below a sold snail and keeps names on resize', () => {
+  const card = fresh();
+  card.names[69] = 'Seventy';
+  const blocked = resizeCard(card, 64);
+  assert.ok('error' in blocked);
+  card.names[69] = '';
+  card.names[9] = 'Ten';
+  const smaller = resizeCard(card, 64);
+  assert.ok(!('error' in smaller));
+  if ('error' in smaller) return;
+  assert.equal(smaller.snailCount, 64);
+  assert.equal(smaller.names.length, 64);
+  assert.equal(smaller.names[9], 'Ten');
+  assert.equal(cardRaceNames(smaller, 2).length, 9);
+  const restored = normaliseCard(JSON.parse(JSON.stringify(smaller)));
+  assert.equal(restored.snailCount, 64);
+});
+
+test('a sold quaddie ticket locks the number of snails', () => {
+  assert.equal(snailCountLock({ history: [], quaddieEntries: [] }, false), '');
+  assert.equal(snailCountLock({ history: [], quaddieEntries: [{ void: true }] }, false), '');
+  assert.match(snailCountLock({ history: [], quaddieEntries: [{}] }, false), /quaddie/);
+});
+
+test('counts that cannot make fields of eight to ten are refused or stepped down', () => {
+  const misfits = Array.from({ length: 193 }, (_, i) => i + 8).filter((n) => !snailCountFits(n));
+  assert.deepEqual(misfits, [11, 12, 13, 14, 15, 21, 22, 23, 31]);
+  assert.equal(cardLayout(23).snails, 20);
+  const card = resizeCard(fresh(), 23);
+  assert.ok('error' in card && /Try 20 or 24/.test(card.error));
+});
+
+test('a tote ticket or auction bid locks the number of snails', () => {
+  assert.match(snailCountLock({ history: [], toteSales: [{}] }, false), /tote/);
+  assert.match(snailCountLock({ history: [], auctionBids: [{}] }, false), /auction/);
+  assert.match(snailCountLock({ history: [], cashLedger: [{}] }, false), /cash/);
+  assert.equal(snailCountLock({ history: [], toteSales: [{ void: true }], auctionBids: [] }, false), '');
 });

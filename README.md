@@ -8,7 +8,24 @@ one-volunteer run of show.
 This repository implements an original NDCC production. It uses its own club
 crest, runner art, copy, commentary and cricket-ground surprises.
 
-## Current release - simpler screens and sponsors (5.1)
+## Current release - smooth camera, both sounds, mayhem and card size (5.2)
+
+1. **Smooth zoomed camera.** The chase camera no longer redraws the whole
+   course every frame. The course is drawn once into a GPU layer and the
+   camera moves that layer, with eased pan and zoom, so the zoomed shots run
+   as smoothly as the full view. The side-on view moves each scenery layer
+   the same way.
+2. **Music and commentary together.** The Sound picker (and the moderator
+   desk) has a Both option. Music ducks under the commentary while it speaks.
+3. **Mayhem.** Controls, Surprises: Mayhem deals seven to nine twists a race,
+   closer together, and anyone can be hit. New twists include the leaf
+   blower, earth tremor, lucky dip, possum, runaway drone, slip 'n' slide,
+   cheer squad and road works.
+4. **Snails on sale.** The card section sets how many snails are on sale
+   (8 to 200). They split evenly into races of eight to ten: 64 snails make
+   7 races, one of 10 and six of 9. The number locks once a race has run.
+
+## Previous release - simpler screens and sponsors (5.1)
 
 From the club's feedback after the first rehearsal:
 
