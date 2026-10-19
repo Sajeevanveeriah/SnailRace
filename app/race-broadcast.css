@@ -1802,6 +1802,6 @@
   .race-broadcast.course-broadcast .course-director-bar { top: 126px; }
   .race-broadcast.side-broadcast .course-scene { top: 158px; }
   .race-broadcast.course-broadcast .race-standings { top: 158px; bottom: auto; }
-  .race-broadcast.course-broadcast .course-scene { top: 240px; }
+  .race-broadcast.course-broadcast:not(.side-broadcast) .course-scene { top: 240px; }
   .race-broadcast.course-broadcast .course-event-ticker { left: 8px; right: 8px; height: 36px; font-size: 13px; }
 }
