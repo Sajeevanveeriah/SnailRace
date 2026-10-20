@@ -72,6 +72,8 @@ const PHOTO_FROM = 0.9;
  */
 export const STORY_CARD_MS = 2800;
 export const STORY_GAP_MS = 400;
+/** The least a landed card stays up before anything may replace it. */
+export const STORY_READ_MS = 900;
 
 /** Maximum real-time confirmation beat after the locked winner crosses. */
 export const FINISH_CONFIRM_MS = 450;
@@ -280,6 +282,7 @@ export function useRace(
   const [results, setResults] = useState<RaceResult[]>([]);
   const [events, setEvents] = useState<RaceEvent[]>([]);
   const [moment, setMoment] = useState<RaceMoment | null>(null);
+  const lastEffectAtRef = useRef(-Infinity);
   const [weather, setWeather] = useState<Weather>('clear');
   const splitIdRef = useRef(0);
   const splitRef = useRef<Set<(split: RaceSplit) => void>>(new Set());
@@ -358,6 +361,12 @@ export function useRace(
     big = false,
     detail: Omit<Partial<RaceMoment>, 'id' | 'text' | 'tone' | 'big'> = {},
   ) => {
+    /* One story at a time on the oval too: a twist's warning never replaces
+       a hit that landed under a readable beat ago. The next hit still lands
+       in its own time and takes the banner then. */
+    const now = Date.now();
+    if ((detail.phase === 'warning' || detail.phase === 'reveal') && now - lastEffectAtRef.current < STORY_READ_MS) return;
+    if (detail.phase === 'effect' || detail.phase === undefined) lastEffectAtRef.current = now;
     momentIdRef.current += 1;
     setMoment({ id: momentIdRef.current, text, tone, big, ...detail });
     window.clearTimeout(momentTimerRef.current);

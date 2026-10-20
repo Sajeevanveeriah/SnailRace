@@ -10,7 +10,7 @@ import { OfficialResult } from './race-broadcast/BroadcastGraphics';
 import { clockText } from '@/lib/broadcast';
 import { sponsorsFromRace } from '@/lib/club-sponsors';
 import type { SnailRun } from '@/lib/race-engine';
-import { STORY_CARD_MS, STORY_GAP_MS, type PaintInfo, type RaceController, type RacePainter, type SurprisePhase } from '@/lib/use-race';
+import { STORY_CARD_MS, STORY_GAP_MS, STORY_READ_MS, type PaintInfo, type RaceController, type RacePainter, type SurprisePhase } from '@/lib/use-race';
 import type { CameraMode, LockedRaceEvent, ToteDividend } from '@/lib/types';
 
 /**
@@ -371,7 +371,7 @@ interface StagedTwist {
 /** How long a landed twist owns the screen: the slam, the read, the park. The caller gates on the same clock. */
 const EFFECT_ON_AIR_MS = STORY_CARD_MS;
 /** The least a landed card stays up when the next hit arrives on its heels. */
-const MIN_READ_MS = 900;
+const MIN_READ_MS = STORY_READ_MS;
 
 interface StoryWindow {
   event: LockedRaceEvent;
