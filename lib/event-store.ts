@@ -5,7 +5,7 @@ import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 import { normaliseCourseId, normaliseTrackDesigns } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
-import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, cardLayout, normaliseCard, pinLegacySplit } from './card';
+import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, cardLayout, normaliseCard, pinLegacySplit, snailCountLock } from './card';
 import type { CardState } from './card';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
@@ -290,13 +290,27 @@ function merge(raw: string | null): EventState {
     const phases: ShowPhase[] = ['lobby', 'racecard', 'race', 'results', 'championship', 'finale'];
     const audioModes: AudioMode[] = ['music', 'commentary', 'both', 'off'];
     const cameraModes: CameraMode[] = ['telecast', 'full'];
-    /* A night saved before 5.4 that has already run a race keeps the split its
-       snails were sold into; its card carries no split marker, so the history
-       decides. A fresh or not-yet-raced card takes tonight's rule. */
+    /* A night saved before 5.4 keeps the split its snails were sold into
+       whenever anything on the record is tied to a lane: a race run, a
+       quaddie ticket, a tote sale, a bid, cash taken or an armed race (the
+       same records that lock the snail count). Its card carries no split
+       marker, so those records decide. A card with none takes tonight's rule. */
     const card = normaliseCard(parsed.card);
-    const raced = Array.isArray(parsed.history) && parsed.history.some((h) => h && !h.void);
+    const live = <T extends { void?: boolean }>(list: unknown): T[] =>
+      Array.isArray(list) ? (list as T[]).filter((x) => x && typeof x === 'object') : [];
+    const tied =
+      snailCountLock(
+        {
+          history: live(parsed.history),
+          quaddieEntries: live(parsed.quaddieEntries),
+          toteSales: live(parsed.toteSales),
+          auctionBids: live(parsed.auctionBids),
+          cashLedger: live(parsed.cashLedger),
+        },
+        validHeldRaceStart(parsed.heldRaceStart) !== null,
+      ) !== '';
     const storedCard = parsed.card as Partial<CardState> | undefined;
-    if (raced && storedCard?.split === undefined) {
+    if (tied && storedCard?.split === undefined) {
       card.split = 'legacy';
       pinLegacySplit(card.snailCount, true);
     } else if (card.split === 'even') {

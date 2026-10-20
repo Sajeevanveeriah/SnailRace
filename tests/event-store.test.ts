@@ -144,6 +144,11 @@ test('a saved night that already raced keeps the races its snails were sold into
   assert.equal(describeLayout(cardLayout(64)), '8 races of 8');
   assert.equal(raceForSnail(10, 64), 2);
   assert.equal(currentState().plannedRaces, 8);
+  /* A ticket, sale or bid sold before any race is tied to a lane too. */
+  for (const key of ['quaddieEntries', 'toteSales', 'auctionBids', 'cashLedger'] as const) {
+    assert.ok(restore(JSON.stringify({ ...state, card, history: [], [key]: [{ void: false }] })));
+    assert.equal(currentState().card.split, 'legacy', key);
+  }
   /* A voided race does not lock the old split in. */
   assert.ok(restore(JSON.stringify({ ...state, card, history: [{ ...ran, void: true }] })));
   assert.equal(currentState().card.split, 'even');
