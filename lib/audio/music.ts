@@ -576,6 +576,8 @@ export const DUCK_FLOOR = 0.4;
 interface Duck {
   until: number;
   amount: number;
+  /** A named duck is replaced by its owner's next call rather than stacked. */
+  owner?: string;
 }
 
 /** Every duck that has not yet run its course. */
@@ -585,22 +587,26 @@ let ducks: Duck[] = [];
  * Duck the music under a big moment, then bring it back.
  *
  * Owner-aware: ducks overlap, and a short shallow one (a lead change) never
- * cuts a long deep one (a commentary line) short. The bus goes to the
+ * cuts a long deep one (a commentary line) short; a named owner's next duck
+ * replaces its previous one. The bus goes to the
  * deepest active amount and recovers to the nominal level over the
  * remaining time of the longest active duck. Every duck is measured from the
  * bus's NOMINAL level, never from its current reading - reading the bus used
  * to compound, and by the run home the soundtrack had quietly ratcheted
  * itself down to nothing.
  */
-export function duck(seconds = 1.2, amount = 0.45): void {
+export function duck(seconds = 1.2, amount = 0.45, owner?: string): void {
   const bus = busNode('music');
   if (!bus) return;
   const level = musicBusTarget();
   if (level <= 0) return;
   const t = now();
 
-  ducks = ducks.filter((d) => d.until > t);
-  ducks.push({ until: t + Math.max(0.3, seconds), amount: Math.max(DUCK_FLOOR, Math.min(1, amount)) });
+  /* An owner's new duck replaces its old one, so a clip that turns out
+     shorter than the fallback guess can shorten the recovery as well as
+     lengthen it. Anonymous ducks stack as before. */
+  ducks = ducks.filter((d) => d.until > t && (!owner || d.owner !== owner));
+  ducks.push({ until: t + Math.max(0.3, seconds), amount: Math.max(DUCK_FLOOR, Math.min(1, amount)), owner });
 
   const depth = Math.min(...ducks.map((d) => d.amount));
   const until = Math.max(...ducks.map((d) => d.until));

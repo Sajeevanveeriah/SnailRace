@@ -133,11 +133,12 @@ function speak(text: string, priority: CallPriority, cue?: RecordedCue): boolean
       /* Duck the music for as long as the clip actually runs. The length is
          only known once the metadata arrives, so start with a short duck and
          extend it to the real duration when the clip reports one. */
-      duck(CLIP_DUCK_FALLBACK_S, CLIP_DUCK_DEPTH);
+      duck(CLIP_DUCK_FALLBACK_S, CLIP_DUCK_DEPTH, 'voice');
       clip.onloadedmetadata = () => {
         if (token !== generation) return;
         const seconds = clip.duration;
-        if (Number.isFinite(seconds) && seconds > 0) duck(seconds + 0.3, CLIP_DUCK_DEPTH);
+        /* Same owner: this replaces the fallback, shorter or longer. */
+        if (Number.isFinite(seconds) && seconds > 0) duck(seconds + 0.3, CLIP_DUCK_DEPTH, 'voice');
       };
       void clip.play().catch(complete);
     } else {
