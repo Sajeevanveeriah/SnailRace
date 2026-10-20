@@ -725,10 +725,11 @@ export function useRace(
         call(`Here they come down the straight! ${lead.name} from ${chaser.name}!`, 'big', 'final');
       }
       if (
-        lead && !lead.done && race.placed === 0 && !race.photoCalled &&
+        lead && !lead.done && race.placed === 0 && !race.photoCalled && !surpriseOnAir &&
         lead.p > PHOTO_FROM && chaser.lane !== lead.lane &&
         toLengths(lead.p - chaser.p) < 1
       ) {
+        /* Committed only when said; a twist on air keeps the slot for its own call. */
         race.photoCalled = true;
         call(`${lead.name} and ${chaser.name} together - this is going to the line!`, 'big', 'photo');
       }

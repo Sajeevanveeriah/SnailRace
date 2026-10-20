@@ -92,8 +92,10 @@ function writeTakes() {
   const src = readFileSync(CUES_TS, 'utf8');
   const start = src.indexOf('export const RECORDED_TAKES');
   const end = src.indexOf('};', start) + 2;
+  if (start < 0 || end < 2) throw new Error(`RECORDED_TAKES block not found in ${CUES_TS}`);
   const body = Object.keys(RECORDED_CUES).map((cue) => `  ${cue}: ${recorded[cue] ?? 0},`).join('\n');
-  writeFileSync(CUES_TS, `${src.slice(0, start)}export const RECORDED_TAKES: Record<RecordedCue, number> = {\n${body}\n}${src.slice(end + 1)}`);
+  /* The block keeps its `};` terminator so the next run can find it again. */
+  writeFileSync(CUES_TS, `${src.slice(0, start)}export const RECORDED_TAKES: Record<RecordedCue, number> = {\n${body}\n};${src.slice(end)}`);
 }
 
 let failures = 0;
