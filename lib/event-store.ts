@@ -5,7 +5,8 @@ import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 import { normaliseCourseId, normaliseTrackDesigns } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
-import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, cardLayout, normaliseCard } from './card';
+import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, cardLayout, normaliseCard, pinLegacySplit } from './card';
+import type { CardState } from './card';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
@@ -289,6 +290,18 @@ function merge(raw: string | null): EventState {
     const phases: ShowPhase[] = ['lobby', 'racecard', 'race', 'results', 'championship', 'finale'];
     const audioModes: AudioMode[] = ['music', 'commentary', 'both', 'off'];
     const cameraModes: CameraMode[] = ['telecast', 'full'];
+    /* A night saved before 5.4 that has already run a race keeps the split its
+       snails were sold into; its card carries no split marker, so the history
+       decides. A fresh or not-yet-raced card takes tonight's rule. */
+    const card = normaliseCard(parsed.card);
+    const raced = Array.isArray(parsed.history) && parsed.history.some((h) => h && !h.void);
+    const storedCard = parsed.card as Partial<CardState> | undefined;
+    if (raced && storedCard?.split === undefined) {
+      card.split = 'legacy';
+      pinLegacySplit(card.snailCount, true);
+    } else if (card.split === 'even') {
+      pinLegacySplit(card.snailCount, false);
+    }
     const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
       ? (parsed.audioMode as AudioMode)
       : parsed.sound === false
@@ -334,7 +347,7 @@ function merge(raw: string | null): EventState {
       eventMode: parsed.eventMode === 'recorded' ? 'recorded' : 'live',
       /* The races come from the card's snail count, never from the backup, so
          a backup cannot desynchronise the snail numbers from their races. */
-      plannedRaces: cardLayout(normaliseCard(parsed.card).snailCount).races,
+      plannedRaces: cardLayout(card.snailCount).races,
       rehearsal: parsed.rehearsal === true,
       showPhase: phases.includes(parsed.showPhase as ShowPhase)
         ? (parsed.showPhase as ShowPhase)
@@ -362,7 +375,7 @@ function merge(raw: string | null): EventState {
       voidRecovery,
       names,
       fieldSize: SNAILS_PER_RACE,
-      card: normaliseCard(parsed.card),
+      card,
       quaddie: normaliseQuaddie(parsed.quaddie),
       quaddieEntries: Array.isArray(parsed.quaddieEntries) ? parsed.quaddieEntries.filter(validQuaddieEntry) : [],
       audioMode,

@@ -14,7 +14,7 @@ import { Preflight } from './Preflight';
 import { RosterPanel } from './RosterPanel';
 import { QuaddieSettingsPanel } from './QuaddiePanel';
 import { AudioModePicker } from './AudioModePicker';
-import { cardLayout, cardRaceNames, describeLayout, snailCountLock } from '@/lib/card';
+import { cardLayout, cardRaceNames, describeLayout, pinLegacySplit, snailCountLock } from '@/lib/card';
 import type { usePhonePlay } from '@/lib/use-phone-play';
 import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
@@ -632,7 +632,9 @@ export function ControlDrawer({
     ) {
       return;
     }
-    setState({
+    setState((s) => ({
+      /* No race on the record now, so the card can take tonight's split rule. */
+      card: { ...s.card, split: 'even' },
       history: [],
       bets: [],
       chipBank: {},
@@ -645,7 +647,8 @@ export function ControlDrawer({
       packCurrent: null,
       /* The deck starts the real card whole again. */
       dealtCards: [],
-    });
+    }));
+    pinLegacySplit(event.card.snailCount, false);
     addAudit({
       kind: 'note',
       raceNo: 0,
