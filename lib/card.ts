@@ -50,9 +50,12 @@ export const clampSnailCount = (value: unknown): number => {
 /**
  * How the snails on sale are split into races. 'even' is tonight's rule: equal
  * fields whenever the count allows. 'legacy' is the rule before 5.4 (the
- * fewest races of ten, the rest within one of each other) and is kept only
- * for a night that already ran a race under it, so a reload cannot move a
- * snail into a different race from the one it was sold into.
+ * fewest races of ten, the rest within one of each other) and is kept for a
+ * night that already ran a race under it, so a reload cannot move a snail
+ * into a different race from the one it was sold into. Clearing a rehearsal
+ * keeps it too: tickets, tote sales and bids survive the clear and name
+ * lanes under it. Only resizing the card (locked while any of those exist)
+ * moves a card onto the even rule.
  */
 export type CardSplit = 'even' | 'legacy';
 

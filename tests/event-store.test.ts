@@ -147,7 +147,13 @@ test('a saved night that already raced keeps the races its snails were sold into
   /* A voided race does not lock the old split in. */
   assert.ok(restore(JSON.stringify({ ...state, card, history: [{ ...ran, void: true }] })));
   assert.equal(currentState().card.split, 'even');
-  /* Resizing (only possible before a race) always lands on the equal split. */
+  /* Clearing a rehearsal keeps the pinned split: tickets and bids survive the clear. */
+  assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
+  setState({ history: [], raceNumber: 0 });
+  assert.equal(currentState().card.split, 'legacy');
+  assert.equal(currentState().plannedRaces, 7);
+  assert.equal(describeLayout(cardLayout(64)), '7 races: 1 of 10, 6 of 9');
+  /* Resizing (only possible before a race and with no ticket sold) lands on the equal split. */
   assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
   const resized = resizeCard(currentState().card, 72);
   assert.ok(!('error' in resized) && resized.split === 'even');
