@@ -10,8 +10,6 @@ import { Telecast } from './Telecast';
 import { Sidescroller } from './Sidescroller';
 import { WinnerOverlay } from './WinnerOverlay';
 import { ControlDrawer } from './ControlDrawer';
-import { ThemeToggle } from './ThemeToggle';
-import { AudioModePicker } from './AudioModePicker';
 import { addAudit, audioPatch, currentState, hydrate, useEvent, setState } from '@/lib/event-store';
 import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
@@ -904,9 +902,7 @@ export function Stage() {
     if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.eventMode === 'recorded' && event.packCurrent) return;
     const back: Partial<Record<ShowPhase, ShowPhase>> = {
       racecard: 'lobby',
-      market: 'racecard',
       race: 'racecard',
-      intermission: 'lobby',
       finale: 'championship',
     };
     const prev = back[event.showPhase];
@@ -1123,6 +1119,8 @@ export function Stage() {
         const order: AudioMode[] = ['music', 'commentary', 'both', 'off'];
         setState(audioPatch(order[(order.indexOf(event.audioMode) + 1) % order.length]));
       }
+      else if (k === 'v') setCameraFull(!(fullCourse || event.cameraMode === 'full'));
+      else if (k === 'd') openModerator();
       else if (k === 'f' && e.currentTarget === window) void toggleFullscreen();
     };
     window.addEventListener('keydown', onKey);
@@ -1132,7 +1130,7 @@ export function Stage() {
       try { moderator.target?.window.removeEventListener('keydown', onKey); }
       catch { /* A desk navigated to another origin no longer exposes its listeners. */ }
     };
-  }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.audioMode]);
+  }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.audioMode, event.cameraMode, fullCourse, setCameraFull, openModerator]);
 
   /* ── The snail link ──────────────────────────────────────────────────── */
 
@@ -1194,12 +1192,12 @@ export function Stage() {
     >
       {!audienceOnly && (event.showPhase === 'race' || event.showPhase === 'results') ? (
         <a className="skip-link" href="#controls">
-          Skip to moderator controls
+          Skip to Admin
         </a>
       ) : null}
       <div className="aurora" aria-hidden="true" />
       <div className="projector-tools no-print" role="toolbar" aria-label="Projector display">
-        <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={openModerator}>{moderator.target ? 'Focus moderator window' : 'Open moderator window'}</button>
+        <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={openModerator}>{moderator.target ? 'Focus desk' : 'Open desk'} <kbd>D</kbd></button>
         <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={(e) => {
           const button = e.currentTarget;
           const pointer = e.detail > 0;
@@ -1214,42 +1212,9 @@ export function Stage() {
         inert={event.showPhase !== 'race' && event.showPhase !== 'results'}
         aria-hidden={event.showPhase !== 'race' && event.showPhase !== 'results'}
       >
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <header className="reveal flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
-          <div className="min-w-0">
-            <p className="eyebrow">{event.clubName}</p>
-            <h1 className="display mt-1.5 text-4xl sm:text-5xl lg:text-[3.4rem]">
-              {event.eventName}
-            </h1>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="chip-toggle pointer-events-none">
-              Race {shownRaceNo} of {event.plannedRaces}
-            </span>
-            {event.rehearsal ? (
-              <span className="chip-toggle pointer-events-none !text-(--bad)">REHEARSAL</span>
-            ) : null}
-            {sponsor ? (
-              <span className="sponsor-line" title="Race sponsor">
-                Sponsored by <b>{sponsor}</b>
-              </span>
-            ) : null}
-            <FeedPill status={feed.status} lastOk={feed.lastOk} />
-            <button
-              type="button"
-              className="chip-toggle"
-              aria-pressed={event.calm}
-              onClick={() => setState({ calm: !event.calm })}
-              title="Calm mode stops decorative motion (C)"
-            >
-              Calm
-            </button>
-            <AudioModePicker mode={event.audioMode} canSpeak={canSpeak} onChange={(mode) => { primeAudio(); if (mode === 'commentary' || mode === 'both') initVoice(); setState(audioPatch(mode)); }} />
-            <ThemeToggle />
-          </div>
-        </header>
-
+        {/* The projector shows the telecast and nothing else; its own title
+            bar names the club, the race and the clock. Settings live on the
+            desk and in Admin. */}
         {/* ── Stage body ─────────────────────────────────────────────── */}
         <main className="stage-main grid flex-1 gap-5">
           <div className="stage-track flex min-w-0 flex-col gap-4">
@@ -1264,7 +1229,6 @@ export function Stage() {
                   race={race}
                   surface={event.stageTheme}
                   laps={event.laps}
-                  chase={event.chaseCam}
                   cameraMode={event.cameraMode}
                   calm={event.calm}
                   clubName={event.clubName}
@@ -1335,8 +1299,12 @@ export function Stage() {
                 <button
                   type="button"
                   className={`btn btn-go ${!racing ? 'btn-pulse' : ''}`}
-                  onClick={() => {
+                  onClick={(e) => {
+                    /* A clicked button keeps focus, and a focused strip stays
+                       over the course; the keyboard still works unfocused. */
+                    e.currentTarget.blur();
                     if (voidRecovery) void retryVoidRecovery();
+                    else if (race.phase === 'done') forwardAction();
                     else void startRace();
                   }}
                   disabled={startDisabled}
@@ -1350,7 +1318,7 @@ export function Stage() {
                     : heldRaceStart
                       ? 'Retry lock'
                     : race.phase === 'done'
-                      ? 'Next race'
+                      ? 'Next'
                       : race.phase === 'void'
                         ? 'Re-run race'
                         : 'Start race'}{' '}
@@ -1374,7 +1342,7 @@ export function Stage() {
                     Void race
                   </button>
                 ) : null}
-                <button type="button" className="btn btn-ghost" onClick={resetRace} disabled={racing}>
+                <button type="button" className="btn btn-ghost" onClick={(e) => { e.currentTarget.blur(); resetRace(); }} disabled={racing}>
                   Reset
                 </button>
                 <button
@@ -1384,7 +1352,7 @@ export function Stage() {
                   aria-expanded={drawerOpen}
                   aria-controls="controls"
                 >
-                  Controls <kbd>M</kbd>
+                  Admin <kbd>M</kbd>
                 </button>
               </div>
             </div>
@@ -1414,7 +1382,7 @@ export function Stage() {
             aria-expanded={drawerOpen}
             onClick={() => setDrawerOpen((v) => !v)}
           >
-            Controls <kbd>M</kbd>
+            Admin <kbd>M</kbd>
           </button>
           <button type="button" className={`btn btn-go`} disabled={!clientReady} onClick={forwardAction}>
             {showPhaseSpec(event.showPhase).advance} <kbd>Space</kbd>
@@ -1488,7 +1456,7 @@ export function Stage() {
           holding={holding} fullCourse={fullCourse || event.cameraMode === 'full'} locked={racing || event.eventMode === 'recorded' && event.packCurrent !== null}
           primaryLabel={event.showPhase !== 'race' ? showPhaseSpec(event.showPhase).advance : voidRecovery ? 'Retry void/rearm' : heldRaceStart ? 'Retry lock' : startDisabled ? race.phase === 'running' ? 'Race in progress' : 'Preparing race' : 'Start race'}
           primaryDisabled={!clientReady || (event.showPhase === 'race' ? startDisabled || event.eventMode === 'recorded' : racing || event.showPhase === 'finale')}
-          canBack={!racing && ['racecard', 'market', 'race', 'intermission', 'finale'].includes(event.showPhase)}
+          canBack={!racing && ['racecard', 'race', 'finale'].includes(event.showPhase)}
           startError={startError} winnerOpen={overlayOpen}
           onPrimary={forwardAction} onBack={backAction}
           onSettings={() => setDrawerOpen(true)}
@@ -1549,36 +1517,3 @@ function StateBanner({ phase }: { phase: string }) {
   return <span className={`state-banner state-${phase}`}>{label}</span>;
 }
 
-function FeedPill({ status, lastOk }: { status: string; lastOk: number }) {
-  const label =
-    status === 'live'
-      ? 'Stripe live'
-      : status === 'offline'
-        ? 'Stripe offline'
-        : status === 'unconfigured'
-          ? 'Card donations off'
-          : 'Connecting';
-
-  const tone =
-    status === 'live'
-      ? '!text-(--ok)'
-      : status === 'offline'
-        ? '!text-(--bad)'
-        : '';
-
-  return (
-    <span
-      className={`chip-toggle pointer-events-auto cursor-default ${tone}`}
-      title={
-        status === 'live'
-          ? `Last successful read ${new Date(lastOk).toLocaleTimeString('en-AU')}`
-          : status === 'unconfigured'
-            ? 'STRIPE_SECRET_KEY is not set, so only cash entries are counted.'
-            : 'The last read of Stripe failed. The board is showing the previous snapshot.'
-      }
-    >
-      {status === 'live' ? <span className="live-dot" aria-hidden="true" /> : null}
-      {label}
-    </span>
-  );
-}

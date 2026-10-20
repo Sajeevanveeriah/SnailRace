@@ -47,7 +47,16 @@ export type PropGlyphId =
   | 'kookaburra'
   | 'trampoline'
   | 'wombat'
-  | 'mower';
+  | 'mower'
+  | 'pitch-roller'
+  | 'lettuce'
+  | 'plague'
+  | 'cricket-ball'
+  | 'sprinkler'
+  | 'dog'
+  | 'magpie'
+  | 'boot'
+  | 'bee';
 
 const ink = '#24171b';
 const cream = '#fff9ed';
@@ -378,6 +387,100 @@ export const PROP_GLYPHS: Record<PropGlyphId, ReactNode> = {
       <circle cx="14" cy="-6" r="6" fill={ink} />
       <circle cx="-16" cy="-6" r="3" fill={cream} />
       <path d="M-34 -10 l-6 -4 M-34 -4 l-8 0 M-34 2 l-6 3" stroke="#7cc96a" strokeWidth="2.5" strokeLinecap="round" />
+    </g>
+  ),
+  /* The set pieces that used to be painted photographs, redrawn flat so
+     they sit in the same cartoon as the snails and the town. */
+  'pitch-roller': (
+    <g>
+      <path d="M-12 -40 L-34 -58" stroke={ink} strokeWidth="4" strokeLinecap="round" />
+      <path d="M-34 -58 L-42 -56" stroke={ink} strokeWidth="4" strokeLinecap="round" />
+      <rect x="-14" y="-46" width="40" height="20" rx="4" fill="#2f8f3a" stroke={ink} strokeWidth="2" />
+      <circle cx="12" cy="-20" r="20" fill="#9c5a3c" stroke={ink} strokeWidth="2.2" />
+      <circle cx="12" cy="-20" r="13" fill="#b86f49" stroke={ink} strokeWidth="1.5" />
+      <circle cx="12" cy="-20" r="3" fill={ink} />
+      <path d="M12 -33 v26 M-1 -20 h26" stroke={ink} strokeWidth="1.5" opacity=".5" />
+      <circle cx="-20" cy="-10" r="8" fill="#3a3f4a" stroke={ink} strokeWidth="2" />
+      <circle cx="-20" cy="-10" r="2.5" fill={cream} />
+    </g>
+  ),
+  lettuce: (
+    <g>
+      <rect x="-28" y="-22" width="56" height="22" rx="3" fill="#b07a3c" stroke={ink} strokeWidth="2" />
+      <path d="M-28 -14 h56 M-28 -7 h56" stroke={ink} strokeWidth="1.2" opacity=".5" />
+      <path d="M-26 -22 q-8 -16 6 -22 q4 -12 16 -8 q10 -10 20 0 q12 -4 12 10 q8 8 -4 20 Z" fill="#8ee05d" stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M-18 -30 q6 -8 14 -2 M2 -38 q8 -6 14 2" fill="none" stroke="#4fae2e" strokeWidth="2" strokeLinecap="round" />
+    </g>
+  ),
+  plague: (
+    <g>
+      <path d="M-30 -14 a12 12 0 0 1 10 -22 a14 14 0 0 1 26 -6 a13 13 0 0 1 22 10 a10 10 0 0 1 0 20 H-24 a9 9 0 0 1 -6 -2 Z" fill="#8c57c7" stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M-16 -22 a7 7 0 1 1 14 0 a7 7 0 1 1 -14 0 M8 -28 a5 5 0 1 1 10 0 a5 5 0 1 1 -10 0" fill="#b7ee63" stroke={ink} strokeWidth="1.5" />
+      <circle cx="-9" cy="-22" r="2" fill={ink} />
+      <circle cx="13" cy="-28" r="1.6" fill={ink} />
+      <path d="M-22 -4 q-3 6 0 10 M0 -2 q-3 6 0 10 M20 -4 q-3 6 0 10" fill="none" stroke="#b7ee63" strokeWidth="2.5" strokeLinecap="round" />
+    </g>
+  ),
+  'cricket-ball': (
+    <g>
+      <circle cx="0" cy="-18" r="18" fill={maroon} stroke={ink} strokeWidth="2.2" />
+      <path d="M-6 -34 q-6 16 0 32 M6 -34 q6 16 0 32" fill="none" stroke={cream} strokeWidth="1.6" strokeDasharray="2 2" />
+      <path d="M-28 -24 l-8 -2 M-30 -14 l-8 2 M-26 -6 l-6 4" stroke={ink} strokeWidth="2" strokeLinecap="round" opacity=".6" />
+    </g>
+  ),
+  sprinkler: (
+    <g>
+      <rect x="-4" y="-26" width="8" height="26" fill="#3a3f4a" stroke={ink} strokeWidth="1.5" />
+      <rect x="-12" y="-34" width="24" height="10" rx="3" fill="#6b7280" stroke={ink} strokeWidth="1.5" />
+      <path d="M-8 -36 q-16 -14 -28 -8 M0 -36 q0 -20 0 -26 M8 -36 q16 -14 28 -8" fill="none" stroke={blue} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="-30" cy="-50" r="2.5" fill={blue} />
+      <circle cx="30" cy="-50" r="2.5" fill={blue} />
+      <circle cx="0" cy="-66" r="2.5" fill={blue} />
+      <circle cx="-18" cy="-58" r="2" fill={blue} />
+      <circle cx="18" cy="-58" r="2" fill={blue} />
+    </g>
+  ),
+  dog: (
+    <g>
+      <path d="M-28 -6 q-4 -22 10 -24 h26 q12 0 14 12 l2 12 Z" fill="#d9a066" stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M-26 -6 v6 M-14 -6 v6 M10 -6 v6 M20 -6 v6" stroke={ink} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="24" cy="-32" r="11" fill="#d9a066" stroke={ink} strokeWidth="2" />
+      <path d="M14 -40 q-6 -10 2 -12 q4 4 2 12 Z" fill="#b5804a" stroke={ink} strokeWidth="1.5" />
+      <circle cx="33" cy="-32" r="2.5" fill={ink} />
+      <circle cx="27" cy="-36" r="1.6" fill={ink} />
+      <path d="M-28 -24 q-10 -6 -8 -16" fill="none" stroke={ink} strokeWidth="3" strokeLinecap="round" />
+      <path d="M30 -24 q4 4 0 6" fill="none" stroke="#e05a5a" strokeWidth="2.5" strokeLinecap="round" />
+    </g>
+  ),
+  magpie: (
+    <g>
+      <path d="M-26 -34 q10 -12 24 -8 l20 8 q6 2 10 10 l-6 2 l-14 -2 l-20 8 Z" fill={ink} stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M-14 -36 q8 -4 16 0 l-6 10 Z" fill={cream} />
+      <path d="M8 -28 l-10 14 l18 -6 Z" fill={cream} stroke={ink} strokeWidth="1" />
+      <circle cx="18" cy="-36" r="1.8" fill={cream} />
+      <path d="M28 -32 l10 2 l-10 3 Z" fill={gold} stroke={ink} strokeWidth="1" />
+      <path d="M-6 -46 q-2 -6 -8 -4 M-16 -50 q-2 -6 -8 -3" fill="none" stroke={ink} strokeWidth="2" strokeLinecap="round" opacity=".6" />
+    </g>
+  ),
+  boot: (
+    <g>
+      <path d="M-18 -54 h26 v26 q16 2 22 14 q2 8 -6 12 h-42 Z" fill="#6b4a2e" stroke={ink} strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M-20 -2 h50 q4 0 4 -4 v-2 h-54 Z" fill={ink} />
+      <path d="M-18 -54 h26 v6 h-26 Z" fill="#8a6540" />
+      <path d="M-10 -44 l12 -4 M-10 -36 l12 -4 M-10 -28 l12 -4" stroke={gold} strokeWidth="2" strokeLinecap="round" />
+      <circle cx="-12" cy="-45" r="1.6" fill={gold} />
+      <circle cx="2" cy="-49" r="1.6" fill={gold} />
+    </g>
+  ),
+  bee: (
+    <g>
+      <ellipse cx="0" cy="-28" rx="18" ry="12" fill={gold} stroke={ink} strokeWidth="2" />
+      <path d="M-8 -40 v24 M2 -40 v24 M11 -38 v20" stroke={ink} strokeWidth="4" />
+      <ellipse cx="-8" cy="-44" rx="10" ry="6" fill={cream} stroke={ink} strokeWidth="1.5" opacity=".9" />
+      <ellipse cx="8" cy="-44" rx="10" ry="6" fill={cream} stroke={ink} strokeWidth="1.5" opacity=".9" />
+      <circle cx="16" cy="-30" r="2" fill={ink} />
+      <path d="M18 -28 l8 2" stroke={ink} strokeWidth="2" strokeLinecap="round" />
+      <path d="M-26 -18 q-6 4 -10 10" fill="none" stroke={ink} strokeWidth="1.5" strokeDasharray="2 3" />
     </g>
   ),
 };

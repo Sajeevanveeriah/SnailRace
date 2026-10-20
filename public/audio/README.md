@@ -1,13 +1,39 @@
 # Your own audio (all optional)
 
-The app includes 28 generated English commentary clips in `commentary/`. They use
-HeyGen's public Dynamic Derek voice, generated on 2026-09-05. Text is documented in
-`lib/audio/voice-cues.ts`. No API key or speech service is called during a race.
+The app ships recorded race calls in `commentary/`. The script (31 cues, three takes
+each, written the way a club race caller talks) is in `lib/audio/voice-cues.ts`. The voice
+is Resemble AI Chatterbox (Hugging Face space `ResembleAI/Chatterbox`), cloned from the
+previous caller's clip so the sound of the room did not change, recorded 2026-10-20,
+encoded mono 24 kHz 64 kbps MP3 with leading and trailing silence trimmed. No API key or
+speech service is called during a race.
 
-Natural race caller is the default. Clips describe actual race events while captions
-identify the runners. A device voice can be selected in Controls to speak custom names.
-Only one line plays at a time; stale calls are dropped and the finish cancels prior audio.
-The clips are generated speech, not a live human commentator.
+The 2026-10-20 run hit the public space's daily GPU quota after seven clips (`start` x3,
+`ready` x3, `early` x1). Every other cue still plays its single 2026-09-05 HeyGen
+"Dynamic Derek" clip as take 1 - same meaning as the new script, older wording - and
+`quarter.mp3`, `half.mp3` and `threeQuarter.mp3` are placeholder copies of that caller's
+"still plenty of racing left" line. `RECORDED_TAKES` in `voice-cues.ts` says exactly
+which takes are real.
+
+To finish the recording, or to re-record after changing a line:
+
+    node --experimental-strip-types scripts/generate-commentary.mjs
+
+It needs a reachable Chatterbox Gradio endpoint (`CHATTERBOX_URL`, default the public
+space; `HF_TOKEN` raises the quota), a public URL for the reference voice
+(`VOICE_PROMPT_URL`) and an `ffmpeg` with libmp3lame. It records only the takes that are
+missing, stops after five failures in a row and keeps what it has, so run it again the next
+day to continue. It is deliberately not part of `npm run build` and cannot run in CI.
+
+Natural race caller is the default. The clips never say a snail's number or name: the
+caption on the rail carries those, so "Snail 7 hits the front" on screen is "And there's a
+new leader!" out of the speaker. The player picks a random take and never the same take
+twice running; the same cue is not repeated within 25 seconds (the finish excepted); the
+music ducks for the length of the clip. There is no filler line between calls - the caller
+speaks for the off, lead changes, overtakes, the quarter, half and three-quarter marks,
+each surprise, the straight, a close finish and the winner. A device voice can be selected
+in Controls to speak the captions, names and all. Only one line plays at a time; stale
+calls are dropped and the finish cancels prior audio. The clips are generated speech, not
+a live human commentator.
 
 Music and effects are synthesised by `lib/audio/` unless replacement files are supplied.
 
@@ -34,12 +60,24 @@ whatever is actually here - you never edit it. It exists so the app only ever re
 that are present, instead of probing for two dozen that are not and filling the console with
 404s. The practical consequence: **after adding or removing a file here, rebuild.**
 
-## One trade-off worth knowing
+## What the built-in music is
 
-The built-in race track is **adaptive**: it adds a backbeat at the quarter, an arpeggio at
-halfway and a tambourine in the run home, so the room hears how far into the race it is.
-A supplied `race.mp3` is a fixed loop and cannot do that. If you like that behaviour, leave
-`race.mp3` out and supply only `lobby.mp3`.
+The built-in race track is a 128 BPM race-night theme in A minor over a four-chord loop
+(Am, F, C, G): a filtered sawtooth bass, a synthesised kick and snare, swung hats, off-beat
+chord stabs and a written eight-bar lead, with a shared reverb and tempo-synced delay for
+air. It is **adaptive**: it starts with kick and bass, adds hats and stabs as the field gets
+going, the snare and the lead at halfway, and a shaker, tambourine and the lead an octave
+up in the run home, so the room hears how far into the race it is. A supplied `race.mp3`
+is a fixed loop and cannot do that. If you like that behaviour, leave `race.mp3` out and
+supply only `lobby.mp3`.
+
+The built-in lobby track is a warm 98 BPM groove - an electric-piano chord loop (Am7,
+Fmaj7, Dm7, G7), a walking bass and brushed hats - with no lead line, so people can talk
+over it. The winner sting is a short, bright major fanfare of about six seconds.
+
+When the caller speaks, the music ducks to no lower than 40% and comes back once the
+longest thing talking over it has finished; a short effect never cuts a commentary duck
+short.
 
 ## Where to find freely licensed music
 

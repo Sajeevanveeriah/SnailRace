@@ -24,6 +24,11 @@
  *            ├─> sfxBus   ─┼─> masterBus ─> limiter ─> speakers
  *            └─> crowdBus ─┘
  *
+ * Music voices can also tap a shared effects send - one convolver (a 1.6 s
+ * generated room) and one tempo-synced feedback delay, built once and
+ * returning into the music bus - so the soundtrack has air without each note
+ * paying for its own reverb. See `fxSend` and `ToneOpts.send`.
+ *
  * The limiter is not optional. Six synth voices, a crowd bed and a fanfare
  * can and do sum past 0 dBFS, and a projector's built-in speaker turns that
  * into a crackle that sounds like broken equipment rather than a loud room.
@@ -84,6 +89,20 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
 const buses = new Map<Bus, GainNode>();
+
+/*
+ * The shared effects return. Everything a voice sends here comes back into
+ * the music bus wet, so a duck or a slider move takes the tail with it.
+ */
+let fxSend: GainNode | null = null;
+let fxDelay: DelayNode | null = null;
+let fxReverbWet: GainNode | null = null;
+let fxDelayWet: GainNode | null = null;
+
+/** How much of the send comes back as room, and as echo. */
+export const FX_REVERB_WET = 0.22;
+export const FX_DELAY_WET = 0.16;
+export const FX_IMPULSE_SECONDS = 1.6;
 
 let enabled = true;
 let musicEnabled = true;
@@ -210,10 +229,94 @@ export function primeAudio(): AudioContext | null {
     buses.set(name, g);
   }
 
+  buildFx(ctx, buses.get('music')!);
+
   applyLevels();
   void probeSamples();
   return ctx;
 }
+
+/**
+ * The effects return: a convolver fed a generated impulse, and a feedback
+ * delay with a darkened loop so repeats sit behind the dry note.
+ *
+ * Built once per context, never per note. Convolution is the single most
+ * expensive thing in WebAudio, and a projector laptop running a race already
+ * has a canvas to paint. A browser that lacks any of these nodes just gets a
+ * dry mix - the send becomes a dead end rather than an exception.
+ */
+function buildFx(context: AudioContext, musicBus: GainNode): void {
+  try {
+    const send = context.createGain();
+    send.gain.value = 1;
+
+    const convolver = context.createConvolver();
+    convolver.buffer = impulseResponse(context, FX_IMPULSE_SECONDS);
+    const reverbWet = context.createGain();
+    reverbWet.gain.value = FX_REVERB_WET;
+    send.connect(convolver);
+    convolver.connect(reverbWet);
+    reverbWet.connect(musicBus);
+
+    const delay = context.createDelay(2);
+    delay.delayTime.value = 0.35;
+    const feedback = context.createGain();
+    feedback.gain.value = 0.34;
+    const darken = context.createBiquadFilter();
+    darken.type = 'lowpass';
+    darken.frequency.value = 2800;
+    const delayWet = context.createGain();
+    delayWet.gain.value = FX_DELAY_WET;
+    send.connect(delay);
+    delay.connect(darken);
+    darken.connect(feedback);
+    feedback.connect(delay);
+    darken.connect(delayWet);
+    delayWet.connect(musicBus);
+
+    fxSend = send;
+    fxDelay = delay;
+    fxReverbWet = reverbWet;
+    fxDelayWet = delayWet;
+  } catch {
+    fxSend = null;
+    fxDelay = null;
+    fxReverbWet = null;
+    fxDelayWet = null;
+  }
+}
+
+/**
+ * A room, synthesised: stereo noise under an exponential decay. Uncorrelated
+ * left and right is what makes it read as space rather than as a slapback.
+ */
+function impulseResponse(context: AudioContext, seconds: number): AudioBuffer {
+  const frames = Math.max(1, Math.floor(context.sampleRate * seconds));
+  const buf = context.createBuffer(2, frames, context.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < frames; i++) {
+      const env = Math.exp((-6.5 * i) / frames);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+  }
+  return buf;
+}
+
+/** Sync the echo to the track. A dotted eighth is the usual choice. */
+export function setFxDelayTime(seconds: number): void {
+  if (!ctx || !fxDelay) return;
+  fxDelay.delayTime.setTargetAtTime(Math.min(1.9, Math.max(0.01, seconds)), ctx.currentTime, 0.05);
+}
+
+/** True when the shared reverb and delay were built. */
+export const fxAvailable = (): boolean => fxSend !== null;
+
+/** The wet returns, for the sound-check panel and the tests. */
+export const fxLevels = (): { reverb: number; delay: number } => ({
+  reverb: fxReverbWet?.gain.value ?? 0,
+  delay: fxDelayWet?.gain.value ?? 0,
+});
 
 export function busNode(bus: Bus): GainNode | null {
   return buses.get(bus) ?? null;
@@ -316,6 +419,22 @@ export interface ToneOpts {
   /** Fraction of the note spent rising to peak. */
   attack?: number;
   detune?: number;
+  /**
+   * Spread in cents between two oscillators a hair apart. The classic way to
+   * make a bare sawtooth sound like a synth rather than a test tone.
+   */
+  unison?: number;
+  /** A lowpass on the voice, in Hz. */
+  lowpass?: number;
+  /** Sweep the lowpass to this across the note: open-to-closed is a pluck. */
+  lowpassTo?: number;
+  q?: number;
+  /** -1 left to 1 right. */
+  pan?: number;
+  /** 0 to 1 of the voice sent to the shared reverb and delay. */
+  send?: number;
+  /** Slow amplitude wobble, for electric-piano shimmer. */
+  tremolo?: { rate: number; depth: number };
 }
 
 /** One synth voice. The unit every synthesised cue is built from. */
@@ -327,23 +446,81 @@ export function tone(o: ToneOpts): void {
 
   const t0 = ctx.currentTime + (o.at ?? 0);
   const dur = o.dur ?? 0.2;
-  const peak = Math.max(0.0002, o.peak ?? 0.1);
+  /* Two oscillators sum to twice the level; pull the pair back. */
+  const peak = Math.max(0.0002, (o.peak ?? 0.1) * (o.unison ? 0.6 : 1));
   const attack = Math.max(0.004, (o.attack ?? 0.06) * dur);
-
-  const osc = ctx.createOscillator();
-  osc.type = o.type ?? 'sine';
-  osc.frequency.setValueAtTime(o.freq, t0);
-  if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.slideTo), t0 + dur);
-  if (o.detune) osc.detune.setValueAtTime(o.detune, t0);
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0.0001, t0);
   gain.gain.exponentialRampToValueAtTime(peak, t0 + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
-  osc.connect(gain).connect(out);
-  osc.start(t0);
-  osc.stop(t0 + dur + 0.05);
+  const spreads = o.unison ? [-o.unison / 2, o.unison / 2] : [0];
+  for (const spread of spreads) {
+    const osc = ctx.createOscillator();
+    osc.type = o.type ?? 'sine';
+    osc.frequency.setValueAtTime(o.freq, t0);
+    if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.slideTo), t0 + dur);
+    const cents = (o.detune ?? 0) + spread;
+    if (cents) osc.detune.setValueAtTime(cents, t0);
+    osc.connect(gain);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.05);
+  }
+
+  let head: AudioNode = gain;
+
+  if (o.lowpass) {
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(o.lowpass, t0);
+    if (o.lowpassTo) filter.frequency.exponentialRampToValueAtTime(Math.max(30, o.lowpassTo), t0 + dur);
+    filter.Q.value = o.q ?? 1;
+    head.connect(filter);
+    head = filter;
+  }
+
+  if (o.tremolo) {
+    /* Carrier gain sits at 1 - depth and the LFO adds up to +depth, so the
+       wobble never pushes past unity or below silence. */
+    const trem = ctx.createGain();
+    trem.gain.setValueAtTime(1 - o.tremolo.depth, t0);
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(o.tremolo.rate, t0);
+    const lfoAmount = ctx.createGain();
+    lfoAmount.gain.setValueAtTime(o.tremolo.depth, t0);
+    lfo.connect(lfoAmount);
+    lfoAmount.connect(trem.gain);
+    lfo.start(t0);
+    lfo.stop(t0 + dur + 0.05);
+    head.connect(trem);
+    head = trem;
+  }
+
+  route(ctx, head, out, o.pan, o.send);
+}
+
+/**
+ * The last leg every voice shares: optional pan, the dry path to its bus, and
+ * an optional tap into the shared effects. Returns the node now feeding the
+ * bus so a caller can keep chaining if it ever needs to.
+ */
+function route(context: AudioContext, head: AudioNode, out: GainNode, pan?: number, send?: number): AudioNode {
+  if (pan && typeof context.createStereoPanner === 'function') {
+    const panner = context.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, pan));
+    head.connect(panner);
+    head = panner;
+  }
+  head.connect(out);
+  if (send && fxSend && out === buses.get('music')) {
+    const tap = context.createGain();
+    tap.gain.value = Math.max(0, Math.min(1, send));
+    head.connect(tap);
+    tap.connect(fxSend);
+  }
+  return head;
 }
 
 /**
@@ -364,6 +541,10 @@ export interface NoiseOpts {
   /** Sweep the filter across the burst, for a swell or a fall. */
   sweepTo?: number;
   attack?: number;
+  /** -1 left to 1 right. */
+  pan?: number;
+  /** 0 to 1 of the burst sent to the shared reverb and delay. */
+  send?: number;
 }
 
 export function noise(o: NoiseOpts = {}): void {
@@ -392,7 +573,8 @@ export function noise(o: NoiseOpts = {}): void {
   gain.gain.exponentialRampToValueAtTime(peak, t0 + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
-  src.connect(filter).connect(gain).connect(out);
+  src.connect(filter).connect(gain);
+  route(ctx, gain, out, o.pan, o.send);
   src.start(t0);
   src.stop(t0 + dur + 0.05);
 }

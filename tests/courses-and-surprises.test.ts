@@ -33,14 +33,18 @@ test('every authored surprise has an explicit broadcast symbol or production pro
     assert.ok(presentation?.art || presentation?.glyph, `${spec.label} retirement has no prop`);
   }
 
+  /* The set pieces are drawn flat with the rest of the course, not pasted on as photographs. */
   assert.equal(
-    presentationForMoment({ id: 1, text: 'Incoming', tone: 'bad', label: 'LETTUCE BREAK' })?.art,
-    'lettuce-crate',
+    presentationForMoment({ id: 1, text: 'Incoming', tone: 'bad', label: 'LETTUCE BREAK' })?.glyph,
+    'lettuce',
   );
   assert.equal(
-    presentationForMoment({ id: 1, text: 'Incoming', tone: 'bad', label: 'THE PLAGUE' })?.art,
-    'plague-cloud',
+    presentationForMoment({ id: 1, text: 'Incoming', tone: 'bad', label: 'THE PLAGUE' })?.glyph,
+    'plague',
   );
+  for (const spec of [...EVENT_SPECS, ...SWARM_SPECS]) {
+    assert.equal(presentationForMoment({ id: 1, text: spec.calls[0], tone: 'bad', label: spec.label, kind: spec.kind })?.art, null, `${spec.label} still uses a photograph`);
+  }
 });
 
 test('the second surprise book is dealt alongside the first and stays original', () => {

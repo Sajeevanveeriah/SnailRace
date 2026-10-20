@@ -13,7 +13,9 @@ export type SurpriseArtId =
   | 'plague-cloud';
 
 export interface SurprisePresentation {
-  /** Painted production art, when a PNG exists for the set piece. */
+  /** Painted production art. No current surprise uses one: the course is
+      drawn flat, so a photograph pasted on it looked pasted on. Kept for
+      archived plans and the oval's older painter. */
   art: SurpriseArtId | null;
   /** Vector prop drawn in code; preferred over the text symbol on the course. */
   glyph?: PropGlyphId;
@@ -34,7 +36,7 @@ const PRESENTATIONS: ReadonlyArray<{
 }> = [
   /* The twists: physical gags, matched first so their wording cannot fall
      through to an older entry. */
-  { matches: ['BIG BOOT'], value: { art: 'groundskeeper-boot', symbol: '🥾', cue: 'stomp' } },
+  { matches: ['BIG BOOT'], value: { art: null, glyph: 'boot', symbol: '🥾', cue: 'stomp' } },
   { matches: ['SNAIL ALE'], value: { art: null, glyph: 'ale', symbol: '🍺', cue: 'drop' } },
   { matches: ['WATERMELON'], value: { art: null, glyph: 'watermelon', symbol: '🍉', cue: 'drop' } },
   { matches: ['BOOM GATE'], value: { art: null, glyph: 'boom-gate', symbol: '🚧', cue: 'gate' } },
@@ -43,7 +45,7 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['CATERPILLAR'], value: { art: null, glyph: 'caterpillar', symbol: '🐛', cue: 'cross' } },
   { matches: ['SPEED CAMERA'], value: { art: null, glyph: 'speed-camera', symbol: '📸', cue: 'burst' } },
   { matches: ['THE BAT'], value: { art: null, glyph: 'bat', symbol: '🏏', cue: 'swing' } },
-  { matches: ['CONTAGIOUS'], value: { art: 'plague-cloud', symbol: '☣', cue: 'burst' } },
+  { matches: ['CONTAGIOUS'], value: { art: null, glyph: 'plague', symbol: '☣', cue: 'burst' } },
   { matches: ['SAUSAGE SIZZLE'], value: { art: null, glyph: 'sausage', symbol: '🌭', cue: 'drop' } },
   { matches: ['KOOKABURRA'], value: { art: null, glyph: 'kookaburra', symbol: '🐦', cue: 'drop' } },
   { matches: ['TRAMPOLINE'], value: { art: null, glyph: 'trampoline', symbol: '⤴', cue: 'launch' } },
@@ -59,16 +61,16 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['CHEER SQUAD'], value: { art: null, glyph: 'megaphone', symbol: '📣', cue: 'burst' } },
   { matches: ['ROAD WORKS'], value: { art: null, glyph: 'warning', symbol: '⚠', cue: 'drop' } },
 
-  /* Painted set pieces. */
-  { matches: ['CRICKET BALL'], value: { art: 'cricket-ball', symbol: '●', cue: 'roll' } },
-  { matches: ['SPRINKLER'], value: { art: 'sprinkler', symbol: '💦', cue: 'spray' } },
-  { matches: ['PITCH ROLLER'], value: { art: 'pitch-roller', symbol: '⚙', cue: 'cross' } },
-  { matches: ['DOG ON THE TRACK', 'CLUB DOG'], value: { art: 'club-dog', symbol: '🐕', cue: 'dash' } },
-  { matches: ['LETTUCE'], value: { art: 'lettuce-crate', symbol: '🥬', cue: 'drop' } },
-  { matches: ['MAGPIE', 'SWOOP'], value: { art: 'magpie', symbol: '🐦', cue: 'swoop' } },
-  { matches: ['GROUNDSKEEPER'], value: { art: 'groundskeeper-boot', symbol: '🥾', cue: 'cross' } },
-  { matches: ['BOUNDARY BEE'], value: { art: 'boundary-bee', symbol: '🐝', cue: 'swoop' } },
-  { matches: ['PLAGUE'], value: { art: 'plague-cloud', symbol: '☣', cue: 'burst' } },
+  /* The set pieces, drawn flat like everything else on the course. */
+  { matches: ['CRICKET BALL'], value: { art: null, glyph: 'cricket-ball', symbol: '●', cue: 'roll' } },
+  { matches: ['SPRINKLER'], value: { art: null, glyph: 'sprinkler', symbol: '💦', cue: 'spray' } },
+  { matches: ['PITCH ROLLER'], value: { art: null, glyph: 'pitch-roller', symbol: '⚙', cue: 'cross' } },
+  { matches: ['DOG ON THE TRACK', 'CLUB DOG'], value: { art: null, glyph: 'dog', symbol: '🐕', cue: 'dash' } },
+  { matches: ['LETTUCE'], value: { art: null, glyph: 'lettuce', symbol: '🥬', cue: 'drop' } },
+  { matches: ['MAGPIE', 'SWOOP'], value: { art: null, glyph: 'magpie', symbol: '🐦', cue: 'swoop' } },
+  { matches: ['GROUNDSKEEPER'], value: { art: null, glyph: 'boot', symbol: '🥾', cue: 'cross' } },
+  { matches: ['BOUNDARY BEE'], value: { art: null, glyph: 'bee', symbol: '🐝', cue: 'swoop' } },
+  { matches: ['PLAGUE'], value: { art: null, glyph: 'plague', symbol: '☣', cue: 'burst' } },
 
   /* The second book: vector props. */
   { matches: ['ICE CREAM'], value: { art: null, glyph: 'ice-cream-van', symbol: '🍦', cue: 'cross' } },

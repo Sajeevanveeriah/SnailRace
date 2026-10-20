@@ -7,9 +7,10 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const openControls = async (page: Page) => {
-  await page.getByRole('button', { name: /Controls/i }).click();
-  const controls = page.getByRole('region', { name: 'Moderator controls', includeHidden: true });
+  await page.getByRole('button', { name: /Admin/i }).click();
+  const controls = page.getByRole('region', { name: 'Admin', includeHidden: true });
   await expect(controls).toBeVisible();
+  await controls.getByRole('tab', { name: /Money/ }).click();
   return controls;
 };
 
@@ -48,6 +49,7 @@ test('an attested tote tallies tickets, settles from the result and prints', asy
   await tally.getByRole('button', { name: 'Add five tickets to Snail 3', exact: true }).click();
   await expect(tally).toContainText('9 sold · pool $18.00 · $9.00 to winners');
 
+  await controls.getByRole('tab', { name: /Setup/ }).click();
   await controls.getByLabel(/Lap length|Race length/).selectOption('7000');
   { const laps = controls.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await controls.getByRole('button', { name: /Hide/i }).click();

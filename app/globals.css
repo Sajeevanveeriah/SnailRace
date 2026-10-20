@@ -2055,8 +2055,10 @@ kbd {
   opacity: 0;
   transition: opacity 0.25s ease;
 }
-.cinema .stage-bar:hover,
-.cinema .stage-bar:focus-within { opacity: 1; }
+/* Only the mouse brings the strip back: a button left focused after a
+   click used to keep it drawn over the course for the whole race. */
+.cinema .stage-bar:hover { opacity: 1; }
+.cinema .stage-bar:has(:focus-visible) { opacity: 1; }
 
 /* In a big field only the runners in contention are named on the track. The
    rest are carried by the running order, exactly as a broadcast does it. */
@@ -2427,3 +2429,30 @@ kbd {
 .show-racecard-panel .show-runner-grid-dense { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .show-racecard-panel .show-runner-grid-dense .show-runner-art { height: clamp(44px, 6vw, 64px); }
 .show-racecard-panel .show-runner-grid-dense .show-runner-card { padding: .4rem .5rem; }
+
+/* Admin tabs: four doors into the settings, not one long scroll. */
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tx) 6%, transparent);
+}
+.admin-tab {
+  flex: 1 1 140px;
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: calc(var(--radius-md) - 4px);
+  border: 1px solid transparent;
+  text-align: left;
+  font-weight: 700;
+  color: var(--tx);
+  cursor: pointer;
+  background: transparent;
+}
+.admin-tab small { font-size: 11px; font-weight: 500; color: color-mix(in srgb, var(--tx) 55%, transparent); }
+.admin-tab.on { background: var(--card); border-color: var(--hairline); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+.admin-tab:focus-visible { outline: 3px solid var(--ndcc-gold); outline-offset: 2px; }

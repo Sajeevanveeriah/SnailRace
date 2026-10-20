@@ -95,7 +95,6 @@ export function freshState(): EventState {
     courseId: 'boundary-oval',
     trackDesigns: null,
     laps: 3,
-    chaseCam: true,
     surprises: true,
     raceType: 'Heat',
     raceNumber: 0,

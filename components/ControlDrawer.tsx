@@ -51,6 +51,21 @@ import type { Donation } from '@/lib/types';
  *     it in the ledger, because the club has to reconcile at the end of the
  *     night against Stripe and the cash tin.
  */
+type AdminTab = 'setup' | 'money' | 'night' | 'advanced';
+
+/**
+ * Admin is everything a volunteer does not touch mid-race, in four tabs:
+ * what the night is, the money, the records, and the tools that are rarely
+ * needed. The desk has the live controls; nothing here is needed during a
+ * race.
+ */
+const ADMIN_TABS: { id: AdminTab; label: string; hint: string }[] = [
+  { id: 'setup', label: 'Setup', hint: 'Event, race, card, sound' },
+  { id: 'money', label: 'Money', hint: 'Cash tin, tote, ledger' },
+  { id: 'night', label: 'Night', hint: 'Results, backups, exports' },
+  { id: 'advanced', label: 'Advanced', hint: 'Phone Play, packs, preflight' },
+];
+
 export function ControlDrawer({
   open,
   onClose,
@@ -84,6 +99,7 @@ export function ControlDrawer({
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [cashLane, setCashLane] = useState(0);
+  const [tab, setTab] = useState<AdminTab>('setup');
   const [cashName, setCashName] = useState('');
   const [cashAmount, setCashAmount] = useState('10');
   const [seedInput, setSeedInput] = useState('');
@@ -643,15 +659,15 @@ export function ControlDrawer({
       <section
         id="controls"
         ref={controlsRef}
-        className={`drawer glass glass-strong no-print ${open ? 'open' : ''}`}
-        aria-label="Moderator controls"
+        className={`drawer no-print ${open ? 'open' : ''}`}
+        aria-label="Admin"
         aria-hidden={!open}
         inert={!open}
       >
         <div className="mx-auto max-w-[1500px] p-5 sm:p-7">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold">Moderator controls</h2>
+              <h2 className="text-xl font-bold">Admin</h2>
               <p className="num text-xs text-(--tx)/50">
                 {moneyShort(cardCents)} on card, {moneyShort(cashCents)} cash,{' '}
                 {stripeDonations.length} card {stripeDonations.length === 1 ? 'entry' : 'entries'}
@@ -668,7 +684,24 @@ export function ControlDrawer({
             </p>
           ) : null}
 
+          <div className="admin-tabs" role="tablist" aria-label="Admin sections">
+            {ADMIN_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                className={`admin-tab ${tab === t.id ? 'on' : ''}`}
+                onClick={() => setTab(t.id)}
+              >
+                {t.label}
+                <small>{t.hint}</small>
+              </button>
+            ))}
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="contents" hidden={tab !== 'money'}>
             {/* ── Cash tin ─────────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Cash tin</h3>
@@ -728,9 +761,13 @@ export function ControlDrawer({
               </div>
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'money'}>
             {/* ── Permit-gated cash tote ───────────────────────────── */}
             <CashTotePanel nextRaceNo={nextRaceNo} locked={locked} />
 
+            </div>
+            <div className="contents" hidden={tab !== 'setup'}>
             {/* ── Event identity and stage look ────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Event</h3>
@@ -853,6 +890,8 @@ export function ControlDrawer({
               </div>
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'setup'}>
             {/* ── Race setup ───────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Race setup</h3>
@@ -953,6 +992,8 @@ export function ControlDrawer({
               </p>
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'setup'}>
             {/* ── Run of show ──────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Run of show</h3>
@@ -1022,6 +1063,8 @@ export function ControlDrawer({
               </p>
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'advanced'}>
             {/* ── Phone Play ───────────────────────────────────────── */}
             <section className="panel">
               <div className="mb-3 flex items-baseline justify-between gap-2">
@@ -1041,6 +1084,8 @@ export function ControlDrawer({
               />
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'advanced'}>
             {/* ── Race Pack (recorded mode) ────────────────────────── */}
             {event.eventMode === 'recorded' ? (
               <section className="panel lg:col-span-2">
@@ -1049,12 +1094,16 @@ export function ControlDrawer({
               </section>
             ) : null}
 
+            </div>
+            <div className="contents" hidden={tab !== 'advanced'}>
             {/* ── Preflight ────────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Preflight</h3>
               <Preflight />
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'night'}>
             {/* ── Saved nights ─────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-1 font-semibold">Saved nights</h3>
@@ -1109,6 +1158,8 @@ export function ControlDrawer({
               )}
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'setup'}>
             {/* ── Sound ────────────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Sound</h3>
@@ -1235,6 +1286,8 @@ export function ControlDrawer({
               </div>
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'setup'}>
             {/* ── The card ─────────────────────────────────────────── */}
             <section className="panel lg:col-span-2" aria-label="The card">
               <h3 className="mb-3 font-semibold">The card</h3>
@@ -1277,6 +1330,8 @@ export function ControlDrawer({
 
             <QuaddieSettingsPanel event={event} locked={locked} />
 
+            </div>
+            <div className="contents" hidden={tab !== 'money'}>
             {/* ── Ledger ───────────────────────────────────────────── */}
             <section className="panel lg:col-span-2">
               <h3 className="mb-3 font-semibold">
@@ -1340,6 +1395,8 @@ export function ControlDrawer({
               </div>
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'night'}>
             {/* ── Results ──────────────────────────────────────────── */}
             <section className="panel">
               <div className="mb-3 flex items-baseline justify-between gap-2">
@@ -1408,6 +1465,8 @@ export function ControlDrawer({
               </p>
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'money'}>
             {/* ── Fun-chip settlement ──────────────────────────────── */}
             <section className="panel">
               <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -1454,6 +1513,8 @@ export function ControlDrawer({
               )}
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'night'}>
             {/* ── Audit trail ──────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-1 font-semibold">Audit trail</h3>
@@ -1491,6 +1552,8 @@ export function ControlDrawer({
               )}
             </section>
 
+            </div>
+            <div className="contents" hidden={tab !== 'night'}>
             {/* ── End of night ─────────────────────────────────────── */}
             <section className="panel lg:col-span-2 xl:col-span-3">
               <h3 className="mb-3 font-semibold">End of night</h3>
@@ -1578,6 +1641,7 @@ export function ControlDrawer({
                 </button>
               </div>
             </section>
+            </div>
           </div>
         </div>
       </section>

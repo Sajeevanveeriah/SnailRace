@@ -142,12 +142,8 @@ export function WinnerOverlay({
                 aria-hidden="true"
               />
               <span className="truncate font-medium">{r.name}</span>
-              <span className="num ml-auto text-(--tx)/45">
-                {r.finishMs !== null
-                  ? `${(r.finishMs / 1000).toFixed(2)}s`
-                  : r.status === 'retired'
-                    ? 'RET'
-                    : `${Math.round((r.progressAtStop ?? 0) * 100)}% at line`}
+              <span className="ml-auto truncate text-(--tx)/55">
+                {r.status === 'retired' ? 'Retired' : owners[r.lane]?.trim() ?? ''}
               </span>
             </li>
           ))}
