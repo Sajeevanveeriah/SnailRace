@@ -372,6 +372,8 @@ interface StagedTwist {
 const EFFECT_ON_AIR_MS = 2800;
 /** A breath between one story parking and the next INCOMING card. */
 const STORY_GAP_MS = 400;
+/** The least a landed card stays up when the next hit arrives on its heels. */
+const MIN_READ_MS = 900;
 
 interface StoryWindow {
   event: LockedRaceEvent;
@@ -384,18 +386,27 @@ interface StoryWindow {
 /**
  * The plan's twists laid out as one story at a time. Each twist's warning
  * waits for the previous story to park; a twist whose turn never comes
- * before its own hit simply lands without a warning. The consequence on
- * the snail is unchanged either way: this is only what the cards say.
+ * before its own hit goes on air at the hit with no warning, and the card
+ * before it parks early. The consequence on the snail is unchanged either
+ * way: this is only what the cards say, and the windows never overlap.
  */
 function storyWindows(events: LockedRaceEvent[]): StoryWindow[] {
   const sorted = [...events].sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
   const windows: StoryWindow[] = [];
   let busyUntil = -Infinity;
   for (const event of sorted) {
-    const onAirMs = Math.min(event.effectAtMs, Math.max(event.warningAtMs, busyUntil));
-    const offAirMs = event.effectAtMs + EFFECT_ON_AIR_MS;
+    const previous = windows[windows.length - 1];
+    /* The warning waits for the last card to park, but the hit is never
+       shown late: if it lands while that card is still up, the card is cut
+       short (after at least a readable beat) and this story takes over. */
+    let onAirMs = Math.min(event.effectAtMs, Math.max(event.warningAtMs, busyUntil));
+    if (previous && onAirMs < previous.offAirMs + STORY_GAP_MS) {
+      previous.offAirMs = Math.max(previous.event.effectAtMs + MIN_READ_MS, onAirMs - STORY_GAP_MS);
+      onAirMs = Math.max(onAirMs, previous.offAirMs + STORY_GAP_MS);
+    }
+    const offAirMs = Math.max(event.effectAtMs, onAirMs) + EFFECT_ON_AIR_MS;
     windows.push({ event, onAirMs, offAirMs });
-    busyUntil = Math.max(busyUntil, offAirMs + STORY_GAP_MS);
+    busyUntil = offAirMs + STORY_GAP_MS;
   }
   return windows;
 }

@@ -123,6 +123,9 @@ outer: for (const cue of cues) {
         console.error(`Stopping after ${failures} consecutive failures. Run again later to continue.`);
         break outer;
       }
+      /* The recorded count is contiguous from take 1: a later take must not
+         be claimed over a missing earlier one, so this cue ends here. */
+      break;
     }
   }
 }

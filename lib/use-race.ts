@@ -719,9 +719,10 @@ export function useRace(
        * photo call when two of them are under a length apart with the line
        * in sight. The caption names them; the clip does not.
        */
-      if (lead && !lead.done && race.placed === 0 && !race.runHomeCalled && lead.p > RUN_HOME_FROM) {
+      if (lead && !lead.done && race.placed === 0 && !race.runHomeCalled && lead.p > RUN_HOME_FROM && !surpriseOnAir) {
+        /* Committed only when said: a late card on air just delays it. */
         race.runHomeCalled = true;
-        if (!surpriseOnAir) call(`Here they come down the straight! ${lead.name} from ${chaser.name}!`, 'big', 'final');
+        call(`Here they come down the straight! ${lead.name} from ${chaser.name}!`, 'big', 'final');
       }
       if (
         lead && !lead.done && race.placed === 0 && !race.photoCalled &&

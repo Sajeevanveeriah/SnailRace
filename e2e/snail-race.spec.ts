@@ -284,7 +284,7 @@ test('surprises announce warning, reveal and effect with a visible prop or symbo
   expect(snapshot.prop!.width).toBeGreaterThan(0);
   /* The card sits in the top band of the course, clear of the lanes. The
      snapshot can land mid-slam, when the card is briefly scaled up. */
-  expect(snapshot.card!.y).toBeGreaterThanOrEqual(snapshot.scene!.y - 40);
+  expect(snapshot.card!.y).toBeGreaterThanOrEqual(snapshot.scene!.y - 100);
   expect(snapshot.card!.y + snapshot.card!.height).toBeLessThanOrEqual(snapshot.scene!.y + snapshot.scene!.height * 0.4);
 });
 

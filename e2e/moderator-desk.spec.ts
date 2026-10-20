@@ -195,12 +195,17 @@ test('the obstacle stays visible before the crowd-lift cue replaces it', async (
   const setback = /LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/;
   const effectAt = log.findIndex((row) => setback.test(row.label) && row.text.includes('TWIST'));
   expect(effectAt, JSON.stringify(log)).toBeGreaterThanOrEqual(0);
-  const replacedAt = log.findIndex((row, i) => i > effectAt && row.label !== log[effectAt].label);
-  expect(replacedAt, JSON.stringify(log)).toBeGreaterThan(effectAt);
+  /* The obstacle's card parks, there is a breath with no card, then the
+     chase's card goes up: one story at a time, never two. */
+  const parkedAt = log.findIndex((row, i) => i > effectAt && row.label !== log[effectAt].label);
+  expect(parkedAt, JSON.stringify(log)).toBeGreaterThan(effectAt);
   // A readable interval of actual animation, including any resulting overtake.
-  expect(log[replacedAt].t - log[effectAt].t, JSON.stringify(log.slice(effectAt, replacedAt + 1))).toBeGreaterThanOrEqual(650);
-  for (const row of log.slice(effectAt, replacedAt)) expect(row.prop, JSON.stringify(row)).toBe(true);
+  expect(log[parkedAt].t - log[effectAt].t, JSON.stringify(log.slice(effectAt, parkedAt + 1))).toBeGreaterThanOrEqual(650);
+  for (const row of log.slice(effectAt, parkedAt)) expect(row.prop, JSON.stringify(row)).toBe(true);
+  const replacedAt = log.findIndex((row, i) => i >= parkedAt && row.label !== '');
+  expect(replacedAt, JSON.stringify(log)).toBeGreaterThanOrEqual(parkedAt);
   expect(log[replacedAt].label).toBe('NDCC CROWD LIFT');
+  for (const row of log.slice(parkedAt, replacedAt)) expect(row.label, JSON.stringify(row)).toBe('');
 });
 
 

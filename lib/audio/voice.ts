@@ -27,8 +27,8 @@ let audio: HTMLAudioElement | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let pending: { text: string; priority: CallPriority; cue?: RecordedCue; at: number } | null = null;
 let lastEndedAt = -Infinity;
-let lastCue = '';
-let lastCueAt = -Infinity;
+/** When each cue last played, so an intervening cue cannot reset the window. */
+const lastCueAt = new Map<string, number>();
 /** Last take played per cue, so a cue never repeats its wording back to back. */
 const lastTake = new Map<string, number>();
 const listeners = new Set<() => void>();
@@ -81,8 +81,7 @@ export function silence(): void {
   audio = null;
   speaking = false;
   lastEndedAt = -Infinity;
-  lastCue = '';
-  lastCueAt = -Infinity;
+  lastCueAt.clear();
   try { synth()?.cancel(); } catch { /* Cancellation is best effort. */ }
 }
 
@@ -124,9 +123,8 @@ function speak(text: string, priority: CallPriority, cue?: RecordedCue): boolean
     if (preferredVoiceURI === 'recorded' || !voice) {
       const id = cue ?? recordedCueFor(text);
       if (!id) { speaking = false; return false; }
-      if (id === lastCue && Date.now() - lastCueAt < SAME_CUE_WINDOW_MS && priority !== 'finish') { speaking = false; return false; }
-      lastCue = id;
-      lastCueAt = Date.now();
+      if (Date.now() - (lastCueAt.get(id) ?? -Infinity) < SAME_CUE_WINDOW_MS && priority !== 'finish') { speaking = false; return false; }
+      lastCueAt.set(id, Date.now());
       const clip = new Audio(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/audio/commentary/${clipFile(id, pickTake(id))}`);
       audio = clip;
       clip.volume = getLevels().master;
