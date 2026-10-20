@@ -70,8 +70,12 @@ and the sound:
    blower, earth tremor, lucky dip, possum, runaway drone, slip 'n' slide,
    cheer squad and road works.
 4. **Snails on sale.** The card section sets how many snails are on sale
-   (8 to 200). They split evenly into races of eight to ten: 64 snails make
-   7 races, one of 10 and six of 9. The number locks once a race has run.
+   (8 to 200). They split into equal races of eight to ten whenever the
+   count allows it, the largest size first: 64 snails make 8 races of 8, 90
+   make 9 of 10, 72 make 8 of 9. A count no field size divides (73) falls
+   back to the fewest races within one of each other: 1 of 10 and 7 of 9.
+   The number locks once a race has run, and a night saved by an earlier
+   build that has already raced keeps the races its snails were sold into.
 
 ## Previous release - simpler screens and sponsors (5.1)
 

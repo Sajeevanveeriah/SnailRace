@@ -7,8 +7,11 @@
  * decides which names stand at the gate for a given race number.
  *
  * The desk can set how many snails are on sale. The card is then split into
- * as few races as keep every field at ten or under, as evenly as it divides:
- * 64 snails is seven races, one of ten and six of nine.
+ * races of eight to ten that are all the same size whenever the count allows
+ * it, taking the largest size that divides evenly: 64 snails is eight races
+ * of eight, 90 is nine of ten, 72 is eight of nine. Only a count no field
+ * size divides (73, say) falls back to the fewest races of ten or under with
+ * the fields within one of each other: one of ten and seven of nine.
  */
 
 /** The most snails in one race when the card is split. */
@@ -44,11 +47,48 @@ export const clampSnailCount = (value: unknown): number => {
   return n;
 };
 
-/** Split a card of this many snails into races of eight to ten, as evenly as possible. */
-export function cardLayout(snailCount: number = SNAILS_ON_CARD): CardLayout {
+/**
+ * How the snails on sale are split into races. 'even' is tonight's rule: equal
+ * fields whenever the count allows. 'legacy' is the rule before 5.4 (the
+ * fewest races of ten, the rest within one of each other) and is kept for a
+ * night that already ran a race under it, so a reload cannot move a snail
+ * into a different race from the one it was sold into. Clearing a rehearsal
+ * keeps it too: tickets, tote sales and bids survive the clear and name
+ * lanes under it. Only resizing the card (locked while any of those exist)
+ * moves a card onto the even rule.
+ */
+export type CardSplit = 'even' | 'legacy';
+
+/**
+ * Snail counts whose layout must follow the legacy rule tonight. Every helper
+ * below takes only a count, so a card in progress pins its count here when it
+ * is loaded and the whole app reads the same races. A card is only resized
+ * before any race has run, and resizing unpins.
+ */
+const legacyCounts = new Set<number>();
+const layouts = new Map<number, CardLayout>();
+
+/** Pin or release the legacy split for one snail count (see CardSplit). */
+export const pinLegacySplit = (snailCount: number, legacy: boolean): void => {
+  const count = clampSnailCount(snailCount);
+  if (legacy) legacyCounts.add(count);
+  else legacyCounts.delete(count);
+  layouts.delete(count);
+};
+
+/** Split a card of this many snails into races of eight to ten: equal fields when the count allows, otherwise as even as it divides. */
+export function cardLayout(snailCount: number = SNAILS_ON_CARD, split?: CardSplit): CardLayout {
   const snails = clampSnailCount(snailCount);
-  /* clampSnailCount only returns counts that fit, so the fewest races of ten also keep every field at eight or more. */
-  const races = Math.ceil(snails / SNAILS_PER_RACE);
+  const legacy = split ? split === 'legacy' : legacyCounts.has(snails);
+  /* Equal fields first, the biggest that divides evenly so the night has the
+     fewest races. clampSnailCount only returns counts that fit, so the
+     fallback (the fewest races of ten) still keeps every field at eight or more. */
+  let races = Math.ceil(snails / SNAILS_PER_RACE);
+  if (!legacy) {
+    for (let size = SNAILS_PER_RACE; size >= MIN_SNAILS_PER_RACE; size -= 1) {
+      if (snails % size === 0) { races = snails / size; break; }
+    }
+  }
   const base = Math.floor(snails / races);
   const extra = snails % races;
   const sizes = Array.from({ length: races }, (_, i) => base + (i < extra ? 1 : 0));
@@ -61,7 +101,7 @@ export function cardLayout(snailCount: number = SNAILS_ON_CARD): CardLayout {
   return { snails, races, sizes, starts };
 }
 
-const layouts = new Map<number, CardLayout>();
+/* The cache is keyed by count alone; pinLegacySplit drops a count's entry. */
 const layoutFor = (snailCount: number): CardLayout => {
   let layout = layouts.get(snailCount);
   if (!layout) {
@@ -87,6 +127,8 @@ export const DEFAULT_SNAIL_CENTS = 400;
 export interface CardState {
   /** Snails on sale tonight; the races are split from this. */
   snailCount: number;
+  /** Which split rule fixed the races (see CardSplit). Missing on cards saved before 5.4. */
+  split?: CardSplit;
   /** Snail name per number, index 0 is snail 1. Empty until bought or typed. */
   names: string[];
   /** Owner shown on the board per number. Empty for an unsold snail. */
@@ -117,6 +159,7 @@ export interface CardState {
 
 export const DEFAULT_CARD: CardState = {
   snailCount: SNAILS_ON_CARD,
+  split: 'even',
   names: new Array<string>(SNAILS_ON_CARD).fill(''),
   owners: new Array<string>(SNAILS_ON_CARD).fill(''),
   claims: {},
@@ -222,7 +265,10 @@ export function resizeCard(card: CardState, snailCount: number): CardState | { e
   const sold = highestSold(card);
   if (next < sold) return { error: `Snail ${sold} is already sold, so the card cannot go below ${sold}.` };
   const pad = (list: string[]) => Array.from({ length: next }, (_, i) => list[i] ?? '');
-  return { ...card, snailCount: next, names: pad(card.names), owners: pad(card.owners) };
+  /* No race has run (snailCountLock), so the card takes tonight's rule. */
+  pinLegacySplit(card.snailCount, false);
+  pinLegacySplit(next, false);
+  return { ...card, snailCount: next, split: 'even', names: pad(card.names), owners: pad(card.owners) };
 }
 
 /** The lowest unsold number, or null once the card is full. */
@@ -243,6 +289,8 @@ export function normaliseCard(value: unknown): CardState {
   const v = value as Partial<CardState>;
   const count = v.snailCount === undefined ? SNAILS_ON_CARD : clampSnailCount(v.snailCount);
   base.snailCount = count;
+  base.split = v.split === 'legacy' ? 'legacy' : 'even';
+  if (base.split === 'legacy') pinLegacySplit(count, true);
   base.names = new Array<string>(count).fill('');
   base.owners = new Array<string>(count).fill('');
   if (Array.isArray(v.names)) {

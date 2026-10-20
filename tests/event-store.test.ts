@@ -119,3 +119,49 @@ test('addAudit prepends, never edits, and stays capped', () => {
   assert.equal(seen.length, 500);
   assert.equal(seen[0], 'entry 519'); // newest first
 });
+
+/* Defect class: the 5.4 equal split moving a snail into a different race on a
+   night that already ran races under the old split, so a reload re-runs
+   numbers and breaks quaddie picks taken on the old boundaries. */
+test('a saved night that already raced keeps the races its snails were sold into', async () => {
+  const { cardLayout, describeLayout, raceForSnail, resizeCard } = await import('../lib/card');
+  const state = freshState();
+  const card = { ...state.card, snailCount: 64, names: new Array(64).fill(''), owners: new Array(64).fill('') };
+  delete (card as { split?: string }).split;
+  const ran = { raceNo: 1, void: false };
+  assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
+  assert.equal(currentState().card.split, 'legacy');
+  assert.equal(describeLayout(cardLayout(64)), '7 races: 1 of 10, 6 of 9');
+  assert.equal(raceForSnail(10, 64), 1);
+  assert.equal(currentState().plannedRaces, 7);
+  /* The marker survives a save and reload on its own. */
+  assert.ok(restore(JSON.stringify({ ...currentState(), history: [] })));
+  assert.equal(currentState().card.split, 'legacy');
+  assert.equal(describeLayout(cardLayout(64)), '7 races: 1 of 10, 6 of 9');
+  /* The same card with no race run takes tonight's equal split. */
+  assert.ok(restore(JSON.stringify({ ...state, card, history: [] })));
+  assert.equal(currentState().card.split, 'even');
+  assert.equal(describeLayout(cardLayout(64)), '8 races of 8');
+  assert.equal(raceForSnail(10, 64), 2);
+  assert.equal(currentState().plannedRaces, 8);
+  /* A ticket, sale or bid sold before any race is tied to a lane too. */
+  for (const key of ['quaddieEntries', 'toteSales', 'auctionBids', 'cashLedger'] as const) {
+    assert.ok(restore(JSON.stringify({ ...state, card, history: [], [key]: [{ void: false }] })));
+    assert.equal(currentState().card.split, 'legacy', key);
+  }
+  /* A voided race does not lock the old split in. */
+  assert.ok(restore(JSON.stringify({ ...state, card, history: [{ ...ran, void: true }] })));
+  assert.equal(currentState().card.split, 'even');
+  /* Clearing a rehearsal keeps the pinned split: tickets and bids survive the clear. */
+  assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
+  setState({ history: [], raceNumber: 0 });
+  assert.equal(currentState().card.split, 'legacy');
+  assert.equal(currentState().plannedRaces, 7);
+  assert.equal(describeLayout(cardLayout(64)), '7 races: 1 of 10, 6 of 9');
+  /* Resizing (only possible before a race and with no ticket sold) lands on the equal split. */
+  assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
+  const resized = resizeCard(currentState().card, 72);
+  assert.ok(!('error' in resized) && resized.split === 'even');
+  assert.equal(describeLayout(cardLayout(72)), '8 races of 9');
+  assert.equal(describeLayout(cardLayout(64)), '8 races of 8');
+});
