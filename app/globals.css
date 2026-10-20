@@ -1192,7 +1192,7 @@ body {
 .drawer {
   /* The console sits over a busy stage; translucency there is noise, not
      depth. Near-solid card, in both themes - the blur handles the last 4%. */
-  background: color-mix(in srgb, var(--card) 96%, transparent);
+  background: var(--card);
   position: fixed;
   inset: auto 0 0 0;
   /* Above the show screens (60) and their toolbar (80): the console must be

@@ -1183,6 +1183,27 @@ export function Stage() {
    */
   const cinema = audienceOnly || voidable || race.phase === 'confirming' || race.phase === 'done';
 
+  /* The same two buttons on every operator screen: open the desk, go fullscreen. */
+  const deskButton = (
+    <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={(e) => { e.currentTarget.blur(); openModerator(); }}>
+      {moderator.target ? 'Focus desk' : 'Open desk'} <kbd>D</kbd>
+    </button>
+  );
+  const fullscreenButton = (
+    <button
+      type="button"
+      className="btn btn-ghost"
+      disabled={!clientReady}
+      onClick={(e) => {
+        const button = e.currentTarget;
+        const pointer = e.detail > 0;
+        void display.toggleFullscreen().then(() => { if (pointer && document.fullscreenElement) button.blur(); });
+      }}
+    >
+      {display.fullscreen ? 'Exit fullscreen' : 'Fullscreen'} <kbd>F</kbd>
+    </button>
+  );
+
   return (
     <div
       className={`${event.calm ? 'calm ' : ''}${cinema ? 'cinema ' : ''}${audienceOnly ? 'projector-audience ' : ''}${display.fullscreen ? 'projector-fullscreen' : ''}`}
@@ -1196,16 +1217,18 @@ export function Stage() {
         </a>
       ) : null}
       <div className="aurora" aria-hidden="true" />
-      <div className="projector-tools no-print" role="toolbar" aria-label="Projector display">
-        <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={openModerator}>{moderator.target ? 'Focus desk' : 'Open desk'} <kbd>D</kbd></button>
-        <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={(e) => {
-          const button = e.currentTarget;
-          const pointer = e.detail > 0;
-          void display.toggleFullscreen().then(() => { if (pointer && document.fullscreenElement) button.blur(); });
-        }}>{display.fullscreen ? 'Exit fullscreen' : 'Fullscreen'} <kbd>F</kbd></button>
-        {holding ? <button type="button" className="btn btn-go" onClick={() => setHolding(false)}>Resume show</button> : null}
-        {display.error || moderator.notice ? <p role="status">{display.error || moderator.notice}</p> : null}
-      </div>
+      {/* Desk and fullscreen live in the control row of each screen. This
+          corner appears once the desk is open (the projector has no other
+          controls then, and it fades in fullscreen), for a held show, or for
+          a notice. */}
+      {moderator.target || holding || display.error || moderator.notice ? (
+        <div className="projector-tools no-print" role="toolbar" aria-label="Projector display">
+          {moderator.target ? deskButton : null}
+          {moderator.target ? fullscreenButton : null}
+          {holding ? <button type="button" className="btn btn-go" onClick={() => setHolding(false)}>Resume show</button> : null}
+          {display.error || moderator.notice ? <p role="status">{display.error || moderator.notice}</p> : null}
+        </div>
+      ) : null}
 
       <div
         className="stage-shell mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-5 p-4 sm:p-6 lg:p-8"
@@ -1345,6 +1368,8 @@ export function Stage() {
                 <button type="button" className="btn btn-ghost" onClick={(e) => { e.currentTarget.blur(); resetRace(); }} disabled={racing}>
                   Reset
                 </button>
+                {deskButton}
+                {fullscreenButton}
                 <button
                   type="button"
                   className="btn btn-ghost"
@@ -1374,6 +1399,8 @@ export function Stage() {
           <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={backAction}>
             Back <kbd>PgUp</kbd>
           </button>
+          {deskButton}
+          {fullscreenButton}
           <button
             type="button"
             className="btn btn-ghost"

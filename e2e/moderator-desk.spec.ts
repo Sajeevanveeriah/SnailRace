@@ -93,7 +93,7 @@ test('race survives closing, reopening and reloading the desk with one settlemen
 test('fullscreen fills the game window and stays independent of the moderator', async ({ page, isMobile }) => {
   test.skip(isMobile, 'Mobile Chrome does not provide desktop multi-display fullscreen.');
   const desk = await openDesk(page);
-  await page.getByRole('button', { name: 'Fullscreen F', exact: true }).click();
+  await page.getByRole('button', { name: /^Fullscreen/ }).click();
   await expect(page.locator('[data-projector-fullscreen]')).toHaveAttribute('data-projector-fullscreen', 'true');
   await expect(desk.getByRole('status').filter({ hasText: 'Projector connected' })).toContainText('Fullscreen');
   expect(await desk.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
@@ -138,7 +138,7 @@ test('blocked popups and rejected fullscreen retain usable controls', async ({ p
   await expect(page.getByRole('status')).toContainText('moderator window was blocked');
   await expect(page.getByRole('toolbar', { name: 'Show controls' })).toBeVisible();
   await page.evaluate(() => { document.documentElement.requestFullscreen = () => Promise.reject(new Error('NotAllowedError')); });
-  await page.getByRole('button', { name: 'Fullscreen F', exact: true }).click();
+  await page.getByRole('button', { name: /^Fullscreen/ }).click();
   await expect(page.getByRole('status')).toContainText('browser needs that click');
   await expect(page.locator('[data-projector-fullscreen]')).toHaveAttribute('data-projector-fullscreen', 'false');
 });

@@ -401,7 +401,10 @@ function storyWindows(events: LockedRaceEvent[]): StoryWindow[] {
        short (after at least a readable beat) and this story takes over. */
     let onAirMs = Math.min(event.effectAtMs, Math.max(event.warningAtMs, busyUntil));
     if (previous && onAirMs < previous.offAirMs + STORY_GAP_MS) {
-      previous.offAirMs = Math.max(previous.event.effectAtMs + MIN_READ_MS, onAirMs - STORY_GAP_MS);
+      /* The beat is measured from when the card went up, which for a card
+         that itself waited is later than its hit. */
+      const cardUp = Math.max(previous.onAirMs, previous.event.effectAtMs);
+      previous.offAirMs = Math.max(cardUp + MIN_READ_MS, onAirMs - STORY_GAP_MS);
       onAirMs = Math.max(onAirMs, previous.offAirMs + STORY_GAP_MS);
     }
     const offAirMs = Math.max(event.effectAtMs, onAirMs) + EFFECT_ON_AIR_MS;
@@ -460,6 +463,10 @@ export function Sidescroller({
   const { setPainter } = race;
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = calm || prefersReducedMotion;
+  /* Read by the painter through a ref: a Calm toggle mid-race must not
+     rebuild the painter, which would reset the scene to the start line. */
+  const reduceMotionRef = useRef(reduceMotion);
+  useEffect(() => { reduceMotionRef.current = reduceMotion; }, [reduceMotion]);
   const [localCourseView, setCourseView] = useState(false);
   const courseView = fullCourse ?? (localCourseView || cameraMode === 'full');
   const courseViewRef = useRef(false);
@@ -748,7 +755,7 @@ export function Sidescroller({
       const now = wallClockMs();
       const dt = lastPaintRef.current ? Math.min(100, now - lastPaintRef.current) : 16.7;
       lastPaintRef.current = now;
-      const ease = reduceMotion ? 1 : 1 - Math.pow(0.9, dt / 16.7);
+      const ease = reduceMotionRef.current ? 1 : 1 - Math.pow(0.9, dt / 16.7);
       cam.x += (targetX - cam.x) * ease;
       cam.w += (wantW - cam.w) * ease;
       /* Never narrower than every lane allows, even mid-ease. */
@@ -825,7 +832,7 @@ export function Sidescroller({
       },
       paint,
     };
-  }, [reduceMotion]);
+  }, []);
 
   useEffect(() => {
     setPainter(painter);
