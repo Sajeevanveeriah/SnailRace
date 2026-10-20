@@ -10,7 +10,7 @@ import { OfficialResult } from './race-broadcast/BroadcastGraphics';
 import { clockText } from '@/lib/broadcast';
 import { sponsorsFromRace } from '@/lib/club-sponsors';
 import type { SnailRun } from '@/lib/race-engine';
-import type { PaintInfo, RaceController, RacePainter, SurprisePhase } from '@/lib/use-race';
+import { STORY_CARD_MS, STORY_GAP_MS, type PaintInfo, type RaceController, type RacePainter, type SurprisePhase } from '@/lib/use-race';
 import type { CameraMode, LockedRaceEvent, ToteDividend } from '@/lib/types';
 
 /**
@@ -368,10 +368,8 @@ interface StagedTwist {
   source: 'plan' | 'moment';
 }
 
-/** How long a landed twist owns the screen: the slam, the read, the park. */
-const EFFECT_ON_AIR_MS = 2800;
-/** A breath between one story parking and the next INCOMING card. */
-const STORY_GAP_MS = 400;
+/** How long a landed twist owns the screen: the slam, the read, the park. The caller gates on the same clock. */
+const EFFECT_ON_AIR_MS = STORY_CARD_MS;
 /** The least a landed card stays up when the next hit arrives on its heels. */
 const MIN_READ_MS = 900;
 
@@ -399,13 +397,14 @@ function storyWindows(events: LockedRaceEvent[]): StoryWindow[] {
     /* The warning waits for the last card to park, but the hit is never
        shown late: if it lands while that card is still up, the card is cut
        short (after at least a readable beat) and this story takes over. */
-    let onAirMs = Math.min(event.effectAtMs, Math.max(event.warningAtMs, busyUntil));
+    const onAirMs = Math.min(event.effectAtMs, Math.max(event.warningAtMs, busyUntil));
     if (previous && onAirMs < previous.offAirMs + STORY_GAP_MS) {
-      /* The beat is measured from when the card went up, which for a card
-         that itself waited is later than its hit. */
+      /* The hit is never late. The card before it gets what time there is:
+         a readable beat and a breath when the plan leaves room, the time to
+         the hit when it does not. The beat is measured from when the card
+         went up, which for a card that itself waited is later than its hit. */
       const cardUp = Math.max(previous.onAirMs, previous.event.effectAtMs);
-      previous.offAirMs = Math.max(cardUp + MIN_READ_MS, onAirMs - STORY_GAP_MS);
-      onAirMs = Math.max(onAirMs, previous.offAirMs + STORY_GAP_MS);
+      previous.offAirMs = Math.min(onAirMs, Math.max(cardUp + MIN_READ_MS, onAirMs - STORY_GAP_MS));
     }
     const offAirMs = Math.max(event.effectAtMs, onAirMs) + EFFECT_ON_AIR_MS;
     windows.push({ event, onAirMs, offAirMs });

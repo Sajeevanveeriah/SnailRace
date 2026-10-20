@@ -64,6 +64,15 @@ const RUN_HOME_FROM = 0.85;
 /** Inside this much of the race, two snails under a length apart is a photo. */
 const PHOTO_FROM = 0.9;
 
+/**
+ * How long a landed twist owns the course on the side-on painter (the slam,
+ * the read, the park) and the breath before the next card. The caller's
+ * on-air gate uses the same clock, so a finish call never talks over a card
+ * that is still up.
+ */
+export const STORY_CARD_MS = 2800;
+export const STORY_GAP_MS = 400;
+
 /** Maximum real-time confirmation beat after the locked winner crosses. */
 export const FINISH_CONFIRM_MS = 450;
 
@@ -610,7 +619,10 @@ export function useRace(
       // together; the live standings still update throughout the sequence.
       const surpriseOnAir = race.lockedPlan?.events.some((event) =>
         race.raceT >= event.warningAtMs &&
-        race.raceT <= event.commentaryAtMs + Math.min(1200, race.lockedPlan!.durationMs * 0.1),
+        race.raceT <= Math.max(
+          event.commentaryAtMs + Math.min(1200, race.lockedPlan!.durationMs * 0.1),
+          event.effectAtMs + STORY_CARD_MS + STORY_GAP_MS,
+        ),
       ) ?? false;
 
       /*
