@@ -2,7 +2,7 @@
 
 ## Run a show on two displays
 
-1. Use the computer's **extended display** mode. Open Snail Race and select **Open moderator window**.
+1. Use the computer's **extended display** mode. Open Snail Race and select **Open desk** (or press D).
 2. Keep the moderator desk on the laptop. Move the original game window onto the projector.
 3. Click **Fullscreen** or press **F** in the game window. Move the pointer away from the top-right corner to hide the display buttons.
 4. Use the desk's main button to introduce the field, open selections, lock the market and start the race. Settings, sound, camera, market timing and the running order stay on the laptop.

@@ -1627,7 +1627,6 @@
 .side-broadcast .tv-runner.fx-up .side-art { filter: drop-shadow(0 0 18px #ffe36b); }
 .side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-body { animation: side-lean .6s ease-in-out infinite; transform-box: fill-box; transform-origin: 40% 100%; }
 .side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-foot { animation-duration: .35s; }
-.side-broadcast .tv-runner.fx-down .side-art { filter: saturate(.7); }
 .side-broadcast .tv-runner.fx-down .side-dizzy { opacity: 1; }
 .side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-dizzy { animation: side-dizzy 1.4s linear infinite; transform-box: fill-box; transform-origin: center; }
 .side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-shell { animation: side-shake .32s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
@@ -1675,12 +1674,16 @@
 
 /* Props: the gag arrives, lands, and stays on its snail while the consequence runs. */
 .side-broadcast .side-prop[data-size="field"] .course-prop-motion { transform-origin: 0 0; }
-.side-broadcast .side-prop[data-size="field"] .course-prop-image { x: -420px; y: -520px; width: 840px; height: 840px; }
-.side-broadcast .course-prop[data-phase="warning"] { opacity: .85; }
+.side-broadcast .course-prop[data-phase="warning"] { opacity: .9; }
 .side-broadcast .course-prop[data-phase="warning"] .course-prop-motion { animation: side-prop-loom 1s ease-in-out infinite alternate; }
-.side-broadcast .course-prop[data-phase="reveal"] .course-prop-motion { animation: side-prop-arrive .6s ease-out both; }
 .side-broadcast .course-prop[data-phase="effect"] .course-prop-motion { animation: side-prop-stamp .7s ease-in-out 3; }
-.side-broadcast .course-prop[data-phase="effect"] .course-impact { animation: side-impact .9s ease-out 2 both; transform-box: fill-box; transform-origin: center; }
+/* A field-wide twist: a tinted band falls across every lane, so the whole field reads as hit. */
+.side-broadcast .side-band { fill: #2a1a1a; opacity: 0; transition: opacity .3s; }
+.side-broadcast .side-band.tone-bad { fill: #e8262b; }
+.side-broadcast .side-band.tone-good { fill: #2fb24a; }
+.side-broadcast .side-band.tone-wild { fill: #ffe36b; }
+.side-broadcast .side-band[data-phase="effect"] { opacity: .22; animation: side-band-in .5s ease-out both; }
+@keyframes side-band-in { from { opacity: 0; } to { opacity: .22; } }
 @keyframes side-prop-loom { from { transform: translate(0, -80px) scale(.9); opacity: .7; } to { transform: translate(0, -40px) scale(1); opacity: 1; } }
 @keyframes side-prop-arrive { from { transform: translate(0,-420px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
 @keyframes side-prop-stamp { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(0,-60px) rotate(-6deg); } }
@@ -1740,10 +1743,10 @@
 .side-splash-numbers i { display: grid; place-items: center; min-width: 1.8em; height: 1.8em; padding: 0 .3em; border: 3px solid #2a1a1a; border-radius: 8px; background: var(--shell, #ccc); color: #fff; font: 900 clamp(12px, 1.5vw, 20px)/1 'Arial Black', Arial, sans-serif; font-style: normal; text-shadow: 0 0 3px #000, 0 1px 0 #000; }
 .side-splash-cost { font: 900 clamp(13px, 1.7vw, 24px)/1.1 'Arial Black', Arial, sans-serif; color: #a81d2f; letter-spacing: .04em; }
 .side-splash.tone-good .side-splash-cost { color: #1d7a34; }
-.side-splash-warning { background: #ffe36b; border-style: dashed; animation: side-splash-flash .5s steps(2) infinite, side-splash-in .3s ease-out both; }
+.side-splash-warning { background: #ffe36b; animation: side-splash-in .3s ease-out both, side-splash-nudge .5s ease-in-out .3s infinite alternate; }
 .side-splash-warning .side-splash-kicker { background: #a81d2f; }
-.side-splash-warning .side-splash-title { font-size: clamp(14px, 1.8vw, 26px); text-transform: none; }
-.side-splash-reveal { animation: side-splash-in .3s ease-out both; }
+.side-splash-warning .side-splash-title { font-size: clamp(16px, 2.1vw, 32px); }
+@keyframes side-splash-nudge { from { translate: -50% 0; } to { translate: -50% 4px; } }
 .side-splash-effect { animation: side-splash-slam .5s cubic-bezier(.2, 1.5, .4, 1) both, side-splash-park 1s ease-in 2.6s both; }
 .side-splash-effect.tone-bad { background: #ffb3b3; }
 .side-splash-effect.tone-good { background: #bff2c6; }
@@ -1754,10 +1757,8 @@
 @keyframes side-splash-park { to { scale: .7; opacity: .9; } }
 .side-broadcast.race-motion-reduced .side-splash { animation: none; }
 
-.side-broadcast .course-director-bar { top: 78px; }
-.side-broadcast .side-leader { font: 700 12px/1.2 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #fff6d8; }
+.side-broadcast .course-director-bar { top: 78px; justify-content: flex-end; }
 .side-broadcast .tv-strap { inset: auto 12px 8px; }
-.side-broadcast .course-event-ticker { bottom: 112px; }
 /* The running order: saddlecloths in race order, leader first, then metres to go. */
 .side-broadcast .course-scene { bottom: 158px; }
 .side-broadcast .course-event-ticker { bottom: 118px; }

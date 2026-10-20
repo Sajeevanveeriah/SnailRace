@@ -65,8 +65,10 @@
 .projector-tools { position: fixed; top: 8px; right: 10px; z-index: 90; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: min(600px, calc(100vw - 20px)); padding: 6px; border-radius: 6px; background: #07111ef2; color: #fff; border: 1px solid #ffffff40; }
 .projector-tools .btn { min-height: 36px; padding: 7px 12px; font-size: 12px; color: #fff; }
 .projector-tools p { flex-basis: 100%; margin: 3px 8px; font-size: 12px; }
-.projector-fullscreen .projector-tools { opacity: 0; transition: opacity .2s; }
-.projector-fullscreen .projector-tools:hover, .projector-fullscreen .projector-tools:focus-within { opacity: 1; }
+/* While the race is on air the tools get out of the picture; the mouse or the keyboard brings them back. */
+.projector-fullscreen .projector-tools, .cinema .projector-tools { opacity: 0; transition: opacity .2s; }
+.projector-fullscreen .projector-tools:hover, .projector-fullscreen .projector-tools:focus-within,
+.cinema .projector-tools:hover, .cinema .projector-tools:focus-within { opacity: 1; }
 .projector-audience .stage-bar, .projector-audience .stage-side, .projector-audience .pit-board, .projector-audience .race-camera-toggle, .projector-audience .stage-track > section, .projector-audience .stage-track > .ticker-wrap { display: none !important; }
 .projector-audience .stage-shell, .projector-audience .stage-main, .projector-audience .stage-track { height: 100dvh; min-height: 0; overflow: hidden; }
 .projector-audience .pack-stage { height: 100dvh; border-radius: 0; }

@@ -70,9 +70,7 @@ const notes: Record<string, string> = {
   race: 'Press Start. The projector runs the race. Let the finish play out.',
   results: 'Name the winner and the owner. Then move on.',
   championship: 'Read out who is still alive in the quaddie, then the next race.',
-  finale: 'Thank the room. Save a backup in Admin before closing.',
-  market: 'Send them to the gate.',
-  intermission: 'Open the racecard when the room is ready.',
+  finale: 'Thank the room. Save a backup in Admin (Night tab) before closing.',
 };
 
 export function ModeratorDesk(p: Props) {
@@ -166,7 +164,7 @@ export function ModeratorDesk(p: Props) {
               <div className="desk-camera" role="radiogroup" aria-label="Audio mode">
                 <label><input type="radio" name="desk-audio" checked={event.audioMode === 'music'} onChange={() => setAudio('music')} /> Music</label>
                 <label><input type="radio" name="desk-audio" checked={event.audioMode === 'commentary'} disabled={!canSpeak} onChange={() => setAudio('commentary')} /> Commentary</label>
-                <label><input type="radio" name="desk-audio" checked={event.audioMode === 'both'} disabled={!canSpeak} onChange={() => setAudio('both')} /> Music and commentary</label>
+                <label><input type="radio" name="desk-audio" checked={event.audioMode === 'both'} disabled={!canSpeak} onChange={() => setAudio('both')} /> Both</label>
                 <label><input type="radio" name="desk-audio" checked={event.audioMode === 'off'} onChange={() => setAudio('off')} /> Off</label>
               </div>
               <label className="desk-volume">Volume <input type="range" min="0" max="1" step="0.05" value={event.volume} onChange={(e) => setState({ volume: Number(e.target.value) })} /><output>{Math.round(event.volume * 100)}%</output></label>
@@ -175,10 +173,10 @@ export function ModeratorDesk(p: Props) {
             <section className="desk-panel" aria-label="Display controls">
               <h2>Camera</h2>
               {event.eventMode === 'live' ? <div className="desk-camera" role="radiogroup" aria-label="Camera view">
-                <label><input type="radio" name="desk-camera" checked={!p.fullCourse} onChange={() => p.onCamera(false)} /> Telecast (lead pack)</label>
-                <label><input type="radio" name="desk-camera" checked={p.fullCourse} onChange={() => p.onCamera(true)} /> Full course</label>
+                <label><input type="radio" name="desk-camera" checked={!p.fullCourse} onChange={() => p.onCamera(false)} /> Telecast</label>
+                <label><input type="radio" name="desk-camera" checked={p.fullCourse} onChange={() => p.onCamera(true)} /> Full field</label>
               </div> : null}
-              <p className="desk-display-help">Move the game window to the projector, then press F for fullscreen. Keep this desk on the laptop.</p>
+              <p className="desk-display-help">Telecast rides with the leading pack; Full field shows every runner. Move the game window to the projector, then press F for fullscreen. Keep this desk on the laptop.</p>
               <p className="desk-label">{p.wakeLock ? 'Keeping the projector awake' : 'Check the laptop sleep settings before the event'}</p>
             </section>
           </div>
@@ -193,7 +191,7 @@ export function ModeratorDesk(p: Props) {
           {race.commentary ? <p className="desk-commentary">{race.commentary}</p> : null}
         </section>
       </main>
-      <footer className="desk-footer">Controls stay on this screen. The race and sound play on the projector. Space / PgDn advances; PgUp goes back. Shortcuts pause while Admin is open.</footer>
+      <footer className="desk-footer">Controls stay on this screen. The race and sound play on the projector. Space or PgDn advances, PgUp goes back, A cycles the sound, S silences it, V switches the camera, F is fullscreen on the projector. Shortcuts pause while Admin is open.</footer>
       {p.children}
     </div>
   );

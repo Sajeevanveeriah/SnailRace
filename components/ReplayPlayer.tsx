@@ -207,7 +207,6 @@ export function ReplayPlayer({
             race={replay}
             surface={event.stageTheme}
             laps={Math.max(1, entry.laps ?? 1)}
-            chase
             calm={event.calm}
             clubName={event.clubName}
             raceNo={entry.raceNo}

@@ -8,7 +8,55 @@ one-volunteer run of show.
 This repository implements an original NDCC production. It uses its own club
 crest, runner art, copy, commentary and cricket-ground surprises.
 
-## Current release - smooth camera, both sounds, mayhem and card size (5.2)
+## Current release - one twist at a time, a quiet projector, a desk and an Admin (5.3)
+
+From the owner's review of the telecast, the full field view, the controls
+and the sound:
+
+1. **One twist at a time.** The course names the twist in one place, the
+   title card: INCOMING while the prop looms, then TWIST, BOOST or OUT when
+   it lands. The bottom strip that used to disagree with the card is gone.
+   The next twist cannot go on air until this one's card has parked, and
+   deck cards are dealt further apart (`deckSpacingMs`, 5.5 s or 5% of the
+   race; Mayhem keeps its count and sits at 80% of that).
+2. **Props drawn flat.** The pitch roller, lettuce, plague cloud, cricket
+   ball, sprinkler, dog, magpie, boot and bee are vector props in the same
+   cartoon as the snails, one lane tall, placed just in front of the nose of
+   the snail they hit so no saddlecloth number is covered. A field-wide
+   twist drops a tinted band across every lane. The hit snail keeps its
+   colour; the impact ring is gone.
+3. **A quiet projector.** The race screen is the telecast's own title bar,
+   the commentary strap, the course and the positions strip. The page
+   header, the audio and theme chips and the leader caption are off the
+   projector. The control strip never stays over the course after a click,
+   and the projector tools hide while the race is on air (hover or press D
+   for the desk, F for fullscreen, V to switch the camera). The result card
+   shows places and owners, not times.
+4. **Full field view** draws deeper lanes, so every snail is bigger and the
+   track owns more of the frame when the whole field is in shot.
+5. **Desk and Admin.** The popup is the desk: the live night. The drawer is
+   Admin, in four tabs: Setup (event, race, card, sound), Money (cash tin,
+   tote, ledger), Night (results, backups, exports, audit) and Advanced
+   (Phone Play, race packs, preflight). One name for each thing: Telecast
+   or Full field for the camera, Both for music with commentary. The retired
+   market and intermission screens and the unused chase-camera setting are
+   gone from the controls.
+6. **Music** is a new arrangement in the same WebAudio engine: a 128 BPM
+   four-chord race theme (Am, F, C, G) with a filtered bass, synthesised
+   kick, snare and swung hats, a shared reverb and delay return and stereo
+   spread, building through intro, groove, drive and the run home; a warm
+   electric-piano groove between races; ducking that never cuts a caller
+   short and never drops below 40%.
+7. **Commentary** has a new race-call script (`lib/audio/voice-cues.ts`),
+   three takes per cue, called only on real events (the off, a lead change,
+   each twist, the quarter marks, the run home, a photo, the finish), with
+   the filler timer gone and the same clip never repeated inside 25 s.
+   Seven clips were re-recorded with the new voice before the free
+   text-to-speech quota ran out; the remaining takes are recorded by
+   `scripts/generate-commentary.mjs` when it is run again (see
+   `public/audio/README.md`). Until then the older clips play for those cues.
+
+## Previous release - smooth camera, both sounds, mayhem and card size (5.2)
 
 1. **Smooth zoomed camera.** The chase camera no longer redraws the whole
    course every frame. The course is drawn once into a GPU layer and the
@@ -259,8 +307,9 @@ that a Worker has been deployed.
    **Start race**. The plan is drawn and hashed, then the countdown runs.
 5. Let the finish play out. The result card names the winner, number and
    owner. **Next** goes to the quaddie board (if live) or the next racecard.
-6. Audio and camera are on the desk: Music / Commentary / Off, Telecast /
-   Full course. The Holding screen checkbox parks the projector between races.
+6. Audio and camera are on the desk: Music / Commentary / Both / Off,
+   Telecast / Full field. The Holding screen checkbox parks the projector
+   between races. Admin (the four-tab drawer) is for setup and records.
 7. After race ten, the thank-you screen lists every winner. Export the audit
    and a backup from Admin, and reconcile Stripe separately.
 

@@ -4,9 +4,10 @@ import { presentationForMoment } from './surprise-presentation';
 import type { RaceController } from '@/lib/use-race';
 
 /**
- * The surprise strip: what the twist is called and nothing more. Who it hit
- * is on the course, where the prop lands on the snails' own numbers; the
- * room is not asked to read seconds or a list of names.
+ * The surprise strip for the oval painter: what the twist is called and
+ * nothing more. The side-on straight names its twist on the title card
+ * instead and does not draw this. Who it hit is on the course, where the
+ * prop lands on the snails' own numbers.
  */
 export function SurpriseLayer({
   race,
@@ -24,11 +25,9 @@ export function SurpriseLayer({
   const surprisePhase = moment.phase ?? 'effect';
   const eventLabel = moment.label ?? moment.text;
   const kicker =
-    surprisePhase === 'warning'
+    surprisePhase === 'warning' || surprisePhase === 'reveal'
       ? 'INCOMING'
-      : surprisePhase === 'reveal'
-        ? 'LOOK OUT'
-        : moment.consequence === 'retire'
+      : moment.consequence === 'retire'
           ? 'OUT'
           : moment.consequence === 'advance'
             ? 'BOOST'

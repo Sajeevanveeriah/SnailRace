@@ -573,8 +573,6 @@ export interface EventState {
   trackDesigns: TrackDesignId[] | null;
   /** Laps of the circuit. Total race time is lap length times laps. */
   laps: number;
-  /** Let the camera director cut between shots, or hold the whole course. */
-  chaseCam: boolean;
   /** Whether in-race surprises are dealt. Never affects the finishing order. */
   surprises: boolean;
   raceType: string;

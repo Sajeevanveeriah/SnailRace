@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 
 const openDesk = async (page: Page) => {
   const opening = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Open moderator window', exact: true }).click();
+  await page.getByRole('button', { name: /Open desk/ }).click();
   const desk = await opening;
   await expect(desk.getByRole('heading', { name: 'Moderator desk' })).toBeVisible();
   await expect(page.locator('[data-moderator-connected]')).toHaveAttribute('data-moderator-connected', 'true');
@@ -36,7 +36,7 @@ test('moderator is a separate document with shared settings and accessible contr
   await expect(page.getByRole('toolbar', { name: 'Show controls' })).toHaveCount(0);
   await expect(desk.locator('.race-broadcast')).toHaveCount(0);
   await expect(desk.locator('script[src]')).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Moderator controls' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Admin' })).toHaveCount(0);
   await desk.getByRole('radio', { name: 'Off', exact: true }).check();
   await expect.poll(async () => (await readNight(page)).audioMode).toBe('off');
   await expect.poll(async () => (await readNight(page)).sound).toBe(false);
@@ -50,7 +50,7 @@ test('moderator is a separate document with shared settings and accessible contr
   await raceCard(desk);
   await expect(page.locator('.show-screen')).toHaveCount(0);
   await expect.poll(async () => (await readNight(page)).bettingOpen).toBe(false);
-  await desk.getByRole('radio', { name: 'Full course', exact: true }).check();
+  await desk.getByRole('radio', { name: 'Full field', exact: true }).check();
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'course');
   await expect.poll(async () => (await readNight(page)).cameraMode).toBe('full');
   const axe = await new AxeBuilder({ page: desk }).analyze();
@@ -93,7 +93,7 @@ test('race survives closing, reopening and reloading the desk with one settlemen
 test('fullscreen fills the game window and stays independent of the moderator', async ({ page, isMobile }) => {
   test.skip(isMobile, 'Mobile Chrome does not provide desktop multi-display fullscreen.');
   const desk = await openDesk(page);
-  await page.getByRole('button', { name: 'Fullscreen F', exact: true }).click();
+  await page.getByRole('button', { name: /^Fullscreen/ }).click();
   await expect(page.locator('[data-projector-fullscreen]')).toHaveAttribute('data-projector-fullscreen', 'true');
   await expect(desk.getByRole('status').filter({ hasText: 'Projector connected' })).toContainText('Fullscreen');
   expect(await desk.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
@@ -134,11 +134,11 @@ test('holding screen and settings stop accidental show advances', async ({ page 
 
 test('blocked popups and rejected fullscreen retain usable controls', async ({ page }) => {
   await page.evaluate(() => { window.open = () => null; });
-  await page.getByRole('button', { name: 'Open moderator window' }).click();
+  await page.getByRole('button', { name: /Open desk/ }).click();
   await expect(page.getByRole('status')).toContainText('moderator window was blocked');
   await expect(page.getByRole('toolbar', { name: 'Show controls' })).toBeVisible();
   await page.evaluate(() => { document.documentElement.requestFullscreen = () => Promise.reject(new Error('NotAllowedError')); });
-  await page.getByRole('button', { name: 'Fullscreen F', exact: true }).click();
+  await page.getByRole('button', { name: /^Fullscreen/ }).click();
   await expect(page.getByRole('status')).toContainText('browser needs that click');
   await expect(page.locator('[data-projector-fullscreen]')).toHaveAttribute('data-projector-fullscreen', 'false');
 });
@@ -170,12 +170,13 @@ test('the obstacle stays visible before the crowd-lift cue replaces it', async (
     const log: { t: number; label: string; text: string; prop: boolean }[] = [];
     (window as unknown as { __tickerLog: typeof log }).__tickerLog = log;
     const read = () => {
-      const el = document.querySelector('.course-event-ticker');
-      const label = el?.querySelector('strong')?.textContent ?? '';
+      /* The title card is the one place a twist is named on the side-on course. */
+      const el = document.querySelector('.side-splash');
+      const label = el?.querySelector('.side-splash-title')?.textContent ?? '';
       const text = el?.textContent ?? '';
       const last = log[log.length - 1];
       if (!last || last.label !== label || last.text !== text) {
-        log.push({ t: performance.now(), label, text, prop: Boolean(document.querySelector('.course-prop-image')) });
+        log.push({ t: performance.now(), label, text, prop: Boolean(document.querySelector('.side-prop')) });
       }
     };
     new MutationObserver(read).observe(document.body, {
@@ -183,10 +184,10 @@ test('the obstacle stays visible before the crowd-lift cue replaces it', async (
     });
   });
   await desk.getByRole('button', { name: 'Start race', exact: true }).click();
-  const signal = page.locator('.course-event-ticker');
+  const signal = page.locator('.side-splash');
   await expect(signal).toContainText(/LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/, { timeout: 15_000 });
   await expect(signal).toContainText('TWIST');
-  await expect(page.locator('.course-prop-image')).toBeVisible();
+  await expect(page.locator('.side-prop')).toBeVisible();
   await expect(signal).toContainText('NDCC CROWD LIFT', { timeout: 10_000 });
   const log = await page.evaluate(
     () => (window as unknown as { __tickerLog: { t: number; label: string; text: string; prop: boolean }[] }).__tickerLog,
@@ -194,12 +195,17 @@ test('the obstacle stays visible before the crowd-lift cue replaces it', async (
   const setback = /LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/;
   const effectAt = log.findIndex((row) => setback.test(row.label) && row.text.includes('TWIST'));
   expect(effectAt, JSON.stringify(log)).toBeGreaterThanOrEqual(0);
-  const replacedAt = log.findIndex((row, i) => i > effectAt && row.label !== log[effectAt].label);
-  expect(replacedAt, JSON.stringify(log)).toBeGreaterThan(effectAt);
+  /* The obstacle's card parks, there is a breath with no card, then the
+     chase's card goes up: one story at a time, never two. */
+  const parkedAt = log.findIndex((row, i) => i > effectAt && row.label !== log[effectAt].label);
+  expect(parkedAt, JSON.stringify(log)).toBeGreaterThan(effectAt);
   // A readable interval of actual animation, including any resulting overtake.
-  expect(log[replacedAt].t - log[effectAt].t, JSON.stringify(log.slice(effectAt, replacedAt + 1))).toBeGreaterThanOrEqual(650);
-  for (const row of log.slice(effectAt, replacedAt)) expect(row.prop, JSON.stringify(row)).toBe(true);
+  expect(log[parkedAt].t - log[effectAt].t, JSON.stringify(log.slice(effectAt, parkedAt + 1))).toBeGreaterThanOrEqual(650);
+  for (const row of log.slice(effectAt, parkedAt)) expect(row.prop, JSON.stringify(row)).toBe(true);
+  const replacedAt = log.findIndex((row, i) => i >= parkedAt && row.label !== '');
+  expect(replacedAt, JSON.stringify(log)).toBeGreaterThanOrEqual(parkedAt);
   expect(log[replacedAt].label).toBe('NDCC CROWD LIFT');
+  for (const row of log.slice(parkedAt, replacedAt)) expect(row.label, JSON.stringify(row)).toBe('');
 });
 
 
@@ -222,6 +228,7 @@ test('recorded media plays only on the projector and settles from the desk', asy
   await expect(desk.getByRole('button', { name: 'Play race', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Play race', exact: true })).toHaveCount(0);
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
+  await desk.getByRole('tab', { name: /Advanced/ }).click();
   const choosing = desk.waitForEvent('filechooser');
   await desk.getByRole('button', { name: 'Attach and verify media', exact: true }).click();
   await (await choosing).setFiles({ name: 'recorded-race.webm', mimeType: 'video/webm', buffer: media });
@@ -242,10 +249,12 @@ test('a live cash tote can be tallied from the desk and is settled on the projec
   await desk.setViewportSize({ width: 1280, height: 900 });
   await expect(desk.getByRole('region', { name: 'Cash tote tally' })).toHaveCount(0);
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
+  await desk.getByRole('tab', { name: /Money/ }).click();
   const tote = desk.getByRole('region', { name: 'Cash tote' });
   await tote.getByLabel(/Permit or authority reference/i).fill('Club authority ref 77');
   await tote.getByRole('checkbox').first().check();
   await tote.getByRole('button', { name: /Enable cash tote/i }).click();
+  await desk.getByRole('tab', { name: /Setup/ }).click();
   await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
   { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await desk.getByRole('button', { name: /Hide/ }).click();

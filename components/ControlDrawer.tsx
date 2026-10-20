@@ -51,6 +51,21 @@ import type { Donation } from '@/lib/types';
  *     it in the ledger, because the club has to reconcile at the end of the
  *     night against Stripe and the cash tin.
  */
+type AdminTab = 'setup' | 'money' | 'night' | 'advanced';
+
+/**
+ * Admin is everything a volunteer does not touch mid-race, in four tabs:
+ * what the night is, the money, the records, and the tools that are rarely
+ * needed. The desk has the live controls; nothing here is needed during a
+ * race.
+ */
+const ADMIN_TABS: { id: AdminTab; label: string; hint: string }[] = [
+  { id: 'setup', label: 'Setup', hint: 'Event, race, card, sound' },
+  { id: 'money', label: 'Money', hint: 'Cash tin, tote, ledger' },
+  { id: 'night', label: 'Night', hint: 'Results, backups, exports' },
+  { id: 'advanced', label: 'Advanced', hint: 'Phone Play, packs, preflight' },
+];
+
 export function ControlDrawer({
   open,
   onClose,
@@ -84,6 +99,7 @@ export function ControlDrawer({
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [cashLane, setCashLane] = useState(0);
+  const [tab, setTab] = useState<AdminTab>('setup');
   const [cashName, setCashName] = useState('');
   const [cashAmount, setCashAmount] = useState('10');
   const [seedInput, setSeedInput] = useState('');
@@ -643,15 +659,15 @@ export function ControlDrawer({
       <section
         id="controls"
         ref={controlsRef}
-        className={`drawer glass glass-strong no-print ${open ? 'open' : ''}`}
-        aria-label="Moderator controls"
+        className={`drawer no-print ${open ? 'open' : ''}`}
+        aria-label="Admin"
         aria-hidden={!open}
         inert={!open}
       >
         <div className="mx-auto max-w-[1500px] p-5 sm:p-7">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold">Moderator controls</h2>
+              <h2 className="text-xl font-bold">Admin</h2>
               <p className="num text-xs text-(--tx)/50">
                 {moneyShort(cardCents)} on card, {moneyShort(cashCents)} cash,{' '}
                 {stripeDonations.length} card {stripeDonations.length === 1 ? 'entry' : 'entries'}
@@ -668,69 +684,26 @@ export function ControlDrawer({
             </p>
           ) : null}
 
+          <div className="admin-tabs" role="tablist" aria-label="Admin sections">
+            {ADMIN_TABS.map((t) => (
+              <button
+                key={t.id}
+                id={`admin-tab-${t.id}`}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                aria-controls={`admin-panel-${t.id}`}
+                className={`admin-tab ${tab === t.id ? 'on' : ''}`}
+                onClick={() => setTab(t.id)}
+              >
+                {t.label}
+                <small>{t.hint}</small>
+              </button>
+            ))}
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {/* ── Cash tin ─────────────────────────────────────────── */}
-            <section className="panel">
-              <h3 className="mb-3 font-semibold">Cash tin</h3>
-              <div className="grid gap-3">
-                <label className="fld">
-                  <span>Backing</span>
-                  <select
-                    value={cashLane}
-                    onChange={(e) => setCashLane(Number(e.target.value))}
-                  >
-                    {names.map((n, i) => (
-                      <option key={i} value={i}>
-                        {i + 1}. {n}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="fld">
-                  <span>Backer name (optional)</span>
-                  <input
-                    type="text"
-                    value={cashName}
-                    maxLength={40}
-                    placeholder="e.g. Dave S."
-                    onChange={(e) => setCashName(e.target.value)}
-                  />
-                </label>
-                <label className="fld">
-                  <span>Amount (AUD)</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="1"
-                    step="0.01"
-                    value={cashAmount}
-                    onChange={(e) => setCashAmount(e.target.value)}
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_AMOUNTS_CENTS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      className="btn btn-ghost px-3 py-1.5 text-xs"
-                      onClick={() => setCashAmount((c / 100).toFixed(2))}
-                    >
-                      {moneyShort(c)}
-                    </button>
-                  ))}
-                </div>
-                <button type="button" className="btn btn-primary" onClick={addCash}>
-                  Record cash donation
-                </button>
-                <p className="text-[11px] text-(--tx)/45">
-                  Cash is recorded on this device. Card donations arrive from Stripe on their own.
-                </p>
-              </div>
-            </section>
-
-            {/* ── Permit-gated cash tote ───────────────────────────── */}
-            <CashTotePanel nextRaceNo={nextRaceNo} locked={locked} />
-
+            <div id="admin-panel-setup" className="contents" role="tabpanel" aria-labelledby="admin-tab-setup" hidden={tab !== 'setup'}>
             {/* ── Event identity and stage look ────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Event</h3>
@@ -1022,93 +995,6 @@ export function ControlDrawer({
               </p>
             </section>
 
-            {/* ── Phone Play ───────────────────────────────────────── */}
-            <section className="panel">
-              <div className="mb-3 flex items-baseline justify-between gap-2">
-                <h3 className="font-semibold">Phone Play</h3>
-                <span className="fun-chip-tag">fun chips - no monetary value</span>
-              </div>
-              <PhonePlayPanel
-                session={phonePlay.session}
-                summary={phonePlay.summary}
-                online={phonePlay.online}
-                controlReady={phonePlay.controlReady}
-                controlError={phonePlay.controlError}
-                playUrl={playUrl}
-                onStart={phonePlay.start}
-                onEnd={phonePlay.end}
-                say={say}
-              />
-            </section>
-
-            {/* ── Race Pack (recorded mode) ────────────────────────── */}
-            {event.eventMode === 'recorded' ? (
-              <section className="panel lg:col-span-2">
-                <h3 className="mb-3 font-semibold">Race Pack</h3>
-                <PackManager say={say} />
-              </section>
-            ) : null}
-
-            {/* ── Preflight ────────────────────────────────────────── */}
-            <section className="panel">
-              <h3 className="mb-3 font-semibold">Preflight</h3>
-              <Preflight />
-            </section>
-
-            {/* ── Saved nights ─────────────────────────────────────── */}
-            <section className="panel">
-              <h3 className="mb-1 font-semibold">Saved nights</h3>
-              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
-                Whole nights saved on this device with a SHA-256 fingerprint. A saved night
-                that fails its fingerprint check refuses to load.
-              </p>
-              <button type="button" className="btn btn-ghost mb-3 w-full" onClick={saveNightToArchive}>
-                Save this night to the archive
-              </button>
-              {nights.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">No nights saved on this device.</p>
-              ) : (
-                <ul className="max-h-48 overflow-y-auto text-xs">
-                  {nights.map((n) => (
-                    <li key={n.id} className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {n.name}
-                          {n.rehearsal ? (
-                            <span className="ml-1.5 rounded bg-(--gold)/15 px-1 text-[9px] font-bold uppercase text-(--gold)">
-                              rehearsal
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="num text-[10px] text-(--tx)/40">
-                          {new Date(n.savedAt).toLocaleString('en-AU')}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="ml-auto shrink-0 text-(--tx)/55 underline hover:text-(--tx)"
-                        onClick={() => restoreNightFromArchive(n)}
-                      >
-                        load
-                      </button>
-                      <button
-                        type="button"
-                        className="shrink-0 text-(--tx)/40 underline hover:text-(--bad)"
-                        onClick={() => {
-                          if (ownerWindow().confirm(`Delete the saved night "${n.name}" from this device?`)) {
-                            removeNight(n.id);
-                            setNights(listNights());
-                          }
-                        }}
-                      >
-                        delete
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
             {/* ── Sound ────────────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Sound</h3>
@@ -1277,6 +1163,70 @@ export function ControlDrawer({
 
             <QuaddieSettingsPanel event={event} locked={locked} />
 
+            </div>
+            <div id="admin-panel-money" className="contents" role="tabpanel" aria-labelledby="admin-tab-money" hidden={tab !== 'money'}>
+            {/* ── Cash tin ─────────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Cash tin</h3>
+              <div className="grid gap-3">
+                <label className="fld">
+                  <span>Backing</span>
+                  <select
+                    value={cashLane}
+                    onChange={(e) => setCashLane(Number(e.target.value))}
+                  >
+                    {names.map((n, i) => (
+                      <option key={i} value={i}>
+                        {i + 1}. {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="fld">
+                  <span>Backer name (optional)</span>
+                  <input
+                    type="text"
+                    value={cashName}
+                    maxLength={40}
+                    placeholder="e.g. Dave S."
+                    onChange={(e) => setCashName(e.target.value)}
+                  />
+                </label>
+                <label className="fld">
+                  <span>Amount (AUD)</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    step="0.01"
+                    value={cashAmount}
+                    onChange={(e) => setCashAmount(e.target.value)}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_AMOUNTS_CENTS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className="btn btn-ghost px-3 py-1.5 text-xs"
+                      onClick={() => setCashAmount((c / 100).toFixed(2))}
+                    >
+                      {moneyShort(c)}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="btn btn-primary" onClick={addCash}>
+                  Record cash donation
+                </button>
+                <p className="text-[11px] text-(--tx)/45">
+                  Cash is recorded on this device. Card donations arrive from Stripe on their own.
+                </p>
+              </div>
+            </section>
+
+            {/* ── Permit-gated cash tote ───────────────────────────── */}
+            <CashTotePanel nextRaceNo={nextRaceNo} locked={locked} />
+
             {/* ── Ledger ───────────────────────────────────────────── */}
             <section className="panel lg:col-span-2">
               <h3 className="mb-3 font-semibold">
@@ -1338,6 +1288,108 @@ export function ControlDrawer({
                   </table>
                 )}
               </div>
+            </section>
+
+            {/* ── Fun-chip settlement ──────────────────────────────── */}
+            <section className="panel">
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">Fun-chip settlement</h3>
+                <span className="fun-chip-tag">fun chips - no monetary value</span>
+              </div>
+              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+                Every bet settles exactly once, at the odds locked before the start. Undoing a
+                race writes a compensating entry and reopens its bets; nothing is deleted.
+              </p>
+              {event.bets.length === 0 ? (
+                <p className="text-sm text-(--tx)/45">No fun bets placed yet.</p>
+              ) : (
+                <ul className="max-h-64 overflow-y-auto text-xs">
+                  {event.bets
+                    .slice()
+                    .reverse()
+                    .slice(0, 40)
+                    .map((b) => (
+                      <li
+                        key={b.id}
+                        className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0"
+                      >
+                        <span className="num w-8 shrink-0 text-(--tx)/40">R{b.raceNo}</span>
+                        <span className="truncate font-medium">{b.punter}</span>
+                        <span className="truncate text-(--tx)/50">on {b.snailName}</span>
+                        <span className="num ml-auto shrink-0 text-(--gold)">
+                          {b.chips} @ {b.odds.toFixed(2)}
+                        </span>
+                        <span
+                          className={`w-14 shrink-0 text-right font-semibold ${
+                            !b.settled
+                              ? 'text-(--tx)/40'
+                              : b.won
+                                ? 'text-(--ok)'
+                                : 'text-(--tx)/50'
+                          }`}
+                        >
+                          {!b.settled ? 'open' : b.won ? `+${b.returned ?? 0}` : 'lost'}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </section>
+
+            </div>
+            <div id="admin-panel-night" className="contents" role="tabpanel" aria-labelledby="admin-tab-night" hidden={tab !== 'night'}>
+            {/* ── Saved nights ─────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-1 font-semibold">Saved nights</h3>
+              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+                Whole nights saved on this device with a SHA-256 fingerprint. A saved night
+                that fails its fingerprint check refuses to load.
+              </p>
+              <button type="button" className="btn btn-ghost mb-3 w-full" onClick={saveNightToArchive}>
+                Save this night to the archive
+              </button>
+              {nights.length === 0 ? (
+                <p className="text-sm text-(--tx)/45">No nights saved on this device.</p>
+              ) : (
+                <ul className="max-h-48 overflow-y-auto text-xs">
+                  {nights.map((n) => (
+                    <li key={n.id} className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {n.name}
+                          {n.rehearsal ? (
+                            <span className="ml-1.5 rounded bg-(--gold)/15 px-1 text-[9px] font-bold uppercase text-(--gold)">
+                              rehearsal
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="num text-[10px] text-(--tx)/40">
+                          {new Date(n.savedAt).toLocaleString('en-AU')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="ml-auto shrink-0 text-(--tx)/55 underline hover:text-(--tx)"
+                        onClick={() => restoreNightFromArchive(n)}
+                      >
+                        load
+                      </button>
+                      <button
+                        type="button"
+                        className="shrink-0 text-(--tx)/40 underline hover:text-(--bad)"
+                        onClick={() => {
+                          if (ownerWindow().confirm(`Delete the saved night "${n.name}" from this device?`)) {
+                            removeNight(n.id);
+                            setNights(listNights());
+                          }
+                        }}
+                      >
+                        delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             {/* ── Results ──────────────────────────────────────────── */}
@@ -1406,52 +1458,6 @@ export function ControlDrawer({
                 </Link>
                 .
               </p>
-            </section>
-
-            {/* ── Fun-chip settlement ──────────────────────────────── */}
-            <section className="panel">
-              <div className="mb-1 flex items-baseline justify-between gap-2">
-                <h3 className="font-semibold">Fun-chip settlement</h3>
-                <span className="fun-chip-tag">fun chips - no monetary value</span>
-              </div>
-              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
-                Every bet settles exactly once, at the odds locked before the start. Undoing a
-                race writes a compensating entry and reopens its bets; nothing is deleted.
-              </p>
-              {event.bets.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">No fun bets placed yet.</p>
-              ) : (
-                <ul className="max-h-64 overflow-y-auto text-xs">
-                  {event.bets
-                    .slice()
-                    .reverse()
-                    .slice(0, 40)
-                    .map((b) => (
-                      <li
-                        key={b.id}
-                        className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0"
-                      >
-                        <span className="num w-8 shrink-0 text-(--tx)/40">R{b.raceNo}</span>
-                        <span className="truncate font-medium">{b.punter}</span>
-                        <span className="truncate text-(--tx)/50">on {b.snailName}</span>
-                        <span className="num ml-auto shrink-0 text-(--gold)">
-                          {b.chips} @ {b.odds.toFixed(2)}
-                        </span>
-                        <span
-                          className={`w-14 shrink-0 text-right font-semibold ${
-                            !b.settled
-                              ? 'text-(--tx)/40'
-                              : b.won
-                                ? 'text-(--ok)'
-                                : 'text-(--tx)/50'
-                          }`}
-                        >
-                          {!b.settled ? 'open' : b.won ? `+${b.returned ?? 0}` : 'lost'}
-                        </span>
-                      </li>
-                    ))}
-                </ul>
-              )}
             </section>
 
             {/* ── Audit trail ──────────────────────────────────────── */}
@@ -1578,6 +1584,42 @@ export function ControlDrawer({
                 </button>
               </div>
             </section>
+            </div>
+            <div id="admin-panel-advanced" className="contents" role="tabpanel" aria-labelledby="admin-tab-advanced" hidden={tab !== 'advanced'}>
+            {/* ── Phone Play ───────────────────────────────────────── */}
+            <section className="panel">
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">Phone Play</h3>
+                <span className="fun-chip-tag">fun chips - no monetary value</span>
+              </div>
+              <PhonePlayPanel
+                session={phonePlay.session}
+                summary={phonePlay.summary}
+                online={phonePlay.online}
+                controlReady={phonePlay.controlReady}
+                controlError={phonePlay.controlError}
+                playUrl={playUrl}
+                onStart={phonePlay.start}
+                onEnd={phonePlay.end}
+                say={say}
+              />
+            </section>
+
+            {/* ── Race Pack (recorded mode) ────────────────────────── */}
+            {event.eventMode === 'recorded' ? (
+              <section className="panel lg:col-span-2">
+                <h3 className="mb-3 font-semibold">Race Pack</h3>
+                <PackManager say={say} />
+              </section>
+            ) : null}
+
+            {/* ── Preflight ────────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Preflight</h3>
+              <Preflight />
+            </section>
+
+            </div>
           </div>
         </div>
       </section>

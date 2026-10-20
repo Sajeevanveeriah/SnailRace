@@ -5,7 +5,6 @@ import { recordedCueFor } from './audio/voice-cues';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  callLine,
   drawRace,
   type IntensityId,
   eventLine,
@@ -18,7 +17,6 @@ import {
   LENGTHS_PER_LAP,
   mulberry32,
   overtakeLine,
-  reactionLine,
   sectorLine,
   stepRace,
   type DrawnRace,
@@ -52,6 +50,30 @@ const MOMENT_UNTIL = 0.82;
  * gate, and calling every one of them cheapens the ones that matter.
  */
 const LEAD_CHANGE_FROM = 0.12;
+
+/**
+ * Overtakes are rationed to one every six seconds. In a twenty-lane field
+ * several places change every second, and calling all of them is a list,
+ * not a commentary.
+ */
+const OVERTAKE_SPACING_MS = 6000;
+
+/** The run home is called once the leader is this far round. */
+const RUN_HOME_FROM = 0.85;
+
+/** Inside this much of the race, two snails under a length apart is a photo. */
+const PHOTO_FROM = 0.9;
+
+/**
+ * How long a landed twist owns the course on the side-on painter (the slam,
+ * the read, the park) and the breath before the next card. The caller's
+ * on-air gate uses the same clock, so a finish call never talks over a card
+ * that is still up.
+ */
+export const STORY_CARD_MS = 2800;
+export const STORY_GAP_MS = 400;
+/** The least a landed card stays up before anything may replace it. */
+export const STORY_READ_MS = 900;
 
 /** Maximum real-time confirmation beat after the locked winner crosses. */
 export const FINISH_CONFIRM_MS = 450;
@@ -208,14 +230,10 @@ interface LiveRace extends DrawnRace {
   slowmoUsed: boolean;
   /** Race-time at which slow-motion hands back to normal speed. */
   slowUntil: number;
-  commentaryAt: number;
   /** A separate seeded stream for wording. Replays now tell the same story. */
   commentaryRnd: () => number;
   /** Field events already shouted, so a swarm is announced once. */
   swarms: Set<string>;
-  /** Race-time at which the caller may react to the last surprise. */
-  reactAt: number;
-  reactTone: EventTone | null;
   /** Place each lane held last time the order was checked, for overtakes. */
   places: Map<number, number>;
   /** When the last overtake was called, so the caller is not a list. */
@@ -228,6 +246,10 @@ interface LiveRace extends DrawnRace {
   leadLane: number;
   /** The run-home cue fires once, not on every frame past the threshold. */
   finalCalled: boolean;
+  /** "Here they come down the straight" is said once. */
+  runHomeCalled: boolean;
+  /** The close-finish call is made once. */
+  photoCalled: boolean;
   /** True while the photo-finish slow-motion is running. */
   inPhoto: boolean;
   results: RaceResult[];
@@ -260,6 +282,7 @@ export function useRace(
   const [results, setResults] = useState<RaceResult[]>([]);
   const [events, setEvents] = useState<RaceEvent[]>([]);
   const [moment, setMoment] = useState<RaceMoment | null>(null);
+  const lastEffectAtRef = useRef(-Infinity);
   const [weather, setWeather] = useState<Weather>('clear');
   const splitIdRef = useRef(0);
   const splitRef = useRef<Set<(split: RaceSplit) => void>>(new Set());
@@ -338,6 +361,12 @@ export function useRace(
     big = false,
     detail: Omit<Partial<RaceMoment>, 'id' | 'text' | 'tone' | 'big'> = {},
   ) => {
+    /* One story at a time on the oval too: a twist's warning never replaces
+       a hit that landed under a readable beat ago. The next hit still lands
+       in its own time and takes the banner then. */
+    const now = Date.now();
+    if ((detail.phase === 'warning' || detail.phase === 'reveal') && now - lastEffectAtRef.current < STORY_READ_MS) return;
+    if (detail.phase === 'effect' || detail.phase === undefined) lastEffectAtRef.current = now;
     momentIdRef.current += 1;
     setMoment({ id: momentIdRef.current, text, tone, big, ...detail });
     window.clearTimeout(momentTimerRef.current);
@@ -522,9 +551,12 @@ export function useRace(
             consequence: event.consequence,
             deltaMs: event.clockDeltaMsByLane[event.targetLanes[0]] ?? 0,
           } : {};
-          race.commentaryAt = race.raceT;
           if (cue.phase === 'warning') {
             if (!quiet) announce(cue.text, 'hot', cue.big, detail);
+            /* The warning is the INCOMING card, which the course shows in
+               its own time, one story after another. It is not called: the
+               strap and the voice would run ahead of a card the course has
+               not put up yet. The hit is called when it lands. */
             sfx.event((cue.sound ?? 'siren') as EventSound);
           } else if (cue.phase === 'reveal') {
             if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big, detail);
@@ -562,26 +594,25 @@ export function useRace(
           if (shouted.has(event.group)) continue;
           shouted.add(event.group);
           race.swarms.add(event.group);
-          call(event.groupCall ?? event.label, 'big');
-          race.commentaryAt = race.raceT;
+          call(event.groupCall ?? event.label, 'big', recordedCueFor(event.label));
           if (!quiet) announce(event.groupLabel ?? event.label, momentTone(event.tone), true, {
             phase: 'effect', label: event.groupLabel ?? event.label, kind: event.kind,
             targetLanes: race.snails.filter((candidate) => candidate.events.some((item) => item.group === event.group)).map((candidate) => candidate.lane),
           });
           sfx.event(event.sound);
-          race.reactAt = race.raceT + 1700;
-          race.reactTone = event.tone;
           continue;
         }
 
-        call(eventLine(event, snail.name));
-        race.commentaryAt = race.raceT;
+        /* The caption names the snail; the clip only says which way it went. */
+        call(
+          eventLine(event, snail.name),
+          'call',
+          recordedCueFor(event.label) ?? (event.tone === 'good' ? 'boost' : event.tone === 'bad' ? 'delay' : undefined),
+        );
         if (!quiet) announce(`${snail.name}: ${event.label}`, momentTone(event.tone), false, {
           phase: 'effect', label: event.label, kind: event.kind, targetLanes: [snail.lane],
         });
         sfx.event(event.sound);
-        race.reactAt = race.raceT + 1500;
-        race.reactTone = event.tone;
       }
 
       for (const s of crossed) {
@@ -597,7 +628,10 @@ export function useRace(
       // together; the live standings still update throughout the sequence.
       const surpriseOnAir = race.lockedPlan?.events.some((event) =>
         race.raceT >= event.warningAtMs &&
-        race.raceT <= event.commentaryAtMs + Math.min(1200, race.lockedPlan!.durationMs * 0.1),
+        race.raceT <= Math.max(
+          event.commentaryAtMs + Math.min(1200, race.lockedPlan!.durationMs * 0.1),
+          event.effectAtMs + STORY_CARD_MS + STORY_GAP_MS,
+        ),
       ) ?? false;
 
       /*
@@ -616,7 +650,6 @@ export function useRace(
       ) {
         const deposed = race.snails.find((s) => s.lane === race.leadLane);
         call(leadChangeLine(lead.name, deposed?.name ?? chaser.name, race.commentaryRnd), 'big', 'lead');
-        race.commentaryAt = race.raceT;
         if (!quiet) announce(`${lead.name} HITS THE FRONT`, 'hot');
         sfx.leadChange();
       }
@@ -629,11 +662,9 @@ export function useRace(
        * for most of a race it was reduced to reciting stock lines - which is
        * precisely what "it is just saying random words" means. Someone
        * following the snail running seventh wants to hear that it has just gone
-       * past the one in sixth, by name. Rationed to one every three seconds:
-       * in a twenty-lane field several places change every second, and calling
-       * all of them would be a list, not a commentary.
+       * past the one in sixth, by name. Rationed - see OVERTAKE_SPACING_MS.
        */
-      if (!surpriseOnAir && race.placed === 0 && race.raceT - race.overtakeAt > 3000) {
+      if (!surpriseOnAir && race.placed === 0 && race.raceT - race.overtakeAt > OVERTAKE_SPACING_MS) {
         for (let i = 1; i < byPosition.length; i++) {
           const s = byPosition[i];
           const was = race.places.get(s.lane);
@@ -643,7 +674,6 @@ export function useRace(
           const passed = byPosition[i + 1];
           if (!passed) continue;
           call(overtakeLine(s.name, passed.name, i + 1, race.commentaryRnd), 'big', 'overtake');
-          race.commentaryAt = race.raceT;
           race.overtakeAt = race.raceT;
           sfx.crowd.cheer(0.45);
           break;
@@ -684,7 +714,6 @@ export function useRace(
           publishSplit(starting === laps ? 'BELL LAP' : `LAP ${done} DONE`);
           if (!surpriseOnAir) {
             call(lapLine(starting, laps, lead.name, chaser.name, race.commentaryRnd), 'big', starting === laps ? 'bell' : 'lap');
-            race.commentaryAt = race.raceT;
           }
           if (starting === laps) {
             if (!surpriseOnAir) announce('BELL LAP', 'hot');
@@ -701,11 +730,31 @@ export function useRace(
           publishSplit(sector === 2 ? 'HALFWAY' : sector === 1 ? 'QUARTER' : 'THREE-QUARTER');
           const line = sectorLine(sector, lead.name, chaser.name);
           if (line && !surpriseOnAir) {
-            call(line, 'big');
-            race.commentaryAt = race.raceT;
+            call(line, 'big', sector === 1 ? 'quarter' : sector === 2 ? 'half' : 'threeQuarter');
             if (sector === 2) sfx.bell();
           }
         }
+      }
+
+      /*
+       * The run home, and a close finish. Said once each: "here they come
+       * down the straight" when the leader reaches the last stretch, and a
+       * photo call when two of them are under a length apart with the line
+       * in sight. The caption names them; the clip does not.
+       */
+      if (lead && !lead.done && race.placed === 0 && !race.runHomeCalled && lead.p > RUN_HOME_FROM && !surpriseOnAir) {
+        /* Committed only when said: a late card on air just delays it. */
+        race.runHomeCalled = true;
+        call(`Here they come down the straight! ${lead.name} from ${chaser.name}!`, 'big', 'final');
+      }
+      if (
+        lead && !lead.done && race.placed === 0 && !race.photoCalled && !surpriseOnAir &&
+        lead.p > PHOTO_FROM && chaser.lane !== lead.lane &&
+        toLengths(lead.p - chaser.p) < 1
+      ) {
+        /* Committed only when said; a twist on air keeps the slot for its own call. */
+        race.photoCalled = true;
+        call(`${lead.name} and ${chaser.name} together - this is going to the line!`, 'big', 'photo');
       }
 
       /*
@@ -811,43 +860,11 @@ export function useRace(
       }
 
       /*
-       * The beat after a surprise. A caller who moves straight back to the
-       * running order has reported an event; one who says "oh, that is
-       * heartbreaking" first has called a race.
+       * No run-of-play filler. A caller who talks every four seconds whether
+       * or not anything has happened is the thing that sounded like a
+       * machine. Between the set pieces the room hears the crowd and the
+       * track; the caller speaks when there is something to call.
        */
-      if (race.reactTone && race.raceT >= race.reactAt) {
-        const tone = race.reactTone;
-        race.reactTone = null;
-        call(reactionLine(tone, race.commentaryRnd), 'call', 'reaction');
-        race.commentaryAt = race.raceT;
-      }
-
-      /*
-       * The run of play. The caller reaches for this only when nothing louder
-       * has happened recently, and it is handed the shape of the race - the
-       * gap, the tail-ender - rather than just the clock, so it can describe
-       * what the room is looking at instead of reciting the distance.
-       */
-      if (race.raceT - race.commentaryAt > 4200 && lead) {
-        race.commentaryAt = race.raceT;
-        const tail = ranked[ranked.length - 1];
-        call(
-          callLine(
-            {
-              leadP: lead.p,
-              lead: lead.name,
-              chase: chaser.name,
-              third: byPosition[2]?.name ?? '',
-              tail: tail?.name ?? '',
-              gapLengths: toLengths(lead.p - (byPosition[1]?.p ?? lead.p)),
-              toGoLengths: toLengths(1 - lead.p),
-            },
-            race.commentaryRnd,
-          ),
-          'call',
-          leadP > 0.85 ? 'final' : leadP < 0.2 ? 'early' : toLengths(lead.p - chaser.p) < 1 ? 'close' : 'mid',
-        );
-      }
 
       /* A locked race is over on the first active crossing. Paint that exact
          frame, publish its already locked classification, and never request
@@ -889,17 +906,16 @@ export function useRace(
         placed: 0,
         slowmoUsed: false,
         slowUntil: 0,
-        commentaryAt: -2000,
         commentaryRnd: mulberry32(drawn.seed ^ 0x4e444343),
         swarms: new Set<string>(),
-        reactAt: 0,
-        reactTone: null,
         places: new Map<number, number>(),
-        overtakeAt: -4000,
+        overtakeAt: -OVERTAKE_SPACING_MS,
         sector: 0,
         lapsDone: 0,
         leadLane: -1,
         finalCalled: false,
+        runHomeCalled: false,
+        photoCalled: false,
         inPhoto: false,
         results: [],
         highlights: [],
@@ -940,7 +956,7 @@ export function useRace(
           setCountdown('');
           setPhase('running');
           setStatus('And they are away!');
-          call('And they are away!', 'big');
+          call('And they are away!', 'big', 'start');
           painterRef.current?.start();
           rafRef.current = requestAnimationFrame((t) => frameRef.current(t));
         }, steps.length * 900),

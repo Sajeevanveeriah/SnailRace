@@ -36,9 +36,9 @@ const advanceToRace = async (page: Page) => {
 };
 
 const setSprintRace = async (page: Page) => {
-  await page.getByRole('button', { name: /Controls/i }).click();
+  await page.getByRole('button', { name: /Admin/i }).click();
   const controls = page.getByRole('region', {
-    name: 'Moderator controls',
+    name: 'Admin',
     includeHidden: true,
   });
   await expect(controls).toBeVisible();
@@ -215,13 +215,13 @@ test('the side-on race follows the lead pack and the full field view keeps every
   await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
   await expect(page.locator('.tv-snail-sprite')).toHaveCount(10);
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'trackside');
-  await expect(page.locator('.side-leader')).toContainText(/leads/, { timeout: 8_000 });
+  await expect(page.locator('.side-order li[data-rank="1"]')).toBeVisible({ timeout: 8_000 });
   /* The progress bar fills as the leader goes. */
   await expect
     .poll(() => page.locator('.side-progress').evaluate((el) => Number(getComputedStyle(el).getPropertyValue('--lead'))))
     .toBeGreaterThan(0.1);
 
-  await page.getByRole('button', { name: 'Full field view', exact: true }).click();
+  await page.getByRole('button', { name: 'Full field', exact: true }).click();
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-camera', 'course');
   await expect
     .poll(async () => {
@@ -242,9 +242,9 @@ test('surprises announce warning, reveal and effect with a visible prop or symbo
 }) => {
   test.setTimeout(60_000);
   await setSprintRace(page);
-  await page.getByRole('button', { name: /Controls/i }).click();
+  await page.getByRole('button', { name: /Admin/i }).click();
   const controls = page.getByRole('region', {
-    name: 'Moderator controls',
+    name: 'Admin',
     includeHidden: true,
   });
   await controls.getByLabel('Surprise director').selectOption('chaos');
@@ -252,34 +252,40 @@ test('surprises announce warning, reveal and effect with a visible prop or symbo
   await advanceToRace(page);
   await page.getByRole('button', { name: /Start race/i }).click();
 
-  const signal = page.locator('.course-event-ticker');
+  /* The side-on course names a twist in one place: the title card over the
+     course, which is also the live region a screen reader hears. */
+  const signal = page.locator('.side-splash');
   await expect(signal).toBeVisible({ timeout: 15_000 });
   /* A surprise is on air for under two seconds on a sprint, so everything
      about it is read in one snapshot at the instant it is visible rather
      than through a chain of round trips that can outlive it. */
   const snapshot = await page.evaluate(() => {
-    const ticker = document.querySelector('.course-event-ticker') as HTMLElement | null;
+    const card = document.querySelector('.side-splash') as HTMLElement | null;
     const scene = document.querySelector('.course-scene') as HTMLElement | null;
-    const prop = document.querySelector('.course-prop-image, .course-prop-symbol') as Element | null;
+    const prop = document.querySelector('.side-prop .course-prop-symbol') as Element | null;
     const rect = (el: Element | null) => (el ? el.getBoundingClientRect().toJSON() as DOMRect : null);
     return {
-      label: ticker?.querySelector('strong')?.textContent ?? '',
-      ariaLive: ticker?.getAttribute('aria-live'),
-      role: ticker?.getAttribute('role'),
-      ticker: rect(ticker),
+      label: card?.querySelector('.side-splash-title')?.textContent ?? '',
+      kicker: card?.querySelector('.side-splash-kicker')?.textContent ?? '',
+      ariaLive: card?.getAttribute('aria-live'),
+      role: card?.getAttribute('role'),
+      card: rect(card),
       scene: rect(scene),
       prop: rect(prop),
     };
   });
-  expect(snapshot.label).not.toMatch(/Something is developing/i);
+  expect(snapshot.label).not.toMatch(/Something is developing|approaching the course/i);
+  expect(snapshot.kicker).toMatch(/^(INCOMING|TWIST|BOOST|OUT)$/);
   expect(snapshot.role).toBe('status');
   expect(snapshot.ariaLive).toBe('assertive');
   expect(snapshot.scene).not.toBeNull();
-  expect(snapshot.ticker).not.toBeNull();
-  expect(snapshot.prop, 'a prop or symbol is drawn on the course').not.toBeNull();
+  expect(snapshot.card).not.toBeNull();
+  expect(snapshot.prop, 'a prop is drawn on the course').not.toBeNull();
   expect(snapshot.prop!.width).toBeGreaterThan(0);
-  expect(snapshot.ticker!.y).toBeGreaterThanOrEqual(snapshot.scene!.y + snapshot.scene!.height);
-  expect(snapshot.ticker!.height).toBeLessThanOrEqual(48);
+  /* The card sits in the top band of the course, clear of the lanes. The
+     snapshot can land mid-slam, when the card is briefly scaled up. */
+  expect(snapshot.card!.y).toBeGreaterThanOrEqual(snapshot.scene!.y - 100);
+  expect(snapshot.card!.y + snapshot.card!.height).toBeLessThanOrEqual(snapshot.scene!.y + snapshot.scene!.height * 0.4);
 });
 
 test('first finisher freezes the field and opens one result within one second', async ({
@@ -435,7 +441,7 @@ test('camera changes preserve painted lanes without restarting the race', async 
   const clock = page.locator('.tv-clock');
   await expect(clock).not.toHaveText('0:00.0');
   await page
-    .getByRole('button', { name: 'Full course view', exact: true })
+    .getByRole('button', { name: 'Full field', exact: true })
     .click();
   await expect(page.locator('.race-broadcast')).toHaveAttribute(
     'data-camera',
@@ -449,7 +455,7 @@ test('camera changes preserve painted lanes without restarting the race', async 
     'running',
   );
   await page.screenshot({ path: testInfo.outputPath('full-course.png') });
-  await page.getByRole('button', { name: 'Lead pack', exact: true }).click();
+  await page.getByRole('button', { name: 'Telecast', exact: true }).click();
   await expect(page.locator('.race-broadcast')).toHaveAttribute(
     'data-camera',
     'trackside',
@@ -462,14 +468,15 @@ test('camera changes preserve painted lanes without restarting the race', async 
 test('natural commentary preview loads a bundled audio clip', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: /Controls/i }).click();
+  await page.getByRole('button', { name: /Admin/i }).click();
   const controls = page.getByRole('region', {
-    name: 'Moderator controls',
+    name: 'Admin',
     includeHidden: true,
   });
   await controls.getByLabel('Commentary voice').selectOption('recorded');
+  /* Any of the three takes of the ready cue may be chosen. */
   const response = page.waitForResponse((response) =>
-    response.url().endsWith('/audio/commentary/ready.mp3'),
+    /\/audio\/commentary\/ready(-\d)?\.mp3$/.test(response.url()),
   );
   await controls
     .getByRole('button', { name: 'Preview commentator', exact: true })
@@ -509,7 +516,7 @@ for (const [raceNumber, courseId] of [
     await page.getByRole('button', { name: /Start race/i }).click();
     await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6000 });
     await page
-      .getByRole('button', { name: 'Full course view', exact: true })
+      .getByRole('button', { name: 'Full field', exact: true })
       .click();
     await expect(page.locator('.race-broadcast')).toHaveAttribute(
       'data-course',
@@ -565,8 +572,8 @@ test('owners name their snails on the racecard, the running order and the offici
 }) => {
   test.setTimeout(60_000);
   await setSprintRace(page);
-  await page.getByRole('button', { name: /Controls/i }).click();
-  const controls = page.getByRole('region', { name: 'Moderator controls', includeHidden: true });
+  await page.getByRole('button', { name: /Admin/i }).click();
+  const controls = page.getByRole('region', { name: 'Admin', includeHidden: true });
   const card = controls.getByRole('region', { name: 'The card', exact: true });
   await card.getByLabel('Snail 1 name', { exact: true }).fill('Mucus Bolt');
   await card.getByLabel('Snail 1 owner', { exact: true }).fill('Dave');
@@ -589,7 +596,7 @@ test('owners name their snails on the racecard, the running order and the offici
 
   await page.getByRole('button', { name: /Start race/i }).click();
   await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6_000 });
-  await expect(page.locator('.side-leader')).toContainText(/leads/, { timeout: 8_000 });
+  await expect(page.locator('.side-order li[data-rank="1"]')).toBeVisible({ timeout: 8_000 });
 
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
   await expect(winner).toBeVisible({ timeout: 20_000 });

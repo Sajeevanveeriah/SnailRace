@@ -27,7 +27,6 @@ interface Props {
   race: RaceController;
   surface: StageThemeId;
   laps: number;
-  chase: boolean;
   /**
    * Telecast frames the leading pack, the way a horse race is shot; full
    * shows the whole course. The on-screen toggle and the desk both flip it.
@@ -77,7 +76,6 @@ export function Telecast({
   race,
   surface,
   laps,
-  chase,
   cameraMode = 'telecast',
   calm,
   clubName,
@@ -239,7 +237,6 @@ export function Telecast({
         w = 1200,
         h = 720;
       if (
-        chase &&
         !reduceMotion &&
         !courseViewRef.current &&
         positions.length
@@ -350,7 +347,7 @@ export function Telecast({
       },
       paint,
     };
-  }, [geometry, laps, chase, reduceMotion, spriteScale, numberOffset]);
+  }, [geometry, laps, reduceMotion, spriteScale, numberOffset]);
 
   useEffect(() => {
     setPainter(painter);
@@ -658,7 +655,7 @@ export function Telecast({
             if (snapshot) painter.paint(snapshot.snails, snapshot.info);
           }}
         >
-          {courseView ? 'Lead pack' : 'Full course view'}
+          {courseView ? 'Telecast' : 'Full field'}
         </button>
       </div>
       <BroadcastHud

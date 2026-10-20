@@ -134,13 +134,7 @@ export function OfficialResult({
               {r.name}
               {runnerSponsors[r.lane]?.trim() ? <small> with {runnerSponsors[r.lane].trim()}</small> : null}
             </span>
-            <span className="tv-result-time num">
-              {r.finishMs !== null
-                ? `${(r.finishMs / 1000).toFixed(2)}s`
-                : r.status === 'retired'
-                  ? 'RET'
-                  : `${Math.round((r.progressAtStop ?? 0) * 100)}%`}
-            </span>
+            {r.status === 'retired' ? <span className="tv-result-time">RET</span> : null}
           </li>
         ))}
       </ol>

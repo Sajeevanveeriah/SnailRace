@@ -173,7 +173,7 @@ export const EVENT_SPECS: EventSpec[] = [
   {
     kind: 'boost', label: 'TURBO SLIME', tone: 'good', sound: 'up', weight: 10,
     calls: [
-      '{a} hits the turbo slime and LUNGES!',
+      '{a} hits the turbo slime and lunges!',
       '{a} has found the quick stuff and gone whoosh!',
       'Turbo slime for {a} and it is away!',
     ],
@@ -183,7 +183,7 @@ export const EVENT_SPECS: EventSpec[] = [
     kind: 'surge', label: 'SECOND WIND', tone: 'good', sound: 'up', weight: 9,
     calls: [
       '{a} finds a second wind and is flying home!',
-      'Where has {a} found THAT? Second wind!',
+      'Where has {a} found that? Second wind!',
       '{a} has come back to life!',
     ],
     magFrom: 0.07, magTo: 0.125, spanFrom: 0.12, spanTo: 0.22, from: 0.5, to: 0.86,
@@ -207,7 +207,7 @@ export const EVENT_SPECS: EventSpec[] = [
   {
     kind: 'boost', label: 'TRIPLE ESPRESSO', tone: 'good', sound: 'up', weight: 4,
     calls: [
-      'Somebody has given {a} a coffee and it is ELECTRIC!',
+      'Somebody has given {a} a coffee and it is electric!',
       '{a} has had a triple shot and is bouncing off the walls!',
     ],
     magFrom: 0.09, magTo: 0.145, spanFrom: 0.06, spanTo: 0.11, from: 0.14, to: 0.74,
@@ -243,7 +243,7 @@ export const EVENT_SPECS: EventSpec[] = [
     kind: 'nap', label: 'MICRO-NAP', tone: 'bad', sound: 'nap', weight: 8,
     calls: [
       '{a} has stopped for a nap. You would not read about it!',
-      '{a} is ASLEEP. Somebody wake it up!',
+      '{a} is asleep. Somebody wake it up!',
       'And {a} has decided this is a good spot for a lie down.',
     ],
     magFrom: -0.135, magTo: -0.085, spanFrom: 0.14, spanTo: 0.24, from: 0.18, to: 0.7,
@@ -310,7 +310,7 @@ export const EVENT_SPECS: EventSpec[] = [
   {
     kind: 'chaos', label: 'MYSTERY SLIME', tone: 'wild', sound: 'weird', weight: 7,
     calls: [
-      '{a} is into the mystery slime and ANYTHING could happen!',
+      '{a} is into the mystery slime and anything could happen!',
       'Nobody knows what is in that puddle, and {a} has gone straight through it!',
     ],
     magFrom: -0.11, magTo: 0.11, spanFrom: 0.08, spanTo: 0.16, from: 0.14, to: 0.78,
@@ -368,7 +368,7 @@ export const EVENT_SPECS: EventSpec[] = [
   {
     kind: 'surge', label: 'DRINKS BREAK ENERGY', tone: 'good', sound: 'up', weight: 6,
     calls: [
-      '{a} has had a sports drink at the boundary and it has WORKED!',
+      '{a} has had a sports drink at the boundary and it has worked!',
       'Hydrated and dangerous: {a} is motoring!',
     ],
     magFrom: 0.05, magTo: 0.09, spanFrom: 0.1, spanTo: 0.18, from: 0.3, to: 0.78,
@@ -488,8 +488,8 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'plague', label: 'THE PLAGUE', tone: 'bad', sound: 'plague', weight: 6,
     calls: [
-      'A SHELL PLAGUE is sweeping through the field! They are dropping everywhere!',
-      'PLAGUE! Half this field has gone down with it!',
+      'A shell plague is sweeping through the field! They are dropping everywhere!',
+      'Plague! Half this field has gone down with it!',
     ],
     shareFrom: 0.4, shareTo: 0.7,
     magFrom: -0.1, magTo: -0.05, spanFrom: 0.12, spanTo: 0.2, from: 0.2, to: 0.68,
@@ -497,7 +497,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'swoop', label: 'MAGPIE SWOOP', tone: 'bad', sound: 'swoop', weight: 8,
     calls: [
-      'SWOOP! A magpie has come straight through the middle of them!',
+      'Swoop! A magpie has come straight through the middle of them!',
       'Look out! The magpie is back and it has scattered the field!',
     ],
     shareFrom: 0.2, shareTo: 0.45,
@@ -507,7 +507,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
     kind: 'chaos', label: 'SPRINKLERS ON', tone: 'wild', sound: 'siren', weight: 6,
     calls: [
       'The sprinklers have come on! Nobody told the groundsman there was a race!',
-      'SPRINKLERS! The whole back straight is under water!',
+      'Sprinklers! The whole back straight is under water!',
     ],
     shareFrom: 0.4, shareTo: 0.8,
     magFrom: -0.08, magTo: 0.08, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.72,
@@ -524,7 +524,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'chaos', label: 'DOG ON THE TRACK', tone: 'wild', sound: 'swoop', weight: 6,
     calls: [
-      'THE CLUB DOG IS ON THE TRACK! Absolute carnage!',
+      'The club dog is on the track! Absolute carnage!',
       'Somebody grab that dog! It is running the wrong way through the field!',
     ],
     shareFrom: 0.3, shareTo: 0.6,
@@ -533,7 +533,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'boost', label: 'LETTUCE ON THE TRACK', tone: 'good', sound: 'up', weight: 5,
     calls: [
-      'Somebody has thrown a lettuce on the track and this field has ACCELERATED!',
+      'Somebody has thrown a lettuce on the track and this field has accelerated!',
       'Lettuce! The whole field has picked up the pace!',
     ],
     shareFrom: 0.4, shareTo: 0.8,
@@ -563,7 +563,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
     kind: 'plague', label: 'RAIN SQUALL', tone: 'bad', sound: 'rain', weight: 5,
     calls: [
       'A squall has come straight across the ground! Half the field has stopped to shelter!',
-      'RAIN! The outfield is under water and the middle of the field is bogged!',
+      'Rain! The outfield is under water and the middle of the field is bogged!',
     ],
     shareFrom: 0.35, shareTo: 0.7,
     magFrom: -0.09, magTo: -0.045, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.7,
@@ -580,7 +580,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'swoop', label: 'MAGPIE RAID', tone: 'bad', sound: 'swoop', weight: 6,
     calls: [
-      'MAGPIES! Somebody dropped a chip and the whole family has come through the field!',
+      'Magpies! Somebody dropped a chip and the whole family has come through the field!',
       'A magpie raid! They are after the lettuce and they have scattered the runners!',
     ],
     shareFrom: 0.25, shareTo: 0.5,
@@ -715,7 +715,7 @@ function drawFinishDrama(rnd: () => number, order: number[]): RaceEvent[] {
     { label: 'CAUGHT SHORT', call: '{a} has stopped to look at the crowd! What is it doing!' },
   ];
   const charges = [
-    { label: 'LATE CHARGE', call: '{a} is FLYING at them! Look at this finish!' },
+    { label: 'LATE CHARGE', call: '{a} is flying at them! Look at this finish!' },
     { label: 'DESPERATE LUNGE', call: '{a} has thrown everything at it!' },
     { label: 'THE CHASE IS ON', call: '{a} is eating into it with every stride!' },
   ];
@@ -1269,8 +1269,12 @@ export const DECK_SECONDS_PER_CARD_MS = 15_000;
  * still for a third of the race.
  */
 export const LANE_CLOCK_CAP = 0.3;
-/** Two cards on air at once is noise, not drama: the least gap between them. */
-export const deckSpacingMs = (durationMs: number): number => Math.max(4500, Math.round(durationMs * 0.05));
+/**
+ * Two cards on air at once is noise, not drama: the least gap between them.
+ * One twist's story on screen is its warning, the hit and the title card
+ * parking, about four seconds; the gap leaves a breath before the next.
+ */
+export const deckSpacingMs = (durationMs: number): number => Math.max(5500, Math.round(durationMs * 0.05));
 /** How close a comeback beat may sit to a dealt card: its warning and chase must not overlap the card's own title. */
 export const comebackClearanceMs = (durationMs: number): number => Math.round(deckSpacingMs(durationMs) * 0.75);
 
@@ -1313,7 +1317,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     from: 0.8, to: 0.87, boostTo: 0,
     warning: 'The vet has seen something near the finish and is running.',
     calls: [
-      'PLAGUE! The whole field has gone down with the line in sight! Who recovers first?',
+      'Plague! The whole field has gone down with the line in sight! Who recovers first?',
       'They have ALL stopped! A shell plague at the post and this race is wide open again!',
     ],
     deal: (rnd, lanes, durationMs) => {
@@ -1335,7 +1339,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'magpie-post', label: 'MAGPIE AT THE POST', kind: 'swoop', tone: 'bad', sound: 'swoop', once: true,
     from: 0.76, to: 0.84, boostTo: 0,
     warning: 'A magpie has landed on the finish post.',
-    calls: ['SWOOP at the post! The leaders have ducked and the back of the field is coming through!'],
+    calls: ['Swoop at the post! The leaders have ducked and the back of the field is coming through!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const hit = Math.max(2, Math.round(lanes.length * (0.4 + rnd() * 0.3)));
@@ -1347,7 +1351,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'freeze', label: 'THE BIG FREEZE', kind: 'chaos', tone: 'wild', sound: 'siren', once: true,
     from: 0.3, to: 0.78, boostTo: 0.04,
     warning: 'The starter has a hand up. Something is not right.',
-    calls: ['EVERYTHING HAS STOPPED! A freeze on the course... and {a} is the first one moving!'],
+    calls: ['Everything has stopped! A freeze on the course... and {a} is the first one moving!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const hold = share(rnd, durationMs, 0.045, 0.065);
@@ -1372,14 +1376,14 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'reverse', label: 'REVERSE GEAR', kind: 'wander', tone: 'bad', sound: 'wander', once: true,
     from: 0.35, to: 0.8, boostTo: 0,
     warning: 'The leader is looking over its shoulder.',
-    calls: ['{a} has gone into REVERSE! The leader is going backwards and the field is on top of it!'],
+    calls: ['{a} has gone into reverse! The leader is going backwards and the field is on top of it!'],
     deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.09, 0.12) }, featured: lanes[0] }),
   },
   {
     id: 'lucky-last', label: 'LUCKY LAST', kind: 'surge', tone: 'good', sound: 'up', once: false,
     from: 0.45, to: 0.76, boostTo: 0.11,
     warning: 'Somebody at the back has just woken up.',
-    calls: ['From LAST! {a} has lit the afterburners and is flying through the field!'],
+    calls: ['From last! {a} has lit the afterburners and is flying through the field!'],
     deal: (rnd, lanes, durationMs) => {
       const last = lanes[lanes.length - 1];
       return { deltas: { [last]: share(rnd, durationMs, 0.08, 0.11) }, featured: last };
@@ -1399,7 +1403,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'late-swap', label: 'LATE SHELL SWAP', kind: 'chaos', tone: 'wild', sound: 'weird', once: false,
     from: 0.66, to: 0.8, boostTo: 0.06,
     warning: 'The two leaders are far too close to each other.',
-    calls: ['SHELL SWAP! {a} and the leader have gone through each other and come out the other way round!'],
+    calls: ['Shell swap! {a} and the leader have gone through each other and come out the other way round!'],
     deal: (rnd, lanes, durationMs) => {
       const swing = share(rnd, durationMs, 0.04, 0.06);
       return { deltas: { [lanes[0]]: -swing, [lanes[1]]: swing }, featured: lanes[1] };
@@ -1424,8 +1428,8 @@ export const DECK_CARDS: readonly DeckCard[] = [
     from: 0.3, to: 0.7, boostTo: 0,
     warning: 'A very large shadow has fallen across the leader\'s lane.',
     calls: [
-      'THE BOOT! A giant boot has come down right on top of {a}! The leader is flat as a pancake!',
-      'STOMP! {a} has been trodden on with the race in hand! Can it shake itself out?',
+      'The boot! A giant boot has come down right on top of {a}! The leader is flat as a pancake!',
+      'Stomp! {a} has been trodden on with the race in hand! Can it shake itself out?',
     ],
     deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.09, 0.12) }, featured: lanes[0] }),
   },
@@ -1433,7 +1437,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'snail-ale', label: 'SNAIL ALE HAPPY HOUR', kind: 'nap', tone: 'wild', sound: 'weird', once: false,
     from: 0.35, to: 0.7, boostTo: 0.05,
     warning: 'The Snail Ale sign has just lit up beside the track.',
-    calls: ['HAPPY HOUR! The whole field has pulled in for a Snail Ale... except {a}, the designated driver, who is OFF!'],
+    calls: ['Happy hour! The whole field has pulled in for a Snail Ale... except {a}, the designated driver, who is off!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const driver = lanes[Math.floor(rnd() * lanes.length)];
@@ -1445,14 +1449,14 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'watermelon', label: 'WATERMELON AT THE POST', kind: 'nap', tone: 'bad', sound: 'nap', once: true,
     from: 0.78, to: 0.86, boostTo: 0,
     warning: 'Somebody has left a slice of watermelon near the winning post.',
-    calls: ['WATERMELON! {a} has stopped for a feed with the line RIGHT THERE! The rest of them are coming!'],
+    calls: ['Watermelon! {a} has stopped for a feed with the line right there! The rest of them are coming!'],
     deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lanes[0] }),
   },
   {
     id: 'boom-gate', label: 'BOOM GATE', kind: 'chaos', tone: 'wild', sound: 'siren', once: false,
     from: 0.28, to: 0.68, boostTo: 0,
     warning: 'The boom gate lights have started flashing across the course.',
-    calls: ['BOOM GATE DOWN! {a} got through and everybody behind it is stuck at the barrier!'],
+    calls: ['Boom gate down! {a} got through and everybody behind it is stuck at the barrier!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const through = 1 + Math.floor(rnd() * Math.min(3, lanes.length - 2));
@@ -1464,7 +1468,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'catapult', label: 'THE CATAPULT', kind: 'surge', tone: 'good', sound: 'up', once: false,
     from: 0.3, to: 0.72, boostTo: 0.12,
     warning: 'The groundskeeper is winding something up behind the back markers.',
-    calls: ['CATAPULT! {a} has been FLUNG up the course! It is airborne and it is flying past them!'],
+    calls: ['Catapult! {a} has been flung up the course! It is airborne and it is flying past them!'],
     deal: (rnd, lanes, durationMs) => {
       const back = lanes.slice(Math.floor(lanes.length / 2));
       const lane = back[Math.floor(rnd() * back.length)];
@@ -1475,7 +1479,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'bunch-up', label: 'THE BIG BUNCH-UP', kind: 'chaos', tone: 'wild', sound: 'wave', once: true,
     from: 0.58, to: 0.76, boostTo: 0.08,
     warning: 'The stewards have wheeled a giant magnet onto the home straight.',
-    calls: ['THE MAGNET! The leaders are being dragged back and the tail is being pulled up! {a} and the whole field are nose to nose!'],
+    calls: ['The magnet! The leaders are being dragged back and the tail is being pulled up! {a} and the whole field are nose to nose!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const n = lanes.length;
@@ -1491,7 +1495,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'caterpillar', label: 'CATERPILLAR CROSSING', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
     from: 0.3, to: 0.7, boostTo: 0,
     warning: 'A very long caterpillar is heading for the middle of the course.',
-    calls: ['CATERPILLAR! It is right across the middle of the field and {a} has to wait for every one of those legs!'],
+    calls: ['Caterpillar! It is right across the middle of the field and {a} has to wait for every one of those legs!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const middle = lanes.slice(1, Math.max(2, lanes.length - 1));
@@ -1504,8 +1508,8 @@ export const DECK_CARDS: readonly DeckCard[] = [
     from: 0.28, to: 0.74, boostTo: 0.03,
     warning: 'One of the runners has found a cricket bat beside the track.',
     calls: [
-      '{a} has pulled out a cricket bat and CLOBBERED the snail in front! Down it goes and {a} is through!',
-      'THE BAT! {a} has swung it straight at the snail ahead! That is not in the rules and nobody is stopping it!',
+      '{a} has pulled out a cricket bat and clobbered the snail in front! Down it goes and {a} is through!',
+      'The bat! {a} has swung it straight at the snail ahead! That is not in the rules and nobody is stopping it!',
     ],
     deal: (rnd, lanes, durationMs) => {
       /* A runner outside the lead picks up the bat; the snail directly in front of it wears it. */
@@ -1519,7 +1523,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'contagion', label: 'CONTAGIOUS PLAGUE', kind: 'plague', tone: 'bad', sound: 'plague', once: false, weight: 3,
     from: 0.4, to: 0.74, boostTo: 0,
     warning: 'The vet is running towards the front of the field with a mask on.',
-    calls: ['PLAGUE at the front! {a} has caught it and it is SPREADING: everybody running near the leader has gone down with it!'],
+    calls: ['Plague at the front! {a} has caught it and it is spreading: everybody running near the leader has gone down with it!'],
     deal: (rnd, lanes, durationMs) => {
       /* The leader gets it worst; the nearer a runner is to the front, the more it catches. */
       const deltas: Record<number, number> = {};
@@ -1536,7 +1540,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'speed-camera', label: 'OFFICER JACKS SPEED CAMERA', kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
     from: 0.25, to: 0.72, boostTo: 0,
     warning: 'Officer Jack has set up his speed camera on the rail.',
-    calls: ['FLASH! Officer Jack has pulled {a} over for speeding! The leader is parked while he writes it up!'],
+    calls: ['Flash! Officer Jack has pulled {a} over for speeding! The leader is parked while he writes it up!'],
     deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.06, 0.09) }, featured: lanes[0] }),
   },
   /* ── More chaos: the second wave of twists ─────────────────────────── */
@@ -1544,7 +1548,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'sausage-sizzle', label: 'SAUSAGE SIZZLE', kind: 'nap', tone: 'wild', sound: 'weird', once: false,
     from: 0.3, to: 0.74, boostTo: 0,
     warning: 'Somebody has fired up the barbecue beside the track.',
-    calls: ['SAUSAGE SIZZLE! The leaders have stopped for a snag in bread and {a} has gone straight past them!'],
+    calls: ['Sausage sizzle! The leaders have stopped for a snag in bread and {a} has gone straight past them!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const hungry = Math.max(2, Math.ceil(lanes.length / 2));
@@ -1568,7 +1572,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'trampoline', label: 'THE TRAMPOLINE', kind: 'surge', tone: 'good', sound: 'up', once: false,
     from: 0.3, to: 0.72, boostTo: 0.1,
     warning: 'Somebody has dragged a trampoline onto the course.',
-    calls: ['BOING! {a} has hit the trampoline and bounced halfway up the course!'],
+    calls: ['Boing! {a} has hit the trampoline and bounced halfway up the course!'],
     deal: (rnd, lanes, durationMs) => {
       const middle = lanes.slice(1, Math.max(2, lanes.length - 1));
       const lane = middle[Math.floor(rnd() * middle.length)];
@@ -1579,7 +1583,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'wombat', label: 'WOMBAT CROSSING', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
     from: 0.3, to: 0.72, boostTo: 0,
     warning: 'Something round and furry is heading for the track.',
-    calls: ['A WOMBAT has sat down in the middle of the course and {a} cannot get round it!'],
+    calls: ['A wombat has sat down in the middle of the course and {a} cannot get round it!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const pool = [...lanes];
@@ -1607,8 +1611,8 @@ export const DECK_CARDS: readonly DeckCard[] = [
     from: 0.25, to: 0.75, boostTo: 0.07,
     warning: 'The groundskeeper has a leaf blower and no idea which way it is pointing.',
     calls: [
-      'The LEAF BLOWER has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!',
-      'The LEAF BLOWER is pointing up the course and the back markers are flying! {a} is riding the breeze!',
+      'The leaf blower has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!',
+      'The leaf blower is pointing up the course and the back markers are flying! {a} is riding the breeze!',
     ],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
@@ -1616,17 +1620,17 @@ export const DECK_CARDS: readonly DeckCard[] = [
       /* Which way it points is a coin toss: hold the front or blow the back on. */
       if (rnd() < 0.5) {
         for (const lane of lanes.slice(0, half)) deltas[lane] = -share(rnd, durationMs, 0.03, 0.06);
-        return { deltas, featured: lanes[0], call: 'The LEAF BLOWER has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!' };
+        return { deltas, featured: lanes[0], call: 'The leaf blower has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!' };
       }
       for (const lane of lanes.slice(half)) deltas[lane] = share(rnd, durationMs, 0.03, 0.07);
-      return { deltas, featured: lanes[half], call: 'The LEAF BLOWER is pointing up the course and the back markers are flying! {a} is riding the breeze!' };
+      return { deltas, featured: lanes[half], call: 'The leaf blower is pointing up the course and the back markers are flying! {a} is riding the breeze!' };
     },
   },
   {
     id: 'tremor', label: 'EARTH TREMOR', kind: 'chaos', tone: 'wild', sound: 'wave', once: true,
     from: 0.3, to: 0.78, boostTo: 0.05,
     warning: 'The drinks on the bar have started to rattle.',
-    calls: ['EARTH TREMOR! The whole track has shaken and nobody knows where they are! {a} has come out of it best!'],
+    calls: ['Earth tremor! The whole track has shaken and nobody knows where they are! {a} has come out of it best!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       let featured = lanes[0];
@@ -1646,7 +1650,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'lucky-dip', label: 'LUCKY DIP', kind: 'chaos', tone: 'wild', sound: 'weird', once: false,
     from: 0.25, to: 0.74, boostTo: 0.08,
     warning: 'A bucket of numbered shells has appeared at the rail.',
-    calls: ['LUCKY DIP! Two snails get a shove and two get a shell full of sand! {a} drew the good one!'],
+    calls: ['Lucky dip! Two snails get a shove and two get a shell full of sand! {a} drew the good one!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const pool = [...lanes];
@@ -1662,7 +1666,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'possum', label: 'POSSUM ON THE LOOSE', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
     from: 0.25, to: 0.76, boostTo: 0,
     warning: 'Something has fallen out of the gum tree by the scoreboard.',
-    calls: ['A POSSUM has dropped out of the tree right in front of {a}! It is not moving and neither is the snail!'],
+    calls: ['A possum has dropped out of the tree right in front of {a}! It is not moving and neither is the snail!'],
     deal: (rnd, lanes, durationMs) => {
       const lane = lanes[Math.floor(rnd() * lanes.length)];
       return { deltas: { [lane]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
@@ -1672,7 +1676,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'drone', label: 'RUNAWAY DRONE', kind: 'swoop', tone: 'bad', sound: 'swoop', once: false,
     from: 0.25, to: 0.74, boostTo: 0,
     warning: 'The club drone has stopped answering the remote.',
-    calls: ['The RUNAWAY DRONE has buzzed the field and {a} has ducked into its shell! So has the one beside it!'],
+    calls: ['The runaway drone has buzzed the field and {a} has ducked into its shell! So has the one beside it!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const at = Math.floor(rnd() * (lanes.length - 1));
@@ -1698,7 +1702,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'cheer-squad', label: 'CHEER SQUAD', kind: 'surge', tone: 'good', sound: 'up', once: false,
     from: 0.35, to: 0.76, boostTo: 0.1,
     warning: 'The junior cheer squad has found the back of the field.',
-    calls: ['The CHEER SQUAD is screaming for {a} at the back and it is FLYING! From last to somewhere!'],
+    calls: ['The cheer squad is screaming for {a} at the back and it is Flying! From last to somewhere!'],
     deal: (rnd, lanes, durationMs) => {
       const lane = lanes[lanes.length - 1];
       return { deltas: { [lane]: share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
@@ -1708,7 +1712,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'road-works', label: 'ROAD WORKS', kind: 'stumble', tone: 'bad', sound: 'down', once: false,
     from: 0.3, to: 0.76, boostTo: 0,
     warning: 'A man in a hi-vis vest is putting out cones ahead of the leaders.',
-    calls: ['ROAD WORKS! The cones are out and {a} has to wait for the lollipop sign! The leaders are stuck in the queue!'],
+    calls: ['Road works! The cones are out and {a} has to wait for the lollipop sign! The leaders are stuck in the queue!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       for (const lane of lanes.slice(0, 2)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
@@ -1719,7 +1723,7 @@ export const DECK_CARDS: readonly DeckCard[] = [
     id: 'hailstorm', label: 'HAILSTORM', kind: 'plague', tone: 'bad', sound: 'rain', once: true,
     from: 0.35, to: 0.8, boostTo: 0,
     warning: 'The sky over the pavilion has gone very dark, very fast.',
-    calls: ['HAIL! Every snail has pulled its head in! {a} is the first one brave enough to come out!'],
+    calls: ['Hail! Every snail has pulled its head in! {a} is the first one brave enough to come out!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       let featured = lanes[0];
@@ -1988,14 +1992,18 @@ export function drawLockedRacePlan(
         .sort((a, b) => progressForLockedRunner(b, events, at, motion) - progressForLockedRunner(a, events, at, motion))
         .map((runner) => runner.lane);
     let dealt = 0;
-    /* Mayhem lets twists come thick and fast, closer together than any other night. */
-    const spacing = intensity === 'mayhem' ? Math.round(deckSpacingMs(durationMs) * 0.6) : deckSpacingMs(durationMs);
+    /* Mayhem deals more cards and lets them sit a little closer, but never
+       inside one another's story: the screen shows one twist at a time. */
+    const spacing = intensity === 'mayhem' ? Math.round(deckSpacingMs(durationMs) * 0.8) : deckSpacingMs(durationMs);
     const dealtAt: number[] = [];
+    /* The comeback beats keep their own clearance, sized to a short race,
+       so a sprint still has room for a card either side of its beat. */
+    const beatClearance = Math.max(4500, Math.round(durationMs * 0.05));
     /* One story at a time: a card keeps clear of every other card and of
        the comeback beats, which have their own warning, obstacle and chase. */
     const crowded = (at: number): boolean =>
       dealtAt.some((other) => Math.abs(other - at) < spacing) ||
-      comebackTimes.some((ct) => at > ct - spacing * 1.5 && at < ct + Math.max(spacing * 1.5, chaseOffset + 2500));
+      comebackTimes.some((ct) => at > ct - beatClearance * 1.5 && at < ct + Math.max(beatClearance * 1.5, chaseOffset + 2500));
     for (const card of available) {
       if (dealt >= deckCount) break;
       /* The whole four-beat sequence and its consequence must be readable
@@ -2659,13 +2667,13 @@ export const REACTION_LINES = {
     'That is dreadful timing.',
     'A small disaster, beautifully executed.',
     'You have to feel for that snail.',
-    'That has turned a promising crawl into paperwork.',
+    'That has turned a good crawl into paperwork.',
   ],
   wild: [
     'What on earth was that?',
     'Nobody has any idea what just happened!',
     'The stewards are going to have a look at that one.',
-    'I have called a lot of these and I have never seen that.',
+    'I have never seen that, and I have called a few.',
   ],
 } as const;
 
@@ -2674,28 +2682,28 @@ export const LAP_LINES = [
   '{a} leads them across the line to start lap {n}!',
   'Lap {n} begins and it is {a} in front from {b}.',
   'Onto lap {n} - {a} by a whisker from {b}.',
-  '{a} starts lap {n} with {b} all over the back of it.',
+  '{a} starts lap {n}, {b} all over the back of it.',
 ] as const;
 
 export const BELL_LAP_LINES = [
-  'THE BELL! Last lap, and {a} leads!',
+  'There is the bell! Last lap, {a} leads!',
   'Bell lap! {a} in front, {b} coming for it!',
-  'One lap to run and {a} has it by a nose!',
+  'One to go, {a} by a nose!',
 ] as const;
 
 /** Called when the leader changes hands. The loudest line in the book. */
 export const LEAD_CHANGE_LINES = [
-  'LEAD CHANGE! {a} snatches it from {b}!',
-  '{a} goes past {b}! What a move!',
+  'New leader! {a} snatches it from {b}!',
+  '{a} goes past {b} and hits the front!',
   'A new leader - {a} takes it up!',
   '{a} sweeps around {b} and hits the front!',
 ] as const;
 
 /** Quarter, half and three-quarter marks, so a long race keeps its shape. */
 export const SECTOR_LINES: Record<number, string> = {
-  1: 'Quarter of the way and {a} leads {b}.',
-  2: 'HALFWAY - {a} by a nose from {b}.',
-  3: 'Three-quarter mark, {a} in front and {b} winding up.',
+  1: 'A quarter gone, {a} leads {b}.',
+  2: 'Halfway, {a} by a nose from {b}.',
+  3: 'Three-quarter mark, {a} in front, {b} winding up.',
 };
 
 export type CommentaryRandom = () => number;
