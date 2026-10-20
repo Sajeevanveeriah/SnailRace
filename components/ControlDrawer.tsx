@@ -703,73 +703,7 @@ export function ControlDrawer({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-money" hidden={tab !== 'money'}>
-            {/* ── Cash tin ─────────────────────────────────────────── */}
-            <section className="panel">
-              <h3 className="mb-3 font-semibold">Cash tin</h3>
-              <div className="grid gap-3">
-                <label className="fld">
-                  <span>Backing</span>
-                  <select
-                    value={cashLane}
-                    onChange={(e) => setCashLane(Number(e.target.value))}
-                  >
-                    {names.map((n, i) => (
-                      <option key={i} value={i}>
-                        {i + 1}. {n}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="fld">
-                  <span>Backer name (optional)</span>
-                  <input
-                    type="text"
-                    value={cashName}
-                    maxLength={40}
-                    placeholder="e.g. Dave S."
-                    onChange={(e) => setCashName(e.target.value)}
-                  />
-                </label>
-                <label className="fld">
-                  <span>Amount (AUD)</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="1"
-                    step="0.01"
-                    value={cashAmount}
-                    onChange={(e) => setCashAmount(e.target.value)}
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_AMOUNTS_CENTS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      className="btn btn-ghost px-3 py-1.5 text-xs"
-                      onClick={() => setCashAmount((c / 100).toFixed(2))}
-                    >
-                      {moneyShort(c)}
-                    </button>
-                  ))}
-                </div>
-                <button type="button" className="btn btn-primary" onClick={addCash}>
-                  Record cash donation
-                </button>
-                <p className="text-[11px] text-(--tx)/45">
-                  Cash is recorded on this device. Card donations arrive from Stripe on their own.
-                </p>
-              </div>
-            </section>
-
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-money" hidden={tab !== 'money'}>
-            {/* ── Permit-gated cash tote ───────────────────────────── */}
-            <CashTotePanel nextRaceNo={nextRaceNo} locked={locked} />
-
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-setup" hidden={tab !== 'setup'}>
+            <div id="admin-panel-setup" className="contents" role="tabpanel" aria-labelledby="admin-tab-setup" hidden={tab !== 'setup'}>
             {/* ── Event identity and stage look ────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Event</h3>
@@ -892,8 +826,6 @@ export function ControlDrawer({
               </div>
             </section>
 
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-setup" hidden={tab !== 'setup'}>
             {/* ── Race setup ───────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Race setup</h3>
@@ -994,8 +926,6 @@ export function ControlDrawer({
               </p>
             </section>
 
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-setup" hidden={tab !== 'setup'}>
             {/* ── Run of show ──────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Run of show</h3>
@@ -1065,103 +995,6 @@ export function ControlDrawer({
               </p>
             </section>
 
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-advanced" hidden={tab !== 'advanced'}>
-            {/* ── Phone Play ───────────────────────────────────────── */}
-            <section className="panel">
-              <div className="mb-3 flex items-baseline justify-between gap-2">
-                <h3 className="font-semibold">Phone Play</h3>
-                <span className="fun-chip-tag">fun chips - no monetary value</span>
-              </div>
-              <PhonePlayPanel
-                session={phonePlay.session}
-                summary={phonePlay.summary}
-                online={phonePlay.online}
-                controlReady={phonePlay.controlReady}
-                controlError={phonePlay.controlError}
-                playUrl={playUrl}
-                onStart={phonePlay.start}
-                onEnd={phonePlay.end}
-                say={say}
-              />
-            </section>
-
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-advanced" hidden={tab !== 'advanced'}>
-            {/* ── Race Pack (recorded mode) ────────────────────────── */}
-            {event.eventMode === 'recorded' ? (
-              <section className="panel lg:col-span-2">
-                <h3 className="mb-3 font-semibold">Race Pack</h3>
-                <PackManager say={say} />
-              </section>
-            ) : null}
-
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-advanced" hidden={tab !== 'advanced'}>
-            {/* ── Preflight ────────────────────────────────────────── */}
-            <section className="panel">
-              <h3 className="mb-3 font-semibold">Preflight</h3>
-              <Preflight />
-            </section>
-
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-night" hidden={tab !== 'night'}>
-            {/* ── Saved nights ─────────────────────────────────────── */}
-            <section className="panel">
-              <h3 className="mb-1 font-semibold">Saved nights</h3>
-              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
-                Whole nights saved on this device with a SHA-256 fingerprint. A saved night
-                that fails its fingerprint check refuses to load.
-              </p>
-              <button type="button" className="btn btn-ghost mb-3 w-full" onClick={saveNightToArchive}>
-                Save this night to the archive
-              </button>
-              {nights.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">No nights saved on this device.</p>
-              ) : (
-                <ul className="max-h-48 overflow-y-auto text-xs">
-                  {nights.map((n) => (
-                    <li key={n.id} className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {n.name}
-                          {n.rehearsal ? (
-                            <span className="ml-1.5 rounded bg-(--gold)/15 px-1 text-[9px] font-bold uppercase text-(--gold)">
-                              rehearsal
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="num text-[10px] text-(--tx)/40">
-                          {new Date(n.savedAt).toLocaleString('en-AU')}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="ml-auto shrink-0 text-(--tx)/55 underline hover:text-(--tx)"
-                        onClick={() => restoreNightFromArchive(n)}
-                      >
-                        load
-                      </button>
-                      <button
-                        type="button"
-                        className="shrink-0 text-(--tx)/40 underline hover:text-(--bad)"
-                        onClick={() => {
-                          if (ownerWindow().confirm(`Delete the saved night "${n.name}" from this device?`)) {
-                            removeNight(n.id);
-                            setNights(listNights());
-                          }
-                        }}
-                      >
-                        delete
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-setup" hidden={tab !== 'setup'}>
             {/* ── Sound ────────────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-3 font-semibold">Sound</h3>
@@ -1288,8 +1121,6 @@ export function ControlDrawer({
               </div>
             </section>
 
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-setup" hidden={tab !== 'setup'}>
             {/* ── The card ─────────────────────────────────────────── */}
             <section className="panel lg:col-span-2" aria-label="The card">
               <h3 className="mb-3 font-semibold">The card</h3>
@@ -1333,7 +1164,69 @@ export function ControlDrawer({
             <QuaddieSettingsPanel event={event} locked={locked} />
 
             </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-money" hidden={tab !== 'money'}>
+            <div id="admin-panel-money" className="contents" role="tabpanel" aria-labelledby="admin-tab-money" hidden={tab !== 'money'}>
+            {/* ── Cash tin ─────────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Cash tin</h3>
+              <div className="grid gap-3">
+                <label className="fld">
+                  <span>Backing</span>
+                  <select
+                    value={cashLane}
+                    onChange={(e) => setCashLane(Number(e.target.value))}
+                  >
+                    {names.map((n, i) => (
+                      <option key={i} value={i}>
+                        {i + 1}. {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="fld">
+                  <span>Backer name (optional)</span>
+                  <input
+                    type="text"
+                    value={cashName}
+                    maxLength={40}
+                    placeholder="e.g. Dave S."
+                    onChange={(e) => setCashName(e.target.value)}
+                  />
+                </label>
+                <label className="fld">
+                  <span>Amount (AUD)</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    step="0.01"
+                    value={cashAmount}
+                    onChange={(e) => setCashAmount(e.target.value)}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_AMOUNTS_CENTS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className="btn btn-ghost px-3 py-1.5 text-xs"
+                      onClick={() => setCashAmount((c / 100).toFixed(2))}
+                    >
+                      {moneyShort(c)}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="btn btn-primary" onClick={addCash}>
+                  Record cash donation
+                </button>
+                <p className="text-[11px] text-(--tx)/45">
+                  Cash is recorded on this device. Card donations arrive from Stripe on their own.
+                </p>
+              </div>
+            </section>
+
+            {/* ── Permit-gated cash tote ───────────────────────────── */}
+            <CashTotePanel nextRaceNo={nextRaceNo} locked={locked} />
+
             {/* ── Ledger ───────────────────────────────────────────── */}
             <section className="panel lg:col-span-2">
               <h3 className="mb-3 font-semibold">
@@ -1397,8 +1290,108 @@ export function ControlDrawer({
               </div>
             </section>
 
+            {/* ── Fun-chip settlement ──────────────────────────────── */}
+            <section className="panel">
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">Fun-chip settlement</h3>
+                <span className="fun-chip-tag">fun chips - no monetary value</span>
+              </div>
+              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+                Every bet settles exactly once, at the odds locked before the start. Undoing a
+                race writes a compensating entry and reopens its bets; nothing is deleted.
+              </p>
+              {event.bets.length === 0 ? (
+                <p className="text-sm text-(--tx)/45">No fun bets placed yet.</p>
+              ) : (
+                <ul className="max-h-64 overflow-y-auto text-xs">
+                  {event.bets
+                    .slice()
+                    .reverse()
+                    .slice(0, 40)
+                    .map((b) => (
+                      <li
+                        key={b.id}
+                        className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0"
+                      >
+                        <span className="num w-8 shrink-0 text-(--tx)/40">R{b.raceNo}</span>
+                        <span className="truncate font-medium">{b.punter}</span>
+                        <span className="truncate text-(--tx)/50">on {b.snailName}</span>
+                        <span className="num ml-auto shrink-0 text-(--gold)">
+                          {b.chips} @ {b.odds.toFixed(2)}
+                        </span>
+                        <span
+                          className={`w-14 shrink-0 text-right font-semibold ${
+                            !b.settled
+                              ? 'text-(--tx)/40'
+                              : b.won
+                                ? 'text-(--ok)'
+                                : 'text-(--tx)/50'
+                          }`}
+                        >
+                          {!b.settled ? 'open' : b.won ? `+${b.returned ?? 0}` : 'lost'}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </section>
+
             </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-night" hidden={tab !== 'night'}>
+            <div id="admin-panel-night" className="contents" role="tabpanel" aria-labelledby="admin-tab-night" hidden={tab !== 'night'}>
+            {/* ── Saved nights ─────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-1 font-semibold">Saved nights</h3>
+              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+                Whole nights saved on this device with a SHA-256 fingerprint. A saved night
+                that fails its fingerprint check refuses to load.
+              </p>
+              <button type="button" className="btn btn-ghost mb-3 w-full" onClick={saveNightToArchive}>
+                Save this night to the archive
+              </button>
+              {nights.length === 0 ? (
+                <p className="text-sm text-(--tx)/45">No nights saved on this device.</p>
+              ) : (
+                <ul className="max-h-48 overflow-y-auto text-xs">
+                  {nights.map((n) => (
+                    <li key={n.id} className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {n.name}
+                          {n.rehearsal ? (
+                            <span className="ml-1.5 rounded bg-(--gold)/15 px-1 text-[9px] font-bold uppercase text-(--gold)">
+                              rehearsal
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="num text-[10px] text-(--tx)/40">
+                          {new Date(n.savedAt).toLocaleString('en-AU')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="ml-auto shrink-0 text-(--tx)/55 underline hover:text-(--tx)"
+                        onClick={() => restoreNightFromArchive(n)}
+                      >
+                        load
+                      </button>
+                      <button
+                        type="button"
+                        className="shrink-0 text-(--tx)/40 underline hover:text-(--bad)"
+                        onClick={() => {
+                          if (ownerWindow().confirm(`Delete the saved night "${n.name}" from this device?`)) {
+                            removeNight(n.id);
+                            setNights(listNights());
+                          }
+                        }}
+                      >
+                        delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
             {/* ── Results ──────────────────────────────────────────── */}
             <section className="panel">
               <div className="mb-3 flex items-baseline justify-between gap-2">
@@ -1467,56 +1460,6 @@ export function ControlDrawer({
               </p>
             </section>
 
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-money" hidden={tab !== 'money'}>
-            {/* ── Fun-chip settlement ──────────────────────────────── */}
-            <section className="panel">
-              <div className="mb-1 flex items-baseline justify-between gap-2">
-                <h3 className="font-semibold">Fun-chip settlement</h3>
-                <span className="fun-chip-tag">fun chips - no monetary value</span>
-              </div>
-              <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
-                Every bet settles exactly once, at the odds locked before the start. Undoing a
-                race writes a compensating entry and reopens its bets; nothing is deleted.
-              </p>
-              {event.bets.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">No fun bets placed yet.</p>
-              ) : (
-                <ul className="max-h-64 overflow-y-auto text-xs">
-                  {event.bets
-                    .slice()
-                    .reverse()
-                    .slice(0, 40)
-                    .map((b) => (
-                      <li
-                        key={b.id}
-                        className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0"
-                      >
-                        <span className="num w-8 shrink-0 text-(--tx)/40">R{b.raceNo}</span>
-                        <span className="truncate font-medium">{b.punter}</span>
-                        <span className="truncate text-(--tx)/50">on {b.snailName}</span>
-                        <span className="num ml-auto shrink-0 text-(--gold)">
-                          {b.chips} @ {b.odds.toFixed(2)}
-                        </span>
-                        <span
-                          className={`w-14 shrink-0 text-right font-semibold ${
-                            !b.settled
-                              ? 'text-(--tx)/40'
-                              : b.won
-                                ? 'text-(--ok)'
-                                : 'text-(--tx)/50'
-                          }`}
-                        >
-                          {!b.settled ? 'open' : b.won ? `+${b.returned ?? 0}` : 'lost'}
-                        </span>
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </section>
-
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-night" hidden={tab !== 'night'}>
             {/* ── Audit trail ──────────────────────────────────────── */}
             <section className="panel">
               <h3 className="mb-1 font-semibold">Audit trail</h3>
@@ -1554,8 +1497,6 @@ export function ControlDrawer({
               )}
             </section>
 
-            </div>
-            <div className="contents" role="tabpanel" aria-labelledby="admin-tab-night" hidden={tab !== 'night'}>
             {/* ── End of night ─────────────────────────────────────── */}
             <section className="panel lg:col-span-2 xl:col-span-3">
               <h3 className="mb-3 font-semibold">End of night</h3>
@@ -1643,6 +1584,41 @@ export function ControlDrawer({
                 </button>
               </div>
             </section>
+            </div>
+            <div id="admin-panel-advanced" className="contents" role="tabpanel" aria-labelledby="admin-tab-advanced" hidden={tab !== 'advanced'}>
+            {/* ── Phone Play ───────────────────────────────────────── */}
+            <section className="panel">
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">Phone Play</h3>
+                <span className="fun-chip-tag">fun chips - no monetary value</span>
+              </div>
+              <PhonePlayPanel
+                session={phonePlay.session}
+                summary={phonePlay.summary}
+                online={phonePlay.online}
+                controlReady={phonePlay.controlReady}
+                controlError={phonePlay.controlError}
+                playUrl={playUrl}
+                onStart={phonePlay.start}
+                onEnd={phonePlay.end}
+                say={say}
+              />
+            </section>
+
+            {/* ── Race Pack (recorded mode) ────────────────────────── */}
+            {event.eventMode === 'recorded' ? (
+              <section className="panel lg:col-span-2">
+                <h3 className="mb-3 font-semibold">Race Pack</h3>
+                <PackManager say={say} />
+              </section>
+            ) : null}
+
+            {/* ── Preflight ────────────────────────────────────────── */}
+            <section className="panel">
+              <h3 className="mb-3 font-semibold">Preflight</h3>
+              <Preflight />
+            </section>
+
             </div>
           </div>
         </div>

@@ -535,8 +535,10 @@ export function useRace(
           } : {};
           if (cue.phase === 'warning') {
             if (!quiet) announce(cue.text, 'hot', cue.big, detail);
-            /* The caption says what is coming; the clip says "something's coming". */
-            call(cue.text, 'big', 'warning');
+            /* The warning is the INCOMING card, which the course shows in
+               its own time, one story after another. It is not called: the
+               strap and the voice would run ahead of a card the course has
+               not put up yet. The hit is called when it lands. */
             sfx.event((cue.sound ?? 'siren') as EventSound);
           } else if (cue.phase === 'reveal') {
             if (!quiet) announce(cue.text, momentTone(cue.tone ?? 'wild'), cue.big, detail);

@@ -1218,13 +1218,13 @@ export function Stage() {
       ) : null}
       <div className="aurora" aria-hidden="true" />
       {/* Desk and fullscreen live in the control row of each screen. This
-          corner appears once the desk is open (the projector has no other
-          controls then, and it fades in fullscreen), for a held show, or for
-          a notice. */}
-      {moderator.target || holding || display.error || moderator.notice ? (
+          corner appears once the desk is open or the projector is fullscreen
+          (it has no other controls then; it fades until hovered), for a held
+          show, or for a notice. */}
+      {moderator.target || display.fullscreen || holding || display.error || moderator.notice ? (
         <div className="projector-tools no-print" role="toolbar" aria-label="Projector display">
           {moderator.target ? deskButton : null}
-          {moderator.target ? fullscreenButton : null}
+          {moderator.target || display.fullscreen ? fullscreenButton : null}
           {holding ? <button type="button" className="btn btn-go" onClick={() => setHolding(false)}>Resume show</button> : null}
           {display.error || moderator.notice ? <p role="status">{display.error || moderator.notice}</p> : null}
         </div>
