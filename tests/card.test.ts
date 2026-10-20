@@ -131,22 +131,31 @@ test('a full refund releases the slot it bought, and only that slot', () => {
   assert.equal(normaliseCard({ paymentLinkMinted: true }).paymentLinkMinted, false);
 });
 
-test('a card of 64 snails splits into seven even races of ten or under', () => {
+test('a card of 64 snails splits into eight equal races of eight', () => {
   const layout = cardLayout(64);
-  assert.equal(layout.races, 7);
-  assert.deepEqual(layout.sizes, [10, 9, 9, 9, 9, 9, 9]);
-  assert.equal(describeLayout(layout), '7 races: 1 of 10, 6 of 9');
-  assert.deepEqual(snailsForRace(1, 64), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  assert.deepEqual(snailsForRace(2, 64), [11, 12, 13, 14, 15, 16, 17, 18, 19]);
-  assert.equal(raceForSnail(64, 64), 7);
-  assert.equal(laneForSnail(20, 64), 0);
+  assert.equal(layout.races, 8);
+  assert.deepEqual(layout.sizes, [8, 8, 8, 8, 8, 8, 8, 8]);
+  assert.equal(describeLayout(layout), '8 races of 8');
+  assert.deepEqual(snailsForRace(1, 64), [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.deepEqual(snailsForRace(2, 64), [9, 10, 11, 12, 13, 14, 15, 16]);
+  assert.equal(raceForSnail(64, 64), 8);
+  assert.equal(laneForSnail(17, 64), 0);
   assert.equal(raceForSnail(20, 64), 3);
+  /* Equal fields whenever a size from eight to ten divides the count, the largest size first. */
+  assert.equal(describeLayout(cardLayout(90)), '9 races of 10');
+  assert.equal(describeLayout(cardLayout(72)), '8 races of 9');
+  assert.equal(describeLayout(cardLayout(96)), '12 races of 8');
+  /* A count no field size divides falls back to the fewest races within one of each other. */
+  assert.equal(describeLayout(cardLayout(73)), '8 races: 1 of 10, 7 of 9');
+  assert.equal(describeLayout(cardLayout(87)), '9 races: 6 of 10, 3 of 9');
   /* Every number runs exactly once, every field is a legal size. */
   for (let n = 8; n <= 200; n += 1) {
     if (!snailCountFits(n)) continue;
     const l = cardLayout(n);
     assert.equal(l.sizes.reduce((a, b) => a + b, 0), n);
     assert.ok(l.sizes.every((size) => size >= 8 && size <= 10), `${n}: ${l.sizes.join(',')}`);
+    assert.ok(Math.max(...l.sizes) - Math.min(...l.sizes) <= 1, `${n}: ${l.sizes.join(',')}`);
+    if ([8, 9, 10].some((size) => n % size === 0)) assert.equal(new Set(l.sizes).size, 1, `${n} should split into equal fields`);
     const seen = Array.from({ length: l.races }, (_, i) => snailsForRace(i + 1, n)).flat();
     assert.deepEqual(seen, Array.from({ length: n }, (_, i) => i + 1));
   }
@@ -166,7 +175,7 @@ test('the card cannot shrink below a sold snail and keeps names on resize', () =
   assert.equal(smaller.snailCount, 64);
   assert.equal(smaller.names.length, 64);
   assert.equal(smaller.names[9], 'Ten');
-  assert.equal(cardRaceNames(smaller, 2).length, 9);
+  assert.equal(cardRaceNames(smaller, 2).length, 8);
   const restored = normaliseCard(JSON.parse(JSON.stringify(smaller)));
   assert.equal(restored.snailCount, 64);
 });

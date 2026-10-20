@@ -7,8 +7,11 @@
  * decides which names stand at the gate for a given race number.
  *
  * The desk can set how many snails are on sale. The card is then split into
- * as few races as keep every field at ten or under, as evenly as it divides:
- * 64 snails is seven races, one of ten and six of nine.
+ * races of eight to ten that are all the same size whenever the count allows
+ * it, taking the largest size that divides evenly: 64 snails is eight races
+ * of eight, 90 is nine of ten, 72 is eight of nine. Only a count no field
+ * size divides (73, say) falls back to the fewest races of ten or under with
+ * the fields within one of each other: one of ten and seven of nine.
  */
 
 /** The most snails in one race when the card is split. */
@@ -44,11 +47,16 @@ export const clampSnailCount = (value: unknown): number => {
   return n;
 };
 
-/** Split a card of this many snails into races of eight to ten, as evenly as possible. */
+/** Split a card of this many snails into races of eight to ten: equal fields when the count allows, otherwise as even as it divides. */
 export function cardLayout(snailCount: number = SNAILS_ON_CARD): CardLayout {
   const snails = clampSnailCount(snailCount);
-  /* clampSnailCount only returns counts that fit, so the fewest races of ten also keep every field at eight or more. */
-  const races = Math.ceil(snails / SNAILS_PER_RACE);
+  /* Equal fields first, the biggest that divides evenly so the night has the
+     fewest races. clampSnailCount only returns counts that fit, so the
+     fallback (the fewest races of ten) still keeps every field at eight or more. */
+  let races = Math.ceil(snails / SNAILS_PER_RACE);
+  for (let size = SNAILS_PER_RACE; size >= MIN_SNAILS_PER_RACE; size -= 1) {
+    if (snails % size === 0) { races = snails / size; break; }
+  }
   const base = Math.floor(snails / races);
   const extra = snails % races;
   const sizes = Array.from({ length: races }, (_, i) => base + (i < extra ? 1 : 0));
