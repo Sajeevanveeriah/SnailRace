@@ -693,20 +693,20 @@ export function nextFreeSnail(card: CardState): number | null {
 /**
  * The race the desk adds after the card: the next numbers after the last
  * place, as many as are left on sale (at least eight, at most twelve). Any
- * numbers it needs beyond the snails on sale go on sale with it.
+ * numbers it needs beyond the snails on sale go on sale with it. Null when
+ * a field of eight would run past the most snails a card can sell.
  */
-export function nextSnailsRace(card: CardState): { card: CardState; first: number; last: number; added: number } {
+export function nextSnailsRace(card: CardState): { card: CardState; first: number; last: number; added: number } | null {
   const places = cardLayout(card).snails;
   const left = card.snailCount - places;
-  const runners = left > 0 ? clampRunners(left, card.snailsPerRace) : card.snailsPerRace;
-  let next = addRace(card, runners);
+  const wanted = left > 0 ? clampRunners(left, card.snailsPerRace) : card.snailsPerRace;
+  const runners = Math.min(wanted, MAX_SNAILS_ON_CARD - places);
+  if (runners < MIN_SNAILS_PER_RACE) return null;
   const last = places + runners;
   const added = Math.max(0, last - card.snailCount);
-  if (added > 0) {
-    const bigger = resizeCard(next, last);
-    if (!('error' in bigger)) next = bigger;
-  }
-  return { card: next, first: places + 1, last, added };
+  const grown = added > 0 ? resizeCard(card, last) : card;
+  if ('error' in grown) return null;
+  return { card: addRace(grown, runners), first: places + 1, last, added };
 }
 
 /* ── Stored cards ──────────────────────────────────────────────────────── */

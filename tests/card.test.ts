@@ -8,6 +8,7 @@ import {
   cardRaceNames,
   describeLayout,
   resizeCard,
+  MAX_SNAILS_ON_CARD,
   addRace,
   addRunOff,
   cardFit,
@@ -348,6 +349,7 @@ test('races tonight: add at the end, remove only an unrun, untied last race', ()
 test('the race after the card: the next snails, or a run-off of chosen snails', () => {
   const card = freshCard();
   const next = nextSnailsRace(card);
+  assert.ok(next);
   assert.equal(next.first, 101);
   assert.equal(next.last, 110);
   assert.equal(next.added, 10);
@@ -395,4 +397,23 @@ test('a long snail name survives in full up to forty-eight characters', () => {
   assert.equal(card.names[2], 'Speedy Gonzales the Third of Geelong West');
   const paste = parseRosterPaste(`1, ${long}, Priya`);
   assert.equal(paste.rows[0].name, long);
+});
+
+test('no race is added after the card past the most snails a card can sell', () => {
+  let card = freshCard();
+  const full = resizeCard(card, MAX_SNAILS_ON_CARD);
+  assert.ok(!('error' in full));
+  card = full;
+  for (let i = 0; i < 9; i++) card = addRace(card, 10);
+  /* 190 places: one more race of ten fits exactly. */
+  const last = nextSnailsRace(card);
+  assert.ok(last);
+  assert.equal(last.last, MAX_SNAILS_ON_CARD);
+  assert.ok(last.card.snailCount <= MAX_SNAILS_ON_CARD);
+  /* 200 places: nothing fits. */
+  assert.equal(nextSnailsRace(last.card), null);
+  /* 196 places: four numbers left is no field. */
+  let nearly = full;
+  for (let i = 0; i < 8; i++) nearly = addRace(nearly, 12);
+  assert.equal(nextSnailsRace(nearly), null);
 });

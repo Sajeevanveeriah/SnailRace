@@ -219,15 +219,26 @@ export function Stage() {
      */
     const card = event.card;
     const snailCount = card.snailCount;
+    /* The locked race's own field: a run-off's runners belong to their own
+       numbered races too, so race membership alone would let them through. */
+    const runsIn = (raceNo: number | null) => {
+      const field = raceNo === null ? [] : snailsForRace(raceNo, card);
+      return (n: number) => field.includes(n);
+    };
+    const locked = runsIn(lockedRaceNo);
     const purchases: SnailPurchase[] = feed.donations
-      .filter((d) => !d.void && d.snailNo && raceForSnail(d.snailNo, card) !== lockedRaceNo)
+      .filter((d) => !d.void && d.snailNo && !locked(d.snailNo))
       .map((d) => ({ snailNo: d.snailNo!, snailName: d.snailName, owner: d.backerName, id: d.id }));
     /* A fully refunded purchase releases the slot it bought. */
-    const refunded = feed.donations.filter((d) => d.void && d.snailNo && raceForSnail(d.snailNo, card) !== lockedRaceNo).map((d) => d.id);
+    const refunded = feed.donations.filter((d) => d.void && d.snailNo && !locked(d.snailNo)).map((d) => d.id);
     if (!purchases.length && !refunded.length) return;
     const id = window.setTimeout(() => {
       /* Re-check inside the deferred callback: arming may have begun since. */
-      if (armedRef.current && purchases.some((p) => raceForSnail(p.snailNo, card) === armedRef.current!.raceNo)) return;
+      if (armedRef.current) {
+        const armed = runsIn(armedRef.current.raceNo);
+        const refundedSnails = feed.donations.filter((d) => d.void && d.snailNo && refunded.includes(d.id)).map((d) => d.snailNo!);
+        if (purchases.some((p) => armed(p.snailNo)) || refundedSnails.some(armed)) return;
+      }
       const before = currentState().card;
       const freed = releaseRefunded(before, refunded);
       const applied = applyPurchases(freed.card, purchases);
@@ -918,6 +929,7 @@ export function Stage() {
         addAudit({ kind: 'note', raceNo, detail: `Race ${raceNo} added after the card: Champion of champions, snails ${field.join(', ')}.` });
       } else {
         const next = nextSnailsRace(card);
+        if (!next) return;
         setState({ card: next.card });
         addAudit({ kind: 'note', raceNo, detail: `Race ${raceNo} added after the card: snails ${next.first} to ${next.last}${next.added ? `, ${next.added} more put on sale` : ''}.` });
       }

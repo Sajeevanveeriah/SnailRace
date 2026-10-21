@@ -9,7 +9,7 @@ import { audioPatch, setState } from '@/lib/event-store';
 import { isAuctionRace, toteIsLive } from '@/lib/cash-tote';
 import { AuctionDesk, ToteTally } from './CashTotePanel';
 import { showPhaseSpec } from '@/lib/show';
-import { cardRaceNames, cardRaceOwners, snailsForRace } from '@/lib/card';
+import { MAX_SNAILS_ON_CARD, cardRaceNames, cardRaceOwners, nextSnailsRace, snailsForRace } from '@/lib/card';
 import { quaddieIsLive } from '@/lib/quaddie';
 import { championField, raceSettings, raceSummary, ranSummary } from '@/lib/run-sheet';
 import { MIN_LIVE_FIELD } from '@/lib/palette';
@@ -122,6 +122,7 @@ export function ModeratorDesk(p: Props) {
   const cardDone = racesRun >= event.plannedRaces && p.nextRaceNo > event.plannedRaces;
   const offerAddRace = cardDone && !p.locked && (event.showPhase === 'results' || event.showPhase === 'finale' || event.showPhase === 'championship');
   const runOffField = offerAddRace ? championField(event.history) : [];
+  const nextFits = offerAddRace && nextSnailsRace(event.card) !== null;
   const fieldLabel = settings.runOff || ranEntry?.snails
     ? `${deskSnails.length} runners`
     : `snails ${deskSnails[0]} to ${deskSnails[deskSnails.length - 1]}`;
@@ -170,7 +171,15 @@ export function ModeratorDesk(p: Props) {
               <div className="desk-add-race" role="group" aria-label="Add a race">
                 <p className="desk-label">That was the last race on the run sheet. Add one more?</p>
                 <div className="desk-actions">
-                  <button className="btn btn-ghost" type="button" onClick={() => p.onAddRace('next')}>Add a race: the next snails</button>
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    disabled={!nextFits}
+                    title={nextFits ? undefined : `The card already sells close to ${MAX_SNAILS_ON_CARD} snails, the most it can hold.`}
+                    onClick={() => p.onAddRace('next')}
+                  >
+                    Add a race: the next snails
+                  </button>
                   <button
                     className="btn btn-ghost"
                     type="button"
