@@ -288,7 +288,7 @@ test('surprises announce warning, reveal and effect with a visible prop or symbo
   expect(snapshot.card!.y + snapshot.card!.height).toBeLessThanOrEqual(snapshot.scene!.y + snapshot.scene!.height * 0.4);
 });
 
-test('first finisher freezes the field and opens one result within one second', async ({
+test('first finisher holds the line while the field runs in, then opens one result', async ({
   page,
 }) => {
   test.setTimeout(45_000);
@@ -313,24 +313,26 @@ test('first finisher freezes the field and opens one result within one second', 
 
   const field = page.locator('.tv-runner');
   await expect(field).toHaveCount(10);
+  /* During the finish hold the rest of the field runs in behind the winner
+     in its official order; only the winner is drawn across the line. */
   await page.waitForTimeout(200);
-  expect(
-    await field.evaluateAll((runners) =>
-      runners.map((runner) => runner.getAttribute('transform')),
-    ),
-  ).toEqual(lineSnapshot?.transforms);
+  await expect(page.locator('.tv-runner.finished')).toHaveCount(1);
 
   await expect
     .poll(async () => (await readFirstFinisherProbe(page))?.resultAt ?? null, {
-      timeout: 2_000,
+      timeout: 5_000,
     })
     .not.toBeNull();
   const resultSnapshot = await readFirstFinisherProbe(page);
   expect(resultSnapshot?.resultAt).not.toBeNull();
   expect(resultSnapshot?.confirmingAt).not.toBeNull();
+  /* The finish moment holds the line for about 2.5 s before the result. */
   expect(
     resultSnapshot!.resultAt! - resultSnapshot!.confirmingAt!,
-  ).toBeLessThanOrEqual(1_000);
+  ).toBeGreaterThanOrEqual(2_000);
+  expect(
+    resultSnapshot!.resultAt! - resultSnapshot!.confirmingAt!,
+  ).toBeLessThanOrEqual(3_600);
 
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
   await expect(winner).toBeVisible();
