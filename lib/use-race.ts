@@ -13,6 +13,8 @@ import {
   type IntensityId,
   CAPTION_MAX,
   eventLine,
+  fitCaption,
+  shortName,
   freshSeed,
   instantiateLockedRace,
   leadChangeLine,
@@ -341,6 +343,8 @@ interface LiveRace extends DrawnRace {
   runHomeQueued: boolean;
   /** The close-finish call is made once. */
   photoCalled: boolean;
+  /** The closing call a few seconds out, said at most once. */
+  lineCalled: boolean;
   /** True while the photo-finish slow-motion is running. */
   inPhoto: boolean;
   results: RaceResult[];
@@ -701,7 +705,7 @@ export function useRace(
         /* A finish call whose clip could not end before the line goes on the
            strap only: started late, the winner call would cut it mid-word. */
         const toLine = race.stopAt - race.raceT;
-        const lateFinishCall = (item.key === 'runhome' || item.key === 'together') && voiceBusyMs() + FINISH_CLIP_MS > toLine;
+        const lateFinishCall = (item.key === 'runhome' || item.key === 'together' || item.key === 'toline') && voiceBusyMs() + FINISH_CLIP_MS > toLine;
         if (lateFinishCall) setCommentary(item.text);
         else call(item.text, item.priority, item.cue, item.opts, item.altCue);
         item.sound?.();
@@ -972,6 +976,27 @@ export function useRace(
       }
 
       /*
+       * The closing call: a few seconds out, if the caller has gone quiet
+       * since the run home, one last line to carry the room to the line.
+       */
+      const toLineMs = race.stopAt - race.raceT;
+      if (
+        racing && race.runHomeQueued && !race.lineCalled && !race.photoCalled &&
+        toLineMs < 5500 && toLineMs > 3000 && race.raceT - race.lastCallAt > 3500 && chaser.lane !== lead.lane
+      ) {
+        race.lineCalled = true;
+        const clear = gapLengths >= 2;
+        const lines = clear
+          ? [`${lead.name} has daylight! ${chaser.name} cannot get there!`, `${shortName(lead.name)} has daylight! ${shortName(chaser.name)} cannot get there!`, `${shortName(lead.name, 12)} has daylight to the line!`]
+          : [`To the line! ${lead.name} from ${chaser.name}!`, `To the line! ${shortName(lead.name)} from ${shortName(chaser.name)}!`, `To the line! ${shortName(lead.name, 12)} from ${shortName(chaser.name, 12)}!`];
+        offer({
+          key: 'toline', text: fitCaption(lines), rank: CALL_RANK.runHome, priority: 'big',
+          cue: clear ? 'clear' : 'finalCircuit', opts: { takes: [3], preempt: true }, hold: CALL_HOLD_MS,
+          expires: race.stopAt - 2500,
+        });
+      }
+
+      /*
        * Nothing said for a while and nothing coming: quote the race. The
        * caller talks about the leaders, never the back of the field.
        */
@@ -1007,6 +1032,8 @@ export function useRace(
           if (runHome && p.rank > CALL_RANK.top3) return false;
           if (!runHome && p.rank >= CALL_RANK.lap && (RUN_HOME_FROM - leadP) * race.durationMs < RUN_HOME_CLEARANCE_MS) return false;
           if (nextTwistLine - race.raceT < NO_MINOR_CALL_MS && p.rank > CALL_RANK.top3) return false;
+          /* A twist's line is about to take the strap: nothing but a lead change starts now, or it would flash for a moment and vanish. */
+          if (nextTwistLine - race.raceT < CALL_HOLD_MS && p.rank > CALL_RANK.lead) return false;
           if (p.rank === CALL_RANK.fourth && race.pending.some((other) => other !== p && other.rank < p.rank)) return false;
           return true;
         };
@@ -1176,6 +1203,7 @@ export function useRace(
         finalCalled: false,
         runHomeQueued: false,
         photoCalled: false,
+        lineCalled: false,
         inPhoto: false,
         results: [],
         highlights: [],
