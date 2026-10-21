@@ -42,6 +42,7 @@ export function ShowOverlay({
   snailLinkUrl,
   controlsVisible = false,
   holding = false,
+  beneathWinner = false,
 }: {
   event: EventState;
   nightCents: number;
@@ -53,10 +54,12 @@ export function ShowOverlay({
   controlsVisible?: boolean;
   /** The holding card is up. */
   holding?: boolean;
+  /** The winner moment is fading out on top: the next screen comes on at once beneath it. */
+  beneathWinner?: boolean;
 }) {
   const phase = event.showPhase;
   const view: View = phase === 'race' || phase === 'results' ? null : phase;
-  const screen = usePresence(view);
+  const screen = usePresence(view, beneathWinner);
   const hold = usePresence<View>(holding ? 'holding' : null);
 
   const render = (v: View, state: 'enter' | 'under' | 'leave') => {
@@ -95,14 +98,14 @@ export function ShowOverlay({
  * The value on screen now, and the one going off while it fades. The
  * leaving value is derived during render and cleared by a timer.
  */
-function usePresence<T>(value: T): { current: T; leaving: T | null; under: boolean } {
+function usePresence<T>(value: T, beneath = false): { current: T; leaving: T | null; under: boolean } {
   const [current, setCurrent] = useState<T>(value);
   const [leaving, setLeaving] = useState<T | null>(null);
   /* True when the screen came on beneath another: it shows at once while the other fades. */
   const [under, setUnder] = useState(false);
   if (value !== current) {
     setLeaving(current);
-    setUnder(current !== null);
+    setUnder(current !== null || beneath);
     setCurrent(value);
   }
   useEffect(() => {
@@ -140,6 +143,9 @@ function ShowHeader({ event, phase }: { event: EventState; phase: ShowPhase }) {
     </header>
   );
 }
+
+/** Long names step down a size so they wrap onto two lines at most instead of being cut. */
+const lengthClass = (name: string): string => (name.length > 26 ? 'ss-xlong' : name.length > 15 ? 'ss-long' : '');
 
 function Art({ lane, className = '' }: { lane: number; className?: string }) {
   return (
@@ -266,10 +272,10 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
             <li key={`${lane}-${snailNo}`} className="ss-runner" style={{ '--shell': colour.shell, '--shell-dk': colour.dark } as React.CSSProperties}>
               <span className="ss-runner-no num">{snailNo}</span>
               <Art lane={lane} className="ss-runner-art" />
-              <span className={`ss-runner-name ${names[lane].length > 15 ? 'ss-long' : ''}`}>{names[lane]}</span>
+              <span className={`ss-runner-name ${lengthClass(names[lane])}`}>{names[lane]}</span>
               {owners[lane] ? (
                 <span className="ss-runner-owner">{owners[lane]}</span>
-              ) : sold ? (
+              ) : sold || settings.runOff ? (
                 <span className="ss-runner-owner">&nbsp;</span>
               ) : (
                 <span className="ss-runner-sale">For sale</span>
@@ -389,7 +395,7 @@ function Finale({ event, nightCents }: { event: EventState; nightCents: number }
             <li key={w.raceNo} className="ss-winner" style={{ '--shell': laneColour(w.lane).shell } as React.CSSProperties}>
               <span className="ss-winner-race">{w.title}</span>
               <Art lane={w.lane} className="ss-winner-art" />
-              <span className={`ss-winner-name ${w.name.length > 15 ? 'ss-long' : ''}`}>{w.name}</span>
+              <span className={`ss-winner-name ${lengthClass(w.name)}`}>{w.name}</span>
 
               <span className="ss-winner-owner">
                 {w.name === `Snail ${w.snailNo}` ? w.owner : `No. ${w.snailNo}${w.owner ? ` · ${w.owner}` : ''}`}

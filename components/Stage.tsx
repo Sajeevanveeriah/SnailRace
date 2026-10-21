@@ -84,6 +84,13 @@ export function Stage() {
   const [clientReady, setClientReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
+  /* True for a moment after the winner moment hands over to the next screen. */
+  const [winnerHandoff, setWinnerHandoff] = useState(false);
+  useEffect(() => {
+    if (!winnerHandoff) return;
+    const id = window.setTimeout(() => setWinnerHandoff(false), 700);
+    return () => window.clearTimeout(id);
+  }, [winnerHandoff]);
   const [dismissedToast, setDismissedToast] = useState<string | null>(null);
   const origin = useOrigin();
 
@@ -913,12 +920,13 @@ export function Stage() {
         addAudit({ kind: 'note', raceNo, detail: `Race ${raceNo} added after the card: snails ${next.first} to ${next.last}${next.added ? `, ${next.added} more put on sale` : ''}.` });
       }
       if (event.showPhase === 'results' || event.showPhase === 'finale' || event.showPhase === 'championship') {
+        if (overlayOpen) setWinnerHandoff(true);
         setOverlayOpen(false);
         race.reset();
         goToPhase('racecard');
       }
     },
-    [holding, preparingRace, heldRaceStart, event.heldRaceStart, voidingRace, voidRecovery, event.showPhase, race, goToPhase],
+    [holding, preparingRace, heldRaceStart, event.heldRaceStart, voidingRace, voidRecovery, event.showPhase, race, goToPhase, overlayOpen],
   );
 
   const advanceShow = useCallback(() => {
@@ -926,11 +934,13 @@ export function Stage() {
     const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces, quaddieLive });
     if (next === event.showPhase) return;
     if (event.showPhase === 'results') {
+      /* The winner moment fades out over the next screen, which comes on at once beneath it. */
+      if (overlayOpen) setWinnerHandoff(true);
       setOverlayOpen(false);
       race.reset();
     }
     goToPhase(next);
-  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive]);
+  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive, overlayOpen]);
 
   const backShow = useCallback(() => {
     if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.eventMode === 'recorded' && event.packCurrent) return;
@@ -1434,6 +1444,7 @@ export function Stage() {
         snailLinkUrl={snailLinkUrl}
         controlsVisible={!audienceOnly && event.showPhase !== 'race'}
         holding={holding}
+        beneathWinner={winnerHandoff}
       />
 
       {!audienceOnly && event.showPhase !== 'race' ? (

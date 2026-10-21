@@ -48,8 +48,22 @@ export function WinnerOverlay(props: {
   entry?: RaceHistoryEntry;
   calm?: boolean;
 }) {
-  if (!props.open || props.results.length === 0) return null;
-  return <WinnerMoment key={props.raceNo} {...props} />;
+  const visible = props.open && props.results.length > 0;
+  /* On close the moment stays up for a beat and fades out, so the next
+     screen cross-fades in under it instead of the track flashing up. */
+  const [wasVisible, setWasVisible] = useState(visible);
+  const [leaving, setLeaving] = useState(false);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    setLeaving(!visible);
+  }
+  useEffect(() => {
+    if (!leaving) return;
+    const id = window.setTimeout(() => setLeaving(false), 500);
+    return () => window.clearTimeout(id);
+  }, [leaving]);
+  if (!visible && !(leaving && props.results.length > 0)) return null;
+  return <WinnerMoment key={props.raceNo} {...props} leaving={!visible} />;
 }
 
 function WinnerMoment({
@@ -66,7 +80,8 @@ function WinnerMoment({
   card,
   entry,
   calm = false,
-}: Parameters<typeof WinnerOverlay>[0]) {
+  leaving = false,
+}: Parameters<typeof WinnerOverlay>[0] & { leaving?: boolean }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [step, setStep] = useState<Step>('winner');
 
@@ -122,7 +137,8 @@ function WinnerMoment({
 
   return (
     <div
-      className={`wm ${calm ? 'wm-calm' : ''}`}
+      className={`wm ${calm ? 'wm-calm' : ''} ${leaving ? 'wm-leave' : ''}`}
+      aria-hidden={leaving || undefined}
       role={audienceOnly ? 'region' : 'dialog'}
       aria-modal={audienceOnly ? undefined : true}
       aria-labelledby="winner-name"
@@ -140,7 +156,7 @@ function WinnerMoment({
         </div>
         <div className="wm-winner-text">
           <p className="wm-kicker">{title} winner</p>
-          <h2 id="winner-name" className="wm-name">{winner.name}</h2>
+          <h2 id="winner-name" className={`wm-name ${winner.name.length > 28 ? 'wm-xlong' : winner.name.length > 18 ? 'wm-long' : ''}`}>{winner.name}</h2>
           <p className="wm-owner num">
             {winner.name === `Snail ${snailNo}` ? `No. ${snailNo}` : `Snail ${snailNo}`}
             {owner ? ` · owned by ${owner}` : ''}
@@ -186,7 +202,7 @@ function WinnerMoment({
                 <span className="wm-place num">{ordinal(r.place)}</span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={a.src} alt="" width={a.width} height={a.height} style={{ filter: `hue-rotate(${runnerHueRotation(r.lane)}deg)` }} />
-                <span className="wm-podium-name">{r.name}</span>
+                <span className={`wm-podium-name ${r.name.length > 22 ? 'wm-long' : ''}`}>{r.name}</span>
                 <span className="wm-podium-owner num">
                   {r.name === `Snail ${numberOf(r.lane)}` ? `No. ${numberOf(r.lane)}` : `Snail ${numberOf(r.lane)}`}
                   {ownerOf(r.lane) ? ` · ${ownerOf(r.lane)}` : ''}
@@ -221,7 +237,7 @@ function WinnerMoment({
       </section>
       </div>
 
-      {!audienceOnly ? (
+      {!audienceOnly && !leaving ? (
         <div className="wm-controls no-print">
           <button type="button" className="btn btn-ghost" onClick={() => setStep(step === 'winner' ? 'result' : step === 'result' ? 'sponsors' : 'winner')}>
             {step === 'winner' ? 'Show the result' : step === 'result' ? 'Show the sponsors' : 'Back to the winner'}

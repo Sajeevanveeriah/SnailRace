@@ -312,8 +312,9 @@ export const laneForSnail = (snailNo: number, source: CardSource = SNAILS_ON_CAR
 export const isRunOff = (card: Pick<CardState, 'races'>, raceNo: number): boolean =>
   Boolean(card.races?.[raceNo - 1]?.field?.length);
 
-const MAX_NAME = 24;
-const MAX_OWNER = 24;
+/** Long enough for "Speedy Gonzales the Third of Geelong West" in full. */
+export const MAX_NAME = 40;
+export const MAX_OWNER = 32;
 
 const clean = (value: unknown, max: number): string =>
   typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';

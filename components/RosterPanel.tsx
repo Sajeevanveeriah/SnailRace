@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { addAudit, setState } from '@/lib/event-store';
 import {
+  MAX_NAME,
+  MAX_OWNER,
   MAX_SNAILS_ON_CARD,
   MIN_SNAILS_ON_CARD,
   cardFit,
@@ -55,7 +57,7 @@ export function RosterPanel({
   const update = (snailNo: number, field: 'names' | 'owners', value: string) => {
     setState((s) => {
       const list = s.card[field].slice();
-      list[snailNo - 1] = value.slice(0, 24);
+      list[snailNo - 1] = value.slice(0, field === 'names' ? MAX_NAME : MAX_OWNER);
       const claims = { ...s.card.claims };
       delete claims[snailNo];
       return { card: { ...s.card, [field]: list, claims } };
@@ -212,7 +214,7 @@ export function RosterPanel({
                     type="text"
                     aria-label={`Snail ${snailNo} name`}
                     placeholder="Unsold"
-                    maxLength={24}
+                    maxLength={MAX_NAME}
                     value={card.names[snailNo - 1] ?? ''}
                     disabled={locked}
                     onChange={(e) => update(snailNo, 'names', e.target.value)}
@@ -221,7 +223,7 @@ export function RosterPanel({
                     type="text"
                     aria-label={`Snail ${snailNo} owner`}
                     placeholder="Owner"
-                    maxLength={24}
+                    maxLength={MAX_OWNER}
                     value={card.owners[snailNo - 1] ?? ''}
                     disabled={locked}
                     onChange={(e) => update(snailNo, 'owners', e.target.value)}

@@ -250,7 +250,7 @@
 .ss-runner {
   position: relative;
   display: grid;
-  grid-template-rows: minmax(40%, 1fr) auto auto;
+  grid-template-rows: minmax(26%, 1fr) auto auto;
 
   min-height: 0;
   overflow: hidden;
@@ -291,6 +291,7 @@
 .ss-cols-6 .ss-runner-name { font-size: calc(var(--u) * 1.95); }
 .ss-runner-name.ss-long { font-size: calc(var(--u) * 1.85); }
 .ss-cols-6 .ss-runner-name.ss-long { font-size: calc(var(--u) * 1.7); }
+.ss-runner-name.ss-xlong, .ss-cols-6 .ss-runner-name.ss-xlong { font-size: calc(var(--u) * 1.6); }
 
 .ss-runner-owner { margin-top: calc(var(--u) * 0.3); font-size: calc(var(--u) * 1.65); font-weight: 600; color: #5b3a3c; overflow-wrap: anywhere; line-height: 1.15; }
 .ss-runner-sale {
@@ -348,6 +349,7 @@
 .ss-winner-art { width: 100%; height: 100%; }
 .ss-winner-name { margin-top: calc(var(--u) * 0.4); font-size: calc(var(--u) * 2.1); font-weight: 900; line-height: 1.08; overflow-wrap: anywhere; text-wrap: balance; }
 .ss-winner-name.ss-long { font-size: calc(var(--u) * 1.85); }
+.ss-winner-name.ss-xlong { font-size: calc(var(--u) * 1.6); }
 .ss-winner-owner { margin-top: calc(var(--u) * 0.3); font-size: calc(var(--u) * 1.6); font-weight: 600; color: #5b3a3c; overflow-wrap: anywhere; }
 .ss-winners.ss-cols-1 { grid-template-columns: calc(var(--u) * 24); justify-content: center; }
 .ss-winners.ss-cols-2 { grid-template-columns: repeat(2, calc(var(--u) * 24)); justify-content: center; }
@@ -381,6 +383,11 @@
   /* The backdrop fades in first and is opaque before anything is drawn on
      it, so no half-transparent card ever shows over the track. */
   animation: ss-out 400ms ease reverse both;
+}
+.wm.wm-leave { pointer-events: none; animation: wm-out 500ms ease both; }
+@keyframes wm-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 .wm-body { position: absolute; inset: 0; animation: wm-content 500ms 380ms ease both; }
 @keyframes wm-content {
@@ -425,6 +432,9 @@
 }
 .wm-kicker { margin: 0; font-size: calc(var(--u) * 2.2); font-weight: 850; letter-spacing: 0.2em; text-transform: uppercase; color: #e8b55e; }
 .wm-name { margin: calc(var(--u) * 0.6) 0 0; font-size: calc(var(--u) * 7); font-weight: 900; line-height: 1; letter-spacing: -0.015em; color: #fff; overflow-wrap: anywhere; text-wrap: balance; }
+.wm-name.wm-long { font-size: calc(var(--u) * 5.4); }
+.wm-name.wm-xlong { font-size: calc(var(--u) * 4.4); }
+.wm-podium-name.wm-long { font-size: calc(var(--u) * 2.1); }
 .wm-owner { margin: calc(var(--u) * 1.2) 0 0; font-size: calc(var(--u) * 2.6); font-weight: 750; color: #e8b55e; }
 .wm-facts { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 1); margin: calc(var(--u) * 2) 0 0; padding: 0; list-style: none; }
 .wm-facts li { padding: calc(var(--u) * 0.5) calc(var(--u) * 1.4); border: 1px solid rgb(255 255 255 / 0.28); border-radius: calc(var(--u) * 0.4); background: rgb(255 255 255 / 0.08); font-size: calc(var(--u) * 2.2); font-weight: 800; }
