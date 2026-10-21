@@ -195,17 +195,41 @@ export const CUE_ENERGY: Record<RecordedCue, number> = {
  * How many takes of the new script have actually been recorded for each cue.
  * Written by `scripts/generate-commentary.mjs` after a run; do not edit by hand.
  *
- * The 2026-10-20 run hit the Chatterbox space's daily GPU quota after seven
- * clips. A cue on 0 still plays `<cue>.mp3`, which is the previous caller's
- * single-take clip from 2026-09-05 (same meaning, older wording). `quarter`,
- * `half` and `threeQuarter` are copies of that caller's "still plenty of
- * racing left" line until they are recorded. Re-run the script to fill in.
+ * Every cue's takes were recorded on 2026-10-20 and 2026-10-21 (see
+ * public/audio/README.md). A cue below three still plays the takes it has.
  */
 export const RECORDED_TAKES: Record<RecordedCue, number> = {
-  ready: 3, start: 3, early: 1, quarter: 0, half: 0, threeQuarter: 0, mid: 0,
-  lead: 0, overtake: 0, close: 0, clear: 0, final: 0, photo: 0, winner: 0, lap: 0, bell: 0,
-  lettuce: 0, plague: 0, ball: 0, sprinkler: 0, roller: 0, dog: 0, magpie: 0, boot: 0, bee: 0,
-  boost: 0, delay: 0, retire: 0, warning: 0, reaction: 0, void: 0,
+  ready: 3,
+  start: 3,
+  early: 3,
+  quarter: 3,
+  half: 3,
+  threeQuarter: 3,
+  mid: 3,
+  lead: 3,
+  overtake: 3,
+  close: 3,
+  clear: 3,
+  final: 3,
+  photo: 3,
+  winner: 3,
+  lap: 3,
+  bell: 3,
+  lettuce: 3,
+  plague: 3,
+  ball: 3,
+  sprinkler: 3,
+  roller: 3,
+  dog: 3,
+  magpie: 3,
+  boot: 3,
+  bee: 3,
+  boost: 3,
+  delay: 3,
+  retire: 3,
+  warning: 3,
+  reaction: 3,
+  void: 3,
 };
 
 /** Takes the player may choose from: at least the single legacy clip. */
