@@ -1515,8 +1515,8 @@ function fitWithNames(lines: readonly string[], fill: CaptionFill): string {
 
 /**
  * A twist's hit caption: one line drawn from its book, then its siblings,
- * then a terse "{a}, {pos}: label!" line, full names first, until one fits
- * the strap. Lines with no runner in them are used as they are.
+ * full names, then short names, until one fits the strap; a terse
+ * "{a}, {pos}: label!" line only when no natural line fits. Lines with no runner in them are used as they are.
  */
 export function composeTwistCaption(
   lines: readonly string[],
@@ -1532,7 +1532,10 @@ export function composeTwistCaption(
     : ordered.some((line) => line.includes('{b}')) && fill.b
       ? [`{a} and {b}: ${label.toLowerCase()}!`]
       : [`{a}, {pos}: ${label.toLowerCase()}!`];
-  return fitWithNames([...ordered, ...terse], fill);
+  /* A natural line with a shortened name reads better than the terse form
+     with the full name, so the terse form is only a last resort. */
+  const natural = fitWithNames(ordered, fill);
+  return terse.length ? fitCaption([natural, fitWithNames(terse, fill)]) : natural;
 }
 
 /* ── The deck ───────────────────────────────────────────────────────── */

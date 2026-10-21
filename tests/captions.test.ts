@@ -8,6 +8,7 @@ import {
   TOGETHER_SECONDS,
   WEATHER_LINES,
   callLine,
+  composeTwistCaption,
   countdownLine,
   drawLockedRacePlan,
   eventLine,
@@ -146,4 +147,14 @@ test('the countdown line varies and never repeats itself race to race', () => {
   /* The same weather, with the same random draw, still moves on from the last line. */
   const stuck = () => 0;
   assert.notEqual(countdownLine('clear', stuck, countdownLine('clear', stuck)), countdownLine('clear', stuck));
+});
+
+test('a twist caption keeps the natural line with a shortened name before the terse form', () => {
+  const mower = ['The mower is on the course and {a}, {pos}, leads the escape!'];
+  const line = composeTwistCaption(mower, 'RIDE-ON MOWER', { a: 'Snaily McSnailface', pos: 'in 7th' }, () => 0);
+  assert.match(line, /^The mower is on the course and Snaily/);
+  assert.ok(!/: ride-on mower!$/.test(line), line);
+  const long = composeTwistCaption(mower, 'RIDE-ON MOWER', { a: 'Speedy Gonzales the Third of Geelong West', pos: 'in 7th' }, () => 0);
+  assert.match(long, /^The mower is on the course and Speedy/);
+  assert.ok(long.length <= 90, long);
 });

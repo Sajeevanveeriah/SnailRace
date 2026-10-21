@@ -72,6 +72,12 @@ const PHOTO_FROM = 0.9;
 export const RUN_HOME_HOLD_MS = 3000;
 /** No minor call starts inside the last this-many milliseconds: it would be cut by the winner. */
 export const NO_MINOR_CALL_MS = 3000;
+/**
+ * A lap, sector or filler call is not started when the run home is due
+ * within this long: its clip would still be playing when the run home
+ * lands, so the run-home call would be late and cut by the winner.
+ */
+export const RUN_HOME_CLEARANCE_MS = 4000;
 /** How long an ordinary call owns the strap before the next may replace it. */
 export const CALL_HOLD_MS = 2600;
 /** A run-of-play line is offered after this long with nothing said. */
@@ -982,6 +988,7 @@ export function useRace(
         const allowed = (p: PendingCall) => {
           if (toFinish < NO_MINOR_CALL_MS && p.rank > CALL_RANK.lead) return false;
           if (runHome && p.rank > CALL_RANK.top3) return false;
+          if (!runHome && p.rank >= CALL_RANK.lap && (RUN_HOME_FROM - leadP) * race.durationMs < RUN_HOME_CLEARANCE_MS) return false;
           if (nextTwistLine - race.raceT < NO_MINOR_CALL_MS && p.rank > CALL_RANK.top3) return false;
           if (p.rank === CALL_RANK.fourth && race.pending.some((other) => other !== p && other.rank < p.rank)) return false;
           return true;
