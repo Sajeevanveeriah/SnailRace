@@ -923,7 +923,7 @@ export function ControlDrawer({
               </label>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
                 {event.surprises
-                  ? 'Surprises are dealt from a shuffled deck that reaches the finish straight and hits the whole field. Once-a-night cards are never repeated. Every lasting delay or boost is drawn before countdown and can change who wins.'
+                  ? 'Twists are drawn and locked before the countdown. Anyone in the field can be hit, no gag repeats in a race, and every lasting delay or boost can change who wins. Every snail keeps the same chance.'
                   : 'Surprises are off. The field runs on wobble alone.'}
               </p>
             </section>
@@ -950,19 +950,22 @@ export function ControlDrawer({
                     disabled={locked}
                     onChange={(e) => setState({ intensity: e.target.value as SurpriseIntensity })}
                   >
-                    <option value="calm">Calm night (no deck)</option>
-                    <option value="standard">Standard (three or four deck cards)</option>
-                    <option value="big">Big night (four or five)</option>
-                    <option value="chaos">Chaos (five or six)</option>
-                    <option value="mayhem">Mayhem (seven to nine, anyone can be hit)</option>
+                    <option value="calm">Calm (0 to 1 gentle twists a race)</option>
+                    <option value="standard">Standard (2 to 3 twists a race)</option>
+                    <option value="big">Big night (3 to 4 twists a race)</option>
+                    <option value="chaos">Chaos (4 to 5 twists a race)</option>
+                    <option value="mayhem">Mayhem (6 to 8 twists a race)</option>
                   </select>
                 </label>
               </div>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                The deck adds field-wide and late cards on top of the ordinary surprises: a plague at the line,
-                the big freeze, a headwind, reverse gear, lucky last and more. Once-a-night cards are dealt
-                without replacement across the ten races ({event.dealtCards.length} used so far). The complete
-                plan is hash-locked before the countdown and cannot change mid-race.
+                The count is every twist card the room sees in a race: ordinary surprises, field incidents and
+                deck cards together, each warned at least 2.5 seconds before it hits and never two on screen at
+                once. Short races get fewer so every twist has room: 7 to 14 seconds fit one, 15 to 21 two, 22 to
+                29 three, 30 seconds four, 40 seconds five and a minute seven. A card at the post lands just before
+                the line.
+                Once-a-night cards are dealt without replacement across the night ({event.dealtCards.length} used
+                so far). The complete plan is hash-locked before the countdown and cannot change mid-race.
               </p>
               <label className="mt-3 flex items-center gap-2 text-sm">
                 <input

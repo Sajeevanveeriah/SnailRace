@@ -35,7 +35,8 @@
  *      finish), cfg 0.35, temperature 0.8 and a fixed seed per take.
  *   2. Stream the result, download the 24 kHz mono WAV.
  *   3. Trim leading/trailing silence and encode mono 24 kHz 64 kbps MP3 as
- *      public/audio/commentary/<cue>.mp3, <cue>-2.mp3, <cue>-3.mp3.
+ *      public/audio/commentary/<cue>.mp3, <cue>-2.mp3, <cue>-3.mp3 and on,
+ *      one file per line written for the cue.
  *   4. Rewrite the RECORDED_TAKES block in voice-cues.ts.
  *
  * Each line is generated once. On more than five consecutive failures
@@ -56,14 +57,17 @@ const LOCAL_PROMPT = join(ROOT, 'public', 'audio', 'voice-reference.mp3');
 const FFMPEG = process.env.FFMPEG ?? 'ffmpeg';
 const MAX_CONSECUTIVE_FAILURES = 5;
 
-const { RECORDED_CUES, RECORDED_TAKES, CUE_ENERGY, TAKES_PER_CUE, clipFile } = await import('../lib/audio/voice-cues.ts');
+const { RECORDED_CUES, RECORDED_TAKES, CUE_ENERGY, clipFile } = await import('../lib/audio/voice-cues.ts');
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
 const dryRun = args.includes('--dry-run');
 const local = args.includes('--local');
 const only = new Set(args.filter((a) => !a.startsWith('--')));
-const cues = Object.keys(RECORDED_CUES).filter((cue) => !only.size || only.has(cue));
+const allCues = Object.keys(RECORDED_CUES);
+const cues = allCues.filter((cue) => !only.size || only.has(cue));
+/* A take's seed depends on its cue's place in the whole script, never on which cues were asked for. */
+const seedFor = (cue, take) => 1000 + allCues.indexOf(cue) * 10 + take;
 const recorded = { ...RECORDED_TAKES };
 const tmp = mkdtempSync(join(tmpdir(), 'commentary-'));
 const headers = { 'content-type': 'application/json', ...(process.env.HF_TOKEN ? { authorization: `Bearer ${process.env.HF_TOKEN}` } : {}) };
@@ -112,8 +116,8 @@ function writeTakes() {
 if (local && !dryRun) {
   const jobs = [];
   for (const cue of cues) {
-    for (let take = (force ? 0 : recorded[cue] ?? 0) + 1; take <= TAKES_PER_CUE; take++) {
-      jobs.push({ cue, take, file: clipFile(cue, take), text: RECORDED_CUES[cue][take - 1], exaggeration: CUE_ENERGY[cue], seed: 1000 + cues.indexOf(cue) * 10 + take });
+    for (let take = (force ? 0 : recorded[cue] ?? 0) + 1; take <= RECORDED_CUES[cue].length; take++) {
+      jobs.push({ cue, take, file: clipFile(cue, take), text: RECORDED_CUES[cue][take - 1], exaggeration: CUE_ENERGY[cue], seed: seedFor(cue, take) });
     }
   }
   writeFileSync(join(tmp, 'jobs.json'), JSON.stringify(jobs));
@@ -124,9 +128,9 @@ let failures = 0;
 let made = 0;
 outer: for (const cue of cues) {
   const from = force ? 0 : recorded[cue] ?? 0;
-  for (let take = from + 1; take <= TAKES_PER_CUE; take++) {
+  for (let take = from + 1; take <= RECORDED_CUES[cue].length; take++) {
     const text = RECORDED_CUES[cue][take - 1];
-    const seed = 1000 + cues.indexOf(cue) * 10 + take;
+    const seed = seedFor(cue, take);
     process.stdout.write(`${clipFile(cue, take)}: "${text}" ... `);
     if (dryRun) { console.log('(dry run)'); continue; }
     try {

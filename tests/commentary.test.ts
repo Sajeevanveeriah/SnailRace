@@ -95,15 +95,15 @@ test('the surprise book carries original cricket-ground set pieces', () => {
   assert.ok(labels.has('DOG ON THE TRACK'));
 });
 
-test('the race-call script has three distinct takes per cue and never names a snail', () => {
+test('the race-call script has at least three distinct takes per cue and never names a snail', () => {
   const cues = Object.keys(RECORDED_CUES) as Array<keyof typeof RECORDED_CUES>;
   for (const cue of ['start', 'quarter', 'half', 'threeQuarter', 'final', 'photo', 'winner', 'warning'] as const) {
     assert.ok(cues.includes(cue), cue);
   }
   for (const cue of cues) {
     const takes = RECORDED_CUES[cue];
-    assert.equal(takes.length, TAKES_PER_CUE, cue);
-    assert.equal(new Set(takes).size, TAKES_PER_CUE, `${cue} takes must differ`);
+    assert.ok(takes.length >= TAKES_PER_CUE, cue);
+    assert.equal(new Set(takes).size, takes.length, `${cue} takes must differ`);
     for (const line of takes) {
       assert.ok(line.length <= 300, `${cue}: Chatterbox takes at most 300 characters`);
       assert.doesNotMatch(line, /\b\d+\b/, `${cue}: the caption carries the number, not the clip`);
@@ -117,7 +117,8 @@ test('the race-call script has three distinct takes per cue and never names a sn
 
 test('every take the table claims is on disk, and the first take always is', () => {
   for (const cue of Object.keys(RECORDED_CUES) as Array<keyof typeof RECORDED_CUES>) {
-    assert.ok(RECORDED_TAKES[cue] >= 0 && RECORDED_TAKES[cue] <= TAKES_PER_CUE, cue);
+    /* Truthful: every written take is recorded, and nothing is claimed that is not written. */
+    assert.equal(RECORDED_TAKES[cue], RECORDED_CUES[cue].length, `${cue} has takes written but not recorded`);
     for (let take = 1; take <= takesFor(cue); take++) {
       const file = `public/audio/commentary/${clipFile(cue, take)}`;
       assert.ok(existsSync(file) && statSync(file).size > 1000, file);

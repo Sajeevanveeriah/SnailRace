@@ -1,7 +1,7 @@
 # Your own audio (all optional)
 
-The app ships recorded race calls in `commentary/`. The script (31 cues, three takes
-each, written the way a club race caller talks) is in `lib/audio/voice-cues.ts`. The voice
+The app ships recorded race calls in `commentary/`. The script (33 cues, three to five
+takes each, written the way a club race caller talks) is in `lib/audio/voice-cues.ts`. The voice
 is Resemble AI Chatterbox, cloned from the previous caller's clip so the sound of the room
 did not change, encoded mono 24 kHz 64 kbps MP3 with leading and trailing silence
 trimmed. No API key or speech service is called during a race.
@@ -9,7 +9,9 @@ trimmed. No API key or speech service is called during a race.
 Seven takes (`start` x3, `ready` x3, `early` x1) were recorded on 2026-10-20 on the public
 Hugging Face space `ResembleAI/Chatterbox`, which then ran out of free GPU quota. The rest
 were recorded on 2026-10-21 with the same model, the same settings and the same seeds,
-run locally on CPU. `RECORDED_TAKES` in `voice-cues.ts` says exactly which takes exist.
+run locally on CPU, as were the later additions: the run home for circuits without a
+straight (`finalCircuit`), the mixed-twist call (`chaos`) and extra takes for the busiest
+cues. `RECORDED_TAKES` in `voice-cues.ts` says exactly which takes exist.
 `voice-reference.mp3` is the previous caller's original clip (2026-09-05, HeyGen
 "Dynamic Derek"), kept aside as the voice every recording clones.
 
@@ -30,12 +32,15 @@ is deliberately not part of `npm run build` and cannot run in CI.
 Natural race caller is the default. The clips never say a snail's number or name: the
 caption on the rail carries those, so "Snail 7 hits the front" on screen is "And there's a
 new leader!" out of the speaker. The player picks a random take and never the same take
-twice running; the same cue is not repeated within 25 seconds (the finish excepted); the
-music ducks for the length of the clip. There is no filler line between calls - the caller
-speaks for the off, lead changes, overtakes, the quarter, half and three-quarter marks,
-each surprise, the straight, a close finish and the winner. A device voice can be selected
-in Controls to speak the captions, names and all. Only one line plays at a time; stale
-calls are dropped and the finish cancels prior audio. The clips are generated speech, not
+twice running; the identical take is not heard again within 25 seconds and a different
+take of the same cue may follow after 8 seconds (the finish excepted, and every twist gets
+its line); the music ducks about 10 dB for the length of the clip. The caller speaks for
+the countdown, the off, lead changes, moves into the top three, every lap, the quarter,
+half and three-quarter marks, each twist, the run home, a close finish and the winner, and
+quotes the margin when nothing has been said for five seconds. A device voice can be
+selected in Controls to speak the captions, names and all. Only one line plays at a time
+and stale calls are dropped. A line is never cut off mid-word: the winner call waits for a
+run-home call that is nearly done, or fades the line on air over 300 ms. The clips are generated speech, not
 a live human commentator.
 
 Music and effects are synthesised by `lib/audio/` unless replacement files are supplied.
@@ -78,9 +83,11 @@ The built-in lobby track is a warm 98 BPM groove - an electric-piano chord loop 
 Fmaj7, Dm7, G7), a walking bass and brushed hats - with no lead line, so people can talk
 over it. The winner sting is a short, bright major fanfare of about six seconds.
 
-When the caller speaks, the music ducks to no lower than 40% and comes back once the
-longest thing talking over it has finished; a short effect never cuts a commentary duck
-short.
+The built-in music bus carries about 6 dB of make-up gain, and a limiter with about 1 dB
+of headroom after it keeps the lift from ever clipping. When the caller speaks, the music
+ducks about 10 dB (in over 150 ms, held for the clip, back over 600 ms) and comes back once
+the longest thing talking over it has finished; a short effect never cuts a commentary duck
+short. The winner call comes with a short synthesised sting (or `fanfare.mp3`).
 
 ## Where to find freely licensed music
 
