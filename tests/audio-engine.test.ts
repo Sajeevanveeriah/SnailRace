@@ -87,42 +87,55 @@ async function withFakeAudio(run: (context: FakeContext) => Promise<void>) {
   await run(context);
 }
 
-test('ducks are owner-aware: the deepest and longest active duck always wins', async () => {
+const dB = (ratio: number) => 20 * Math.log10(ratio);
+
+test('the caller ducks the music about 10 dB: in over 150 ms, held, out over 600 ms', async () => {
   await withFakeAudio(async (context) => {
     const engine = await import('../lib/audio/engine');
     const music = await import('../lib/audio/music');
     assert.ok(engine.primeAudio());
     engine.setLevels({ music: 0.72 });
-    /* Buses are created in the order music, sfx, crowd after the master. */
-    const bus = context.gains[1];
-    assert.equal(engine.musicBusTarget(), 0.72);
+    const bus = engine.busNode('music') as unknown as FakeGain;
+    const level = 0.72 * engine.MUSIC_BED_GAIN;
+    assert.equal(engine.musicBusTarget(), level);
 
-    /* The voice asks for 0.2; the floor holds the music at 40%. */
-    music.duck(6, 0.2);
-    const first = bus.gain.events.filter((e) => e.op === 'linear');
-    assert.equal(first.at(-2)?.value, 0.72 * music.DUCK_FLOOR, 'a caller cannot duck below the floor');
-    assert.equal(first.at(-2)?.at, 10 + music.DUCK_RAMP_DOWN, 'the ramp down takes 80 ms');
-    assert.equal(first.at(-1)?.value, 0.72, 'first duck restores the nominal level');
-    assert.equal(first.at(-1)?.at, 16, 'and takes the full six seconds to do it');
+    const voice = { attack: music.VOICE_DUCK_ATTACK, release: music.VOICE_DUCK_RELEASE };
+    assert.ok(dB(music.VOICE_DUCK) <= -9.5 && dB(music.VOICE_DUCK) >= -10.5, `voice duck is ${dB(music.VOICE_DUCK).toFixed(1)} dB`);
+    assert.equal(music.VOICE_DUCK_ATTACK, 0.15);
+    assert.equal(music.VOICE_DUCK_RELEASE, 0.6);
 
-    /* A short shallow effect duck lands mid-recovery: the voice's duck is
-       not cut short, and the dip is measured from the nominal level. */
+    context.currentTime = 10;
+    music.duck(3, music.VOICE_DUCK, 'voice', voice);
+    const after = bus.gain.events.slice(bus.gain.events.findLastIndex((e) => e.op === 'cancel') + 1);
+    assert.deepEqual(after.map((e) => e.op), ['set', 'linear', 'set', 'linear']);
+    assert.ok(Math.abs(after[1].value! - level * music.VOICE_DUCK) < 1e-9, 'down to the voice depth');
+    assert.ok(Math.abs(after[1].at - 10.15) < 1e-9, 'in over 150 ms');
+    assert.ok(Math.abs(after[2].value! - level * music.VOICE_DUCK) < 1e-9 && after[2].at === 13, 'held for the whole line');
+    assert.ok(Math.abs(after[3].value! - level) < 1e-9 && Math.abs(after[3].at - 13.6) < 1e-9, 'back over 600 ms');
+
+    /* A short shallow effect duck lands under the line: the line's duck holds its depth and length. */
     bus.gain.value = 0.3;
-    context.currentTime = 12;
-    music.duck(1.2, 0.5);
-    const second = bus.gain.events.filter((e) => e.op === 'linear').slice(-2);
-    assert.equal(second[0].value, 0.72 * 0.4, 'the deeper duck in progress keeps its depth');
-    assert.equal(second[1].value, 0.72, 'a second duck still restores the nominal level');
-    assert.equal(second[1].at, 16, 'and recovers over the remaining time of the longer duck');
+    context.currentTime = 11;
+    music.duck(1, 0.6);
+    const second = bus.gain.events.slice(bus.gain.events.findLastIndex((e) => e.op === 'cancel') + 1);
+    assert.ok(Math.abs(second[1].value! - level * music.VOICE_DUCK) < 1e-9, 'the deeper duck in progress keeps its depth');
+    assert.equal(second.at(-1)!.value, level, 'and the music still comes all the way back');
+    assert.ok(Math.abs(second.at(-1)!.at - 13.6) < 1e-9, 'when the line is done');
     assert.equal(music.activeDucks().length, 2);
 
-    /* Once the long one has run out, a short one is just a short one. */
-    context.currentTime = 20;
-    music.duck(1, 0.6);
-    const third = bus.gain.events.filter((e) => e.op === 'linear').slice(-2);
-    assert.equal(third[0].value, 0.72 * 0.6);
-    assert.equal(third[1].at, 21);
-    assert.equal(music.activeDucks().length, 1);
+    /* A longer shallow duck outlives the line: deep, then shallow, then back. */
+    context.currentTime = 12;
+    music.duck(4, 0.6, 'effect');
+    const third = bus.gain.events.slice(bus.gain.events.findLastIndex((e) => e.op === 'cancel') + 1);
+    const levels = third.filter((e) => e.op === 'linear').map((e) => Number((e.value! / level).toFixed(3)));
+    assert.deepEqual(levels, [Number(music.VOICE_DUCK.toFixed(3)), 0.6, 1]);
+
+    /* Nobody can duck the music away altogether. */
+    context.currentTime = 30;
+    music.duck(1, 0.01);
+    const floor = bus.gain.events.filter((e) => e.op === 'linear').at(-2)!;
+    assert.ok(Math.abs(floor.value! - level * music.DUCK_FLOOR) < 1e-9);
+    assert.ok(dB(music.DUCK_FLOOR) > -11);
 
     /* Music switched off: nothing to duck, and nothing to restore to. */
     engine.setMusicEnabled(false);
@@ -136,7 +149,33 @@ test('ducks are owner-aware: the deepest and longest active duck always wins', a
     engine.setLevels({ music: 0.4 });
     const tail = bus.gain.events.slice(-3).map((e) => e.op);
     assert.deepEqual(tail, ['cancel', 'set', 'target']);
-    assert.equal(bus.gain.events.at(-1)?.value, 0.4);
+    assert.equal(bus.gain.events.at(-1)?.value, 0.4 * engine.MUSIC_BED_GAIN);
+    engine.setLevels({ music: 0.72 });
+  });
+});
+
+test('the bed is lifted about 6 dB and the output is limited short of clipping', async () => {
+  await withFakeAudio(async () => {
+    const engine = await import('../lib/audio/engine');
+    assert.ok(Math.abs(dB(engine.MUSIC_BED_GAIN) - 6) < 0.5, `the bed is lifted ${dB(engine.MUSIC_BED_GAIN).toFixed(1)} dB`);
+    assert.ok(engine.LIMITER.ratio >= 20, 'a limiter, not a gentle compressor');
+    assert.ok(engine.LIMITER.threshold <= -3);
+    assert.ok(engine.LIMITER.attack <= 0.005);
+    assert.ok(dB(engine.OUTPUT_CEILING) <= -0.9 && dB(engine.OUTPUT_CEILING) >= -2, 'about a decibel of headroom after the limiter');
+  });
+});
+
+test('the winner sting is a short synthesised celebration', async () => {
+  await withFakeAudio(async (context) => {
+    const engine = await import('../lib/audio/engine');
+    const music = await import('../lib/audio/music');
+    assert.ok(engine.primeAudio());
+    context.sources.length = 0;
+    music.winnerSting();
+    const started = context.sources.filter((s) => s.startedAt >= 0);
+    assert.ok(started.length >= 8, `only ${started.length} voices`);
+    const latest = Math.max(...started.map((s) => s.startedAt - context.currentTime));
+    assert.ok(latest < 0.6, 'every note starts inside the first 0.6 s');
   });
 });
 
