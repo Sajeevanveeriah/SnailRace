@@ -268,7 +268,7 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
       <ol className={`ss-field ss-cols-${cols}`} aria-label={`Race ${raceNo} field, ${numbers.length} runners`}>
         {numbers.map((snailNo, lane) => {
           const colour = laneColour(lane);
-          const sold = isSold(event.card, snailNo);
+          const onSale = !settings.runOff && forSale.includes(snailNo);
           return (
             <li key={`${lane}-${snailNo}`} className="ss-runner" style={{ '--shell': colour.shell, '--shell-dk': colour.dark } as React.CSSProperties}>
               <span className="ss-runner-no num">{snailNo}</span>
@@ -276,10 +276,10 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
               <span className={`ss-runner-name ${lengthClass(names[lane])}`}>{names[lane]}</span>
               {owners[lane] ? (
                 <span className="ss-runner-owner">{owners[lane]}</span>
-              ) : sold || settings.runOff ? (
-                <span className="ss-runner-owner">&nbsp;</span>
-              ) : (
+              ) : onSale ? (
                 <span className="ss-runner-sale">For sale</span>
+              ) : (
+                <span className="ss-runner-owner">&nbsp;</span>
               )}
             </li>
           );
