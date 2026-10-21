@@ -155,17 +155,19 @@ test('navigating the desk away restores controls without crashing the show', asy
   expect(errors).toEqual([]);
 });
 
-test('the obstacle stays visible before the crowd-lift cue replaces it', async ({ page }) => {
+test('each twist card parks before the next twist goes on air', async ({ page }) => {
   const desk = await openDesk(page);
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
-  await desk.getByLabel(/Lap length|Race length/).selectOption('12000');
+  /* Twenty seconds fits two twists at every Surprise director level above Calm. */
+  await desk.getByLabel(/Lap length|Race length/).selectOption('20000');
   { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
+  { const level = desk.getByLabel('Surprise director'); if (await level.count()) await level.selectOption('standard'); }
   await desk.getByRole('button', { name: /Hide/ }).click();
   await raceCard(desk);
-  /* Measure on the page's own clock. The obstacle must stay on air for a
-     readable interval after its effect lands, before the chase cue replaces
-     it; a test-runner round trip under load must not be able to eat that
-     margin, so a MutationObserver records every ticker change as it happens. */
+  /* Measure on the page's own clock. A twist's card must stay on air for a
+     readable interval after its hit, then park, and only then may the next
+     twist's card go up: one story at a time. A MutationObserver records every
+     card change as it happens, so a test-runner round trip cannot eat it. */
   await page.evaluate(() => {
     const log: { t: number; label: string; text: string; prop: boolean }[] = [];
     (window as unknown as { __tickerLog: typeof log }).__tickerLog = log;
@@ -185,30 +187,31 @@ test('the obstacle stays visible before the crowd-lift cue replaces it', async (
   });
   await desk.getByRole('button', { name: 'Start race', exact: true }).click();
   const signal = page.locator('.side-splash');
-  await expect(signal).toContainText(/LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/, { timeout: 15_000 });
-  await expect(signal).toContainText('TWIST');
+  await expect(signal).toContainText('TWIST', { timeout: 15_000 });
   await expect(page.locator('.side-prop')).toBeVisible();
-  await expect(signal).toContainText('NDCC CROWD LIFT', { timeout: 10_000 });
-  const log = await page.evaluate(
+  const readLog = () => page.evaluate(
     () => (window as unknown as { __tickerLog: { t: number; label: string; text: string; prop: boolean }[] }).__tickerLog,
   );
-  const setback = /LETTUCE AMBUSH|SPRINKLER SURPRISE|PITCH ROLLER DETOUR/;
-  const effectAt = log.findIndex((row) => setback.test(row.label) && row.text.includes('TWIST'));
+  /* Wait for a second, different twist to go on air. */
+  await expect
+    .poll(async () => new Set((await readLog()).filter((row) => row.label !== '').map((row) => row.label)).size, { timeout: 20_000 })
+    .toBeGreaterThanOrEqual(2);
+  const log = await readLog();
+  const effectAt = log.findIndex((row) => row.label !== '' && row.text.includes('TWIST'));
   expect(effectAt, JSON.stringify(log)).toBeGreaterThanOrEqual(0);
-  /* The obstacle's card parks, there is a breath with no card, then the
-     chase's card goes up: one story at a time, never two. */
-  const parkedAt = log.findIndex((row, i) => i > effectAt && row.label !== log[effectAt].label);
+  const first = log[effectAt].label;
+  /* The card parks, there is a breath with no card, then the next twist's card goes up. */
+  const parkedAt = log.findIndex((row, i) => i > effectAt && row.label !== first);
   expect(parkedAt, JSON.stringify(log)).toBeGreaterThan(effectAt);
-  // A readable interval of actual animation, including any resulting overtake.
   expect(log[parkedAt].t - log[effectAt].t, JSON.stringify(log.slice(effectAt, parkedAt + 1))).toBeGreaterThanOrEqual(650);
   for (const row of log.slice(effectAt, parkedAt)) expect(row.prop, JSON.stringify(row)).toBe(true);
-  const replacedAt = log.findIndex((row, i) => i >= parkedAt && row.label !== '');
-  expect(replacedAt, JSON.stringify(log)).toBeGreaterThanOrEqual(parkedAt);
-  expect(log[replacedAt].label).toBe('NDCC CROWD LIFT');
-  for (const row of log.slice(parkedAt, replacedAt)) expect(row.label, JSON.stringify(row)).toBe('');
+  const nextAt = log.findIndex((row, i) => i >= parkedAt && row.label !== '' && row.label !== first);
+  expect(nextAt, JSON.stringify(log)).toBeGreaterThanOrEqual(parkedAt);
+  for (const row of log.slice(parkedAt, nextAt)) expect(row.label, JSON.stringify(row)).toBe('');
+  expect(log[nextAt].label).not.toBe(first);
+  /* No club jargon on a card. */
+  for (const row of log) expect(row.text).not.toMatch(/NDCC/);
 });
-
-
 test('recorded media plays only on the projector and settles from the desk', async ({ page }) => {
   const media = readFileSync('e2e/fixtures/recorded-race.webm');
   const sha = createHash('sha256').update(media).digest('hex');

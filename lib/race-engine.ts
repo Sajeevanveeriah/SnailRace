@@ -216,7 +216,7 @@ export const EVENT_SPECS: EventSpec[] = [
     kind: 'surge', label: 'CROWD LIFT', tone: 'good', sound: 'up', weight: 6,
     calls: [
       'The members bar is chanting for {a} and it has responded!',
-      'Listen to that! The room has picked {a} up and carried it!',
+      'Listen to that! The room is carrying {a}!',
     ],
     magFrom: 0.05, magTo: 0.09, spanFrom: 0.12, spanTo: 0.2, from: 0.35, to: 0.8,
   },
@@ -311,7 +311,7 @@ export const EVENT_SPECS: EventSpec[] = [
     kind: 'chaos', label: 'MYSTERY SLIME', tone: 'wild', sound: 'weird', weight: 7,
     calls: [
       '{a} is into the mystery slime and anything could happen!',
-      'Nobody knows what is in that puddle, and {a} has gone straight through it!',
+      '{a} has gone straight through the mystery puddle!',
     ],
     magFrom: -0.11, magTo: 0.11, spanFrom: 0.08, spanTo: 0.16, from: 0.14, to: 0.78,
   },
@@ -327,7 +327,7 @@ export const EVENT_SPECS: EventSpec[] = [
     kind: 'chaos', label: 'SNAIL ROMANCE', tone: 'wild', sound: 'weird', weight: 4,
     calls: [
       '{a} has stopped to chat up a passing garden snail!',
-      'Love is in the air and {a} has completely forgotten the race!',
+      'Love is in the air and {a} has forgotten the race!',
     ],
     magFrom: -0.1, magTo: 0.06, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.72,
   },
@@ -335,7 +335,7 @@ export const EVENT_SPECS: EventSpec[] = [
     kind: 'chaos', label: 'THIRD UMPIRE', tone: 'wild', sound: 'siren', weight: 4,
     calls: [
       'They have sent {a} upstairs to the third umpire!',
-      'The umpire has his arm out for {a}. This will take a minute.',
+      '{a} is waiting on the umpire. This will take a minute.',
     ],
     magFrom: -0.09, magTo: 0.08, spanFrom: 0.08, spanTo: 0.15, from: 0.2, to: 0.74,
   },
@@ -393,7 +393,7 @@ export const EVENT_SPECS: EventSpec[] = [
     kind: 'nap', label: 'TEA INTERVAL', tone: 'bad', sound: 'nap', weight: 6,
     calls: [
       '{a} has stopped for tea. It is not tea time!',
-      'Scones and a sit down for {a}. The race goes on without it.',
+      'Scones and a sit down for {a}!',
     ],
     magFrom: -0.12, magTo: -0.07, spanFrom: 0.12, spanTo: 0.2, from: 0.2, to: 0.7,
   },
@@ -432,15 +432,15 @@ export const EVENT_SPECS: EventSpec[] = [
   {
     kind: 'chaos', label: 'DRS REVIEW', tone: 'wild', sound: 'siren', weight: 4,
     calls: [
-      '{a} has been sent upstairs for a review. The big screen says... nothing yet!',
-      'Reviewing! {a} is waiting on the third umpire and so are we!',
+      '{a} has been sent upstairs for a review!',
+      'Reviewing! {a} is waiting on the third umpire!',
     ],
     magFrom: -0.09, magTo: 0.09, spanFrom: 0.08, spanTo: 0.15, from: 0.2, to: 0.74,
   },
   {
     kind: 'chaos', label: 'MYSTERY SPINNER', tone: 'wild', sound: 'weird', weight: 4,
     calls: [
-      'A mystery spinner has landed in the lane of {a} and it has turned square!',
+      'A mystery spinner has turned square in front of {a}!',
       '{a} has read the wrong one! Which way is that going?',
     ],
     magFrom: -0.1, magTo: 0.1, spanFrom: 0.08, spanTo: 0.16, from: 0.18, to: 0.76,
@@ -448,7 +448,7 @@ export const EVENT_SPECS: EventSpec[] = [
   {
     kind: 'chaos', label: 'SIGHTSCREEN GLARE', tone: 'wild', sound: 'weird', weight: 4,
     calls: [
-      'The sun is off the sightscreen and straight into the eyes of {a}!',
+      'The sightscreen glare is right in the eyes of {a}!',
       '{a} cannot see a thing and is guessing the line!',
     ],
     magFrom: -0.08, magTo: 0.07, spanFrom: 0.08, spanTo: 0.15, from: 0.16, to: 0.74,
@@ -488,7 +488,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'plague', label: 'THE PLAGUE', tone: 'bad', sound: 'plague', weight: 6,
     calls: [
-      'A shell plague is sweeping through the field! They are dropping everywhere!',
+      'A shell plague is sweeping the field! They are dropping everywhere!',
       'Plague! Half this field has gone down with it!',
     ],
     shareFrom: 0.4, shareTo: 0.7,
@@ -498,7 +498,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
     kind: 'swoop', label: 'MAGPIE SWOOP', tone: 'bad', sound: 'swoop', weight: 8,
     calls: [
       'Swoop! A magpie has come straight through the middle of them!',
-      'Look out! The magpie is back and it has scattered the field!',
+      'Look out! A magpie has scattered the field!',
     ],
     shareFrom: 0.2, shareTo: 0.45,
     magFrom: -0.09, magTo: -0.04, spanFrom: 0.06, spanTo: 0.12, from: 0.15, to: 0.78,
@@ -506,8 +506,8 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'chaos', label: 'SPRINKLERS ON', tone: 'wild', sound: 'siren', weight: 6,
     calls: [
-      'The sprinklers have come on! Nobody told the groundsman there was a race!',
-      'Sprinklers! The whole back straight is under water!',
+      'The sprinklers are on! Nobody told the groundsman there was a race!',
+      'Sprinklers! Half the course is under water!',
     ],
     shareFrom: 0.4, shareTo: 0.8,
     magFrom: -0.08, magTo: 0.08, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.72,
@@ -516,7 +516,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
     kind: 'chaos', label: 'ROGUE CRICKET BALL', tone: 'wild', sound: 'weird', weight: 7,
     calls: [
       'A cricket ball has entered the field. It has no lane and no apology!',
-      'Rogue cricket ball! The middle of the field is taking evasive action!',
+      'Rogue cricket ball! The runners are taking evasive action!',
     ],
     shareFrom: 0.25, shareTo: 0.5,
     magFrom: -0.075, magTo: 0.055, spanFrom: 0.07, spanTo: 0.13, from: 0.18, to: 0.72,
@@ -533,8 +533,8 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'boost', label: 'LETTUCE ON THE TRACK', tone: 'good', sound: 'up', weight: 5,
     calls: [
-      'Somebody has thrown a lettuce on the track and this field has accelerated!',
-      'Lettuce! The whole field has picked up the pace!',
+      'Somebody has thrown a lettuce on the track and they have taken off!',
+      'Lettuce! Half the field has picked up the pace!',
     ],
     shareFrom: 0.4, shareTo: 0.8,
     magFrom: 0.04, magTo: 0.085, spanFrom: 0.1, spanTo: 0.18, from: 0.15, to: 0.7,
@@ -543,7 +543,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
     kind: 'plague', label: 'FALSE START PANIC', tone: 'wild', sound: 'siren', weight: 4,
     calls: [
       'Somebody has fired the gun again and half of them have stopped dead!',
-      'They think the race has been called back! Chaos in the middle!',
+      'They think the race has been called back! Chaos out there!',
     ],
     shareFrom: 0.3, shareTo: 0.6,
     magFrom: -0.09, magTo: 0.04, spanFrom: 0.07, spanTo: 0.13, from: 0.16, to: 0.6,
@@ -551,7 +551,7 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'plague', label: 'PITCH ROLLER CROSSING', tone: 'wild', sound: 'siren', weight: 4,
     calls: [
-      'The pitch roller is crossing the track. Slowly, but with total commitment!',
+      'The pitch roller is crossing. Slowly, but with total commitment!',
       'Pitch roller on the course! It has right of way and knows it!',
     ],
     shareFrom: 0.25, shareTo: 0.55,
@@ -562,8 +562,8 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'plague', label: 'RAIN SQUALL', tone: 'bad', sound: 'rain', weight: 5,
     calls: [
-      'A squall has come straight across the ground! Half the field has stopped to shelter!',
-      'Rain! The outfield is under water and the middle of the field is bogged!',
+      'A squall is across the ground! Half the field has stopped to shelter!',
+      'Rain! The outfield is under water and half the field is bogged!',
     ],
     shareFrom: 0.35, shareTo: 0.7,
     magFrom: -0.09, magTo: -0.045, spanFrom: 0.1, spanTo: 0.18, from: 0.2, to: 0.7,
@@ -580,8 +580,8 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'swoop', label: 'MAGPIE RAID', tone: 'bad', sound: 'swoop', weight: 6,
     calls: [
-      'Magpies! Somebody dropped a chip and the whole family has come through the field!',
-      'A magpie raid! They are after the lettuce and they have scattered the runners!',
+      'Magpies! Somebody dropped a chip and the whole family is here!',
+      'A magpie raid! They are after the lettuce and the runners scatter!',
     ],
     shareFrom: 0.25, shareTo: 0.5,
     magFrom: -0.085, magTo: -0.04, spanFrom: 0.06, spanTo: 0.12, from: 0.15, to: 0.76,
@@ -589,8 +589,8 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'chaos', label: 'ICE CREAM VAN', tone: 'wild', sound: 'wander', weight: 5,
     calls: [
-      'The ice cream van has pulled up at the boundary and half the field has gone for a cone!',
-      'Ice cream! Some of them have sped up to get there and some have stopped to eat it!',
+      'The ice cream van is here and half the field has gone for a cone!',
+      'Ice cream! Some have sped up to get there, some have stopped to eat!',
     ],
     shareFrom: 0.3, shareTo: 0.6,
     magFrom: -0.09, magTo: 0.07, spanFrom: 0.1, spanTo: 0.17, from: 0.2, to: 0.72,
@@ -598,8 +598,8 @@ export const SWARM_SPECS: SwarmSpec[] = [
   {
     kind: 'chaos', label: 'PITCH INVADER', tone: 'wild', sound: 'siren', weight: 4,
     calls: [
-      'A pitch invader in a club polo is running across the course! The runners are dodging!',
-      'Somebody has run on! Security is slower than the snails and that is saying something!',
+      'A pitch invader is running across the course! The runners dodge!',
+      'Somebody has run on! Security is slower than the snails!',
     ],
     shareFrom: 0.25, shareTo: 0.55,
     magFrom: -0.09, magTo: 0.06, spanFrom: 0.08, spanTo: 0.14, from: 0.2, to: 0.72,
@@ -1239,6 +1239,43 @@ export function lockedProgressAt(plan: LockedRacePlan, lane: number, raceT: numb
     : progress;
 }
 
+/** A runner running in never gets closer than this to the one classified ahead of it. */
+const RUN_IN_GAP = 0.004;
+/** Nobody but the winner is drawn as having crossed: the official result classifies the rest. */
+const RUN_IN_CEILING = 1 - 1e-4;
+
+/**
+ * Where every runner is during the finish hold, at race time `raceT` from
+ * the stop onwards. The field keeps running in at its own pace, but no
+ * runner is ever drawn past the one classified ahead of it, so the picture
+ * always agrees with the official result. Retired runners stay where they
+ * stopped and the winner stays on the line. Non-decreasing in `raceT`, and
+ * equal to the published `progressAtStop` at the stop itself.
+ */
+export function runInProgress(plan: LockedRacePlan, raceT: number): Map<number, number> {
+  const out = new Map<number, number>();
+  const t = Math.max(raceT, plan.stopAtMs);
+  let ahead = 1;
+  for (const result of [...plan.results].sort((a, b) => a.place - b.place)) {
+    const atStop = lockedProgressAt(plan, result.lane, plan.stopAtMs);
+    if (result.lane === plan.winnerLane) {
+      out.set(result.lane, 1);
+      continue;
+    }
+    if (result.status === 'retired') {
+      out.set(result.lane, atStop);
+      continue;
+    }
+    const runner = plan.runners.find((candidate) => candidate.lane === result.lane);
+    const raw = runner ? progressForLockedRunner(runner, plan.events, t, plan.motion) : atStop;
+    const cap = ahead >= 1 ? RUN_IN_CEILING : ahead - RUN_IN_GAP;
+    const p = Math.max(atStop, Math.min(raw, cap, RUN_IN_CEILING));
+    out.set(result.lane, p);
+    ahead = p;
+  }
+  return out;
+}
+
 function lockedCrossingTime(runner: LockedRaceRunner, events: LockedRaceEvent[]): number | null {
   if (retirementFor(events, runner.lane)) return null;
   let low = 0;
@@ -1256,12 +1293,252 @@ function consequenceFor(delta: number): LockedRaceEvent['consequence'] {
   return delta >= 0 ? 'advance' : 'delay';
 }
 
+/* ── Twist timing: the contract with the renderers ──────────────────── */
+
+/**
+ * Every twist is one story on air: an INCOMING warning, the hit, the hit
+ * card parked on screen, then a breath before the next. These numbers are
+ * what the renderers and the caller rely on, so they are exported and
+ * tested rather than implied.
+ */
+/** The warning goes up this long before the hit. */
+export const TWIST_WARNING_MS = 2600;
+/** The promise: no warning is ever shorter than this. */
+export const TWIST_MIN_WARNING_MS = 2500;
+/** The snail's name comes up this long before the hit. */
+export const TWIST_REVEAL_MS = 1000;
+/** The hit card stays up this long after the hit. */
+export const TWIST_HOLD_MS = 2800;
+/** And the screen has this long to itself before the next warning. */
+export const TWIST_GAP_MS = 400;
+/** The promise: two hits are never closer than this. */
+export const TWIST_MIN_SPACING_MS = 3000;
+/**
+ * The planner's spacing between hits. One story is warning + hold + gap
+ * (5.8 s); the extra keeps that true after the final length fit, which can
+ * shorten the whole race by a few per cent.
+ */
+export const TWIST_SPACING_MS = 6200;
+/** "At the post" cards land with the leader this far home. */
+export const POST_PROGRESS = { from: 0.9, to: 0.95, max: 0.96 } as const;
+/** The race finishes within this share of its set length. */
+export const RACE_LENGTH_TOLERANCE = 0.03;
+
+/**
+ * How many twist cards the room sees in a race at each Surprise director
+ * level: ordinary surprises, field incidents, deck cards and retirements
+ * all count, because each one is a warning card and a hit card on screen.
+ * A short race cannot fit the spacing above, so it gets fewer: see
+ * `twistRange`.
+ */
+export const INTENSITY_RANGES: Record<IntensityId, { readonly min: number; readonly max: number }> = {
+  calm: { min: 0, max: 1 },
+  standard: { min: 2, max: 3 },
+  big: { min: 3, max: 4 },
+  chaos: { min: 4, max: 5 },
+  mayhem: { min: 6, max: 8 },
+};
+
+/** What the Admin option says, built from the same numbers the planner uses. */
+export function intensityLabel(intensity: IntensityId): string {
+  const names: Record<IntensityId, string> = {
+    calm: 'Calm', standard: 'Standard', big: 'Big night', chaos: 'Chaos', mayhem: 'Mayhem',
+  };
+  const { min, max } = INTENSITY_RANGES[intensity];
+  const gentle = intensity === 'calm' ? ' gentle' : '';
+  return `${names[intensity]} (${min} to ${max}${gentle} twists a race)`;
+}
+
+/** The window of the race an ordinary twist may hit in. */
+function hitWindow(durationMs: number, withPost: boolean): { from: number; to: number } {
+  const from = Math.max(TWIST_WARNING_MS + 400, Math.round(durationMs * 0.12));
+  /* Ordinary twists are over before the last 15%, which belongs to the
+     leaders and the run home. A short race keeps the middle of the race. */
+  let to = Math.min(
+    Math.round(durationMs * 0.8),
+    Math.max(Math.round(durationMs * 0.85) - TWIST_HOLD_MS - TWIST_GAP_MS, Math.round(durationMs * 0.6)),
+  );
+  if (withPost) to = Math.min(to, Math.round(durationMs * 0.86) - TWIST_SPACING_MS);
+  return { from, to };
+}
+
+const slotsIn = (window: { from: number; to: number }): number =>
+  window.to < window.from ? 0 : Math.floor((window.to - window.from) / TWIST_SPACING_MS) + 1;
+
+/** The most twists a race of this length can carry and keep every story apart. */
+export const twistCapacity = (durationMs: number): number => slotsIn(hitWindow(durationMs, false));
+
+/**
+ * The twist count a race of this length and level will show: the level's
+ * range, capped by what fits. A 7 second race fits one, a 15 second race
+ * two, a 30 second race four, a minute seven.
+ */
+export function twistRange(intensity: IntensityId, durationMs: number): { min: number; max: number } {
+  const range = INTENSITY_RANGES[intensity] ?? INTENSITY_RANGES.standard;
+  const cap = twistCapacity(durationMs);
+  return { min: Math.min(range.min, cap), max: Math.min(range.max, cap) };
+}
+
+/** Chance that a race at this level ends with an "at the post" card. */
+const POST_CHANCE: Record<IntensityId, number> = {
+  calm: 0, standard: 0.2, big: 0.3, chaos: 0.4, mayhem: 0.5,
+};
+
+/**
+ * Where the twists are dealt from at each level: the single-runner book,
+ * the field incidents and the deck. Calm keeps to small single-runner
+ * moments.
+ */
+const SOURCE_MIX: Record<IntensityId, { book: number; field: number; deck: number }> = {
+  calm: { book: 1, field: 0, deck: 0 },
+  standard: { book: 0.5, field: 0.2, deck: 0.3 },
+  big: { book: 0.4, field: 0.25, deck: 0.35 },
+  chaos: { book: 0.3, field: 0.25, deck: 0.45 },
+  mayhem: { book: 0.25, field: 0.25, deck: 0.5 },
+};
+
+/**
+ * The mood of each twist. Boosts are the rare ones: a night where the
+ * crowd keeps carrying a chaser past the leader reads as a fix.
+ */
+const TONE_MIX: Record<'good' | 'bad' | 'wild', number> = { good: 0.2, bad: 0.5, wild: 0.3 };
+
+/**
+ * Twists of one family are the same gag to the room: two lettuces or two
+ * crowd lifts in one race is a repeat whatever the card says. A race deals
+ * each family at most once.
+ */
+export function twistFamily(label: string): string {
+  const value = label.toUpperCase();
+  const families: Array<[RegExp, string]> = [
+    [/LETTUCE/, 'lettuce'],
+    [/SPRINKLER/, 'sprinkler'],
+    [/MAGPIE|SWOOP/, 'magpie'],
+    [/PLAGUE/, 'plague'],
+    [/CROWD|CHEER|WAVE/, 'crowd'],
+    [/ROLLER/, 'roller'],
+    [/RAIN|HAIL|SQUALL/, 'weather'],
+    [/WIND\b|HEADWIND|TAILWIND/, 'wind'],
+    [/SIGHTSCREEN/, 'sightscreen'],
+    [/UMPIRE|DRS/, 'umpire'],
+    [/SHELL SWAP/, 'swap'],
+    [/GROUNDSKEEPER|BOOT/, 'boot'],
+    [/DRINKS/, 'drinks'],
+    [/DOG/, 'dog'],
+    [/MYSTERY/, 'mystery'],
+  ];
+  return families.find(([pattern]) => pattern.test(value))?.[1] ?? value;
+}
+
+/* ── Live captions ──────────────────────────────────────────────────── */
+
+/** A strap line the room can read in one go at 1280x720. */
+export const CAPTION_TARGET = 72;
+/** No caption is ever longer than this. */
+export const CAPTION_MAX = 90;
+
+/**
+ * A long name, cut back to whole words. "Speedy Gonzales the Third of
+ * Geelong West" is "Speedy Gonzales" on the strap when the full name will
+ * not fit; a short name is left alone.
+ */
+export function shortName(name: string, max = 18): string {
+  const trimmed = name.trim();
+  if (trimmed.length <= max) return trimmed;
+  const words = trimmed.split(/\s+/);
+  let out = words[0];
+  for (const word of words.slice(1)) {
+    if (`${out} ${word}`.length > max) break;
+    out = `${out} ${word}`;
+  }
+  return out.length > max + 6 ? out.slice(0, max) : out;
+}
+
+/** The first line that reads in one go, else the first that fits, else the shortest. */
+export function fitCaption(candidates: readonly string[]): string {
+  const lines = candidates.filter((line) => line.trim().length > 0);
+  if (!lines.length) return '';
+  return (
+    lines.find((line) => line.length <= CAPTION_TARGET) ??
+    lines.find((line) => line.length <= CAPTION_MAX) ??
+    lines.reduce((best, line) => (line.length < best.length ? line : best))
+  );
+}
+
+/** Where a runner is, said the way a caller says it. */
+export function positionPhrase(rank: number, fieldSize: number): string {
+  if (rank <= 0) return 'the leader';
+  if (rank >= fieldSize - 1) return 'in last';
+  return `in ${ordinal(rank + 1)}`;
+}
+
+/** Give a book line the target's live position: "{a} slips" becomes "{a}, {pos}, slips". */
+function withPosition(line: string): string {
+  if (line.includes('{pos}')) return line;
+  const at = line.indexOf('{a}');
+  if (at < 0) return line;
+  const next = line.charAt(at + 3);
+  const insert = /[A-Za-z ]/.test(next) && next !== '' ? '{a}, {pos},' : '{a}, {pos}';
+  return `${line.slice(0, at)}${insert}${line.slice(at + 3)}`;
+}
+
+interface CaptionFill {
+  a?: string;
+  b?: string;
+  pos?: string;
+}
+
+const fillCaption = (line: string, fill: CaptionFill): string =>
+  line
+    .replace(/\{a\}/g, fill.a ?? '')
+    .replace(/\{b\}/g, fill.b ?? '')
+    .replace(/\{pos\}/g, fill.pos ?? '');
+
+/** Every caption is offered full names first, then short names, then the terse form. */
+function fitWithNames(lines: readonly string[], fill: CaptionFill): string {
+  const short: CaptionFill = {
+    ...fill,
+    a: fill.a === undefined ? undefined : shortName(fill.a),
+    b: fill.b === undefined ? undefined : shortName(fill.b),
+  };
+  const tiny: CaptionFill = {
+    ...fill,
+    a: fill.a === undefined ? undefined : shortName(fill.a, 12),
+    b: fill.b === undefined ? undefined : shortName(fill.b, 12),
+  };
+  return fitCaption([
+    ...lines.map((line) => fillCaption(line, fill)),
+    ...lines.map((line) => fillCaption(line, short)),
+    ...lines.map((line) => fillCaption(line, tiny)),
+  ]);
+}
+
+/**
+ * A twist's hit caption: one line drawn from its book, then its siblings,
+ * then a terse "{a}, {pos}: label!" line, full names first, until one fits
+ * the strap. Lines with no runner in them are used as they are.
+ */
+export function composeTwistCaption(
+  lines: readonly string[],
+  label: string,
+  fill: { a?: string; b?: string; pos?: string },
+  rnd: () => number = Math.random,
+): string {
+  const start = Math.floor(rnd() * lines.length);
+  const ordered = [...lines.slice(start), ...lines.slice(0, start)];
+  const named = ordered.some((line) => line.includes('{a}'));
+  const terse = !named
+    ? []
+    : ordered.some((line) => line.includes('{b}')) && fill.b
+      ? [`{a} and {b}: ${label.toLowerCase()}!`]
+      : [`{a}, {pos}: ${label.toLowerCase()}!`];
+  return fitWithNames([...ordered, ...terse], fill);
+}
+
 /* ── The deck ───────────────────────────────────────────────────────── */
 
-/** Races shorter than this cannot fit a late card and its four beats. */
-export const DECK_MIN_DURATION_MS = 20_000;
-/** How much race each dealt card needs to land and be read. */
-export const DECK_SECONDS_PER_CARD_MS = 15_000;
+/** Races shorter than this deal no "at the post" cards: there is no room for the warning and the line. */
+export const DECK_MIN_DURATION_MS = 12_000;
 /**
  * The most one runner's clock can be shifted over a race, as a share of race
  * time, every book and card added together. Wide enough that a night of
@@ -1269,14 +1546,19 @@ export const DECK_SECONDS_PER_CARD_MS = 15_000;
  * still for a third of the race.
  */
 export const LANE_CLOCK_CAP = 0.3;
-/**
- * Two cards on air at once is noise, not drama: the least gap between them.
- * One twist's story on screen is its warning, the hit and the title card
- * parking, about four seconds; the gap leaves a breath before the next.
- */
-export const deckSpacingMs = (durationMs: number): number => Math.max(5500, Math.round(durationMs * 0.05));
-/** How close a comeback beat may sit to a dealt card: its warning and chase must not overlap the card's own title. */
-export const comebackClearanceMs = (durationMs: number): number => Math.round(deckSpacingMs(durationMs) * 0.75);
+/** What the planner spends, leaving room for the final length fit. */
+const PLAN_CLOCK_CAP = 0.27;
+
+/** What a twist did when it was dealt: the clock shifts and who the caption is about. */
+export interface DealtTwist {
+  deltas: Record<number, number>;
+  /** The runner the caption names. */
+  featured?: number;
+  /** A second runner the caption names, for the two-runner gags. */
+  partner?: number;
+  /** A caption chosen by the deal itself, when the card can go two ways. */
+  call?: string;
+}
 
 export interface DeckCard {
   id: string;
@@ -1288,73 +1570,122 @@ export interface DeckCard {
   once: boolean;
   /** How often the card comes up against the rest of the deck; 1 when absent. */
   weight?: number;
-  /** Window of race distance the card may land in, 0 to 1. */
-  from: number;
-  to: number;
-  /** Largest boost the card can hand out, as a share of race time. */
-  boostTo: number;
+  /** Lands at the finish post, with the leader about 90 to 96% home. */
+  post?: boolean;
+  /** The INCOMING card. Never names a runner or a place: the order can change before the hit. */
   warning: string;
+  /**
+   * Hit captions. {a} is the featured runner, {pos} its live place at the
+   * hit ("the leader", "in 6th"), {b} a second runner.
+   */
   calls: string[];
   /**
    * Decide the clock consequence per lane. `lanes` are the active runners,
    * leader first at the moment the card lands. Signed milliseconds; negative
-   * holds a snail up, positive sends it on. The featured lane names the
-   * commentary line.
+   * holds a snail up, positive sends it on.
    */
-  deal: (
-    rnd: () => number,
-    lanes: number[],
-    durationMs: number,
-  ) => { deltas: Record<number, number>; featured?: number; call?: string };
+  deal: (rnd: () => number, lanes: number[], durationMs: number) => DealtTwist;
 }
 
 const share = (rnd: () => number, durationMs: number, from: number, to: number): number =>
   Math.round(durationMs * (from + rnd() * (to - from)));
 
+/**
+ * One runner for a single-runner twist. Anyone can be hit. The front half
+ * is a little more likely than the back, because that is where the camera
+ * is, but the leader is no more likely than the runner behind it, so over a
+ * night the leader is hit a little less often than pure chance.
+ */
+export function pickTarget(rnd: () => number, lanes: readonly number[]): number {
+  const half = Math.ceil(lanes.length / 2);
+  const weights = lanes.map((_, rank) => (rank === 0 ? 1 : rank <= half ? 1.25 : 1));
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let roll = rnd() * total;
+  for (let rank = 0; rank < lanes.length; rank++) {
+    roll -= weights[rank];
+    if (roll <= 0) return lanes[rank];
+  }
+  return lanes[lanes.length - 1];
+}
+
+/** A random set of `count` runners, kept in running order. */
+function randomSubset(rnd: () => number, lanes: readonly number[], count: number): number[] {
+  const pool = [...lanes];
+  const picked = new Set<number>();
+  while (picked.size < Math.min(count, lanes.length) && pool.length) {
+    picked.add(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+  }
+  return lanes.filter((lane) => picked.has(lane));
+}
+
+/** A run of `count` neighbours in the running order, starting anywhere. */
+function randomRun(rnd: () => number, lanes: readonly number[], count: number): number[] {
+  const size = Math.min(count, lanes.length);
+  const start = Math.floor(rnd() * (lanes.length - size + 1));
+  return lanes.slice(start, start + size);
+}
+
 export const DECK_CARDS: readonly DeckCard[] = [
+  /* ── At the post: the last card of the race, close to the line ─────── */
   {
-    id: 'plague-line', label: 'PLAGUE AT THE LINE', kind: 'plague', tone: 'bad', sound: 'plague', once: true,
-    from: 0.8, to: 0.87, boostTo: 0,
+    id: 'plague-line', label: 'PLAGUE AT THE LINE', kind: 'plague', tone: 'bad', sound: 'plague', once: true, post: true,
     warning: 'The vet has seen something near the finish and is running.',
     calls: [
-      'Plague! The whole field has gone down with the line in sight! Who recovers first?',
-      'They have ALL stopped! A shell plague at the post and this race is wide open again!',
+      'Plague at the line! {a}, {pos}, is the first to shake it off!',
+      'They have all stopped at the post! {a}, {pos}, recovers first!',
     ],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       let featured = lanes[0];
       let least = Infinity;
       for (const lane of lanes) {
-        const delay = share(rnd, durationMs, 0.06, 0.13);
+        const delay = share(rnd, durationMs, 0.04, 0.09);
         deltas[lane] = -delay;
         if (delay < least) {
           least = delay;
           featured = lane;
         }
       }
-      return { deltas, featured, call: '{a} is the first to shake it off! Here they come again!' };
+      return { deltas, featured };
     },
   },
   {
-    id: 'magpie-post', label: 'MAGPIE AT THE POST', kind: 'swoop', tone: 'bad', sound: 'swoop', once: true,
-    from: 0.76, to: 0.84, boostTo: 0,
+    id: 'magpie-post', label: 'MAGPIE AT THE POST', kind: 'swoop', tone: 'bad', sound: 'swoop', once: true, post: true,
     warning: 'A magpie has landed on the finish post.',
-    calls: ['Swoop at the post! The leaders have ducked and the back of the field is coming through!'],
+    calls: [
+      'Swoop at the post! {a}, {pos}, has ducked with the line in sight!',
+      'The magpie is down on them! {a}, {pos}, has had to duck!',
+    ],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const hit = Math.max(2, Math.round(lanes.length * (0.4 + rnd() * 0.3)));
-      for (const lane of lanes.slice(0, hit)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.09);
-      return { deltas, featured: lanes[0] };
+      const hit = randomSubset(rnd, lanes, Math.max(2, Math.round(lanes.length * (0.4 + rnd() * 0.2))));
+      for (const lane of hit) deltas[lane] = -share(rnd, durationMs, 0.04, 0.08);
+      return { deltas, featured: hit[0] };
     },
   },
+  {
+    id: 'watermelon', label: 'WATERMELON AT THE POST', kind: 'nap', tone: 'bad', sound: 'nap', once: true, post: true,
+    warning: 'Somebody has left a slice of watermelon near the winning post.',
+    calls: [
+      'Watermelon! {a}, {pos}, has stopped for a feed at the line!',
+      'Watermelon at the post! {a}, {pos}, cannot walk past it!',
+    ],
+    deal: (rnd, lanes, durationMs) => {
+      /* Somebody near the post: any of the front four, the leader no more often than the rest. */
+      const front = lanes.slice(0, Math.min(4, lanes.length));
+      const lane = front[Math.floor(rnd() * front.length)];
+      return { deltas: { [lane]: -share(rnd, durationMs, 0.05, 0.08) }, featured: lane };
+    },
+  },
+
+  /* ── The rest of the deck: any time in the body of the race ─────────── */
   {
     id: 'freeze', label: 'THE BIG FREEZE', kind: 'chaos', tone: 'wild', sound: 'siren', once: true,
-    from: 0.3, to: 0.78, boostTo: 0.04,
     warning: 'The starter has a hand up. Something is not right.',
-    calls: ['Everything has stopped! A freeze on the course... and {a} is the first one moving!'],
+    calls: ['Freeze! {a}, {pos}, is the first one moving!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const hold = share(rnd, durationMs, 0.045, 0.065);
+      const hold = share(rnd, durationMs, 0.04, 0.06);
       const lucky = lanes[Math.floor(rnd() * lanes.length)];
       for (const lane of lanes) deltas[lane] = lane === lucky ? share(rnd, durationMs, 0.02, 0.04) : -hold;
       return { deltas, featured: lucky };
@@ -1362,281 +1693,255 @@ export const DECK_CARDS: readonly DeckCard[] = [
   },
   {
     id: 'headwind', label: 'HEADWIND', kind: 'stumble', tone: 'bad', sound: 'rain', once: false,
-    from: 0.25, to: 0.75, boostTo: 0.035,
     warning: 'The flags on the pavilion have swung right round.',
-    calls: ['A headwind straight down the course! They are all into it except {a}, who has found some shelter!'],
+    calls: ['Headwind! Only {a}, {pos}, has found some shelter!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const sheltered = lanes[Math.floor(rnd() * lanes.length)];
-      for (const lane of lanes) deltas[lane] = lane === sheltered ? share(rnd, durationMs, 0.015, 0.035) : -share(rnd, durationMs, 0.03, 0.06);
+      for (const lane of lanes) deltas[lane] = lane === sheltered ? share(rnd, durationMs, 0.015, 0.035) : -share(rnd, durationMs, 0.03, 0.05);
       return { deltas, featured: sheltered };
     },
   },
   {
     id: 'reverse', label: 'REVERSE GEAR', kind: 'wander', tone: 'bad', sound: 'wander', once: true,
-    from: 0.35, to: 0.8, boostTo: 0,
-    warning: 'The leader is looking over its shoulder.',
-    calls: ['{a} has gone into reverse! The leader is going backwards and the field is on top of it!'],
-    deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.09, 0.12) }, featured: lanes[0] }),
+    warning: 'One of the runners is looking over its shoulder.',
+    calls: ['Reverse gear! {a}, {pos}, is going the wrong way!'],
+    deal: (rnd, lanes, durationMs) => {
+      const lane = pickTarget(rnd, lanes);
+      return { deltas: { [lane]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+    },
   },
   {
     id: 'lucky-last', label: 'LUCKY LAST', kind: 'surge', tone: 'good', sound: 'up', once: false,
-    from: 0.45, to: 0.76, boostTo: 0.11,
     warning: 'Somebody at the back has just woken up.',
-    calls: ['From last! {a} has lit the afterburners and is flying through the field!'],
+    calls: ['{a}, {pos}, has lit the afterburners and is flying!'],
     deal: (rnd, lanes, durationMs) => {
       const last = lanes[lanes.length - 1];
-      return { deltas: { [last]: share(rnd, durationMs, 0.08, 0.11) }, featured: last };
+      return { deltas: { [last]: share(rnd, durationMs, 0.06, 0.09) }, featured: last };
     },
   },
   {
     id: 'groundskeeper', label: 'GROUNDSKEEPER SHUFFLE', kind: 'stumble', tone: 'bad', sound: 'down', once: false,
-    from: 0.3, to: 0.72, boostTo: 0,
     warning: 'The groundskeeper is walking onto the course with a bucket.',
-    calls: ['The groundskeeper has picked up {a} and put it back where it was two minutes ago!'],
+    calls: ['The groundskeeper has picked up {a}, {pos}, and put it back!'],
     deal: (rnd, lanes, durationMs) => {
-      const lane = lanes[Math.floor(rnd() * lanes.length)];
+      const lane = pickTarget(rnd, lanes);
       return { deltas: { [lane]: -share(rnd, durationMs, 0.05, 0.08) }, featured: lane };
     },
   },
   {
     id: 'late-swap', label: 'LATE SHELL SWAP', kind: 'chaos', tone: 'wild', sound: 'weird', once: false,
-    from: 0.66, to: 0.8, boostTo: 0.06,
-    warning: 'The two leaders are far too close to each other.',
-    calls: ['Shell swap! {a} and the leader have gone through each other and come out the other way round!'],
+    warning: 'Two of the runners are far too close to each other.',
+    calls: ['Shell swap! {a} and {b} have gone through each other!'],
     deal: (rnd, lanes, durationMs) => {
-      const swing = share(rnd, durationMs, 0.04, 0.06);
-      return { deltas: { [lanes[0]]: -swing, [lanes[1]]: swing }, featured: lanes[1] };
+      const pair = randomRun(rnd, lanes, 2);
+      const swing = share(rnd, durationMs, 0.035, 0.055);
+      return { deltas: { [pair[0]]: -swing, [pair[1]]: swing }, featured: pair[1], partner: pair[0] };
     },
   },
   {
-    id: 'sprinkler-straight', label: 'SPRINKLERS IN THE STRAIGHT', kind: 'stumble', tone: 'bad', sound: 'down', once: false,
-    from: 0.7, to: 0.84, boostTo: 0,
-    warning: 'The sprinkler timer on the home straight has just clicked.',
-    calls: ['The sprinklers are on in the straight and {a} has hit the wet patch first!'],
+    id: 'sprinkler-straight', label: 'LATE SPRINKLERS', kind: 'stumble', tone: 'bad', sound: 'down', once: false,
+    warning: 'The sprinkler timer has just clicked.',
+    calls: ['Sprinklers! {a}, {pos}, has hit the wet patch first!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const hit = Math.max(2, Math.round(lanes.length * (0.3 + rnd() * 0.3)));
-      for (const lane of lanes.slice(0, hit)) deltas[lane] = -share(rnd, durationMs, 0.035, 0.07);
-      return { deltas, featured: lanes[0] };
+      const hit = randomSubset(rnd, lanes, Math.max(2, Math.round(lanes.length * (0.3 + rnd() * 0.3))));
+      for (const lane of hit) deltas[lane] = -share(rnd, durationMs, 0.035, 0.065);
+      return { deltas, featured: hit[0] };
     },
   },
 
   /* ── The twists: physical gags the whole room can read ─────────────── */
   {
     id: 'big-boot', label: 'THE BIG BOOT', kind: 'stumble', tone: 'bad', sound: 'down', once: true,
-    from: 0.3, to: 0.7, boostTo: 0,
-    warning: 'A very large shadow has fallen across the leader\'s lane.',
+    warning: 'A very large shadow has fallen across the course.',
     calls: [
-      'The boot! A giant boot has come down right on top of {a}! The leader is flat as a pancake!',
-      'Stomp! {a} has been trodden on with the race in hand! Can it shake itself out?',
+      'The boot! A giant boot has come down on {a}, {pos}!',
+      'Stomp! {a}, {pos}, has been trodden on! Can it shake it off?',
     ],
-    deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.09, 0.12) }, featured: lanes[0] }),
+    deal: (rnd, lanes, durationMs) => {
+      const lane = pickTarget(rnd, lanes);
+      return { deltas: { [lane]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+    },
   },
   {
     id: 'snail-ale', label: 'SNAIL ALE HAPPY HOUR', kind: 'nap', tone: 'wild', sound: 'weird', once: false,
-    from: 0.35, to: 0.7, boostTo: 0.05,
     warning: 'The Snail Ale sign has just lit up beside the track.',
-    calls: ['Happy hour! The whole field has pulled in for a Snail Ale... except {a}, the designated driver, who is off!'],
+    calls: ['Happy hour! All but {a}, {pos}, have stopped for a Snail Ale!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const driver = lanes[Math.floor(rnd() * lanes.length)];
-      for (const lane of lanes) deltas[lane] = lane === driver ? share(rnd, durationMs, 0.03, 0.05) : -share(rnd, durationMs, 0.05, 0.08);
+      for (const lane of lanes) deltas[lane] = lane === driver ? share(rnd, durationMs, 0.03, 0.05) : -share(rnd, durationMs, 0.04, 0.07);
       return { deltas, featured: driver };
     },
   },
   {
-    id: 'watermelon', label: 'WATERMELON AT THE POST', kind: 'nap', tone: 'bad', sound: 'nap', once: true,
-    from: 0.78, to: 0.86, boostTo: 0,
-    warning: 'Somebody has left a slice of watermelon near the winning post.',
-    calls: ['Watermelon! {a} has stopped for a feed with the line right there! The rest of them are coming!'],
-    deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lanes[0] }),
-  },
-  {
     id: 'boom-gate', label: 'BOOM GATE', kind: 'chaos', tone: 'wild', sound: 'siren', once: false,
-    from: 0.28, to: 0.68, boostTo: 0,
     warning: 'The boom gate lights have started flashing across the course.',
-    calls: ['Boom gate down! {a} got through and everybody behind it is stuck at the barrier!'],
+    calls: ['Boom gate down! {a}, {pos}, got through and the rest are stuck!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const through = 1 + Math.floor(rnd() * Math.min(3, lanes.length - 2));
-      for (const lane of lanes.slice(through)) deltas[lane] = -share(rnd, durationMs, 0.05, 0.08);
+      for (const lane of lanes.slice(through)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
       return { deltas, featured: lanes[through - 1] };
     },
   },
   {
     id: 'catapult', label: 'THE CATAPULT', kind: 'surge', tone: 'good', sound: 'up', once: false,
-    from: 0.3, to: 0.72, boostTo: 0.12,
-    warning: 'The groundskeeper is winding something up behind the back markers.',
-    calls: ['Catapult! {a} has been flung up the course! It is airborne and it is flying past them!'],
+    warning: 'The groundskeeper is winding something up behind the field.',
+    calls: ['Catapult! {a}, {pos}, has been flung up the course!'],
     deal: (rnd, lanes, durationMs) => {
       const back = lanes.slice(Math.floor(lanes.length / 2));
       const lane = back[Math.floor(rnd() * back.length)];
-      return { deltas: { [lane]: share(rnd, durationMs, 0.09, 0.12) }, featured: lane };
+      return { deltas: { [lane]: share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
     },
   },
   {
     id: 'bunch-up', label: 'THE BIG BUNCH-UP', kind: 'chaos', tone: 'wild', sound: 'wave', once: true,
-    from: 0.58, to: 0.76, boostTo: 0.08,
-    warning: 'The stewards have wheeled a giant magnet onto the home straight.',
-    calls: ['The magnet! The leaders are being dragged back and the tail is being pulled up! {a} and the whole field are nose to nose!'],
+    warning: 'The stewards have wheeled a giant magnet onto the course.',
+    calls: ['The magnet! The field bunches and {a}, {pos}, is pulled up!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const n = lanes.length;
-      const swing = share(rnd, durationMs, 0.06, 0.08);
+      const swing = share(rnd, durationMs, 0.05, 0.07);
       lanes.forEach((lane, rank) => {
         const bias = (n - 1 - 2 * rank) / (n - 1);
-        deltas[lane] = Math.round(swing * bias);
+        deltas[lane] = -Math.round(swing * bias);
       });
       return { deltas, featured: lanes[n - 1] };
     },
   },
   {
     id: 'caterpillar', label: 'CATERPILLAR CROSSING', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
-    from: 0.3, to: 0.7, boostTo: 0,
-    warning: 'A very long caterpillar is heading for the middle of the course.',
-    calls: ['Caterpillar! It is right across the middle of the field and {a} has to wait for every one of those legs!'],
+    warning: 'A very long caterpillar is heading for the course.',
+    calls: ['Caterpillar! {a}, {pos}, has to wait for every one of those legs!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const middle = lanes.slice(1, Math.max(2, lanes.length - 1));
-      for (const lane of middle) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
-      return { deltas, featured: middle[0] };
+      const group = randomRun(rnd, lanes, 3);
+      for (const lane of group) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: group[0] };
     },
   },
   {
-    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false, weight: 8,
-    from: 0.28, to: 0.74, boostTo: 0.03,
+    id: 'the-bat', label: 'THE BAT', kind: 'stumble', tone: 'wild', sound: 'weird', once: false, weight: 3,
     warning: 'One of the runners has found a cricket bat beside the track.',
     calls: [
-      '{a} has pulled out a cricket bat and clobbered the snail in front! Down it goes and {a} is through!',
-      'The bat! {a} has swung it straight at the snail ahead! That is not in the rules and nobody is stopping it!',
+      'The bat! {a} has clobbered {b} and is through!',
+      'The bat! {a} has swung it at {b}! That is not in the rules!',
     ],
     deal: (rnd, lanes, durationMs) => {
       /* A runner outside the lead picks up the bat; the snail directly in front of it wears it. */
       const rank = 1 + Math.floor(rnd() * (lanes.length - 1));
       const batter = lanes[rank];
       const victim = lanes[rank - 1];
-      return { deltas: { [victim]: -share(rnd, durationMs, 0.06, 0.09), [batter]: share(rnd, durationMs, 0.02, 0.03) }, featured: batter };
+      return { deltas: { [victim]: -share(rnd, durationMs, 0.05, 0.08), [batter]: share(rnd, durationMs, 0.02, 0.03) }, featured: batter, partner: victim };
     },
   },
   {
-    id: 'contagion', label: 'CONTAGIOUS PLAGUE', kind: 'plague', tone: 'bad', sound: 'plague', once: false, weight: 3,
-    from: 0.4, to: 0.74, boostTo: 0,
-    warning: 'The vet is running towards the front of the field with a mask on.',
-    calls: ['Plague at the front! {a} has caught it and it is spreading: everybody running near the leader has gone down with it!'],
+    id: 'contagion', label: 'CONTAGIOUS PLAGUE', kind: 'plague', tone: 'bad', sound: 'plague', once: false, weight: 2,
+    warning: 'The vet is running onto the course with a mask on.',
+    calls: ['Plague! {a}, {pos}, has caught it, and so have its neighbours!'],
     deal: (rnd, lanes, durationMs) => {
-      /* The leader gets it worst; the nearer a runner is to the front, the more it catches. */
+      /* It starts with one runner and spreads to its neighbours in the running order. */
       const deltas: Record<number, number> = {};
-      const spread = Math.min(lanes.length, 4);
-      lanes.slice(0, spread).forEach((lane, rank) => {
-        const from = [0.08, 0.06, 0.04, 0.025][rank];
-        const to = [0.1, 0.08, 0.06, 0.04][rank];
-        deltas[lane] = -share(rnd, durationMs, from, to);
-      });
-      return { deltas, featured: lanes[0] };
+      const centre = Math.floor(rnd() * lanes.length);
+      const group = lanes.slice(Math.max(0, centre - 1), centre + 2);
+      for (const lane of group) {
+        deltas[lane] = -share(rnd, durationMs, lane === lanes[centre] ? 0.06 : 0.035, lane === lanes[centre] ? 0.08 : 0.055);
+      }
+      return { deltas, featured: lanes[centre] };
     },
   },
   {
     id: 'speed-camera', label: 'OFFICER JACKS SPEED CAMERA', kind: 'stumble', tone: 'bad', sound: 'siren', once: false,
-    from: 0.25, to: 0.72, boostTo: 0,
     warning: 'Officer Jack has set up his speed camera on the rail.',
-    calls: ['Flash! Officer Jack has pulled {a} over for speeding! The leader is parked while he writes it up!'],
-    deal: (rnd, lanes, durationMs) => ({ deltas: { [lanes[0]]: -share(rnd, durationMs, 0.06, 0.09) }, featured: lanes[0] }),
+    calls: ['Flash! Officer Jack has pulled {a}, {pos}, over for speeding!'],
+    deal: (rnd, lanes, durationMs) => {
+      const lane = pickTarget(rnd, lanes);
+      return { deltas: { [lane]: -share(rnd, durationMs, 0.05, 0.08) }, featured: lane };
+    },
   },
-  /* ── More chaos: the second wave of twists ─────────────────────────── */
   {
-    id: 'sausage-sizzle', label: 'SAUSAGE SIZZLE', kind: 'nap', tone: 'wild', sound: 'weird', once: false,
-    from: 0.3, to: 0.74, boostTo: 0,
+    id: 'sausage-sizzle', label: 'SAUSAGE SIZZLE', kind: 'nap', tone: 'bad', sound: 'weird', once: false,
     warning: 'Somebody has fired up the barbecue beside the track.',
-    calls: ['Sausage sizzle! The leaders have stopped for a snag in bread and {a} has gone straight past them!'],
+    calls: ['Sausage sizzle! {a}, {pos}, and half the field have stopped!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const hungry = Math.max(2, Math.ceil(lanes.length / 2));
-      for (const lane of lanes.slice(0, hungry)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
-      return { deltas, featured: lanes[hungry] ?? lanes[lanes.length - 1] };
+      const hungry = randomSubset(rnd, lanes, Math.max(2, Math.ceil(lanes.length / 2)));
+      for (const lane of hungry) deltas[lane] = -share(rnd, durationMs, 0.04, 0.06);
+      return { deltas, featured: hungry[0] };
     },
   },
   {
     id: 'kookaburra', label: 'KOOKABURRA LAUGH', kind: 'stumble', tone: 'bad', sound: 'weird', once: false,
-    from: 0.25, to: 0.74, boostTo: 0,
     warning: 'A kookaburra has landed on the rail and is looking at the field.',
-    calls: ['The kookaburra has started laughing and {a} has stopped to laugh along! So have the ones beside it!'],
+    calls: ['The kookaburra is laughing and {a}, {pos}, has joined in!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const at = Math.floor(rnd() * (lanes.length - 2));
-      for (const lane of lanes.slice(at, at + 3)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
-      return { deltas, featured: lanes[at] };
+      const group = randomRun(rnd, lanes, 3);
+      for (const lane of group) deltas[lane] = -share(rnd, durationMs, 0.04, 0.06);
+      return { deltas, featured: group[0] };
     },
   },
   {
     id: 'trampoline', label: 'THE TRAMPOLINE', kind: 'surge', tone: 'good', sound: 'up', once: false,
-    from: 0.3, to: 0.72, boostTo: 0.1,
     warning: 'Somebody has dragged a trampoline onto the course.',
-    calls: ['Boing! {a} has hit the trampoline and bounced halfway up the course!'],
+    calls: ['Boing! {a}, {pos}, has hit the trampoline!'],
     deal: (rnd, lanes, durationMs) => {
       const middle = lanes.slice(1, Math.max(2, lanes.length - 1));
       const lane = middle[Math.floor(rnd() * middle.length)];
-      return { deltas: { [lane]: share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+      return { deltas: { [lane]: share(rnd, durationMs, 0.06, 0.09) }, featured: lane };
     },
   },
   {
     id: 'wombat', label: 'WOMBAT CROSSING', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
-    from: 0.3, to: 0.72, boostTo: 0,
     warning: 'Something round and furry is heading for the track.',
-    calls: ['A wombat has sat down in the middle of the course and {a} cannot get round it!'],
+    calls: ['A wombat has sat down and {a}, {pos}, cannot get round it!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const pool = [...lanes];
-      const picked: number[] = [];
-      while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
-      for (const lane of picked) deltas[lane] = -share(rnd, durationMs, 0.05, 0.08);
+      const picked = randomSubset(rnd, lanes, 3);
+      for (const lane of picked) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
       return { deltas, featured: picked[0] };
     },
   },
   {
     id: 'mower', label: 'RIDE-ON MOWER', kind: 'surge', tone: 'good', sound: 'up', once: false,
-    from: 0.3, to: 0.7, boostTo: 0.07,
     warning: 'The groundskeeper has started the ride-on mower behind the field.',
-    calls: ['The ride-on mower is on the course and the back markers are flying to get out of its way! {a} leads the escape!'],
+    calls: ['The mower is on the course and {a}, {pos}, leads the escape!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const back = lanes.slice(-Math.min(3, lanes.length - 1));
-      for (const lane of back) deltas[lane] = share(rnd, durationMs, 0.04, 0.07);
+      for (const lane of back) deltas[lane] = share(rnd, durationMs, 0.035, 0.06);
       return { deltas, featured: back[0] };
     },
   },
-  /* ── Mayhem: twists that can land on anyone, from the leader to last ── */
   {
     id: 'leaf-blower', label: 'LEAF BLOWER', kind: 'chaos', tone: 'wild', sound: 'wave', once: false,
-    from: 0.25, to: 0.75, boostTo: 0.07,
     warning: 'The groundskeeper has a leaf blower and no idea which way it is pointing.',
-    calls: [
-      'The leaf blower has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!',
-      'The leaf blower is pointing up the course and the back markers are flying! {a} is riding the breeze!',
-    ],
+    calls: ['Leaf blower! {a}, {pos}, and its neighbours are in the gale!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const half = Math.max(1, Math.floor(lanes.length / 2));
-      /* Which way it points is a coin toss: hold the front or blow the back on. */
+      const group = randomRun(rnd, lanes, 3);
+      /* Which way it points is a coin toss: hold them up or blow them on. */
       if (rnd() < 0.5) {
-        for (const lane of lanes.slice(0, half)) deltas[lane] = -share(rnd, durationMs, 0.03, 0.06);
-        return { deltas, featured: lanes[0], call: 'The leaf blower has gone off! It has blown the front of the field backwards and {a} is stuck in the gale!' };
+        for (const lane of group) deltas[lane] = -share(rnd, durationMs, 0.03, 0.06);
+        return { deltas, featured: group[0], call: 'Leaf blower! {a}, {pos}, and its neighbours are stuck!' };
       }
-      for (const lane of lanes.slice(half)) deltas[lane] = share(rnd, durationMs, 0.03, 0.07);
-      return { deltas, featured: lanes[half], call: 'The leaf blower is pointing up the course and the back markers are flying! {a} is riding the breeze!' };
+      for (const lane of group) deltas[lane] = share(rnd, durationMs, 0.03, 0.06);
+      return { deltas, featured: group[0], call: 'Leaf blower! {a}, {pos}, and its neighbours are flying!' };
     },
   },
   {
     id: 'tremor', label: 'EARTH TREMOR', kind: 'chaos', tone: 'wild', sound: 'wave', once: true,
-    from: 0.3, to: 0.78, boostTo: 0.05,
     warning: 'The drinks on the bar have started to rattle.',
-    calls: ['Earth tremor! The whole track has shaken and nobody knows where they are! {a} has come out of it best!'],
+    calls: ['Earth tremor! {a}, {pos}, has come out of it best!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       let featured = lanes[0];
       let best = -Infinity;
       for (const lane of lanes) {
-        const shift = Math.round(durationMs * (rnd() * 0.1 - 0.05));
+        let shift = Math.round(durationMs * (rnd() * 0.09 - 0.045));
+        if (Math.abs(shift) < durationMs * 0.025) shift = Math.round((shift < 0 ? -1 : 1) * durationMs * 0.025);
         deltas[lane] = shift;
         if (shift > best) {
           best = shift;
@@ -1648,88 +1953,80 @@ export const DECK_CARDS: readonly DeckCard[] = [
   },
   {
     id: 'lucky-dip', label: 'LUCKY DIP', kind: 'chaos', tone: 'wild', sound: 'weird', once: false,
-    from: 0.25, to: 0.74, boostTo: 0.08,
     warning: 'A bucket of numbered shells has appeared at the rail.',
-    calls: ['Lucky dip! Two snails get a shove and two get a shell full of sand! {a} drew the good one!'],
+    calls: ['Lucky dip! {a}, {pos}, drew the good one!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       const pool = [...lanes];
       const pick = () => pool.splice(Math.floor(rnd() * pool.length), 1)[0];
       const winners = [pick(), pick()].filter((lane) => lane !== undefined);
       const losers = [pick(), pick()].filter((lane) => lane !== undefined);
-      for (const lane of winners) deltas[lane] = share(rnd, durationMs, 0.05, 0.08);
-      for (const lane of losers) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      for (const lane of winners) deltas[lane] = share(rnd, durationMs, 0.04, 0.07);
+      for (const lane of losers) deltas[lane] = -share(rnd, durationMs, 0.04, 0.06);
       return { deltas, featured: winners[0] };
     },
   },
   {
     id: 'possum', label: 'POSSUM ON THE LOOSE', kind: 'wander', tone: 'bad', sound: 'wander', once: false,
-    from: 0.25, to: 0.76, boostTo: 0,
     warning: 'Something has fallen out of the gum tree by the scoreboard.',
-    calls: ['A possum has dropped out of the tree right in front of {a}! It is not moving and neither is the snail!'],
+    calls: ['A possum has dropped in front of {a}, {pos}!'],
     deal: (rnd, lanes, durationMs) => {
-      const lane = lanes[Math.floor(rnd() * lanes.length)];
-      return { deltas: { [lane]: -share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+      const lane = pickTarget(rnd, lanes);
+      return { deltas: { [lane]: -share(rnd, durationMs, 0.06, 0.09) }, featured: lane };
     },
   },
   {
     id: 'drone', label: 'RUNAWAY DRONE', kind: 'swoop', tone: 'bad', sound: 'swoop', once: false,
-    from: 0.25, to: 0.74, boostTo: 0,
     warning: 'The club drone has stopped answering the remote.',
-    calls: ['The runaway drone has buzzed the field and {a} has ducked into its shell! So has the one beside it!'],
+    calls: ['The runaway drone has buzzed {a}, {pos}, and the one beside it!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const at = Math.floor(rnd() * (lanes.length - 1));
-      for (const lane of lanes.slice(at, at + 2)) deltas[lane] = -share(rnd, durationMs, 0.05, 0.08);
-      return { deltas, featured: lanes[at] };
+      const pair = randomRun(rnd, lanes, 2);
+      for (const lane of pair) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
+      return { deltas, featured: pair[0] };
     },
   },
   {
     id: 'slip-slide', label: "SLIP 'N' SLIDE", kind: 'surge', tone: 'good', sound: 'up', once: false,
-    from: 0.25, to: 0.72, boostTo: 0.08,
     warning: 'Somebody has rolled a slip and slide across the course.',
-    calls: ["SLIP 'N' SLIDE! {a} has hit the wet plastic and gone sliding up the field! Two more are right behind!"],
+    calls: ["Slip 'n' slide! {a}, {pos}, has gone sliding up the field!"],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      const pool = [...lanes];
-      const picked: number[] = [];
-      while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
-      for (const lane of picked) deltas[lane] = share(rnd, durationMs, 0.04, 0.08);
+      const picked = randomSubset(rnd, lanes, 3);
+      for (const lane of picked) deltas[lane] = share(rnd, durationMs, 0.035, 0.07);
       return { deltas, featured: picked[0] };
     },
   },
   {
     id: 'cheer-squad', label: 'CHEER SQUAD', kind: 'surge', tone: 'good', sound: 'up', once: false,
-    from: 0.35, to: 0.76, boostTo: 0.1,
     warning: 'The junior cheer squad has found the back of the field.',
-    calls: ['The cheer squad is screaming for {a} at the back and it is Flying! From last to somewhere!'],
+    calls: ['The cheer squad is screaming for {a}, {pos}, and it is flying!'],
     deal: (rnd, lanes, durationMs) => {
       const lane = lanes[lanes.length - 1];
-      return { deltas: { [lane]: share(rnd, durationMs, 0.07, 0.1) }, featured: lane };
+      return { deltas: { [lane]: share(rnd, durationMs, 0.06, 0.09) }, featured: lane };
     },
   },
   {
     id: 'road-works', label: 'ROAD WORKS', kind: 'stumble', tone: 'bad', sound: 'down', once: false,
-    from: 0.3, to: 0.76, boostTo: 0,
-    warning: 'A man in a hi-vis vest is putting out cones ahead of the leaders.',
-    calls: ['Road works! The cones are out and {a} has to wait for the lollipop sign! The leaders are stuck in the queue!'],
+    warning: 'A man in a hi-vis vest is putting out cones on the course.',
+    calls: ['Road works! {a} and {b} are stuck at the lollipop sign!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
-      for (const lane of lanes.slice(0, 2)) deltas[lane] = -share(rnd, durationMs, 0.04, 0.07);
-      return { deltas, featured: lanes[0] };
+      const pair = randomRun(rnd, lanes, 2);
+      for (const lane of pair) deltas[lane] = -share(rnd, durationMs, 0.04, 0.06);
+      return { deltas, featured: pair[0], partner: pair[1] };
     },
   },
   {
     id: 'hailstorm', label: 'HAILSTORM', kind: 'plague', tone: 'bad', sound: 'rain', once: true,
-    from: 0.35, to: 0.8, boostTo: 0,
     warning: 'The sky over the pavilion has gone very dark, very fast.',
-    calls: ['Hail! Every snail has pulled its head in! {a} is the first one brave enough to come out!'],
+    calls: ['Hail! Heads in, and {a}, {pos}, is the first one out!'],
     deal: (rnd, lanes, durationMs) => {
       const deltas: Record<number, number> = {};
       let featured = lanes[0];
       let least = Infinity;
       for (const lane of lanes) {
-        const hold = share(rnd, durationMs, 0.03, 0.07);
+        const hold = share(rnd, durationMs, 0.03, 0.06);
         deltas[lane] = -hold;
         if (hold < least) {
           least = hold;
@@ -1747,6 +2044,480 @@ export const dealtDeckCards = (plan: LockedRacePlan): string[] =>
     .filter((event) => event.id.startsWith('deck-'))
     .map((event) => event.id.slice('deck-'.length))
     .filter((id) => DECK_CARDS.some((card) => card.id === id && card.once));
+
+/* ── The twist pool: the book, the field incidents and the deck ───────── */
+
+type TwistSource = 'book' | 'field' | 'deck';
+
+interface TwistDef {
+  /** Event id stem. Deck cards keep `deck-<card id>` for the once-a-night ledger. */
+  id: string;
+  source: TwistSource;
+  label: string;
+  kind: RaceEventKind;
+  tone: EventTone;
+  sound: EventSound;
+  family: string;
+  weight: number;
+  once: boolean;
+  post: boolean;
+  warning: string;
+  calls: readonly string[];
+  /** Share of the race the on-air window covers, for the book's envelopes. */
+  span: number;
+  /** Several runners at once: must reach at least two to be the story it says. */
+  field: boolean;
+  deal: (rnd: () => number, lanes: number[], durationMs: number, gentle: boolean) => DealtTwist;
+}
+
+/** A book magnitude, in race milliseconds, inside the visible floor and the per-twist cap. */
+function bookDelta(mag: number, durationMs: number, gentle: boolean): number {
+  const cap = Math.round(durationMs * (gentle ? 0.05 : 0.08));
+  let delta = clamp(Math.round(mag * durationMs * 0.8 * (gentle ? 0.6 : 1)), -cap, cap);
+  const minimum = Math.max(50, Math.round(durationMs * 0.025));
+  if (Math.abs(delta) < minimum) delta = (mag < 0 ? -1 : 1) * minimum;
+  return delta;
+}
+
+/** Every twist caption book, by label, for the strap-length tests. */
+export const twistCaptionBooks = (): Array<{ label: string; calls: readonly string[] }> =>
+  TWIST_POOL.map((def) => ({ label: def.label, calls: def.calls }));
+
+const TWIST_POOL: readonly TwistDef[] = [
+  ...EVENT_SPECS.map((spec, index): TwistDef => ({
+    id: `book-${index}`,
+    source: 'book',
+    label: spec.label,
+    kind: spec.kind,
+    tone: spec.tone,
+    sound: spec.sound,
+    family: twistFamily(spec.label),
+    weight: spec.weight,
+    once: false,
+    post: false,
+    warning: `${spec.label} is approaching the course.`,
+    calls: spec.calls.map(withPosition),
+    span: (spec.spanFrom + spec.spanTo) / 2,
+    field: false,
+    deal: (rnd, lanes, durationMs, gentle) => {
+      const lane = pickTarget(rnd, lanes);
+      const mag = spec.magFrom + rnd() * (spec.magTo - spec.magFrom);
+      return { deltas: { [lane]: bookDelta(mag, durationMs, gentle) }, featured: lane };
+    },
+  })),
+  ...SWARM_SPECS.map((spec, index): TwistDef => ({
+    id: `field-${index}`,
+    source: 'field',
+    label: spec.label,
+    kind: spec.kind,
+    tone: spec.tone,
+    sound: spec.sound,
+    family: twistFamily(spec.label),
+    weight: spec.weight,
+    once: false,
+    post: false,
+    warning: `${spec.label} is approaching the course.`,
+    calls: spec.calls,
+    span: (spec.spanFrom + spec.spanTo) / 2,
+    field: true,
+    deal: (rnd, lanes, durationMs) => {
+      const fraction = spec.shareFrom + rnd() * (spec.shareTo - spec.shareFrom);
+      const wanted = Math.max(2, Math.min(lanes.length, Math.round(lanes.length * fraction)));
+      const hit = randomSubset(rnd, lanes, wanted);
+      const deltas: Record<number, number> = {};
+      for (const lane of hit) deltas[lane] = bookDelta(spec.magFrom + rnd() * (spec.magTo - spec.magFrom), durationMs, false);
+      return { deltas, featured: hit[0] };
+    },
+  })),
+  ...DECK_CARDS.map((card): TwistDef => ({
+    id: `deck-${card.id}`,
+    source: 'deck',
+    label: card.label,
+    kind: card.kind,
+    tone: card.tone,
+    sound: card.sound,
+    family: twistFamily(card.label),
+    weight: card.weight ?? 1,
+    once: card.once,
+    post: Boolean(card.post),
+    warning: card.warning,
+    calls: card.calls,
+    span: 0,
+    field: false,
+    deal: (rnd, lanes, durationMs) => card.deal(rnd, lanes, durationMs),
+  })),
+];
+
+/** Weighted draw without replacement: the whole list, most likely first. */
+function weightedOrder<T>(rnd: () => number, items: readonly T[], weight: (item: T) => number): T[] {
+  const pool = [...items];
+  const out: T[] = [];
+  while (pool.length) {
+    const total = pool.reduce((sum, item) => sum + Math.max(0.0001, weight(item)), 0);
+    let roll = rnd() * total;
+    let index = 0;
+    while (index < pool.length - 1 && roll >= Math.max(0.0001, weight(pool[index]))) {
+      roll -= Math.max(0.0001, weight(pool[index]));
+      index += 1;
+    }
+    out.push(pool.splice(index, 1)[0]);
+  }
+  return out;
+}
+
+/** Who the caption is about, kept beside the event until the race is final. */
+interface CaptionPlan {
+  calls: readonly string[];
+  featured?: number;
+  partner?: number;
+  /** A two-way card's own choice of line. */
+  call?: string;
+  retirement?: (typeof RETIREMENT_SPECS)[number];
+}
+
+interface TwistBuild {
+  events: LockedRaceEvent[];
+  captions: Map<string, CaptionPlan>;
+  /** False when a planned twist could not be fitted, so the caller can try again. */
+  complete: boolean;
+}
+
+interface TwistContext {
+  seed: number;
+  attempt: number;
+  names: string[];
+  durationMs: number;
+  intensity: IntensityId;
+  runners: LockedRaceRunner[];
+  motion: MotionProfile;
+  dealtCards: readonly string[];
+  allowPost: boolean;
+  commentaryDelayMs: number;
+}
+
+/** Ranked active lanes at race time `at`, leader first. */
+function rankedAt(runners: LockedRaceRunner[], events: LockedRaceEvent[], at: number, motion: MotionProfile): number[] {
+  return runners
+    .filter((runner) => {
+      const retirement = retirementFor(events, runner.lane);
+      return !retirement || retirement.effectAtMs > at;
+    })
+    .map((runner) => ({ lane: runner.lane, p: progressForLockedRunner(runner, events, at, motion) }))
+    .sort((a, b) => b.p - a.p)
+    .map((row) => row.lane);
+}
+
+function earliestCrossingOf(runners: LockedRaceRunner[], events: LockedRaceEvent[]): number {
+  const times = runners
+    .map((runner) => lockedCrossingTime(runner, events))
+    .filter((at): at is number => at !== null);
+  return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY;
+}
+
+/** The hold window a delay occupies on its lane: the clock is withheld for |delta| ms. */
+const holdOverlaps = (events: LockedRaceEvent[], lane: number, from: number, to: number): boolean =>
+  events.some((event) => {
+    const delta = event.clockDeltaMsByLane[lane] ?? 0;
+    if (!event.targetLanes.includes(lane) || delta >= 0) return false;
+    return event.effectAtMs <= to + 300 && from <= event.effectAtMs + Math.abs(delta) + 300;
+  });
+
+/**
+ * Deal the race's twists, in the order they will happen.
+ *
+ * The count comes from the level and the length. The hits are laid out
+ * first, one story apart, then dealt from the first to the last: each twist
+ * sees the field exactly as the earlier twists have left it, so a twist
+ * aimed at "anyone in the front half" really is aimed at the front half the
+ * room will see. Later twists can never move a runner before their own hit,
+ * so nothing dealt afterwards can make an earlier choice wrong.
+ */
+function planTwists(ctx: TwistContext): TwistBuild {
+  const { durationMs, intensity, runners, motion, names } = ctx;
+  const events: LockedRaceEvent[] = [];
+  const captions = new Map<string, CaptionPlan>();
+  const totals = new Array<number>(names.length).fill(0);
+  const totalCap = Math.round(durationMs * PLAN_CLOCK_CAP);
+  const visibleMs = Math.round(durationMs * 0.022);
+  const gentle = intensity === 'calm';
+
+  /* The count and the retirement do not change between attempts. */
+  const countRnd = mulberry32(ctx.seed ^ 0x434f4d45);
+  const salt = Math.imul(ctx.attempt + 1, 0x9e3779b1);
+  const timeRnd = mulberry32((ctx.seed ^ 0x54494d45 ^ salt) >>> 0);
+  const pickRnd = mulberry32((ctx.seed ^ 0x4445434b ^ salt) >>> 0);
+  const retirementRnd = mulberry32(ctx.seed ^ 0x52455431);
+
+  const range = twistRange(intensity, durationMs);
+  const count = range.min + Math.floor(countRnd() * (range.max - range.min + 1));
+  if (count <= 0) return { events, captions, complete: true };
+
+  const retiring = retirementRnd() < 1 / RETIREMENT_CHANCE_DENOMINATOR;
+  const retireSpec = RETIREMENT_SPECS[Math.floor(retirementRnd() * RETIREMENT_SPECS.length)];
+  const retireLane = Math.floor(retirementRnd() * names.length);
+  const retireRoll = retirementRnd();
+
+  const postCards = TWIST_POOL.filter((def) => def.post && !(def.once && ctx.dealtCards.includes(def.id.slice('deck-'.length))));
+  const postWanted =
+    ctx.allowPost &&
+    durationMs >= DECK_MIN_DURATION_MS &&
+    postCards.length > 0 &&
+    !(retiring && count === 1) &&
+    slotsIn(hitWindow(durationMs, true)) + 1 >= count &&
+    countRnd() < POST_CHANCE[intensity];
+  const ordinary = count - (postWanted ? 1 : 0);
+
+  const window = hitWindow(durationMs, postWanted);
+  const slack = Math.max(0, window.to - window.from - (ordinary - 1) * TWIST_SPACING_MS);
+  const offsets = Array.from({ length: ordinary }, () => Math.round(timeRnd() * slack)).sort((a, b) => a - b);
+  const times = offsets.map((offset, index) => window.from + offset + index * TWIST_SPACING_MS);
+  const retireSlot = retiring && ordinary > 0 ? Math.floor(retireRoll * ordinary) : -1;
+
+  /* A retirement is a gag too: no magpie swoop in the race a magpie scare retires a runner. */
+  const usedFamilies = new Set<string>(retireSlot >= 0 ? [twistFamily(retireSpec.label)] : []);
+  const mix = SOURCE_MIX[intensity];
+  let complete = true;
+
+  /** Clamp, cap and hold-check a deal; return what is left of it, or null. */
+  const settle = (def: TwistDef, dealt: DealtTwist, at: number): Record<number, number> | null => {
+    const kept: Record<number, number> = {};
+    const lanes = Object.keys(dealt.deltas).map(Number);
+    for (const lane of lanes) {
+      const wanted = dealt.deltas[lane];
+      const next = clamp(totals[lane] + wanted, -totalCap, totalCap);
+      const delta = next - totals[lane];
+      if (Math.abs(delta) < visibleMs) continue;
+      /* Two holds at once on one lane would run its clock backwards. */
+      if (delta < 0 && holdOverlaps(events, lane, at, at + Math.abs(delta))) continue;
+      kept[lane] = delta;
+    }
+    const keptLanes = Object.keys(kept).map(Number);
+    if (!keptLanes.length) return null;
+    /* A card that is about several runners must still reach several. */
+    if ((def.field || lanes.length > 1) && keptLanes.length < 2) return null;
+    /* A runner the caption names as touched must still be touched. */
+    if (dealt.featured !== undefined && dealt.featured in dealt.deltas && !(dealt.featured in kept)) return null;
+    if (dealt.partner !== undefined && dealt.partner in dealt.deltas && !(dealt.partner in kept)) return null;
+    return kept;
+  };
+
+  const eventFor = (def: TwistDef, at: number, deltas: Record<number, number>): LockedRaceEvent => {
+    const targetLanes = Object.keys(deltas).map(Number).sort((a, b) => a - b);
+    const magnitude = Math.max(...targetLanes.map((lane) => Math.abs(deltas[lane])));
+    const span = Math.round(def.span * durationMs);
+    return {
+      id: def.source === 'deck' ? def.id : `${def.id}-${events.length}`,
+      kind: def.kind,
+      label: def.label,
+      tone: def.tone,
+      sound: def.sound,
+      targetLanes,
+      consequence: consequenceFor(deltas[targetLanes[0]]),
+      warningAtMs: at - TWIST_WARNING_MS,
+      revealAtMs: at - TWIST_REVEAL_MS,
+      effectAtMs: at,
+      commentaryAtMs: at + ctx.commentaryDelayMs,
+      effectEndMs: at + Math.max(span, magnitude, 350),
+      clockDeltaMsByLane: deltas,
+      warningText: def.warning,
+      revealText: '',
+      commentaryText: '',
+    };
+  };
+
+  /** Try to deal one twist at `at`; commit it and return true when it fits. */
+  const tryDeal = (def: TwistDef, at: number, mustFinishAfter: number): boolean => {
+    const ranked = rankedAt(runners, events, at, motion);
+    if (ranked.length < 2) return false;
+    const dealt = def.deal(pickRnd, ranked, durationMs, gentle);
+    const deltas = settle(def, dealt, at);
+    if (!deltas) return false;
+    const event = eventFor(def, at, deltas);
+    events.push(event);
+    /* Every hit, and every hit still to come, lands before the finish. */
+    if (earliestCrossingOf(runners, events) <= mustFinishAfter) {
+      events.pop();
+      return false;
+    }
+    for (const lane of event.targetLanes) totals[lane] += deltas[lane];
+    usedFamilies.add(def.family);
+    captions.set(event.id, { calls: def.calls, featured: dealt.featured, partner: dealt.partner, call: dealt.call });
+    return true;
+  };
+
+  for (let slot = 0; slot < times.length; slot++) {
+    const at = times[slot];
+    const nextHit = slot + 1 < times.length ? times[slot + 1] : postWanted ? Math.round(durationMs * 0.86) : at;
+    const mustFinishAfter = nextHit + TWIST_REVEAL_MS + ctx.commentaryDelayMs + 400;
+
+    if (slot === retireSlot) {
+      const active = rankedAt(runners, events, at, motion);
+      const lane = active.includes(retireLane) ? retireLane : active[Math.floor(retireRoll * active.length)];
+      const id = 'ret-0';
+      events.push({
+        id,
+        kind: 'retire',
+        label: retireSpec.label,
+        tone: 'bad',
+        sound: 'down',
+        targetLanes: [lane],
+        consequence: 'retire',
+        warningAtMs: at - TWIST_WARNING_MS,
+        revealAtMs: at - TWIST_REVEAL_MS,
+        effectAtMs: at,
+        commentaryAtMs: at + ctx.commentaryDelayMs,
+        effectEndMs: at + 900,
+        clockDeltaMsByLane: { [lane]: 0 },
+        warningText: 'Course marshals are watching something near the boundary.',
+        revealText: '',
+        commentaryText: '',
+        retirementCode: retireSpec.code,
+        retirementLabel: retireSpec.label,
+      });
+      if (earliestCrossingOf(runners, events) > mustFinishAfter) {
+        captions.set(id, { calls: [], featured: lane, retirement: retireSpec });
+        continue;
+      }
+      events.pop();
+    }
+
+    /* The mood first, then the source, then the twist itself. */
+    const toneRoll = pickRnd();
+    const tone: EventTone = toneRoll < TONE_MIX.good ? 'good' : toneRoll < TONE_MIX.good + TONE_MIX.bad ? 'bad' : 'wild';
+    const sourceRoll = pickRnd();
+    const source: TwistSource = sourceRoll < mix.book ? 'book' : sourceRoll < mix.book + mix.field ? 'field' : 'deck';
+    const eligible = (def: TwistDef) =>
+      !def.post &&
+      !usedFamilies.has(def.family) &&
+      !(def.once && ctx.dealtCards.includes(def.id.slice('deck-'.length))) &&
+      (mix[def.source] > 0) &&
+      (!gentle || def.source === 'book');
+    const preferred = weightedOrder(pickRnd, TWIST_POOL.filter((def) => eligible(def) && def.source === source && def.tone === tone), (def) => def.weight);
+    const anyTone = weightedOrder(pickRnd, TWIST_POOL.filter((def) => eligible(def) && def.source === source && def.tone !== tone), (def) => def.weight);
+    const anySource = weightedOrder(pickRnd, TWIST_POOL.filter((def) => eligible(def) && def.source !== source), (def) => def.weight);
+    let placed = false;
+    for (const def of [...preferred, ...anyTone, ...anySource]) {
+      if (tryDeal(def, at, mustFinishAfter)) {
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) complete = false;
+  }
+
+  if (postWanted) {
+    const last = events.reduce((latest, event) => Math.max(latest, event.effectAtMs), -Infinity);
+    const earliest = Math.max(window.from, Number.isFinite(last) ? last + TWIST_SPACING_MS : 0, TWIST_WARNING_MS + 400);
+    const target = durationMs < 20_000
+      ? POST_PROGRESS.from - 0.02 + timeRnd() * (POST_PROGRESS.to - POST_PROGRESS.from)
+      : POST_PROGRESS.from + timeRnd() * (POST_PROGRESS.to - POST_PROGRESS.from);
+    const leaderAt = (t: number): number => {
+      const ranked = rankedAt(runners, events, t, motion);
+      return ranked.length ? progressForLockedRunner(runners[ranked[0]], events, t, motion) : 0;
+    };
+    let placed = false;
+    const finish = earliestCrossingOf(runners, events);
+    let at = earliest;
+    while (at < finish && leaderAt(at) < target) at += 50;
+    for (const def of weightedOrder(pickRnd, postCards.filter((card) => !usedFamilies.has(card.family)), (card) => card.weight)) {
+      if (placed) break;
+      if (leaderAt(at) > POST_PROGRESS.max) break;
+      /* The hit card is up before the line: the hit, the caption and a beat. */
+      if (tryDeal(def, at, at + ctx.commentaryDelayMs + 700)) placed = true;
+    }
+    if (!placed) complete = false;
+  }
+
+  events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
+  return { events, captions, complete };
+}
+
+/**
+ * How far off its set length a dealt race may finish and still be fitted
+ * exactly. Shrinking a race by more than about 6% would squeeze two stories
+ * closer than one warning, card and breath.
+ */
+const FIT_RATIO = { from: 0.915, to: 1.06 } as const;
+
+/** Scale every clock in a plan by `k`: the race, its twists and their effects. */
+function scaleRace(runners: LockedRaceRunner[], events: LockedRaceEvent[], k: number, commentaryDelayMs: number): void {
+  for (const runner of runners) runner.baseFinishMs = Math.round(runner.baseFinishMs * k);
+  for (const event of events) {
+    const at = Math.round(event.effectAtMs * k);
+    const length = event.effectEndMs - event.effectAtMs;
+    event.effectAtMs = at;
+    event.effectEndMs = at + Math.max(350, Math.round(length * k));
+    for (const key of Object.keys(event.clockDeltaMsByLane)) {
+      const lane = Number(key);
+      event.clockDeltaMsByLane[lane] = Math.round(event.clockDeltaMsByLane[lane] * k);
+    }
+    /* The warning and the reveal are on the room's clock, not the race's:
+       they keep their full length whatever the fit did. */
+    event.warningAtMs = Math.max(0, at - TWIST_WARNING_MS);
+    event.revealAtMs = Math.max(event.warningAtMs + 1, at - TWIST_REVEAL_MS);
+    event.commentaryAtMs = at + commentaryDelayMs;
+  }
+}
+
+/** Write every twist caption from the running order at the moment of its hit. */
+function writeCaptions(
+  runners: LockedRaceRunner[],
+  events: LockedRaceEvent[],
+  captions: Map<string, CaptionPlan>,
+  names: string[],
+  motion: MotionProfile,
+  rnd: () => number,
+): void {
+  for (const event of events) {
+    const plan = captions.get(event.id);
+    const ranked = rankedAt(runners, events, event.effectAtMs, motion);
+    const nameOf = (lane: number | undefined) => (lane === undefined ? undefined : names[lane]);
+    const featured = plan?.featured ?? event.targetLanes[0];
+    const rank = ranked.indexOf(featured);
+    const pos = positionPhrase(rank < 0 ? ranked.length - 1 : rank, ranked.length);
+
+    if (plan?.retirement) {
+      event.featuredLane = event.targetLanes[0];
+      const name = names[event.targetLanes[0]];
+      event.revealText = fitWithNames([plan.retirement.reveal], { a: name });
+      event.commentaryText = fitWithNames([plan.retirement.commentary], { a: name });
+      continue;
+    }
+
+    const targetNames = event.targetLanes.map((lane) => names[lane]);
+    if (targetNames.length === 1) {
+      event.revealText = fitCaption([
+        `${targetNames[0]}: ${event.label}`,
+        `${shortName(targetNames[0])}: ${event.label}`,
+        `${shortName(targetNames[0], 12)}: ${event.label}`,
+      ]);
+    } else if (targetNames.length === ranked.length) {
+      event.revealText = `${event.label}: the whole field`;
+    } else {
+      const firstLane = ranked.find((lane) => event.targetLanes.includes(lane)) ?? event.targetLanes[0];
+      const first = names[firstLane];
+      const others = targetNames.length - 1;
+      event.revealText = fitCaption([
+        targetNames.length === 2 ? `${event.label}: ${targetNames.join(' and ')}` : '',
+        targetNames.length === 2 ? `${event.label}: ${targetNames.map((name) => shortName(name)).join(' and ')}` : '',
+        `${event.label}: ${shortName(first)} and ${others} more`,
+        `${event.label}: ${targetNames.length} runners`,
+      ]);
+    }
+
+    const pool = plan?.call ? [plan.call] : plan?.calls ?? [];
+    if (!pool.length) {
+      event.commentaryText = fitCaption([`${event.label}!`]);
+      continue;
+    }
+    if (pool.some((line) => line.includes('{a}')) && featured !== undefined) event.featuredLane = featured;
+    event.commentaryText = composeTwistCaption(pool, event.label, {
+      a: nameOf(featured),
+      b: nameOf(plan?.partner),
+      pos,
+    }, rnd);
+  }
+}
 
 /**
  * Draw the entire consequential race before countdown. The returned value is
@@ -1772,16 +2543,12 @@ export function drawLockedRacePlan(
     throw new RangeError('Race duration must be at least 1000ms.');
   }
 
-  /* Reuse the established seeded cast and surprise book as source material.
-     The legacy result remains available for old histories; the plan below
-     gives those surprises persistent consequences and draws a new result. */
-  const source = drawRace(seed, names, durationMs, surprises, intensity);
+  /* The seeded cast: a uniform shuffle gives every lane the same chance of
+     the quickest base time, and nothing below looks at a lane's number. */
+  const source = drawRace(seed, names, durationMs, false, intensity);
   const motion: MotionProfile = 'lively';
-  /* Keep the fourth beat before even the earliest mechanically possible
-     finish (84% after the cumulative consequence cap). At normal show
-     lengths this remains the familiar quarter-second commentary beat. */
   const commentaryDelayMs = Math.max(1, Math.min(250, Math.round(durationMs * 0.015)));
-  const runners: LockedRaceRunner[] = source.snails.map((snail) => ({
+  const castRunners = (): LockedRaceRunner[] => source.snails.map((snail) => ({
     lane: snail.lane,
     name: snail.name,
     baseFinishMs: Math.round(snail.T),
@@ -1792,411 +2559,46 @@ export function drawLockedRacePlan(
     ph2: snail.ph2,
   }));
 
-  /* Reserve a little room for a story the audience can follow. Targeting is
-     resolved from the simulated field NOW, before the plan is hashed. There
-     is no runtime rubber-banding and no input from the moderator or picks.
-     Keep the legacy generator and already stored plans untouched. */
-  const directorRnd = mulberry32(seed ^ 0x434f4d45);
-  const comebackTimes = !surprises || durationMs < 6000 ? [] :
-    (durationMs < 25_000 || intensity === 'calm' ? [0.46] : [0.32, 0.64])
-      .map((at) => Math.round(durationMs * (at + directorRnd() * 0.035)));
-  const warningLead = Math.min(1400, Math.round(durationMs * 0.04));
-  // Let the obstacle read on screen before the chase warning replaces it.
-  const chaseOffset = Math.max(1000, warningLead + Math.min(1200, Math.round(durationMs * 0.1)));
-  const comebackSpan = Math.round(durationMs * 0.13);
-
-  const grouped = new Map<string, LockedRaceEvent>();
-  for (const event of source.events) {
-    if (event.id.startsWith('fin-')) continue;
-    const effectAtMs = Math.round(event.at * durationMs);
-    /* Leave enough course for the complete four-beat sequence and the
-       consequence to be read before the first possible finish. */
-    if (effectAtMs > durationMs * 0.72) continue;
-    const sourceEnd = effectAtMs + Math.max(Math.round(event.span * durationMs), 350);
-    if (comebackTimes.some((at) => sourceEnd >= at - warningLead &&
-      effectAtMs - warningLead <= at + chaseOffset + comebackSpan)) continue;
-    const key = event.group ?? event.id;
-    /* A surprise the room is told about has to be one the room can see. The
-       first engine let a nudge of half a percent through, which read as a
-       prop over a snail that then did nothing; the floor is now a visible
-       stop or lunge of two and a half percent of the race. */
-    const cap = Math.round(durationMs * 0.08);
-    let delta = clamp(Math.round(event.mag * durationMs * 0.8), -cap, cap);
-    const minimum = Math.max(50, Math.round(durationMs * 0.025));
-    if (Math.abs(delta) < minimum) delta = (event.mag < 0 ? -1 : 1) * minimum;
-
-    const hit = grouped.get(key);
-    if (hit) {
-      if (!hit.targetLanes.includes(event.lane)) hit.targetLanes.push(event.lane);
-      hit.clockDeltaMsByLane[event.lane] = delta;
-      hit.effectAtMs = Math.min(hit.effectAtMs, effectAtMs);
-      hit.effectEndMs = Math.max(
-        hit.effectEndMs,
-        effectAtMs + Math.max(Math.round(event.span * durationMs), Math.abs(delta)),
-      );
-      continue;
-    }
-
-    grouped.set(key, {
-      id: key,
-      kind: event.kind,
-      label: event.groupLabel ?? event.label,
-      tone: event.tone,
-      sound: event.sound,
-      targetLanes: [event.lane],
-      consequence: consequenceFor(delta),
-      warningAtMs: Math.max(0, effectAtMs - 1400),
-      revealAtMs: Math.max(1, effectAtMs - 700),
-      effectAtMs,
-      commentaryAtMs: effectAtMs + commentaryDelayMs,
-      effectEndMs:
-        effectAtMs + Math.max(Math.round(event.span * durationMs), Math.abs(delta), 350),
-      clockDeltaMsByLane: { [event.lane]: delta },
-      warningText: `${event.groupLabel ?? event.label} is approaching the course.`,
-      revealText: '',
-      commentaryText: event.groupCall ?? event.call,
-    });
-  }
-
-  const events = [...grouped.values()].sort(
-    (a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id),
-  );
-
-  /* Bound the sum per lane. Intensity may deal more events, but it cannot turn
-     one runner's clock into an implausible teleport or an endless stop. */
-  const totals = new Array<number>(names.length).fill(0);
-  const totalCap = Math.round(durationMs * LANE_CLOCK_CAP);
-  /* Below this a consequence cannot be seen from the back of the room, and
-     a surprise that is announced and then does nothing is a broken promise:
-     a lane whose cap leaves less than this drops out of the event instead. */
-  const visibleMs = Math.round(durationMs * 0.02);
-  for (const event of events) {
-    event.targetLanes.sort((a, b) => a - b);
-    const kept: number[] = [];
-    for (const lane of event.targetLanes) {
-      const wanted = event.clockDeltaMsByLane[lane] ?? 0;
-      const next = clamp(totals[lane] + wanted, -totalCap, totalCap);
-      const delta = next - totals[lane];
-      if (Math.abs(delta) < visibleMs) {
-        delete event.clockDeltaMsByLane[lane];
-        continue;
-      }
-      event.clockDeltaMsByLane[lane] = delta;
-      totals[lane] = next;
-      kept.push(lane);
-    }
-    event.targetLanes = kept;
-    if (!kept.length) continue;
-    const firstDelta = event.clockDeltaMsByLane[event.targetLanes[0]] ?? 0;
-    event.consequence = consequenceFor(firstDelta);
-    const targetNames = event.targetLanes.map((lane) => names[lane]);
-    event.revealText =
-      targetNames.length === 1
-        ? `${targetNames[0]}: ${event.label}`
-        : `${event.label}: ${targetNames.join(', ')}`;
-    event.commentaryText = fillRunner(event.commentaryText, targetNames[0]);
-    event.revealAtMs = Math.max(event.warningAtMs + 1, event.revealAtMs);
-  }
-  for (let i = events.length - 1; i >= 0; i--) if (!events[i].targetLanes.length) events.splice(i, 1);
-
-  /* Retirement is a race-level rarity, never multiplied by the intensity
-     preset and never more than one runner. */
-  const retirementRnd = mulberry32(seed ^ 0x52455431);
-  if (surprises && retirementRnd() < 1 / RETIREMENT_CHANCE_DENOMINATOR) {
-    const spec = RETIREMENT_SPECS[Math.floor(retirementRnd() * RETIREMENT_SPECS.length)];
-    const lane = Math.floor(retirementRnd() * names.length);
-    const effectAtMs = Math.round(durationMs * (0.38 + retirementRnd() * 0.2));
-    const name = names[lane];
-    events.push({
-      id: 'ret-0',
-      kind: 'retire',
-      label: spec.label,
-      tone: 'bad',
-      sound: 'down',
-      targetLanes: [lane],
-      consequence: 'retire',
-      warningAtMs: Math.max(0, effectAtMs - 1400),
-      revealAtMs: Math.max(1, effectAtMs - 700),
-      effectAtMs,
-      commentaryAtMs: effectAtMs + commentaryDelayMs,
-      effectEndMs: effectAtMs + 900,
-      clockDeltaMsByLane: { [lane]: 0 },
-      warningText: 'Course marshals are watching something near the boundary.',
-      revealText: fillRunner(spec.reveal, name),
-      commentaryText: fillRunner(spec.commentary, name),
-      retirementCode: spec.code,
-      retirementLabel: spec.label,
-    });
-    events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
-  }
-
-  /* ── The deck ──────────────────────────────────────────────────────── */
-
   /*
-   * What made the old book predictable was its shape, not its size: every
-   * race dealt from the same weighted list, every field incident stopped by
-   * two thirds distance, and the two comeback beats landed at the same two
-   * marks. Ten races of that in one night and the room can call it.
-   *
-   * The deck is drawn from its own stream, after everything above, so adding
-   * it changes nothing already dealt. It reaches into the final straight,
-   * some cards hit the whole field, and the once-a-night cards are dealt
-   * without replacement across the card (`dealtCards`), so the plague at the
-   * line is the moment of the night rather than the moment of every race.
-   * Every card is still a bounded, persistent clock consequence inside the
-   * same per-lane cap, drawn and hashed before countdown. It is dealt before
-   * the comeback beats so that those still target the runner who really
-   * leads once the deck has had its say.
+   * Twists move the finish: a held leader crosses late, a boosted chaser
+   * early. The whole race is therefore fitted to its set length at the end
+   * (every clock scaled together, which cannot change who crosses first).
+   * A deal that would need more than a few per cent of fit is redrawn
+   * first, so the spacing between stories survives the fit. The redraw
+   * looks only at the finish time, never at who wins, so every lane keeps
+   * exactly the same chance.
    */
-  const deckRnd = mulberry32(seed ^ 0x4445434b);
-  const wantedCards = !surprises || durationMs < DECK_MIN_DURATION_MS
-    ? 0
-    : intensity === 'calm'
-      ? 0
-      : intensity === 'standard'
-        ? 3 + (deckRnd() < 0.5 ? 1 : 0)
-        : intensity === 'big'
-          ? 4 + (deckRnd() < 0.5 ? 1 : 0)
-          : intensity === 'chaos'
-            ? 5 + (deckRnd() < 0.5 ? 1 : 0)
-            : 7 + Math.floor(deckRnd() * 3);
-  /* A card needs about fifteen seconds of race to land and be read. */
-  const deckCount = Math.min(wantedCards, Math.floor(durationMs / DECK_SECONDS_PER_CARD_MS));
-  if (deckCount > 0) {
-    /* A weighted draw without replacement: the crowd favourites (the bat,
-       the plagues) come up more often than the rest of the deck. */
-    const pool = DECK_CARDS.filter((card) => !(card.once && dealtCards.includes(card.id)));
-    const available: DeckCard[] = [];
-    while (pool.length) {
-      const total = pool.reduce((sum, card) => sum + (card.weight ?? 1), 0);
-      let roll = deckRnd() * total;
-      let index = 0;
-      while (index < pool.length - 1 && roll >= (pool[index].weight ?? 1)) {
-        roll -= pool[index].weight ?? 1;
-        index += 1;
-      }
-      available.push(pool.splice(index, 1)[0]);
-    }
-    const earliestCrossing = (): number =>
-      Math.min(
-        ...runners
-          .map((runner) => lockedCrossingTime(runner, events))
-          .filter((at): at is number => at !== null),
-      );
-    const activeLanes = (at: number): number[] =>
-      runners
-        .filter((runner) => {
-          const retirement = retirementFor(events, runner.lane);
-          return !retirement || retirement.effectAtMs > at;
-        })
-        .sort((a, b) => progressForLockedRunner(b, events, at, motion) - progressForLockedRunner(a, events, at, motion))
-        .map((runner) => runner.lane);
-    let dealt = 0;
-    /* Mayhem deals more cards and lets them sit a little closer, but never
-       inside one another's story: the screen shows one twist at a time. */
-    const spacing = intensity === 'mayhem' ? Math.round(deckSpacingMs(durationMs) * 0.8) : deckSpacingMs(durationMs);
-    const dealtAt: number[] = [];
-    /* The comeback beats keep their own clearance, sized to a short race,
-       so a sprint still has room for a card either side of its beat. */
-    const beatClearance = Math.max(4500, Math.round(durationMs * 0.05));
-    /* One story at a time: a card keeps clear of every other card and of
-       the comeback beats, which have their own warning, obstacle and chase. */
-    const crowded = (at: number): boolean =>
-      dealtAt.some((other) => Math.abs(other - at) < spacing) ||
-      comebackTimes.some((ct) => at > ct - beatClearance * 1.5 && at < ct + Math.max(beatClearance * 1.5, chaseOffset + 2500));
-    for (const card of available) {
-      if (dealt >= deckCount) break;
-      /* The whole four-beat sequence and its consequence must be readable
-         before the first crossing. A boost can pull a crossing earlier by at
-         most its own size, so that margin is reserved as well. */
-      const maxBoost = Math.round(durationMs * card.boostTo);
-      /* The comeback beats are dealt after the deck and may hand a chaser up
-         to seven percent of the race, so that much is reserved as well. */
-      const comebackReserve = comebackTimes.length ? Math.round(durationMs * 0.07) : 0;
-      const latest = earliestCrossing() - maxBoost - comebackReserve - commentaryDelayMs - 400;
-      let effectAtMs = -1;
-      for (let attempt = 0; attempt < (intensity === 'mayhem' ? 10 : 4) && effectAtMs < 0; attempt++) {
-        let at = Math.round(durationMs * (card.from + deckRnd() * (card.to - card.from)));
-        if (at > latest) at = latest;
-        if (at < durationMs * 0.2 || at - warningLead <= 0 || crowded(at)) continue;
-        effectAtMs = at;
-      }
-      if (effectAtMs < 0) continue;
-      const lanes = activeLanes(effectAtMs);
-      if (lanes.length < 2) continue;
-      const plan = card.deal(deckRnd, lanes, durationMs);
-      const deltas: Record<number, number> = {};
-      const targetLanes: number[] = [];
-      for (const [laneKey, wanted] of Object.entries(plan.deltas)) {
-        const lane = Number(laneKey);
-        const next = clamp(totals[lane] + wanted, -totalCap, totalCap);
-        const delta = next - totals[lane];
-        if (Math.abs(delta) < visibleMs) continue;
-        /* Two delays on one lane at the same time would run its clock
-           backwards, so a hold waits for a free lane; a boost may overlap. */
-        const until = effectAtMs + Math.max(Math.abs(delta), 350);
-        const held =
-          delta < 0 &&
-          events.some(
-            (e) =>
-              e.targetLanes.includes(lane) &&
-              (e.clockDeltaMsByLane[lane] ?? 0) < 0 &&
-              e.effectAtMs <= until + 300 &&
-              effectAtMs <= e.effectEndMs + 300,
-          );
-        if (held) continue;
-        deltas[lane] = delta;
-        targetLanes.push(lane);
-      }
-      if (!targetLanes.length) continue;
-      /* A field card that only reaches one runner is a different story. */
-      if (Object.keys(plan.deltas).length > 1 && targetLanes.length < 2) continue;
-      for (const lane of targetLanes) totals[lane] += deltas[lane];
-      targetLanes.sort((a, b) => a - b);
-      const magnitude = Math.max(...targetLanes.map((lane) => Math.abs(deltas[lane])));
-      const first = deltas[targetLanes[0]];
-      const targetNames = targetLanes.map((lane) => names[lane]);
-      events.push({
-        id: `deck-${card.id}`,
-        kind: card.kind,
-        label: card.label,
-        tone: card.tone,
-        sound: card.sound,
-        targetLanes,
-        consequence: consequenceFor(first),
-        warningAtMs: effectAtMs - warningLead,
-        revealAtMs: effectAtMs - Math.round(warningLead / 2),
-        effectAtMs,
-        commentaryAtMs: effectAtMs + commentaryDelayMs,
-        effectEndMs: effectAtMs + Math.max(magnitude, 350),
-        clockDeltaMsByLane: deltas,
-        warningText: card.warning,
-        revealText: targetLanes.length === 1 ? `${targetNames[0]}: ${card.label}` : `${card.label}: ${targetNames.length === lanes.length ? 'the whole field' : targetNames.join(', ')}`,
-        commentaryText: fillRunner(plan.call ?? card.calls[Math.floor(deckRnd() * card.calls.length)], names[plan.featured ?? targetLanes[0]]),
+  const fits = (stop: number): number => {
+    const ratio = stop / durationMs;
+    return Math.max(0, FIT_RATIO.from - ratio, ratio - FIT_RATIO.to);
+  };
+  let best: { runners: LockedRaceRunner[]; build: TwistBuild; error: number } | null = null;
+  for (let attempt = 0; attempt < 8 && surprises; attempt++) {
+    const runners = castRunners();
+    let build = planTwists({
+      seed, attempt, names, durationMs, intensity, runners, motion, dealtCards, allowPost: true, commentaryDelayMs,
+    });
+    if (!build.complete) {
+      build = planTwists({
+        seed, attempt, names, durationMs, intensity, runners, motion, dealtCards, allowPost: false, commentaryDelayMs,
       });
-      dealt += 1;
-      dealtAt.push(effectAtMs);
     }
-    events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
+    const stop = earliestCrossingOf(runners, build.events);
+    const error = fits(stop);
+    const better = !best || (build.complete && !best.build.complete) || (build.complete === best.build.complete && error < best.error);
+    if (better) best = { runners, build, error };
+    if (build.complete && error === 0) break;
   }
+  const runners = best?.runners ?? castRunners();
+  const events = best?.build.events ?? [];
+  const captions = best?.build.captions ?? new Map<string, CaptionPlan>();
 
-  const setbacks = [
-    { label: 'LETTUCE AMBUSH', kind: 'nap', sound: 'nap',
-      warning: 'A fresh lettuce delivery is heading for the front of the field.',
-      call: 'The leader, {a}, has stopped for lettuce! The chase is on.' },
-    { label: 'SPRINKLER SURPRISE', kind: 'stumble', sound: 'down',
-      warning: 'The groundskeeper is reaching for the sprinkler switch.',
-      call: 'The sprinklers have caught the leader, {a}! That lead is under pressure.' },
-    { label: 'PITCH ROLLER DETOUR', kind: 'wander', sound: 'wander',
-      warning: 'The pitch roller is edging towards the racing line.',
-      call: 'The leader, {a}, has to wait for the pitch roller! Here come the chasers.' },
-  ];
-  /*
-   * The deck is already on the table, so a comeback has to find a moment when
-   * the leader is not already being held: a second delay on a lane whose
-   * clock is already withheld would run that clock backwards. The beat slides
-   * forward in small steps until the leader is clear, and is dropped if it
-   * cannot be fitted before the finish.
-   */
-  const laneHeld = (lane: number, from: number, to: number): boolean =>
-    events.some(
-      (e) =>
-        e.targetLanes.includes(lane) &&
-        (e.clockDeltaMsByLane[lane] ?? 0) < 0 &&
-        e.effectAtMs <= to + 300 &&
-        from <= e.effectEndMs + 300,
-    );
-  for (const [index, wanted] of comebackTimes.entries()) {
-    const latestStart = Math.min(
-      ...runners.map((runner) => lockedCrossingTime(runner, events)).filter((t): t is number => t !== null),
-    ) - Math.round(durationMs * 0.07) - comebackSpan - 400;
-    const spec = setbacks[Math.floor(directorRnd() * setbacks.length)];
-    /* The lively profile covers the track at a constant pace, so a hold has
-       to be longer than it was under the old mid-race easing to read as the
-       same distance lost: this is the beat the whole room watches. */
-    const wantedDelay = Math.round(durationMs * (0.13 + directorRnd() * 0.02));
-    const wantedBoost = Math.round(durationMs * (0.06 + directorRnd() * 0.025));
-    const beat = (runner: LockedRaceRunner, start: number, delta: number, chase: boolean): LockedRaceEvent => {
-      const label = chase ? 'NDCC CROWD LIFT' : spec.label;
-      return {
-        id: `comeback-${index}-${chase ? 'chase' : 'leader'}`,
-        kind: chase ? 'surge' : spec.kind, label,
-        tone: chase ? 'good' : 'bad', sound: chase ? 'up' : spec.sound,
-        targetLanes: [runner.lane], consequence: consequenceFor(delta),
-        warningAtMs: start - warningLead, revealAtMs: start - Math.round(warningLead / 2),
-        effectAtMs: start, commentaryAtMs: start + commentaryDelayMs,
-        /* The window must cover the whole hold: a later card checks it
-           before holding the same lane again. */
-        effectEndMs: start + Math.max(comebackSpan, Math.abs(delta)),
-        clockDeltaMsByLane: { [runner.lane]: delta },
-        warningText: chase ? 'The NDCC crowd is getting behind the chase.' : spec.warning,
-        revealText: `${runner.name}: ${label}`,
-        commentaryText: chase ? `${runner.name} finds another gear with the NDCC crowd behind them!` : fillRunner(spec.call, runner.name),
-      };
-    };
-    /*
-     * Search forward first, then back towards the gates. A slot is taken
-     * only when the hold really changes the lead on screen: the deck may
-     * already have spent most of the leader's clock budget, in which case
-     * the shortened hold is not the story and a later or earlier moment,
-     * with a different leader or a bigger gap behind it, is tried instead.
-     * The first slot that merely fits is kept as the fallback.
-     */
-    let chosen: LockedRaceEvent[] | null = null;
-    let fallback: LockedRaceEvent[] | null = null;
-    /* Cards and a retirement each have their own title and prop on air;
-       the comeback keeps clear of both so its obstacle is not replaced
-       mid-sentence. */
-    const deckAt = events.filter((e) => e.id.startsWith('deck-') || e.id.startsWith('ret-')).map((e) => e.effectAtMs);
-    const spacing = comebackClearanceMs(durationMs);
-    for (let step = 0; step <= 44 && !chosen; step++) {
-      const offset = step <= 24 ? step : -(step - 24);
-      const at = wanted + Math.round(offset * durationMs * 0.0075);
-      if (at > latestStart || at - warningLead <= 0) continue;
-      const field = runners.filter((runner) => {
-        const retirement = retirementFor(events, runner.lane);
-        return !retirement || retirement.effectAtMs > at;
-      })
-        .sort((a, b) => progressForLockedRunner(b, events, at, motion) - progressForLockedRunner(a, events, at, motion));
-      if (field.length < 2) break;
-      const leader = field[0];
-      const chaser = field[1];
-      /* The hold must end before the next hold already dealt on this lane:
-         two at once would run its clock backwards. Trim it to the gap. */
-      const nextHoldAt = Math.min(
-        ...events
-          .filter((e) => e.targetLanes.includes(leader.lane) && (e.clockDeltaMsByLane[leader.lane] ?? 0) < 0 && e.effectAtMs > at)
-          .map((e) => e.effectAtMs),
-      );
-      const delay = Math.min(totalCap + totals[leader.lane], wantedDelay, nextHoldAt - at - 400);
-      const boost = Math.min(totalCap - totals[chaser.lane], wantedBoost);
-      /* A hold the room cannot see is not a comeback: if the deck has spent
-         this leader's clock budget, look for another moment. */
-      if (delay < durationMs * 0.04) continue;
-      /* Only a second delay on a held lane is unsafe; a boost can overlap
-         anything, so the chaser never needs to wait. The check covers the
-         whole hold, which can outlast the on-air span. */
-      if (laneHeld(leader.lane, at, at + Math.max(comebackSpan, delay))) continue;
-      const trial = [beat(leader, at, -delay, false), ...(boost > 0 ? [beat(chaser, at + chaseOffset, boost, true)] : [])];
-      /* Keep the beat clear of the deck so one story is on air at a time;
-         a crowded slot is a last resort, never the first choice. */
-      const crowded = deckAt.some((other) => Math.abs(other - at) < spacing || Math.abs(other - (at + chaseOffset)) < spacing);
-      if (crowded) { fallback ??= trial; continue; }
-      fallback = fallback && !deckAt.some((other) => Math.abs(other - fallback![0].effectAtMs) < spacing) ? fallback : trial;
-      const withTrial = [...events, ...trial];
-      const end = at + comebackSpan;
-      const leaderAfter = progressForLockedRunner(leader, withTrial, end, motion);
-      const passed = field.some((runner) => runner !== leader && progressForLockedRunner(runner, withTrial, end, motion) > leaderAfter);
-      if (passed) chosen = trial;
-    }
-    const dealtBeats = chosen ?? fallback;
-    if (!dealtBeats) continue;
-    for (const event of dealtBeats) {
-      totals[event.targetLanes[0]] += event.clockDeltaMsByLane[event.targetLanes[0]];
-      events.push(event);
-    }
+  if (events.length) {
+    const stop = earliestCrossingOf(runners, events);
+    const k = clamp(durationMs / stop, 1 / FIT_RATIO.to, 1 / FIT_RATIO.from);
+    scaleRace(runners, events, k, commentaryDelayMs);
   }
-  events.sort((a, b) => a.effectAtMs - b.effectAtMs || a.id.localeCompare(b.id));
+  writeCaptions(runners, events, captions, names, motion, mulberry32(seed ^ 0x43415054));
 
   const phaseOrder: Record<LockedRaceCue['phase'], number> = {
     warning: 0,
@@ -2579,23 +2981,18 @@ export const COMMENTARY = {
   early: [
     '{a} has made the tidy start. {b} is keeping it honest.',
     '{a} leads them out, antennae down and businesslike.',
-    '{a} has the rail. {b} is close enough to read the shell pattern.',
-    'A clean getaway for {a}. Nobody panic, there is a long way to crawl.',
+    '{a} has the rail. {b} is close enough to read the shell.',
+    'A clean getaway for {a}. There is a long way to crawl.',
     '{a} sets the pace. {b} has declined to be impressed.',
   ],
   mid: [
-    '{a} looks settled. That is usually when this event stops being sensible.',
-    '{b} is closing on {a}, slowly in absolute terms and rapidly for a snail.',
+    '{a} looks settled. That is usually when this stops being sensible.',
     '{a} and {b} are making a proper race of it now.',
-    '{a} holds the front. {b} is waiting for one bad patch of turf.',
-    '{b} has found another gear. Nobody ask where it was hiding.',
+    '{a} holds the front. {b} is waiting for one bad patch.',
     'Halfway home, and {a} has {b} for company.',
   ],
   late: [
-    '{a} turns for home. {b} has not received the message.',
-    '{b} is closing. This has become unnecessarily dramatic.',
-    '{a} can see the line, which is more than we can say for the rest of them.',
-    '{b} is throwing everything at it, including basic snail dignity.',
+    '{a} can see the line, which is more than the rest can say.',
     '{a} needs every millimetre of that lead.',
     'The room is up. {a} and {b} are still arguing over it.',
   ],
@@ -2604,18 +3001,18 @@ export const COMMENTARY = {
 /**
  * Lines for a situation rather than a stage of the race.
  *
- * A caller that only knows how far in it is has nothing to say when the top
- * two are locked together or when the leader has gone eight lengths clear -
- * which is exactly when the room most wants to be told what it is looking at.
- * `{g}` is the real margin, in lengths, and `{c}` is whoever is third.
+ * `{g}` is the real margin, in lengths, and `{c}` is whoever is third. Every
+ * one of them is chosen from a measurement, so none can say something the
+ * picture does not show.
  */
 export const MARGIN_LINES = [
   '{a} leads by {g} from {b}.',
   '{a} has {g} on {b}, with {c} holding third.',
   '{a} in front. {b} is {g} away and paying attention.',
-  '{a} from {b} by {g}. That gap is not getting comfortable.',
+  '{a} from {b} by {g}.',
 ] as const;
 
+/** Only when the top two are inside 0.3 seconds of each other. */
 export const TIGHT_LINES = [
   'You could throw a blanket over {a} and {b}!',
   'Nothing in it! {a} and {b} are locked together!',
@@ -2630,17 +3027,17 @@ export const CLEAR_LINES = [
   '{b} will need a miracle to reel in {a} from {g} back.',
 ] as const;
 
+/** Kept for the archive; the caller no longer talks about the back of the field. */
 export const BACK_MARKER_LINES = [
   '{d} is last and appears to be taking in the scenery.',
   '{d} is running a private event at the back. Good luck to it.',
   '{d} has work to do and no visible urgency about doing it.',
 ] as const;
 
-/** Called when a snail actually changes places, anywhere in the field. */
+/** A runner moving into the top three. Said by name, with the place. */
 export const OVERTAKE_LINES = [
   '{a} goes past {b} and into {n}!',
   '{a} is up to {n}, past {b}!',
-  'Nice move by {a}, {b} has been passed for {n}!',
   '{a} takes {n} off {b}!',
 ] as const;
 
@@ -2648,7 +3045,7 @@ export const OVERTAKE_LINES = [
 export const RUN_HOME_LINES = [
   '{m} to run and it is {a} by {g}!',
   'Inside the last {m}! {a} from {b}!',
-  '{m} left, {b} is {g} away and closing!',
+  '{m} left, {b} is {g} behind {a}!',
 ] as const;
 
 /**
@@ -2677,33 +3074,63 @@ export const REACTION_LINES = {
   ],
 } as const;
 
-/** Lap calls. A long race needs a rhythm, and laps are the natural one. */
+/** Every lap of a circuit: "Lap 2 of 4". {n} is the lap being started, {t} the total. */
 export const LAP_LINES = [
-  '{a} leads them across the line to start lap {n}!',
-  'Lap {n} begins and it is {a} in front from {b}.',
-  'Onto lap {n} - {a} by a whisker from {b}.',
-  '{a} starts lap {n}, {b} all over the back of it.',
+  'Lap {n} of {t}, {a} leads {b}.',
+  'Lap {n} of {t}, and it is {a} from {b}.',
+  'Into lap {n} of {t}, {a} in front of {b}.',
 ] as const;
 
+/** The last lap of a race of two or more. */
 export const BELL_LAP_LINES = [
-  'There is the bell! Last lap, {a} leads!',
-  'Bell lap! {a} in front, {b} coming for it!',
-  'One to go, {a} by a nose!',
+  'Final lap! {a} leads {b}!',
+  'Final lap! {a} in front, {b} chasing!',
+  'Final lap, and it is {a} from {b}!',
 ] as const;
 
 /** Called when the leader changes hands. The loudest line in the book. */
 export const LEAD_CHANGE_LINES = [
   'New leader! {a} snatches it from {b}!',
   '{a} goes past {b} and hits the front!',
-  'A new leader - {a} takes it up!',
+  'A new leader, {a} takes it up!',
   '{a} sweeps around {b} and hits the front!',
 ] as const;
 
-/** Quarter, half and three-quarter marks, so a long race keeps its shape. */
+/**
+ * Quarter, half and three-quarter marks, so a long race keeps its shape.
+ * Which line is said depends on the live gap between the top two: these are
+ * for a gap of a length or two; `SECTOR_TIGHT_LINES` and `SECTOR_CLEAR_LINES`
+ * cover the rest.
+ */
 export const SECTOR_LINES: Record<number, string> = {
-  1: 'A quarter gone, {a} leads {b}.',
-  2: 'Halfway, {a} by a nose from {b}.',
-  3: 'Three-quarter mark, {a} in front, {b} winding up.',
+  1: 'A quarter gone, {a} leads {b} by {g}.',
+  2: 'Halfway, {a} leads {b} by {g}.',
+  3: 'Three-quarter mark, {a} leads {b} by {g}.',
+};
+export const SECTOR_TIGHT_LINES: Record<number, string> = {
+  1: 'A quarter gone, and {a} and {b} are locked together.',
+  2: 'Halfway, and {a} and {b} are side by side!',
+  3: 'Three-quarter mark, {a} and {b} together!',
+};
+export const SECTOR_CLEAR_LINES: Record<number, string> = {
+  1: 'A quarter gone, {a} is {g} clear of {b}.',
+  2: 'Halfway, and {a} is {g} clear of {b}.',
+  3: 'Three-quarter mark, {a} is {g} clear!',
+};
+
+/** Before the gates: the starter's line and the conditions, varied race to race. */
+export const STARTER_LINES = [
+  "Under starter's orders.",
+  "They are under starter's orders.",
+  'Under orders, and the gates are set.',
+  'The starter has them under orders.',
+  "All in line, under starter's orders.",
+] as const;
+
+export const WEATHER_LINES: Record<Weather, readonly string[]> = {
+  clear: ['Perfect conditions tonight.', 'A clear night and a fast track.', 'Not a breath of wind out there.'],
+  drizzle: ['Drizzle about, and a greasy track.', 'Light rain, so mind the slime.', 'It is damp out there tonight.'],
+  downpour: ['They are racing in a downpour!', 'Rain is bucketing down out there!', 'Wet tonight, slime everywhere!'],
 };
 
 export type CommentaryRandom = () => number;
@@ -2711,18 +3138,27 @@ export type CommentaryRandom = () => number;
 const pick = <T>(pool: readonly T[], rnd: CommentaryRandom = Math.random): T =>
   pool[Math.floor(rnd() * pool.length)];
 
-const fill = (line: string, a: string, b: string, c = ''): string =>
-  line.replace('{a}', a).replace('{b}', b).replace('{c}', c);
+/**
+ * The countdown line: the starter and the conditions. Never the same line
+ * twice running, so a night of ten races does not open ten times alike.
+ */
+export function countdownLine(weather: Weather, rnd: CommentaryRandom = Math.random, previous?: string): string {
+  const conditions = WEATHER_LINES[weather] ?? WEATHER_LINES.clear;
+  for (let tries = 0; tries < 12; tries++) {
+    const line = `${pick(STARTER_LINES, rnd)} ${pick(conditions, rnd)}`;
+    if (line !== previous) return line;
+  }
+  const line = `${STARTER_LINES[0]} ${conditions[0]}`;
+  return line === previous ? `${STARTER_LINES[1]} ${conditions[0]}` : line;
+}
 
-/** Pick a line for the current phase of the race, with the names filled in. */
 /**
  * How long a snail is, as a fraction of one lap.
  *
  * The margins a broadcast quotes are in lengths, not in percentages, and a
  * length is a real distance on this track: a lap is 4,000 world units and a
  * snail is about 170 of them, so a lap is roughly twenty-three and a half of
- * them nose to tail. Quoting the number the room can actually count off the
- * screen is what separates a caller from a progress bar.
+ * them nose to tail.
  */
 export const LENGTHS_PER_LAP = 23.5;
 
@@ -2739,6 +3175,75 @@ export function lengthPhrase(lengths: number): string {
   return 'a mile';
 }
 
+/** "Together" and "going to the line" are only ever said under this gap. */
+export const TOGETHER_SECONDS = 0.3;
+
+/* ── Per-track wording ──────────────────────────────────────────────── */
+
+/**
+ * The words that belong to a course. The side-on straight and the oval have
+ * a straight before the line; the chicane, the figure eight and the
+ * switchback do not, and the caller never says one is there.
+ */
+export type TrackWording = 'straight' | 'oval' | 'chicane' | 'eight' | 'switchback';
+
+export function trackWording(trackShape: 'lanes' | 'circuit' | undefined, courseId?: string): TrackWording {
+  if (trackShape !== 'circuit') return 'straight';
+  if (courseId === 'pavilion-chicane') return 'chicane';
+  if (courseId === 'floodlight-eight') return 'eight';
+  if (courseId === 'practice-nets') return 'switchback';
+  return 'oval';
+}
+
+export const hasHomeStraight = (wording: TrackWording): boolean => wording === 'straight' || wording === 'oval';
+
+export const RUN_HOME_BY_TRACK: Record<TrackWording, readonly string[]> = {
+  straight: ['Here they come down the straight! {a} from {b}!', 'Into the straight, and it is {a} from {b}!'],
+  oval: ['Into the home straight! {a} from {b}!', 'Here they come down the home straight! {a} leads {b}!'],
+  chicane: ['Into the last bend! {a} from {b}!', 'Through the last bend and home! {a} leads {b}!'],
+  eight: ['Home stretch! {a} from {b}!', 'Off the crossover and into the home stretch! {a} leads {b}!'],
+  switchback: ['Through the last turn and to the line! {a} from {b}!', 'Home stretch! {a} leads {b} to the line!'],
+};
+
+/** The recorded run-home call that suits the course: no "straight" where there is none. */
+export const runHomeCue = (wording: TrackWording): 'final' | 'finalCircuit' =>
+  hasHomeStraight(wording) ? 'final' : 'finalCircuit';
+
+const fill = (line: string, a: string, b: string, c = ''): string =>
+  line.replace(/\{a\}/g, a).replace(/\{b\}/g, b).replace(/\{c\}/g, c);
+
+/** Fill a two-name line and keep it on one strap: full names, then short, then shorter. */
+function fitPair(lines: readonly string[], a: string, b: string, extra: (line: string) => string = (line) => line): string {
+  const variants: string[] = [];
+  for (const [x, y] of [[a, b], [shortName(a), shortName(b)], [shortName(a, 12), shortName(b, 12)]]) {
+    for (const line of lines) variants.push(extra(fill(line, x, y)));
+  }
+  return fitCaption(variants);
+}
+
+/** Lines starting with the drawn one, then the rest of its pool. */
+function rotate<T>(pool: readonly T[], rnd: CommentaryRandom): T[] {
+  const start = Math.floor(rnd() * pool.length);
+  return [...pool.slice(start), ...pool.slice(0, start)];
+}
+
+export function runHomeLine(wording: TrackWording, a: string, b: string, rnd: CommentaryRandom = Math.random): string {
+  return fitPair(rotate(RUN_HOME_BY_TRACK[wording], rnd), a, b);
+}
+
+/** Two of them inside {@link TOGETHER_SECONDS} with the line in sight. */
+export function togetherLine(a: string, b: string, rnd: CommentaryRandom = Math.random): string {
+  return fitPair(rotate(['{a} and {b} together, this is going to the line!', 'Nothing between {a} and {b} and the line is coming!'], rnd), a, b);
+}
+
+/** The winner, and how close it was. */
+export function winnerLine(name: string, onTheLine: boolean): string {
+  return fitCaption([
+    `${name} ${onTheLine ? 'wins it on the line!' : 'wins!'}`,
+    `${shortName(name)} ${onTheLine ? 'wins it on the line!' : 'wins!'}`,
+  ]);
+}
+
 /** What the caller can see, so it can talk about that rather than the clock. */
 export interface CallContext {
   leadP: number;
@@ -2746,52 +3251,56 @@ export interface CallContext {
   chase: string;
   /** Third place, for the lines that mention it. */
   third: string;
-  /** Whoever is last. Occasionally the funniest thing on the track. */
+  /** Whoever is last. Kept for old callers; never called any more. */
   tail: string;
   /** The real margin between first and second, in lengths. */
   gapLengths: number;
   /** How far the leader has left, in lengths. */
   toGoLengths: number;
+  /** The margin between first and second in seconds; "together" needs under 0.3. */
+  gapSeconds?: number;
 }
 
 /**
- * Pick a line for what is actually happening.
+ * Pick a run-of-play line for what is actually happening.
  *
  * Every branch here is driven by a measurement off the track: the margin in
- * lengths, the distance left to run, who is actually third. The phase pools
- * are the last resort rather than the first, because "they are away and {a}
- * shows early pace" is true of every race ever run and therefore tells the
- * room nothing about this one.
+ * lengths and seconds, the distance left to run, who is actually third.
  */
 export function callLine(ctx: CallContext, rnd: CommentaryRandom = Math.random): string {
   const g = lengthPhrase(ctx.gapLengths);
-  const say = (pool: readonly string[]) =>
-    fill(pick(pool, rnd), ctx.lead, ctx.chase, ctx.third)
-      .replace('{d}', ctx.tail)
-      .replace('{g}', g)
-      .replace('{m}', lengthPhrase(ctx.toGoLengths));
+  const together = (ctx.gapSeconds ?? (ctx.gapLengths < 0.6 ? 0 : 1)) < TOGETHER_SECONDS;
+  const say = (pool: readonly string[]) => {
+    const lines = rotate(pool, rnd);
+    const variants: string[] = [];
+    for (const [a, b, c] of [
+      [ctx.lead, ctx.chase, ctx.third],
+      [shortName(ctx.lead), shortName(ctx.chase), shortName(ctx.third)],
+      [shortName(ctx.lead, 12), shortName(ctx.chase, 12), shortName(ctx.third, 12)],
+    ]) {
+      for (const line of lines) {
+        variants.push(fill(line, a, b, c).replace('{g}', g).replace('{m}', lengthPhrase(ctx.toGoLengths)));
+      }
+    }
+    return fitCaption(variants);
+  };
 
   if (ctx.leadP > 0.86) return say(RUN_HOME_LINES);
-  if (ctx.gapLengths < 0.6 && ctx.leadP > 0.15) return say(TIGHT_LINES);
+  if (together && ctx.leadP > 0.15) return say(TIGHT_LINES);
   if (ctx.gapLengths > 4 && ctx.leadP > 0.3) return say(CLEAR_LINES);
-  if (ctx.tail && ctx.tail !== ctx.lead && ctx.leadP > 0.25 && rnd() < 0.12) {
-    return say(BACK_MARKER_LINES);
-  }
-  /* Otherwise quote the margin, which is what a race caller does most of the
-     time, and only fall back to colour when there is nothing to quote. */
-  if (rnd() < 0.54) return say(MARGIN_LINES);
-  const phase = ctx.leadP < 0.3 ? 'early' : ctx.leadP < 0.72 ? 'mid' : 'late';
-  return say(COMMENTARY[phase]);
+  if (ctx.leadP < 0.3 && rnd() < 0.4) return say(COMMENTARY.early);
+  /* Otherwise quote the margin, which is what a race caller does most of the time. */
+  return say(MARGIN_LINES);
 }
 
-/** A snail has actually passed another one. Said by name, with the place. */
+/** A snail has actually passed another one into the top three. Said by name, with the place. */
 export function overtakeLine(
   mover: string,
   passed: string,
   place: number,
   rnd: CommentaryRandom = Math.random,
 ): string {
-  return fill(pick(OVERTAKE_LINES, rnd), mover, passed, '').replace('{n}', ordinal(place));
+  return fitPair(rotate(OVERTAKE_LINES, rnd), mover, passed, (line) => line.replace('{n}', ordinal(place)));
 }
 
 /** The beat after a surprise. Said only if the caller has room for it. */
@@ -2803,17 +3312,57 @@ export function leadChangeLine(
   deposed: string,
   rnd: CommentaryRandom = Math.random,
 ): string {
-  return fill(pick(LEAD_CHANGE_LINES, rnd), newLeader, deposed);
+  return fitPair(rotate(LEAD_CHANGE_LINES, rnd), newLeader, deposed);
 }
 
-export function sectorLine(sector: number, leadName: string, chaserName: string): string | null {
-  const line = SECTOR_LINES[sector];
-  return line ? fill(line, leadName, chaserName) : null;
+/** A sector call, its recorded cue, and which takes of that cue say the same thing. */
+export interface SectorCall {
+  text: string;
+  cue: 'quarter' | 'half' | 'threeQuarter' | 'clear' | 'early' | 'mid';
+  takes?: number[];
 }
 
 /**
- * The call as the leader crosses to start a new lap. `lap` is the one being
- * started, so the bell goes with the last one.
+ * The quarter, half or three-quarter call, worded from the live gap so the
+ * strap and the clip agree: "locked together" only when they are, "clear"
+ * only when the leader is.
+ */
+export function sectorCall(
+  sector: number,
+  leadName: string,
+  chaserName: string,
+  gapLengths: number,
+  gapSeconds: number,
+  wording: TrackWording = 'straight',
+): SectorCall | null {
+  if (!SECTOR_LINES[sector]) return null;
+  const g = lengthPhrase(gapLengths);
+  const withGap = (line: string) => line.replace('{g}', g);
+  const cue = sector === 1 ? 'quarter' : sector === 2 ? 'half' : 'threeQuarter';
+  if (gapSeconds < TOGETHER_SECONDS || gapLengths < 0.6) {
+    /* The first three-quarter take says "coming to the turn": not on the straight. */
+    const takes = cue === 'threeQuarter' && wording === 'straight' ? [2, 3] : undefined;
+    return { text: fitPair([SECTOR_TIGHT_LINES[sector]], leadName, chaserName), cue, takes };
+  }
+  if (gapLengths >= 2.5) {
+    return { text: fitPair([SECTOR_CLEAR_LINES[sector]], leadName, chaserName, withGap), cue: 'clear' };
+  }
+  return {
+    text: fitPair([SECTOR_LINES[sector]], leadName, chaserName, withGap),
+    cue: sector === 1 ? 'early' : sector === 2 ? 'mid' : 'threeQuarter',
+    takes: sector === 3 ? [3] : undefined,
+  };
+}
+
+/** The old sector call, text only. */
+export function sectorLine(sector: number, leadName: string, chaserName: string, gapLengths = 1, gapSeconds = 1): string | null {
+  return sectorCall(sector, leadName, chaserName, gapLengths, gapSeconds)?.text ?? null;
+}
+
+/**
+ * The call as the leader crosses to start a new lap: "Lap 2 of 4, Turbo
+ * leads Rocket." `lap` is the one being started, so the last one is the
+ * final lap.
  */
 export function lapLine(
   lap: number,
@@ -2823,9 +3372,13 @@ export function lapLine(
   rnd: CommentaryRandom = Math.random,
 ): string {
   const pool = lap === laps ? BELL_LAP_LINES : LAP_LINES;
-  return fill(pick(pool, rnd), a, b).replace('{n}', String(lap));
+  return fitPair(rotate(pool, rnd), a, b, (line) => line.replace('{n}', String(lap)).replace('{t}', String(laps)));
 }
 
-/** The call for a surprise, e.g. "Gary hits the turbo slime and LUNGES!". */
+/** The call for a surprise, e.g. "Gary hits the turbo slime and lunges!". */
 export const eventLine = (event: RaceEvent, name: string): string =>
-  event.call.replace('{a}', name);
+  fitCaption([
+    event.call.replace(/\{a\}/g, name),
+    event.call.replace(/\{a\}/g, shortName(name)),
+    event.call.replace(/\{a\}/g, shortName(name, 12)),
+  ]);

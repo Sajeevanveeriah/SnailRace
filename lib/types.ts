@@ -108,6 +108,12 @@ export interface LockedRaceEvent {
   commentaryText: string;
   retirementCode?: string;
   retirementLabel?: string;
+  /**
+   * The runner the hit caption names: the one first to recover, the one
+   * that got through, the one it happened to. Absent when the caption names
+   * nobody, and on plans drawn before it existed.
+   */
+  featuredLane?: number;
 }
 
 /** Immutable inputs for one runner in a locked race. */
