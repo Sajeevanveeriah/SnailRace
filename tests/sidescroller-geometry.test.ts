@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ART_FOOT,
   ART_TOP,
+  CARD_BAND,
   CROWD_BASE,
   CROWD_MAX_FIGURE,
   DISTANCE_POSTS,
@@ -19,6 +20,7 @@ import {
   isFieldTwist,
   laneGeometry,
   propLanes,
+  requiredViewH,
   runInStep,
   splashKicker,
   type RunInRunner,
@@ -44,6 +46,15 @@ test('every snail stands inside its own lane for fields of 8 to 12, so no shell 
   }
   /* Twelve runners still get a usable snail. */
   assert.ok(laneGeometry(0, 12).scale > 0.25);
+});
+
+test('every shot keeps a band above the track for the twist card, in the follow shot and in full field view', () => {
+  for (const extra of [0, FULL_VIEW_EXTRA]) {
+    const h = requiredViewH(extra);
+    const frameTop = VIEW_H + extra - h;
+    assert.ok((TRACK_TOP - frameTop) / h >= CARD_BAND - 1e-9, `only ${((TRACK_TOP - frameTop) / h).toFixed(3)} of the frame above the track`);
+    assert.ok(h >= TRACK_BOTTOM + extra - TRACK_TOP, 'every lane is in the frame');
+  }
 });
 
 test('the crowd never reaches the bottom lane, even at the top of its bob', () => {

@@ -20,7 +20,7 @@ import {
   DISTANCE_POSTS,
   FULL_VIEW_EXTRA,
   RACE_METRES,
-  REQUIRED_H,
+  requiredViewH,
   START_X,
   TRACK_BOTTOM,
   TRACK_LEN,
@@ -91,7 +91,7 @@ export const LEAD_PACK = 4;
 const PACK_VIEW_W = 1900;
 /** The widest the following shot goes before it lets the tail of the field go. */
 const FOLLOW_MAX_W = 3000;
-/** Where the opening shot starts: far enough back to read every name flag behind the stalls. */
+/** The opening shot starts at least this far back; further when the name flags need it. */
 const OPEN_X = -460;
 /** From here to the post the winning post is always in the shot. */
 const FRAME_FINISH_FROM = 0.82;
@@ -585,6 +585,7 @@ export function Sidescroller({
   const orderRefs = useRef(new Map<number, HTMLLIElement>());
   const splashRef = useRef<HTMLDivElement>(null);
   const strapRef = useRef<HTMLParagraphElement>(null);
+  const plateNameRef = useRef<HTMLElement>(null);
   const snapshotRef = useRef<{ snails: SnailRun[]; info: PaintInfo } | null>(null);
   const momentRef = useRef(race.moment);
   const aspectRef = useRef(16 / 9);
@@ -632,9 +633,17 @@ export function Sidescroller({
     /** The narrowest shot that still shows every lane at this screen shape. */
     const extraNow = () => (courseViewRef.current ? FULL_VIEW_EXTRA : 0);
     const snailLenNow = () => (ART_NOSE + ART_TAIL) * (lanesRef.current[0]?.scale ?? 0.5);
+    /* How wide each runner's name flag is, so the opening shot can show them all. */
+    const flagWidths = new Map<number, number>();
+    /** Where the opening shot starts: back far enough to read every name flag behind the stalls. */
+    const openX = () => {
+      const pitch = lanesRef.current[0]?.pitch ?? 70;
+      const widest = Math.max(0, ...flagWidths.values());
+      return Math.min(OPEN_X, START_X - snailLenNow() - pitch * 0.12 - widest - pitch * 0.6);
+    };
     const minW = () => {
       const aspect = aspectRef.current;
-      const required = REQUIRED_H + extraNow();
+      const required = requiredViewH(extraNow());
       /* A portrait phone gets a close shot of the track rather than a frame of sky. */
       return aspect < 1.2 ? required * aspect * 1.15 : Math.max(PACK_VIEW_W, required * aspect);
     };
@@ -695,6 +704,7 @@ export function Sidescroller({
       }
       box.setAttribute('x', String(-(width + pad * 2)));
       box.setAttribute('width', String(width + pad * 2));
+      flagWidths.set(lane, width + pad * 2);
     };
     /** Where a repeating layer drawn at this parallax factor starts, in world x. */
     const sceneryAt = (camX: number, factor: number) =>
@@ -729,8 +739,8 @@ export function Sidescroller({
         const margin = unitPx() * 1.5;
         let centre = sceneW / 2;
         if (finishPx > 0 && finishPx < sceneW && centre + half + margin > finishPx) centre = Math.max(half + margin, finishPx - half - margin);
-        const value = `${Math.round(centre)}px`;
-        if (card.style.left !== value) card.style.left = value;
+        const value = `${Math.round(centre - sceneW / 2)}px`;
+        if (card.style.getPropertyValue('--splash-shift') !== value) card.style.setProperty('--splash-shift', value);
       }
     };
     /** Ease the camera towards a shot, by elapsed time rather than per frame. */
@@ -918,7 +928,7 @@ export function Sidescroller({
 
       const wantW = Math.max(narrowest, right - left);
       let targetX = right - wantW + (wantW - (right - left)) * 0.5 * (courseViewRef.current ? 1 : 0.3);
-      targetX = Math.max(OPEN_X, Math.min(TRACK_LEN + 460 - wantW, targetX));
+      targetX = Math.max(openX(), Math.min(TRACK_LEN + 460 - wantW, targetX));
       ease(targetX, wantW);
 
       const clock = clockText(t);
@@ -1011,8 +1021,9 @@ export function Sidescroller({
         else {
           const w = minW();
           /* The opening shot is where the race camera starts, so the gates opening is not a jump cut. */
-          camRef.current = { x: OPEN_X, w };
-          frame(OPEN_X, w, w / aspectRef.current);
+          const x = openX();
+          camRef.current = { x, w };
+          frame(x, w, w / aspectRef.current);
           /* The chips are sized in layer pixels, so a new size moves them too. */
           nodesRef.current.forEach((node, lane) => place(lane, Number(node.dataset.progress ?? 0)));
         }
@@ -1051,20 +1062,18 @@ export function Sidescroller({
           barRef.current.setAttribute('aria-valuenow', '0');
         }
         if (toGoRef.current) toGoRef.current.textContent = `${RACE_METRES.toFixed(1)} m to go`;
-        frame(OPEN_X, w, w / aspectRef.current);
+        const x = openX();
+        camRef.current = { x, w };
+        frame(x, w, w / aspectRef.current);
       },
       paint,
       beginFinish,
       finishFrame,
       endFinish,
       /** Re-measure every flag, after the names or the lanes change. */
+      /* Back to each runner's current name; the next paint puts back what is happening to it. */
       refreshFlags: () => {
-        const flags = [...flagRef.current.entries()];
-        flagNodesRef.current.forEach((_, lane) => {
-          const known = flags.find(([l]) => l === lane)?.[1];
-          const [tone, ...rest] = (known ?? `none|${namesRef.current[lane] ?? ''}`).split('|');
-          setFlag(lane, known ? rest.join('|') : namesRef.current[lane] ?? '', tone, true);
-        });
+        flagNodesRef.current.forEach((_, lane) => setFlag(lane, namesRef.current[lane] ?? '', 'none', true));
       },
     } satisfies RacePainter & Record<string, unknown>;
   }, []);
@@ -1134,10 +1143,13 @@ export function Sidescroller({
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-  /* A long twist name shrinks to fit its card. */
+  /* A long twist name shrinks to fit its card, and a long winner's name its plate. */
   useLayoutEffect(() => {
     fitText(splashRef.current?.querySelector('.side-splash-title') as HTMLElement | null, 0.6);
   }, [card.shown]);
+  useLayoutEffect(() => {
+    fitText(plateNameRef.current, 0.55);
+  }, [winner?.name]);
 
   return (
     <div
@@ -1339,7 +1351,7 @@ export function Sidescroller({
           <div className="side-finish-plate" style={{ '--shell': laneColour(winner.lane).shell } as CSSProperties} aria-hidden="true">
             <span className="side-finish-kicker">{phase === 'done' ? 'OFFICIAL' : 'WINNER'}</span>
             <span className="side-finish-num num">{numberOffset + winner.lane + 1}</span>
-            <strong className="side-finish-name">{winner.name}</strong>
+            <strong ref={plateNameRef} className="side-finish-name">{winner.name}</strong>
           </div>
         ) : null}
       </div>

@@ -21,6 +21,11 @@ export const TRACK_BOTTOM = 1262;
 export const REQUIRED_H = VIEW_H - 380;
 /** Full field view draws the lanes deeper, so the track owns more of a very wide frame. */
 export const FULL_VIEW_EXTRA = 760;
+/** The share of every frame kept clear above the track, where the twist card goes. */
+export const CARD_BAND = 0.16;
+/** The least height a frame shows: every lane, the crowd, and room above the track for the card. */
+export const requiredViewH = (extra = 0): number =>
+  Math.max(REQUIRED_H + extra, (VIEW_H - TRACK_TOP + extra) / (1 - CARD_BAND));
 /** The straight is called in metres to go, like a race caller's distance posts. */
 export const RACE_METRES = 10;
 
