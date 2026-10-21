@@ -6,7 +6,7 @@ import next from 'eslint-config-next';
  * is deliberately outside the lint surface.
  */
 const config = [
-  { ignores: ['legacy/**', '.next/**', 'node_modules/**', 'next-env.d.ts'] },
+  { ignores: ['legacy/**', '.next/**', 'node_modules/**', 'next-env.d.ts', '.claude/**', 'out/**', '.audit/**'] },
   ...next,
 ];
 

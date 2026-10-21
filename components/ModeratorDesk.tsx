@@ -9,8 +9,10 @@ import { audioPatch, setState } from '@/lib/event-store';
 import { isAuctionRace, toteIsLive } from '@/lib/cash-tote';
 import { AuctionDesk, ToteTally } from './CashTotePanel';
 import { showPhaseSpec } from '@/lib/show';
-import { cardRaceNames, cardRaceOwners, snailCountLock, snailsForRace } from '@/lib/card';
+import { MAX_SNAILS_ON_CARD, cardRaceNames, cardRaceOwners, nextSnailsRace, snailsForRace } from '@/lib/card';
 import { quaddieIsLive } from '@/lib/quaddie';
+import { championField, raceSettings, raceSummary, ranSummary } from '@/lib/run-sheet';
+import { MIN_LIVE_FIELD } from '@/lib/palette';
 import { useCanSpeak } from '@/lib/use-can-speak';
 import { initVoice, primeAudio } from '@/lib/sound';
 import type { AudioMode, EventState } from '@/lib/types';
@@ -43,6 +45,8 @@ interface Props {
   onCamera: (full: boolean) => void;
   onVoid: () => void;
   onDismissWinner: () => void;
+  /** Add a race after the card: the next snails, or a winners' run-off. */
+  onAddRace: (kind: 'next' | 'runoff') => void;
   children: ReactNode;
   packControlsRef: RefCallback<HTMLDivElement>;
 }
@@ -68,12 +72,19 @@ const notes: Record<string, string> = {
   lobby: 'Welcome the room. Point at the QR: buy a snail, name it. Open the racecard when ready.',
   racecard: 'Read out the snails and their owners. Then send them to the gate.',
   race: 'Press Start. The projector runs the race. Let the finish play out.',
-  results: 'Name the winner and the owner. Then move on.',
+  results: 'Name the winner and the owner. Then move on to the next racecard.',
   championship: 'Read out who is still alive in the quaddie, then the next race.',
-  finale: 'Thank the room. Save a backup in Admin (Night tab) before closing.',
+  finale: 'Thank the room. Want one more? Add a race below. Save a backup in Admin (Night tab) before closing.',
+};
+
+const ordinalPlace = (n: number): string => {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 };
 
 export function ModeratorDesk(p: Props) {
+
   const { event, race, packControlsRef } = p;
   const [board, setBoard] = useState<BoardRow[]>([]);
   const { onBoard } = race;
@@ -81,20 +92,40 @@ export function ModeratorDesk(p: Props) {
   const canSpeak = useCanSpeak();
   const recorded = event.eventMode === 'recorded';
   const recordedRace = event.racePack?.races.find((r) => r.raceId === event.packCurrent);
-  const lineup = recordedRace?.runners ?? cardRaceNames(event.card, p.raceNo);
-  const owners = recordedRace ? [] : cardRaceOwners(event.card, p.raceNo);
+  /* The race on the projector, as it ran when it has run, as the run sheet says otherwise. */
+  const ranEntry = event.history.find((h) => !h.void && h.raceNo === p.raceNo);
+  const held = event.heldRaceStart?.raceNo === p.raceNo ? event.heldRaceStart : null;
+  const settings = raceSettings(event, p.raceNo);
+  const raceLine = ranEntry && !held ? ranSummary(ranEntry) : raceSummary(settings);
+  const deskSnails = ranEntry?.snails ?? (ranEntry && ranEntry.snailOffset !== undefined && !ranEntry.snails
+    ? Array.from({ length: ranEntry.fieldSize }, (_, lane) => ranEntry.snailOffset! + lane + 1)
+    : snailsForRace(p.raceNo, event.card));
+  const lineup = recordedRace?.runners ?? ranEntry?.names ?? cardRaceNames(event.card, p.raceNo);
+  const owners = recordedRace ? [] : ranEntry?.owners ?? cardRaceOwners(event.card, p.raceNo);
+  /* The whole field at every phase: live order while racing, the result once run, the gate before. */
+  const settled = ranEntry?.results.length ? ranEntry.results.slice().sort((a, b) => a.place - b.place) : null;
   const rows = race.phase === 'done' && race.results.length
-    ? race.results.map((r) => ({ lane: r.lane, place: r.place, gapText: r.place === 1 ? 'Winner' : r.status === 'retired' ? 'Retired' : 'Classified' }))
+    ? race.results.map((r) => ({ lane: r.lane, place: r.place, gapText: r.place === 1 ? 'Winner' : r.status === 'retired' ? 'Retired' : ordinalPlace(r.place) }))
     : race.phase === 'running' || race.phase === 'confirming'
       ? board
-      : lineup.map((_, lane) => ({ lane, place: lane + 1, gapText: recorded ? 'Recorded runner' : 'At the gate' }));
+      : settled && !held
+        ? settled.map((r) => ({ lane: r.lane, place: r.place, gapText: r.place === 1 ? 'Winner' : r.status === 'retired' ? 'Retired' : ordinalPlace(r.place) }))
+        : lineup.map((_, lane) => ({ lane, place: lane + 1, gapText: recorded ? 'Recorded runner' : 'At the gate' }));
   const title = p.holding ? 'Holding screen' : (sequence.find((s) => s.id === event.showPhase)?.name ?? showPhaseSpec(event.showPhase).label);
-  const visibleSequence = sequence.filter((s) => s.id !== 'championship' || quaddieIsLive(event.quaddie));
+  const championshipOn = quaddieIsLive(event.quaddie) && event.championshipScreens;
+  const visibleSequence = sequence.filter((s) => s.id !== 'championship' || championshipOn);
   const racing = race.phase === 'running' || race.phase === 'countdown' || race.phase === 'confirming';
   const lockedRaceNo = p.locked ? p.nextRaceNo : null;
-  /* After race ten the roster has nothing next; show the last field. */
+  /* After the last race the roster has nothing next; show the last field. */
   const rosterRaceNo = Math.min(event.plannedRaces, p.nextRaceNo);
-  const deskSnails = snailsForRace(p.raceNo, event.card.snailCount);
+  const racesRun = event.history.filter((h) => !h.void).length;
+  const cardDone = racesRun >= event.plannedRaces && p.nextRaceNo > event.plannedRaces;
+  const offerAddRace = cardDone && !p.locked && (event.showPhase === 'results' || event.showPhase === 'finale' || event.showPhase === 'championship');
+  const runOffField = offerAddRace ? championField(event.history) : [];
+  const nextFits = offerAddRace && nextSnailsRace(event.card) !== null;
+  const fieldLabel = settings.runOff || ranEntry?.snails
+    ? `${deskSnails.length} runners`
+    : `snails ${deskSnails[0]} to ${deskSnails[deskSnails.length - 1]}`;
   const setAudio = (mode: AudioMode) => {
     primeAudio();
     if (mode === 'commentary' || mode === 'both') initVoice();
@@ -121,7 +152,10 @@ export function ModeratorDesk(p: Props) {
           <section className="desk-program" aria-label="Projector status">
             <p className="desk-label">On the projector</p>
             <h2>{title}</h2>
-            <p className="desk-race-title">Race {p.raceNo} of {event.plannedRaces} - snails {deskSnails[0]} to {deskSnails[deskSnails.length - 1]} - {p.courseName}</p>
+            <p className="desk-race-title">
+              {settings.runOff ? settings.title : `Race ${p.raceNo} of ${event.plannedRaces}`}
+              {settings.typeLabel && !settings.runOff ? `, ${settings.typeLabel}` : ''} - {fieldLabel} - {raceLine}
+            </p>
             <p className="desk-status" role="status">
               {p.holding ? 'The audience sees the holding screen. The show is held.' : event.showPhase === 'race' || event.showPhase === 'results' ? race.status : `The audience sees the ${title.toLowerCase()} screen.`}
             </p>
@@ -133,6 +167,31 @@ export function ModeratorDesk(p: Props) {
               {racing ? <button className="btn btn-ghost desk-void" type="button" onClick={p.onVoid}>Void race</button> : null}
               {p.winnerOpen ? <button className="btn btn-ghost" type="button" onClick={p.onDismissWinner}>Dismiss winner card</button> : null}
             </div>
+            {offerAddRace ? (
+              <div className="desk-add-race" role="group" aria-label="Add a race">
+                <p className="desk-label">That was the last race on the run sheet. Add one more?</p>
+                <div className="desk-actions">
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    disabled={!nextFits}
+                    title={nextFits ? undefined : `The card already sells close to ${MAX_SNAILS_ON_CARD} snails, the most it can hold.`}
+                    onClick={() => p.onAddRace('next')}
+                  >
+                    Add a race: the next snails
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    disabled={runOffField.length < MIN_LIVE_FIELD}
+                    title={runOffField.length < MIN_LIVE_FIELD ? 'A run-off needs eight runners: run at least three races first.' : undefined}
+                    onClick={() => p.onAddRace('runoff')}
+                  >
+                    Add a race: Champion of champions ({runOffField.length} runners)
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <div className="desk-actions desk-secondary">
               <label><input type="checkbox" checked={p.holding} disabled={p.locked} onChange={p.onHold} /> Holding screen</label>
               <button className="btn btn-ghost" type="button" onClick={p.onSettings}>Admin</button>
@@ -145,7 +204,7 @@ export function ModeratorDesk(p: Props) {
 
           <section className="desk-panel desk-roster" aria-label="Roster">
             <h2>Roster <span className="num desk-label">race {rosterRaceNo}</span></h2>
-            <RosterPanel card={event.card} raceNo={rosterRaceNo} lockedRaceNo={lockedRaceNo} compact resizeLockedReason={snailCountLock(event, lockedRaceNo !== null)} />
+            <RosterPanel event={event} raceNo={rosterRaceNo} lockedRaceNo={lockedRaceNo} compact />
           </section>
 
           {quaddieIsLive(event.quaddie) ? <QuaddieDesk event={event} racing={p.locked} nextRaceNo={p.nextRaceNo} /> : null}
@@ -154,7 +213,7 @@ export function ModeratorDesk(p: Props) {
             <section className="desk-panel desk-tote" aria-label="Cash tote tally">
               <h2>Cash tote</h2>
               <ToteTally raceNo={p.nextRaceNo} locked={p.locked} compact />
-              {isAuctionRace(event.cashTote, p.nextRaceNo, event.plannedRaces) ? <AuctionDesk raceNo={p.nextRaceNo} locked={p.locked} /> : null}
+              {isAuctionRace(event.cashTote, p.nextRaceNo, event.plannedRaces, event.auctionBids) ? <AuctionDesk raceNo={p.nextRaceNo} locked={p.locked} /> : null}
             </section>
           ) : null}
 
@@ -185,7 +244,7 @@ export function ModeratorDesk(p: Props) {
         <section className="desk-order" aria-label="Live running order">
           <h2>Running order</h2>
           <ol>{rows.map((row) => <li key={row.lane}>
-            <span className="desk-lane" style={{ background: laneColour(row.lane).shell }}>{deskSnails[0] + row.lane}</span>
+            <span className="desk-lane" style={{ background: laneColour(row.lane).shell }}>{deskSnails[row.lane] ?? row.lane + 1}</span>
             <span>{lineup[row.lane]}{owners[row.lane] ? <small className="desk-owner"> {owners[row.lane]}</small> : null}</span><span className="desk-gap">{row.gapText}</span>
           </li>)}</ol>
           {race.commentary ? <p className="desk-commentary">{race.commentary}</p> : null}

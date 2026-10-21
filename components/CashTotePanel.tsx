@@ -217,7 +217,7 @@ export function CashTotePanel({
 
           <ToteTally raceNo={nextRaceNo} locked={locked} compact={false} />
 
-          {isAuctionRace(settings, nextRaceNo, event.plannedRaces) ? (
+          {isAuctionRace(settings, nextRaceNo, event.plannedRaces, event.auctionBids) ? (
             <AuctionDesk raceNo={nextRaceNo} locked={locked} />
           ) : null}
 

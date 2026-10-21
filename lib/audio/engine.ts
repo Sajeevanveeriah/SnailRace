@@ -21,7 +21,7 @@
  * commentary without touching the effects:
  *
  *   sources ─┬─> musicBus ─┐
- *            ├─> sfxBus   ─┼─> masterBus ─> limiter ─> speakers
+ *            ├─> sfxBus   ─┼─> masterBus ─> limiter ─> ceiling ─> speakers
  *            └─> crowdBus ─┘
  *
  * Music voices can also tap a shared effects send - one convolver (a 1.6 s
@@ -88,6 +88,7 @@ const EXTENSIONS = ['mp3', 'ogg', 'wav'] as const;
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
+let ceiling: GainNode | null = null;
 const buses = new Map<Bus, GainNode>();
 
 /*
@@ -149,7 +150,19 @@ export const getLevels = (): AudioLevels => ({ ...levels });
  * began, so overlapping ducks cannot ratchet the music down a step at a
  * time until the race ends in near silence.
  */
-export const musicBusTarget = (): number => (enabled && musicEnabled ? levels.music : 0);
+export const musicBusTarget = (): number => (enabled && musicEnabled ? levels.music * MUSIC_BED_GAIN : 0);
+
+/**
+ * Make-up gain on the music bus, about +6 dB. The synthesised bed measured
+ * about 30 dB below full scale between calls, which a function room hears as
+ * no music at all; the limiter below keeps the lift from ever clipping.
+ */
+export const MUSIC_BED_GAIN = 2;
+
+/** The brick wall in front of the speakers, and the headroom it leaves. */
+export const LIMITER = { threshold: -6, knee: 0, ratio: 20, attack: 0.002, release: 0.15 } as const;
+/** A final trim after the limiter: the loudest the app can ever be is about -1 dBFS. */
+export const OUTPUT_CEILING = 0.89;
 
 /** The graph's clock. Callers schedule against this, never against Date. */
 export const now = (): number => (ctx ? ctx.currentTime : 0);
@@ -213,12 +226,15 @@ export function primeAudio(): AudioContext | null {
   }
 
   limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = -3;
-  limiter.knee.value = 6;
-  limiter.ratio.value = 16;
-  limiter.attack.value = 0.003;
-  limiter.release.value = 0.16;
-  limiter.connect(ctx.destination);
+  limiter.threshold.value = LIMITER.threshold;
+  limiter.knee.value = LIMITER.knee;
+  limiter.ratio.value = LIMITER.ratio;
+  limiter.attack.value = LIMITER.attack;
+  limiter.release.value = LIMITER.release;
+  ceiling = ctx.createGain();
+  ceiling.gain.value = OUTPUT_CEILING;
+  limiter.connect(ceiling);
+  ceiling.connect(ctx.destination);
 
   master = ctx.createGain();
   master.connect(limiter);

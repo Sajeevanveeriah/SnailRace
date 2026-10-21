@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { addAudit, setState } from '@/lib/event-store';
 import { money } from '@/lib/money';
 import { newId, nowMs } from '@/lib/ids';
-import { cardLayout, cardRaceNames, raceForSnail, snailsForRace, validSnailNo } from '@/lib/card';
+import { SNAILS_ON_CARD, cardLayout, cardRaceNames, raceForSnail, snailsForRace, validSnailNo, type CardSource } from '@/lib/card';
 import {
   QUADDIE_LEGS,
   picksMatchLegs,
@@ -69,8 +69,8 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
         and the desk takes entries until the first leg goes to the gate.
       </p>
       {!live ? (
-        <button type="button" className="btn btn-go" onClick={enable} disabled={cardLayout(event.card.snailCount).races < 4}>
-          {cardLayout(event.card.snailCount).races < 4 ? 'Needs four races on the card' : 'Enable quaddie'}
+        <button type="button" className="btn btn-go" onClick={enable} disabled={cardLayout(event.card).races < 4}>
+          {cardLayout(event.card).races < 4 ? 'Needs four races on the card' : 'Enable quaddie'}
         </button>
       ) : (
         <button type="button" className="btn btn-ghost" onClick={disable} disabled={locked}>
@@ -125,10 +125,10 @@ export function QuaddieSettingsPanel({ event, locked }: { event: EventState; loc
 
 export function QuaddieDesk({ event, racing, nextRaceNo }: { event: EventState; racing: boolean; nextRaceNo: number }) {
   const settings = event.quaddie;
-  const status = quaddieStatus(settings, event.quaddieEntries, event.history, event.card.snailCount);
+  const status = quaddieStatus(settings, event.quaddieEntries, event.history, event.card);
   const open = quaddieOpen(settings, event.history, racing, nextRaceNo);
   const [holder, setHolder] = useState('');
-  const [picks, setPicks] = useState<number[]>(() => settings.legs.map((leg) => snailsForRace(leg, event.card.snailCount)[0]));
+  const [picks, setPicks] = useState<number[]>(() => settings.legs.map((leg) => snailsForRace(leg, event.card)[0]));
   const [error, setError] = useState('');
 
   if (!status.live) return null;
@@ -139,7 +139,7 @@ export function QuaddieDesk({ event, racing, nextRaceNo }: { event: EventState; 
       setError('Who holds the ticket?');
       return;
     }
-    if (!picksMatchLegs(picks, settings.legs, event.card.snailCount) || !picks.every((n) => validSnailNo(n, event.card.snailCount))) {
+    if (!picksMatchLegs(picks, settings.legs, event.card) || !picks.every((n) => validSnailNo(n, event.card))) {
       setError('Pick one snail in each leg.');
       return;
     }
@@ -192,7 +192,7 @@ export function QuaddieDesk({ event, racing, nextRaceNo }: { event: EventState; 
                   setPicks(next);
                 }}
               >
-                {snailsForRace(leg, event.card.snailCount).map((snailNo, lane) => (
+                {snailsForRace(leg, event.card).map((snailNo, lane) => (
                   <option key={snailNo} value={snailNo}>
                     {snailNo} {cardRaceNames(event.card, leg)[lane]}
                   </option>
@@ -240,4 +240,4 @@ export function QuaddieDesk({ event, racing, nextRaceNo }: { event: EventState; 
 }
 
 /** For the Admin ledger: which snail number a pick names, by race. */
-export const pickRace = (snailNo: number): number => raceForSnail(snailNo);
+export const pickRace = (snailNo: number, card: CardSource = SNAILS_ON_CARD): number => raceForSnail(snailNo, card);

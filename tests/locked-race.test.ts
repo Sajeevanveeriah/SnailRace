@@ -11,6 +11,7 @@ import {
   MIN_LOCKED_RACE_FIELD_SIZE,
   RETIREMENT_CHANCE_DENOMINATOR,
   RETIREMENT_SPECS,
+  runInProgress,
   stepRace,
 } from '../lib/race-engine';
 
@@ -179,47 +180,35 @@ test('legacy all-finisher stepping remains unchanged', () => {
   assert.ok(race.snails.every((snail) => snail.done && !snail.retired));
 });
 
-test('comeback surprises challenge the actual leader and produce visible overtaking', () => {
-  for (const duration of [7000, 30_000, 60_000]) {
-    for (let seed = 1; seed <= 200; seed++) {
-      const plan = drawLockedRacePlan(seed, names, duration, true);
-      const setbacks = plan.events.filter((event) => event.id.endsWith('-leader'));
-      assert.ok(setbacks.length >= 1);
-      let leadChanged = false;
-      for (const event of setbacks) {
-        const lane = event.targetLanes[0];
-        const active = plan.runners.filter((runner) => !plan.events.some((e) =>
-          e.consequence === 'retire' && e.targetLanes.includes(runner.lane) && e.effectAtMs <= event.effectAtMs));
-        assert.equal(lockedProgressAt(plan, lane, event.effectAtMs),
-          Math.max(...active.map((runner) => lockedProgressAt(plan, runner.lane, event.effectAtMs))));
-        const after = names.map((_, i) => lockedProgressAt(plan, i, event.effectEndMs));
-        leadChanged ||= after[lane] < Math.max(...after);
-        assert.ok(event.effectEndMs < plan.stopAtMs);
-        for (let t = event.effectAtMs; t < event.effectEndMs; t += 50) {
-          assert.ok(lockedProgressAt(plan, lane, t + 50) >= lockedProgressAt(plan, lane, t));
-        }
-      }
-      assert.ok(leadChanged, `Seed ${seed} at ${duration}ms had no comeback`);
-    }
-  }
-});
-
-test('comeback effects change the classification, remain bounded and respect surprise settings', () => {
+test('twists change the classification, remain bounded and respect surprise settings', () => {
   let resultChanges = 0;
+  let leaderChanges = 0;
   for (let seed = 1; seed <= 200; seed++) {
     const plan = drawLockedRacePlan(seed, names, 30_000, true, 'chaos');
-    const without = { ...plan, events: plan.events.filter((event) => !event.id.startsWith('comeback-')) };
+    const without = { ...plan, events: [] };
     const at = plan.stopAtMs;
     if (lockedProgressAt(without, plan.winnerLane, at) < Math.max(...names.map((_, lane) => lockedProgressAt(without, lane, at)))) resultChanges++;
+    /* A twist makes visible racing: the lead changes hands in most races. */
+    let leader = -1;
+    let changes = 0;
+    for (let t = plan.durationMs * 0.15; t < plan.stopAtMs; t += 100) {
+      const now = plan.runners.reduce((best, r) => (lockedProgressAt(plan, r.lane, t) > lockedProgressAt(plan, best, t) ? r.lane : best), plan.runners[0].lane);
+      if (leader !== -1 && now !== leader) changes++;
+      leader = now;
+    }
+    if (changes > 0) leaderChanges++;
     for (const runner of plan.runners) {
       const delta = plan.events.reduce((sum, event) => sum + (event.clockDeltaMsByLane[runner.lane] ?? 0), 0);
       assert.ok(Math.abs(delta) <= plan.durationMs * LANE_CLOCK_CAP);
     }
   }
-  assert.ok(resultChanges > 100, 'The comeback must affect the result, not only the picture');
+  assert.ok(resultChanges >= 10, `The twists must affect the result, not only the picture (${resultChanges} of 200)`);
+  assert.ok(leaderChanges > 150, `the lead changed hands in only ${leaderChanges} of 200 races`);
   assert.equal(drawLockedRacePlan(42, names, 60_000, false).events.length, 0);
-  assert.equal(drawLockedRacePlan(42, names, 60_000, true, 'calm').events.filter((e) => e.id.endsWith('-leader')).length, 1);
-  assert.equal(drawLockedRacePlan(42, names, 60_000, true).events.filter((e) => e.id.endsWith('-leader')).length, 2);
+  const calm = drawLockedRacePlan(42, names, 60_000, true, 'calm');
+  assert.ok(calm.events.length <= 1);
+  /* No fixed leader-then-chaser pairing is dealt any more. */
+  assert.equal(drawLockedRacePlan(42, names, 60_000, true).events.filter((e) => e.id.startsWith('comeback-')).length, 0);
 });
 
 test('the lively motion profile runs at pace from the gates and never changes who crosses or when', () => {
@@ -260,4 +249,29 @@ test('the lively motion profile runs at pace from the gates and never changes wh
   /* An archived plan without the profile still animates on the old curve. */
   const legacy = { ...drawLockedRacePlan(9, names, 30_000, true, 'chaos'), motion: undefined };
   assert.ok(lockedProgressAt(legacy, legacy.winnerLane, 3000) < 0.03);
+});
+
+test('in the finish hold the field runs in behind the winner and never past the official order', () => {
+  for (let seed = 1; seed <= 150; seed++) {
+    const plan = drawLockedRacePlan(seed, Array.from({ length: 8 + (seed % 5) }, (_, i) => `Runner ${i + 1}`), [12_000, 30_000, 60_000][seed % 3], true, 'mayhem', 1 + (seed % 3));
+    const order = plan.results.slice().sort((a, b) => a.place - b.place);
+    let last = runInProgress(plan, plan.stopAtMs);
+    for (const result of plan.results) assert.equal(Number(last.get(result.lane)!.toFixed(6)), result.progressAtStop);
+    let moved = false;
+    for (let t = plan.stopAtMs; t <= plan.stopAtMs + 2500; t += 50) {
+      const now = runInProgress(plan, t);
+      for (const result of order) {
+        const p = now.get(result.lane)!;
+        assert.ok(p + 1e-12 >= last.get(result.lane)!, `lane ${result.lane} went backwards in the hold`);
+        if (result.status === 'retired') assert.equal(p, last.get(result.lane));
+        if (result.lane === plan.winnerLane) assert.equal(p, 1);
+        else assert.ok(p < 1, 'only the winner is drawn across the line');
+        if (p > last.get(result.lane)! + 1e-9) moved = true;
+      }
+      const running = order.filter((r) => r.status !== 'retired').map((r) => now.get(r.lane)!);
+      for (let i = 1; i < running.length; i++) assert.ok(running[i] <= running[i - 1], `seed ${seed}: the run-in reordered the result`);
+      last = now;
+    }
+    assert.ok(moved, `seed ${seed}: the field froze`);
+  }
 });

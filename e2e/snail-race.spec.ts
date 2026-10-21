@@ -133,8 +133,8 @@ test('show flow isolates the hidden stage and remains accessible', async ({
 }) => {
   const welcome = page.getByRole('region', { name: 'WELCOME screen' });
   await expect(welcome).toBeVisible();
-  const brand = welcome.locator('.club-brand').first();
-  const crest = brand.locator('.club-brand-logo');
+  const brand = welcome.locator('.ss-brand').first();
+  const crest = brand.locator('.ss-crest');
   await expect(brand).toContainText(/Newcomb.*District/i);
   await expect(crest).toBeVisible();
   await expect(crest).toHaveAttribute('alt', '');
@@ -155,11 +155,15 @@ test('show flow isolates the hidden stage and remains accessible', async ({
   await page.getByRole('button', { name: /Show the racecard/i }).click();
   const racecard = page.getByRole('region', { name: 'RACECARD screen' });
   await expect(racecard).toBeVisible();
-  /* Ten numbered snails, unsold ones said so, no market and no chips. */
+  /* Ten numbered snails, unsold ones offered for sale, the race's track,
+     length and surprise level, no market and no chips. A league race carries no label. */
   await expect(racecard).toContainText('Race 1 of 10');
-  await expect(racecard).toContainText(/snails 1 to 10/);
-  await expect(racecard.getByRole('list', { name: 'Owners for race 1' }).locator('li')).toHaveCount(10);
-  await expect(racecard).toContainText('Unsold');
+  await expect(racecard).toContainText(/Snails 1 to 10/);
+  await expect(racecard.getByRole('list', { name: 'Race 1 field, 10 runners' }).locator('li')).toHaveCount(10);
+  await expect(racecard).toContainText('For sale');
+  await expect(racecard.getByRole('list', { name: 'Race details' })).toContainText('Side-on straight');
+  await expect(racecard.getByRole('list', { name: 'Race details' })).toContainText('Standard surprises');
+  await expect(racecard).not.toContainText(/Heat|Unsold/);
   await expect(racecard).not.toContainText(/fun chip|market|odds/i);
   await assertNoSeriousAxeFindings(page);
   await expect(page.getByRole('button', { name: /market/i })).toHaveCount(0);
@@ -288,7 +292,7 @@ test('surprises announce warning, reveal and effect with a visible prop or symbo
   expect(snapshot.card!.y + snapshot.card!.height).toBeLessThanOrEqual(snapshot.scene!.y + snapshot.scene!.height * 0.4);
 });
 
-test('first finisher freezes the field and opens one result within one second', async ({
+test('first finisher holds the line while the field runs in, then opens one result', async ({
   page,
 }) => {
   test.setTimeout(45_000);
@@ -313,24 +317,27 @@ test('first finisher freezes the field and opens one result within one second', 
 
   const field = page.locator('.tv-runner');
   await expect(field).toHaveCount(10);
+  /* During the finish hold the rest of the field runs in behind the winner
+     in its official order, so more runners may cross after the first, but
+     the line moment above had exactly one finisher. */
   await page.waitForTimeout(200);
-  expect(
-    await field.evaluateAll((runners) =>
-      runners.map((runner) => runner.getAttribute('transform')),
-    ),
-  ).toEqual(lineSnapshot?.transforms);
+  expect(await page.locator('.tv-runner.finished').count()).toBeGreaterThanOrEqual(1);
 
   await expect
     .poll(async () => (await readFirstFinisherProbe(page))?.resultAt ?? null, {
-      timeout: 2_000,
+      timeout: 5_000,
     })
     .not.toBeNull();
   const resultSnapshot = await readFirstFinisherProbe(page);
   expect(resultSnapshot?.resultAt).not.toBeNull();
   expect(resultSnapshot?.confirmingAt).not.toBeNull();
+  /* The finish moment holds the line for about 2.5 s before the result. */
   expect(
     resultSnapshot!.resultAt! - resultSnapshot!.confirmingAt!,
-  ).toBeLessThanOrEqual(1_000);
+  ).toBeGreaterThanOrEqual(2_000);
+  expect(
+    resultSnapshot!.resultAt! - resultSnapshot!.confirmingAt!,
+  ).toBeLessThanOrEqual(3_600);
 
   const winner = page.getByRole('dialog').filter({ hasText: /Race 1 winner/i });
   await expect(winner).toBeVisible();
@@ -642,15 +649,15 @@ test.describe('light colour scheme', () => {
   test('the racecard stays readable on a light-scheme laptop', async ({ page }) => {
     await page.getByRole('button', { name: /Show the racecard/i }).click();
     const board = page.getByRole('region', { name: 'RACECARD screen' })
-      .getByRole('list', { name: 'Owners for race 1' });
+      .getByRole('list', { name: 'Race 1 field, 10 runners' });
     await expect(board).toBeVisible();
     const colours = await board.evaluate((list) => {
-      const name = list.querySelector('.show-owner-name') as HTMLElement;
-      const panel = list.closest('.show-panel') as HTMLElement;
+      const name = list.querySelector('.ss-runner-name') as HTMLElement;
+      const card = list.querySelector('.ss-runner') as HTMLElement;
       return {
         text: getComputedStyle(name).color,
-        board: getComputedStyle(list).backgroundColor,
-        panel: getComputedStyle(panel).backgroundColor,
+        board: getComputedStyle(card).backgroundColor,
+        panel: getComputedStyle(list).backgroundColor,
         scheme: getComputedStyle(list).colorScheme,
       };
     });

@@ -54,15 +54,18 @@ export function Confetti({
     canvas.style.height = `${h}px`;
     ctx.scale(dpr, dpr);
 
-    const colours = [highlight, '#ffb020', '#26c6a6', '#4c8dff', '#ffffff', '#b7e43b'];
-    const pieces: Piece[] = Array.from({ length: 220 }, () => ({
-      x: w / 2 + (Math.random() - 0.5) * w * 0.5,
-      y: h * 0.42 + (Math.random() - 0.5) * 60,
-      vx: (Math.random() - 0.5) * 13,
-      vy: -6 - Math.random() * 12,
-      size: 5 + Math.random() * 8,
+    /* A tasteful fall from the top of the frame in the club colours and the
+       winner's own, sized to the screen so 4K looks like 720p. */
+    const scale = Math.max(0.6, Math.min(w / 1280, h / 720));
+    const colours = [highlight, highlight, '#e8b55e', '#b3141c', '#fff9ed', '#81c3c1'];
+    const pieces: Piece[] = Array.from({ length: 150 }, () => ({
+      x: Math.random() * w,
+      y: -20 - Math.random() * h * 0.5,
+      vx: (Math.random() - 0.5) * 2.4 * scale,
+      vy: (1.6 + Math.random() * 2.6) * scale,
+      size: (6 + Math.random() * 7) * scale,
       rot: Math.random() * Math.PI,
-      vr: (Math.random() - 0.5) * 0.34,
+      vr: (Math.random() - 0.5) * 0.2,
       colour: colours[Math.floor(Math.random() * colours.length)],
       life: 1,
     }));
@@ -74,12 +77,12 @@ export function Confetti({
       let remaining = 0;
 
       for (const p of pieces) {
-        p.vy += 0.36; // gravity
-        p.vx *= 0.995; // drag
+        p.vy += 0.02 * scale; // a gentle fall
+        p.vx += Math.sin(p.rot) * 0.04 * scale; // flutter
         p.x += p.vx;
         p.y += p.vy;
         p.rot += p.vr;
-        p.life -= 0.006;
+        p.life -= 0.004;
 
         if (p.life <= 0 || p.y > h + 40) continue;
         remaining++;
@@ -110,7 +113,7 @@ export function Confetti({
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[90]"
+      className="pointer-events-none fixed inset-0 z-[3]"
     />
   );
 }

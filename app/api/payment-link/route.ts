@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStripe, META, APP_TAG, SNAIL_FIELDS } from '@/lib/stripe';
 import { MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { DEFAULT_SNAIL_CENTS, SNAILS_ON_CARD, clampSnailCount } from '@/lib/card';
+import { DEFAULT_SNAIL_CENTS, MAX_NAME, MAX_OWNER, SNAILS_ON_CARD, clampOnSale } from '@/lib/card';
 import { checkOrigin } from '@/lib/server-origin';
 
 export const runtime = 'nodejs';
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   let snails = SNAILS_ON_CARD;
   try {
     const body = (await request.json()) as { eventId?: string; kind?: string; cents?: number; snails?: number };
-    if (body.snails !== undefined) snails = clampSnailCount(body.snails);
+    if (body.snails !== undefined) snails = clampOnSale(body.snails);
     eventId = String(body.eventId ?? '')
       .replace(/[^\w-]/g, '')
       .slice(0, 40);
@@ -101,13 +101,13 @@ export async function POST(request: Request) {
             key: SNAIL_FIELDS.name,
             label: { type: 'custom', custom: 'Name your snail' },
             type: 'text',
-            text: { maximum_length: 24 },
+            text: { maximum_length: MAX_NAME },
           },
           {
             key: SNAIL_FIELDS.owner,
             label: { type: 'custom', custom: 'Your name, as shown on the board' },
             type: 'text',
-            text: { maximum_length: 24 },
+            text: { maximum_length: MAX_OWNER },
           },
         ],
         metadata: {

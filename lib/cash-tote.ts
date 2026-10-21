@@ -228,6 +228,18 @@ export function toteProceeds(history: RaceHistoryEntry[]): {
   return { toteCents, auctionCents, paidOutCents, races };
 }
 
-/** Is this race the auctioned one? Only the last race on the card, when enabled. */
-export const isAuctionRace = (settings: CashToteSettings, raceNo: number, plannedRaces: number): boolean =>
-  toteIsLive(settings) && settings.auctionLastRace && raceNo === plannedRaces;
+/**
+ * Is this race the auctioned one? The last race on the card, when enabled.
+ * Once a bid is taken the auction stays on the race it was taken for, so a
+ * race added after the card never moves an auction already under way.
+ */
+export const isAuctionRace = (
+  settings: CashToteSettings,
+  raceNo: number,
+  plannedRaces: number,
+  bids: readonly { raceNo: number; void?: boolean }[] = [],
+): boolean => {
+  if (!toteIsLive(settings) || !settings.auctionLastRace) return false;
+  const pinned = bids.find((b) => !b.void)?.raceNo;
+  return raceNo === (pinned ?? plannedRaces);
+};

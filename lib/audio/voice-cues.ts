@@ -4,10 +4,11 @@
  * caller so the sound of the room did not change overnight. Bundled clips
  * require no runtime API key.
  *
- * Three takes per cue, same meaning, different words, so a night of racing
- * does not repeat itself. Take 1 is `<cue>.mp3`, then `<cue>-2.mp3` and
- * `<cue>-3.mp3`. The player picks a take at random and never plays the same
- * take twice running - see `audio/voice.ts`.
+ * At least three takes per cue, same meaning, different words, so a night of
+ * racing does not repeat itself; the busiest cues have five. Take 1 is
+ * `<cue>.mp3`, then `<cue>-2.mp3`, `<cue>-3.mp3` and so on. The player picks
+ * a take at random, never the one it played last, and never a take heard in
+ * the last 25 seconds - see `audio/voice.ts`.
  *
  * The clips never name a snail. The caption on the rail carries the number
  * and the name, so the picture and the voice always agree: "Snail 7 hits the
@@ -21,6 +22,8 @@ export const RECORDED_CUES = {
     "Righto, they're all loaded up. Let's get this one going!",
     "Field's in, gates are set. Stand by, here we go!",
     "All in and ready. Hold onto your hats, this one's about to go!",
+    "Under orders now. Settle in, this one's about to go!",
+    "Gates are set and they're under orders. Here we go!",
   ],
   start: [
     "And they're away! Good jump from the inside, and they're racing!",
@@ -31,6 +34,8 @@ export const RECORDED_CUES = {
     "They're settling down now, finding their spots early.",
     "Early days yet. The field's sorting itself out.",
     "Nice and steady through the first bit, nobody's panicking.",
+    "Early going, and they're all finding their feet.",
+    "Plenty of time yet. They've only just started!",
   ],
   quarter: [
     "A quarter gone and they're bunching up nicely!",
@@ -51,21 +56,28 @@ export const RECORDED_CUES = {
     "Still a long way to go in this one.",
     "Plenty of racing left yet. Nobody's won it from here.",
     "Long way to go. Hold your breath, this one's not done.",
+    "Plenty of race left in this one!",
+    "Still all to play for out there!",
   ],
   lead: [
     "And there's a new leader! Hits the front!",
     "Change of lead! Up and around them, and takes it up!",
     "Oh, look at that! Comes through and grabs the lead!",
+    "Hits the front! There's a new leader!",
+    "Takes over at the head of the field!",
   ],
   overtake: [
     "There's a move! Up past one and into the clear!",
     "Goes past! Nice bit of work through the pack!",
     "And one slips through on the inside! Picks up a spot!",
+    "Up a place, and into the top three!",
+    "Through on the inside! Up into the places!",
   ],
   close: [
     "Nothing in it! You could throw a blanket over the lot of them!",
     "Tight up the front! Side by side, neither of them giving an inch!",
     "Locked together! There's a nose in it, if that!",
+    "Neck and neck! Nothing between them!",
   ],
   clear: [
     "The leader's got away! That's a couple of lengths now!",
@@ -76,6 +88,12 @@ export const RECORDED_CUES = {
     "Here they come down the straight! They're coming home!",
     "Into the straight now! Get up! Get up! Come on!",
     "Down the straight they come! Hang on, this is going to be close!",
+  ],
+  /* The run home on a circuit with no straight before the line. */
+  finalCircuit: [
+    "Into the last bend! Here they come!",
+    "Home stretch now! They're coming to the line!",
+    "Here they come to the line! This is it!",
   ],
   photo: [
     "It's a photo! Too close to call! Oh, that's tight!",
@@ -91,6 +109,8 @@ export const RECORDED_CUES = {
     "And round they go, another lap down!",
     "Across the line and into the next lap! Still racing!",
     "That's a lap done. Plenty more to come!",
+    "Another lap down, and round they go again!",
+    "Over the line and round again! Keep going!",
   ],
   bell: [
     "There's the bell! Last lap! Here we go!",
@@ -146,11 +166,20 @@ export const RECORDED_CUES = {
     "Oh, look at that! Found another gear!",
     "That's a burst of speed! Where did that come from?",
     "Sprouted wings! That's a real turn of pace!",
+    "Whoosh! Look at that one go!",
   ],
   delay: [
     "Oh, that's cost some ground!",
     "That's a stumble! Lost a couple of lengths there!",
     "Oh no, that's gone backwards! That'll hurt!",
+    "Oh, that's held them up! That'll cost them!",
+    "Stopped in their tracks! That's going to hurt!",
+  ],
+  /* A twist that sends some runners on and holds others up. */
+  chaos: [
+    "What on earth was that? Nobody knows which way that's gone!",
+    "Chaos out there! That's thrown it all up in the air!",
+    "Oh, that's mad! Some up, some down, who knows!",
   ],
   retire: [
     "And that's one out of the race! That's the end of it!",
@@ -175,7 +204,11 @@ export const RECORDED_CUES = {
 } as const;
 export type RecordedCue = keyof typeof RECORDED_CUES;
 
+/** Every cue has at least this many takes written. */
 export const TAKES_PER_CUE = 3;
+
+/** How many takes are written for a cue (recorded or not). */
+export const takesWritten = (cue: RecordedCue): number => RECORDED_CUES[cue].length;
 
 /**
  * How much the caller leans into each cue when the clips are generated.
@@ -185,10 +218,10 @@ export const TAKES_PER_CUE = 3;
 export const CUE_ENERGY: Record<RecordedCue, number> = {
   ready: 0.6, start: 0.7, early: 0.7, quarter: 0.75, half: 0.8, threeQuarter: 0.9, mid: 0.7,
   lead: 0.9, overtake: 0.8, close: 0.85, clear: 0.8,
-  final: 1.1, photo: 1.1, winner: 1.1,
+  final: 1.1, finalCircuit: 1.1, photo: 1.1, winner: 1.1,
   lap: 0.8, bell: 0.9,
   lettuce: 0.9, plague: 0.9, ball: 0.9, sprinkler: 0.9, roller: 0.9, dog: 0.9, magpie: 0.9, boot: 0.9, bee: 0.9,
-  boost: 0.9, delay: 0.85, retire: 0.85, warning: 0.85, reaction: 0.9, void: 0.6,
+  boost: 0.9, delay: 0.85, chaos: 0.9, retire: 0.85, warning: 0.85, reaction: 0.9, void: 0.6,
 };
 
 /**
@@ -196,24 +229,25 @@ export const CUE_ENERGY: Record<RecordedCue, number> = {
  * Written by `scripts/generate-commentary.mjs` after a run; do not edit by hand.
  *
  * Every cue's takes were recorded on 2026-10-20 and 2026-10-21 (see
- * public/audio/README.md). A cue below three still plays the takes it has.
+ * public/audio/README.md). A cue plays only the takes it has.
  */
 export const RECORDED_TAKES: Record<RecordedCue, number> = {
-  ready: 3,
+  ready: 5,
   start: 3,
-  early: 3,
+  early: 5,
   quarter: 3,
   half: 3,
   threeQuarter: 3,
-  mid: 3,
-  lead: 3,
-  overtake: 3,
-  close: 3,
+  mid: 5,
+  lead: 5,
+  overtake: 5,
+  close: 4,
   clear: 3,
   final: 3,
+  finalCircuit: 3,
   photo: 3,
   winner: 3,
-  lap: 3,
+  lap: 5,
   bell: 3,
   lettuce: 3,
   plague: 3,
@@ -224,8 +258,9 @@ export const RECORDED_TAKES: Record<RecordedCue, number> = {
   magpie: 3,
   boot: 3,
   bee: 3,
-  boost: 3,
-  delay: 3,
+  boost: 4,
+  delay: 5,
+  chaos: 3,
   retire: 3,
   warning: 3,
   reaction: 3,
@@ -261,15 +296,16 @@ export function recordedCueFor(text: string): RecordedCue | undefined {
     [/pitch roller/, 'roller'],
     [/\bdog\b/, 'dog'],
     [/magpie|swoop/, 'magpie'],
-    [/groundskeeper|groundsman/, 'boot'],
+    [/groundskeeper|groundsman|\bboot\b|stomp/, 'boot'],
     [/boundary bee|\bbee\b/, 'bee'],
     [/\bretir/, 'retire'],
     [/\bbell\b|last lap|final lap|one lap to run|one lap to go/, 'bell'],
     [/\blaps?\b/, 'lap'],
     [/hits the front|takes the lead|new leader|into the lead|lead change|change of lead|snatches it|takes it up/, 'lead'],
     [/goes past|up to .* place|been passed|takes .* off|overtak/, 'overtake'],
-    [/photo finish|right to the line|on the line!/, 'photo'],
-    [/to run and it is|inside the last|left, .* closing|turns for home|can see the line|needs every/, 'final'],
+    [/photo finish|right to the line|on the line!|going to the line|nothing between .* and the line/, 'photo'],
+    [/into the last bend|last bend and home|home stretch|last turn and to the line/, 'finalCircuit'],
+    [/down the straight|home straight|into the straight|to run and it is|inside the last|left, .* behind|turns for home|can see the line|needs every/, 'final'],
     [/quarter of the way|quarter gone/, 'quarter'],
     [/three-quarter|three quarter/, 'threeQuarter'],
     /* "halfway" stays on the generic mid clip here; the loop passes `half` explicitly. */
@@ -277,7 +313,7 @@ export function recordedCueFor(text: string): RecordedCue | undefined {
     [/tidy start|leads them out|has the rail|clean getaway|sets the pace|settling into/, 'early'],
     [/throw a blanket|side by side|locked together|in it between|neither giving|nothing in it|by a nose/, 'close'],
     [/broken the elastic|is gone\.|put on the field|reel in|clear!/, 'clear'],
-    [/field is ready|get this race started|under starter/, 'ready'],
+    [/field is ready|get this race started|under starter|under orders|starter has them/, 'ready'],
   ];
   return rules.find(([pattern]) => pattern.test(value))?.[1];
 }

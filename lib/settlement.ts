@@ -23,7 +23,7 @@ export function withCashTote(
   const winner = entry.results.find((r) => r.place === 1);
   if (!winner) return entry;
   const fieldSize = entry.fieldSize;
-  const auction = isAuctionRace(state.cashTote, entry.raceNo, state.plannedRaces);
+  const auction = isAuctionRace(state.cashTote, entry.raceNo, state.plannedRaces, state.auctionBids);
   return {
     ...entry,
     ...(auction

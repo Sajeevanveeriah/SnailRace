@@ -563,19 +563,31 @@ function winnerBar(bar: Bar): void {
 
 /* ── Ducking ───────────────────────────────────────────────────────────── */
 
-/** How fast the music gets out of the way. */
+/** How fast the music gets out of the way of an effect. */
 export const DUCK_RAMP_DOWN = 0.08;
+/** How fast it comes back after an effect. */
+export const DUCK_RELEASE = 0.4;
 
 /**
- * The deepest any duck can go. A caller passing 0.2 (the voice does) gets
- * 0.4: below that the track vanishes under the commentary and comes back as
- * a surprise, which is worse than a line being slightly harder to hear.
+ * Under the caller: about 10 dB down, in over 150 ms and back over 600 ms.
+ * Enough that every word is clear over a lifted bed, short enough that the
+ * music is plainly still there underneath.
  */
-export const DUCK_FLOOR = 0.4;
+export const VOICE_DUCK_DB = -10;
+export const VOICE_DUCK = Math.pow(10, VOICE_DUCK_DB / 20);
+export const VOICE_DUCK_ATTACK = 0.15;
+export const VOICE_DUCK_RELEASE = 0.6;
+
+/**
+ * The deepest any duck can go, about 10.5 dB. Below that the track vanishes
+ * under the commentary and comes back as a surprise.
+ */
+export const DUCK_FLOOR = 0.3;
 
 interface Duck {
   until: number;
   amount: number;
+  release: number;
   /** A named duck is replaced by its owner's next call rather than stacked. */
   owner?: string;
 }
@@ -586,36 +598,80 @@ let ducks: Duck[] = [];
 /**
  * Duck the music under a big moment, then bring it back.
  *
- * Owner-aware: ducks overlap, and a short shallow one (a lead change) never
- * cuts a long deep one (a commentary line) short; a named owner's next duck
- * replaces its previous one. The bus goes to the
- * deepest active amount and recovers to the nominal level over the
- * remaining time of the longest active duck. Every duck is measured from the
- * bus's NOMINAL level, never from its current reading - reading the bus used
- * to compound, and by the run home the soundtrack had quietly ratcheted
- * itself down to nothing.
+ * The music goes down over `attack`, HOLDS at the deepest active amount for
+ * as long as that duck lasts, then releases to the next deepest, and so on
+ * back to the nominal level. Owner-aware: a short shallow duck (a lead change)
+ * never cuts a long deep one (a commentary line) short, and a named owner's
+ * next duck replaces its previous one. Every level is measured from the bus's
+ * NOMINAL level, never from its current reading, so overlapping ducks cannot
+ * ratchet the soundtrack down to nothing.
  */
-export function duck(seconds = 1.2, amount = 0.45, owner?: string): void {
+export function duck(
+  seconds = 1.2,
+  amount = 0.45,
+  owner?: string,
+  shape: { attack?: number; release?: number } = {},
+): void {
   const bus = busNode('music');
   if (!bus) return;
   const level = musicBusTarget();
   if (level <= 0) return;
   const t = now();
 
-  /* An owner's new duck replaces its old one, so a clip that turns out
-     shorter than the fallback guess can shorten the recovery as well as
-     lengthen it. Anonymous ducks stack as before. */
   ducks = ducks.filter((d) => d.until > t && (!owner || d.owner !== owner));
-  ducks.push({ until: t + Math.max(0.3, seconds), amount: Math.max(DUCK_FLOOR, Math.min(1, amount)), owner });
+  ducks.push({
+    until: t + Math.max(0.3, seconds),
+    amount: Math.max(DUCK_FLOOR, Math.min(1, amount)),
+    release: Math.max(0.05, shape.release ?? DUCK_RELEASE),
+    owner,
+  });
 
-  const depth = Math.min(...ducks.map((d) => d.amount));
-  const until = Math.max(...ducks.map((d) => d.until));
+  const attack = Math.max(0.01, shape.attack ?? DUCK_RAMP_DOWN);
+  const sorted = [...ducks].sort((a, b) => a.until - b.until);
+  let depth = Math.min(...sorted.map((d) => d.amount));
 
   bus.gain.cancelScheduledValues(t);
   bus.gain.setValueAtTime(Math.min(level, Math.max(0.0001, bus.gain.value)), t);
-  bus.gain.linearRampToValueAtTime(level * depth, t + DUCK_RAMP_DOWN);
-  bus.gain.linearRampToValueAtTime(level, until);
+  bus.gain.linearRampToValueAtTime(level * depth, t + attack);
+  let cursor = t + attack;
+  for (let i = 0; i < sorted.length; i++) {
+    const rest = sorted.slice(i + 1);
+    const next = rest.length ? Math.min(...rest.map((d) => d.amount)) : 1;
+    /* This duck ending changes nothing while a deeper or equal one runs on. */
+    if (next <= depth + 1e-9) continue;
+    const holdUntil = Math.max(cursor, sorted[i].until);
+    bus.gain.setValueAtTime(level * depth, holdUntil);
+    cursor = holdUntil + sorted[i].release;
+    bus.gain.linearRampToValueAtTime(level * next, cursor);
+    depth = next;
+  }
 }
 
 /** The ducks still in flight, for the tests. */
 export const activeDucks = (): readonly Duck[] => ducks.filter((d) => d.until > now());
+
+/* ── The winner sting ──────────────────────────────────────────────────── */
+
+/**
+ * A short celebration, played with the winner call: a bright brass-like
+ * stab on the major chord, a run up the arpeggio, a low hit and a shimmer.
+ * About a second and a half, on the effects bus so the caller's duck does
+ * not swallow it. A club that supplies `fanfare.mp3` hears that instead.
+ */
+export function winnerSting(): void {
+  primeAudio();
+  if (playSample('sfx-fanfare', { gain: 0.8 })) return;
+  const C5 = 523.25;
+  /* The stab: the chord on detuned saws and a square an octave down, filtered bright to warm. */
+  [0, 4, 7, 12].forEach((semi, k) => {
+    tone({ freq: hz(semi, C5), dur: 0.55, type: 'sawtooth', peak: 0.11, attack: 0.02, unison: 12, lowpass: 5200, lowpassTo: 1600, q: 0.8, pan: (k - 1.5) * 0.3, bus: 'sfx' });
+  });
+  tone({ freq: C5 / 2, dur: 0.6, type: 'square', peak: 0.07, attack: 0.02, lowpass: 2400, lowpassTo: 900, bus: 'sfx' });
+  /* The run up, then the top note held. */
+  [0, 4, 7, 12, 16].forEach((semi, k) => {
+    tone({ freq: hz(semi, C5), at: 0.18 + k * 0.075, dur: k === 4 ? 0.9 : 0.16, type: 'triangle', peak: k === 4 ? 0.16 : 0.12, attack: 0.04, bus: 'sfx' });
+  });
+  /* A low hit under the stab, and a cymbal-like shimmer on top. */
+  tone({ freq: 110, slideTo: 55, dur: 0.45, type: 'sine', peak: 0.35, attack: 0.01, bus: 'sfx' });
+  noise({ dur: 1.3, peak: 0.06, type: 'highpass', freq: 6500, attack: 0.03, bus: 'sfx' });
+}

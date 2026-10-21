@@ -1,4 +1,5 @@
 @import './race-broadcast.css';
+@import './circuit-broadcast.css';
 
 :root {
   --ndcc-maroon: #b3141c;

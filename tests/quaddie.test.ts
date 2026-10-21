@@ -92,7 +92,21 @@ test('a resized card keeps quaddie tickets standing in the right legs', () => {
   assert.equal(quaddieStatus(settings, [entry('a', 'Priya', picks)], []).entries, 0);
 });
 
-test('legs on a twenty-race card survive a reload', () => {
+test('legs on a long run sheet survive a reload; a leg past the longest card does not', () => {
   assert.deepEqual(normaliseQuaddie({ ...DEFAULT_QUADDIE, legs: [14, 16, 18, 20] }).legs, [14, 16, 18, 20]);
-  assert.deepEqual(normaliseQuaddie({ ...DEFAULT_QUADDIE, legs: [14, 16, 18, 21] }).legs, [3, 5, 7, 9]);
+  assert.deepEqual(normaliseQuaddie({ ...DEFAULT_QUADDIE, legs: [14, 16, 18, 21] }).legs, [14, 16, 18, 21]);
+  assert.deepEqual(normaliseQuaddie({ ...DEFAULT_QUADDIE, legs: [14, 16, 18, 41] }).legs, [3, 5, 7, 9]);
+});
+
+test('picks follow the stored run sheet, including a run-off', async () => {
+  const { freshCard, setSnailsPerRace, runSheetLocks, addRunOff } = await import('../lib/card');
+  const card = setSnailsPerRace(freshCard(), 8, runSheetLocks(freshCard(), { history: [] }));
+  /* Ten races of eight: race 3 is snails 17 to 24, race 9 is 65 to 72. */
+  assert.equal(picksMatchLegs([17, 33, 49, 65], [3, 5, 7, 9], card), true);
+  assert.equal(picksMatchLegs([25, 33, 49, 65], [3, 5, 7, 9], card), false);
+  /* A run-off never owns a snail: the snail still belongs to its numbered race. */
+  const withRunOff = addRunOff(card, [1, 9, 17, 25, 33, 41, 49, 57]);
+  assert.equal(picksMatchLegs([17, 33, 49, 65], [3, 5, 7, 9], withRunOff), true);
+  const runOff: RaceHistoryEntry = { ...won(11, 2), snails: [1, 9, 17, 25, 33, 41, 49, 57] };
+  assert.equal(winnerSnailFor([runOff], 11), 17);
 });
