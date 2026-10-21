@@ -17,6 +17,7 @@ import {
   rosterCsv,
   snailsForRace,
   soldCount,
+  validSnailNo,
 } from '@/lib/card';
 import { laneColour } from '@/lib/palette';
 import { CardFitNotice } from './RunSheetPanel';
@@ -57,6 +58,8 @@ export function RosterPanel({
   /* A hand edit makes the slot the desk's: the Stripe claim is released so a
      later refund of that payment cannot erase what the desk typed. */
   const update = (snailNo: number, field: 'names' | 'owners', value: string) => {
+    /* A place past the snails on sale has no slot to keep a name in. */
+    if (!validSnailNo(snailNo, card)) return;
     setState((s) => {
       const list = s.card[field].slice();
       list[snailNo - 1] = value.slice(0, field === 'names' ? MAX_NAME : MAX_OWNER);
@@ -215,10 +218,10 @@ export function RosterPanel({
                   <input
                     type="text"
                     aria-label={`Snail ${snailNo} name`}
-                    placeholder="Unsold"
+                    placeholder={validSnailNo(snailNo, card) ? 'Unsold' : 'Not on sale'}
                     maxLength={MAX_NAME}
                     value={card.names[snailNo - 1] ?? ''}
-                    disabled={lockedSnails.has(snailNo)}
+                    disabled={lockedSnails.has(snailNo) || !validSnailNo(snailNo, card)}
                     onChange={(e) => update(snailNo, 'names', e.target.value)}
                   />
                   <input
@@ -227,7 +230,7 @@ export function RosterPanel({
                     placeholder="Owner"
                     maxLength={MAX_OWNER}
                     value={card.owners[snailNo - 1] ?? ''}
-                    disabled={lockedSnails.has(snailNo)}
+                    disabled={lockedSnails.has(snailNo) || !validSnailNo(snailNo, card)}
                     onChange={(e) => update(snailNo, 'owners', e.target.value)}
                   />
                   {card.claims[snailNo] ? (
