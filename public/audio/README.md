@@ -2,27 +2,30 @@
 
 The app ships recorded race calls in `commentary/`. The script (31 cues, three takes
 each, written the way a club race caller talks) is in `lib/audio/voice-cues.ts`. The voice
-is Resemble AI Chatterbox (Hugging Face space `ResembleAI/Chatterbox`), cloned from the
-previous caller's clip so the sound of the room did not change, recorded 2026-10-20,
-encoded mono 24 kHz 64 kbps MP3 with leading and trailing silence trimmed. No API key or
-speech service is called during a race.
+is Resemble AI Chatterbox, cloned from the previous caller's clip so the sound of the room
+did not change, encoded mono 24 kHz 64 kbps MP3 with leading and trailing silence
+trimmed. No API key or speech service is called during a race.
 
-The 2026-10-20 run hit the public space's daily GPU quota after seven clips (`start` x3,
-`ready` x3, `early` x1). Every other cue still plays its single 2026-09-05 HeyGen
-"Dynamic Derek" clip as take 1 - same meaning as the new script, older wording - and
-`quarter.mp3`, `half.mp3` and `threeQuarter.mp3` are placeholder copies of that caller's
-"still plenty of racing left" line. `RECORDED_TAKES` in `voice-cues.ts` says exactly
-which takes are real.
+Seven takes (`start` x3, `ready` x3, `early` x1) were recorded on 2026-10-20 on the public
+Hugging Face space `ResembleAI/Chatterbox`, which then ran out of free GPU quota. The rest
+were recorded on 2026-10-21 with the same model, the same settings and the same seeds,
+run locally on CPU. `RECORDED_TAKES` in `voice-cues.ts` says exactly which takes exist.
+`voice-reference.mp3` is the previous caller's original clip (2026-09-05, HeyGen
+"Dynamic Derek"), kept aside as the voice every recording clones.
 
-To finish the recording, or to re-record after changing a line:
+To re-record after changing a line, delete its clips, set its count in `RECORDED_TAKES`
+back, and run one of:
 
+    node --experimental-strip-types scripts/generate-commentary.mjs --local
     node --experimental-strip-types scripts/generate-commentary.mjs
 
-It needs a reachable Chatterbox Gradio endpoint (`CHATTERBOX_URL`, default the public
-space; `HF_TOKEN` raises the quota), a public URL for the reference voice
-(`VOICE_PROMPT_URL`) and an `ffmpeg` with libmp3lame. It records only the takes that are
-missing, stops after five failures in a row and keeps what it has, so run it again the next
-day to continue. It is deliberately not part of `npm run build` and cannot run in CI.
+`--local` runs the model on this machine (`pip install chatterbox-tts "setuptools<81"`,
+CPU PyTorch is enough, about 15 seconds a take; `CHATTERBOX_PYTHON` picks the Python). The
+plain form calls a Chatterbox Gradio endpoint (`CHATTERBOX_URL`, default the public space;
+`HF_TOKEN` raises the quota) with a public URL for the reference voice
+(`VOICE_PROMPT_URL`). Both need an `ffmpeg` with libmp3lame and record only the takes that
+are missing. The hosted form stops after five failures in a row and keeps what it has. It
+is deliberately not part of `npm run build` and cannot run in CI.
 
 Natural race caller is the default. The clips never say a snail's number or name: the
 caption on the rail carries those, so "Snail 7 hits the front" on screen is "And there's a

@@ -13,13 +13,20 @@
  *   node --experimental-strip-types scripts/generate-commentary.mjs lead winner # only these cues
  *   node --experimental-strip-types scripts/generate-commentary.mjs --force photo
  *   node --experimental-strip-types scripts/generate-commentary.mjs --dry-run   # list what is missing
+ *   node --experimental-strip-types scripts/generate-commentary.mjs --local     # same model, on this machine
+ *
+ * --local runs scripts/chatterbox-local.py with CHATTERBOX_PYTHON (default
+ * `python3`), which needs `pip install chatterbox-tts` (CPU PyTorch is enough,
+ * about 15 s a take; install `setuptools<81` too for its watermarker). It uses
+ * public/audio/voice-reference.mp3 as the voice and no quota applies.
  *
  * Environment:
  *   CHATTERBOX_URL   Gradio base URL. Default https://resembleai-chatterbox.hf.space
  *   HF_TOKEN         Optional Hugging Face token (raises the ZeroGPU quota).
  *   VOICE_PROMPT_URL Public URL of the reference voice. Default: the deployed
- *                    `audio/commentary/winner.mp3`, which is the previous
- *                    caller, so the voice stays the same across runs.
+ *                    `audio/voice-reference.mp3`, the previous caller's clip
+ *                    kept aside so every run clones the same voice (the cue
+ *                    clips themselves are generated and must not be cloned).
  *   FFMPEG           ffmpeg binary with libmp3lame. Default: `ffmpeg` on PATH.
  *
  * What it does, per take:
@@ -36,7 +43,7 @@
  * again later and it continues from the first missing take.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -44,7 +51,8 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const CUES_TS = join(ROOT, 'lib', 'audio', 'voice-cues.ts');
 const OUT_DIR = join(ROOT, 'public', 'audio', 'commentary');
 const BASE = (process.env.CHATTERBOX_URL ?? 'https://resembleai-chatterbox.hf.space').replace(/\/$/, '');
-const PROMPT = process.env.VOICE_PROMPT_URL ?? 'https://sajeevanveeriah.github.io/SnailRace/audio/commentary/winner.mp3';
+const PROMPT = process.env.VOICE_PROMPT_URL ?? 'https://sajeevanveeriah.github.io/SnailRace/audio/voice-reference.mp3';
+const LOCAL_PROMPT = join(ROOT, 'public', 'audio', 'voice-reference.mp3');
 const FFMPEG = process.env.FFMPEG ?? 'ffmpeg';
 const MAX_CONSECUTIVE_FAILURES = 5;
 
@@ -53,6 +61,7 @@ const { RECORDED_CUES, RECORDED_TAKES, CUE_ENERGY, TAKES_PER_CUE, clipFile } = a
 const args = process.argv.slice(2);
 const force = args.includes('--force');
 const dryRun = args.includes('--dry-run');
+const local = args.includes('--local');
 const only = new Set(args.filter((a) => !a.startsWith('--')));
 const cues = Object.keys(RECORDED_CUES).filter((cue) => !only.size || only.has(cue));
 const recorded = { ...RECORDED_TAKES };
@@ -98,6 +107,19 @@ function writeTakes() {
   writeFileSync(CUES_TS, `${src.slice(0, start)}export const RECORDED_TAKES: Record<RecordedCue, number> = {\n${body}\n};${src.slice(end)}`);
 }
 
+/* --local: record every missing take in one model load, then the loop below
+   picks each WAV up instead of calling the space. */
+if (local && !dryRun) {
+  const jobs = [];
+  for (const cue of cues) {
+    for (let take = (force ? 0 : recorded[cue] ?? 0) + 1; take <= TAKES_PER_CUE; take++) {
+      jobs.push({ cue, take, file: clipFile(cue, take), text: RECORDED_CUES[cue][take - 1], exaggeration: CUE_ENERGY[cue], seed: 1000 + cues.indexOf(cue) * 10 + take });
+    }
+  }
+  writeFileSync(join(tmp, 'jobs.json'), JSON.stringify(jobs));
+  execFileSync(process.env.CHATTERBOX_PYTHON ?? 'python3', [join(ROOT, 'scripts', 'chatterbox-local.py'), join(tmp, 'jobs.json'), LOCAL_PROMPT, tmp], { stdio: 'inherit' });
+}
+
 let failures = 0;
 let made = 0;
 outer: for (const cue of cues) {
@@ -108,11 +130,15 @@ outer: for (const cue of cues) {
     process.stdout.write(`${clipFile(cue, take)}: "${text}" ... `);
     if (dryRun) { console.log('(dry run)'); continue; }
     try {
-      const url = await synthesise(text, CUE_ENERGY[cue], seed);
       const wav = join(tmp, `${cue}-${take}.wav`);
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error(`download ${res.status}`);
-      writeFileSync(wav, Buffer.from(await res.arrayBuffer()));
+      if (local) {
+        if (!existsSync(wav)) throw new Error('not recorded by chatterbox-local.py');
+      } else {
+        const url = await synthesise(text, CUE_ENERGY[cue], seed);
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(`download ${res.status}`);
+        writeFileSync(wav, Buffer.from(await res.arrayBuffer()));
+      }
       encode(wav, join(OUT_DIR, clipFile(cue, take)));
       recorded[cue] = take;
       made++;
