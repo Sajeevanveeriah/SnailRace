@@ -444,7 +444,7 @@ test('camera changes preserve painted lanes without restarting the race', async 
   await useOval(page);
   await advanceToRace(page);
   await page.getByRole('button', { name: /Start race/i }).click();
-  await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6000 });
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-race-phase', 'running', { timeout: 6000 });
   const clock = page.locator('.tv-clock');
   await expect(clock).not.toHaveText('0:00.0');
   await page
@@ -521,7 +521,7 @@ for (const [raceNumber, courseId] of [
     await page.reload();
     await advanceToRace(page);
     await page.getByRole('button', { name: /Start race/i }).click();
-    await expect(page.locator('.tv.racing')).toBeVisible({ timeout: 6000 });
+    await expect(page.locator('.race-broadcast')).toHaveAttribute('data-race-phase', 'running', { timeout: 6000 });
     await page
       .getByRole('button', { name: 'Full field', exact: true })
       .click();
