@@ -34,7 +34,7 @@ const PRESENTATIONS: ReadonlyArray<{
   matches: readonly string[];
   value: SurprisePresentation;
 }> = [
-  /* The twists: physical gags, matched first so their wording cannot fall
+  /* The deck: physical gags, matched first so their wording cannot fall
      through to an older entry. */
   { matches: ['BIG BOOT'], value: { art: null, glyph: 'boot', symbol: '🥾', cue: 'stomp' } },
   { matches: ['SNAIL ALE'], value: { art: null, glyph: 'ale', symbol: '🍺', cue: 'drop' } },
@@ -50,21 +50,25 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['KOOKABURRA'], value: { art: null, glyph: 'kookaburra', symbol: '🐦', cue: 'drop' } },
   { matches: ['TRAMPOLINE'], value: { art: null, glyph: 'trampoline', symbol: '⤴', cue: 'launch' } },
   { matches: ['WOMBAT'], value: { art: null, glyph: 'wombat', symbol: '🐾', cue: 'cross' } },
+  { matches: ['POSSUM'], value: { art: null, glyph: 'possum', symbol: '🐾', cue: 'dash' } },
   { matches: ['MOWER'], value: { art: null, glyph: 'mower', symbol: '🚜', cue: 'dash' } },
-  { matches: ['HAILSTORM'], value: { art: null, glyph: 'rain-cloud', symbol: '🌨', cue: 'burst' } },
-  { matches: ['LEAF BLOWER'], value: { art: null, glyph: 'wind', symbol: '💨', cue: 'burst' } },
-  { matches: ['EARTH TREMOR'], value: { art: null, glyph: 'warning', symbol: '⚠', cue: 'burst' } },
-  { matches: ['LUCKY DIP'], value: { art: null, glyph: 'swap', symbol: '⇄', cue: 'burst' } },
-  { matches: ['POSSUM'], value: { art: null, glyph: 'wombat', symbol: '🐾', cue: 'drop' } },
-  { matches: ['RUNAWAY DRONE'], value: { art: null, glyph: 'camera', symbol: '📷', cue: 'swoop' } },
-  { matches: ["SLIP 'N' SLIDE"], value: { art: null, glyph: 'slime', symbol: '💧', cue: 'dash' } },
+  { matches: ['HAILSTORM', 'HAIL'], value: { art: null, glyph: 'hail', symbol: '🌨', cue: 'burst' } },
+  { matches: ['LEAF BLOWER'], value: { art: null, glyph: 'leaf-blower', symbol: '💨', cue: 'burst' } },
+  { matches: ['EARTH TREMOR', 'TREMOR'], value: { art: null, glyph: 'tremor', symbol: '⚠', cue: 'burst' } },
+  { matches: ['LUCKY DIP'], value: { art: null, glyph: 'lucky-dip', symbol: '?', cue: 'burst' } },
+  { matches: ['LUCKY LAST'], value: { art: null, glyph: 'clover', symbol: '☘', cue: 'burst' } },
+  { matches: ['RUNAWAY DRONE', 'DRONE'], value: { art: null, glyph: 'drone', symbol: '📷', cue: 'swoop' } },
+  { matches: ["SLIP 'N' SLIDE"], value: { art: null, glyph: 'puddle', symbol: '💧', cue: 'dash' } },
   { matches: ['CHEER SQUAD'], value: { art: null, glyph: 'megaphone', symbol: '📣', cue: 'burst' } },
-  { matches: ['ROAD WORKS'], value: { art: null, glyph: 'warning', symbol: '⚠', cue: 'drop' } },
+  { matches: ['ROAD WORKS'], value: { art: null, glyph: 'cones', symbol: '⚠', cue: 'drop' } },
+  { matches: ['BIG FREEZE', 'FREEZE'], value: { art: null, glyph: 'freeze', symbol: '🧊', cue: 'burst' } },
+  { matches: ['HEADWIND'], value: { art: null, glyph: 'headwind', symbol: '💨', cue: 'burst' } },
+  { matches: ['REVERSE GEAR'], value: { art: null, glyph: 'u-turn', symbol: '↩', cue: 'cross' } },
 
   /* The set pieces, drawn flat like everything else on the course. */
   { matches: ['CRICKET BALL'], value: { art: null, glyph: 'cricket-ball', symbol: '●', cue: 'roll' } },
   { matches: ['SPRINKLER'], value: { art: null, glyph: 'sprinkler', symbol: '💦', cue: 'spray' } },
-  { matches: ['PITCH ROLLER'], value: { art: null, glyph: 'pitch-roller', symbol: '⚙', cue: 'cross' } },
+  { matches: ['PITCH ROLLER', 'ROLLER'], value: { art: null, glyph: 'pitch-roller', symbol: '⚙', cue: 'cross' } },
   { matches: ['DOG ON THE TRACK', 'CLUB DOG'], value: { art: null, glyph: 'dog', symbol: '🐕', cue: 'dash' } },
   { matches: ['LETTUCE'], value: { art: null, glyph: 'lettuce', symbol: '🥬', cue: 'drop' } },
   { matches: ['MAGPIE', 'SWOOP'], value: { art: null, glyph: 'magpie', symbol: '🐦', cue: 'swoop' } },
@@ -72,30 +76,22 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['BOUNDARY BEE'], value: { art: null, glyph: 'bee', symbol: '🐝', cue: 'swoop' } },
   { matches: ['PLAGUE'], value: { art: null, glyph: 'plague', symbol: '☣', cue: 'burst' } },
 
-  /* The second book: vector props. */
+  /* The second book. */
   { matches: ['ICE CREAM'], value: { art: null, glyph: 'ice-cream-van', symbol: '🍦', cue: 'cross' } },
   { matches: ['RAIN SQUALL', 'RAIN'], value: { art: null, glyph: 'rain-cloud', symbol: '🌧', cue: 'burst' } },
-  { matches: ['MEXICAN WAVE', 'HOME CROWD ROAR'], value: { art: null, glyph: 'crowd-wave', symbol: '🙌', cue: 'burst' } },
+  { matches: ['MEXICAN WAVE', 'HOME CROWD ROAR', 'CROWD LIFT'], value: { art: null, glyph: 'crowd-wave', symbol: '🙌', cue: 'burst' } },
   { matches: ['PITCH INVADER'], value: { art: null, glyph: 'invader', symbol: '🏃', cue: 'dash' } },
   { matches: ['COVERS'], value: { art: null, glyph: 'covers', symbol: '▰', cue: 'cross' } },
-  { matches: ['DRINKS CART'], value: { art: null, glyph: 'drinks-cart', symbol: '🛒', cue: 'cross' } },
+  { matches: ['DRINKS CART', 'DRINKS BREAK'], value: { art: null, glyph: 'drinks-cart', symbol: '🛒', cue: 'cross' } },
   { matches: ['SIGHTSCREEN'], value: { art: null, glyph: 'sightscreen', symbol: '▭', cue: 'drop' } },
   { matches: ['MYSTERY SPINNER'], value: { art: null, glyph: 'spinner', symbol: '●', cue: 'roll' } },
   { matches: ['DRS REVIEW'], value: { art: null, glyph: 'review', symbol: '📺', cue: 'burst' } },
   { matches: ['TEA INTERVAL'], value: { art: null, glyph: 'teacup', symbol: '☕', cue: 'drop' } },
   { matches: ['SELFIE'], value: { art: null, glyph: 'camera', symbol: '📷', cue: 'drop' } },
   { matches: ['SUNSCREEN'], value: { art: null, glyph: 'sunscreen', symbol: '🧴', cue: 'drop' } },
-  { matches: ['TAILWIND'], value: { art: null, glyph: 'wind', symbol: '💨', cue: 'burst' } },
-  { matches: ['DRINKS BREAK'], value: { art: null, glyph: 'drinks-cart', symbol: '🥤', cue: 'burst' } },
-  { matches: ['DEW'], value: { art: null, glyph: 'slime', symbol: '💧', cue: 'drop' } },
+  { matches: ['DEW ON', 'SHELL SLIP'], value: { art: null, glyph: 'puddle', symbol: '💧', cue: 'drop' } },
 
-  /* The deck: late and field-wide cards drawn on top of both books. */
-  { matches: ['BIG FREEZE', 'FREEZE'], value: { art: null, glyph: 'hand', symbol: '✋', cue: 'burst' } },
-  { matches: ['HEADWIND'], value: { art: null, glyph: 'wind', symbol: '💨', cue: 'burst' } },
-  { matches: ['REVERSE GEAR'], value: { art: null, glyph: 'u-turn', symbol: '↩', cue: 'cross' } },
-  { matches: ['LUCKY LAST'], value: { art: null, glyph: 'bolt', symbol: '⚡', cue: 'burst' } },
-
-  /* The first book's lighter moments, now drawn rather than typed. */
+  /* The first book's moments. */
   { matches: ['BANANA'], value: { art: null, glyph: 'banana', symbol: '🍌', cue: 'drop' } },
   { matches: ['ESPRESSO'], value: { art: null, glyph: 'coffee', symbol: '☕', cue: 'burst' } },
   { matches: ['MICRO-NAP', 'STAGE FRIGHT'], value: { art: null, glyph: 'zzz', symbol: '💤', cue: 'drop' } },
@@ -103,13 +99,24 @@ const PRESENTATIONS: ReadonlyArray<{
   { matches: ['WRONG WAY'], value: { art: null, glyph: 'u-turn', symbol: '↩', cue: 'cross' } },
   { matches: ['SNAIL ROMANCE'], value: { art: null, glyph: 'heart', symbol: '♥', cue: 'burst' } },
   { matches: ['THIRD UMPIRE'], value: { art: null, glyph: 'umpire', symbol: '☝', cue: 'burst' } },
-  { matches: ['SLEDGED', 'CROWD LIFT'], value: { art: null, glyph: 'megaphone', symbol: '📣', cue: 'burst' } },
+  { matches: ['SLEDGED'], value: { art: null, glyph: 'megaphone', symbol: '📣', cue: 'burst' } },
   { matches: ['SHELL SWAP'], value: { art: null, glyph: 'swap', symbol: '⇄', cue: 'cross' } },
   { matches: ['TURBO', 'SECOND WIND', 'SLIPSTREAM', 'DOWNHILL', 'FRESH WAX'], value: { art: null, glyph: 'bolt', symbol: '⚡', cue: 'burst' } },
-  { matches: ['SHELL SLIP', 'GRAVEL', 'CRAMP', 'BOGGED'], value: { art: null, glyph: 'warning', symbol: '⚠', cue: 'drop' } },
+  { matches: ['TAILWIND'], value: { art: null, glyph: 'wind', symbol: '💨', cue: 'burst' } },
+  { matches: ['GRAVEL'], value: { art: null, glyph: 'gravel', symbol: '⚠', cue: 'drop' } },
+  { matches: ['CRAMP'], value: { art: null, glyph: 'ice-pack', symbol: '✚', cue: 'drop' } },
+  { matches: ['BOGGED'], value: { art: null, glyph: 'mud', symbol: '⚠', cue: 'drop' } },
   { matches: ['MYSTERY SLIME'], value: { art: null, glyph: 'slime', symbol: '◉', cue: 'burst' } },
   { matches: ['FALSE START'], value: { art: null, glyph: 'hand', symbol: '✋', cue: 'burst' } },
+
+  /* The late swings at the end of an older race. */
+  { matches: ['WOBBLE', 'LEGS GONE'], value: { art: null, glyph: 'dizzy', symbol: '✶', cue: 'burst' } },
+  { matches: ['CAUGHT SHORT'], value: { art: null, glyph: 'crowd-wave', symbol: '🙌', cue: 'burst' } },
+  { matches: ['LATE CHARGE', 'LUNGE', 'CHASE IS ON', 'COMING FAST'], value: { art: null, glyph: 'bolt', symbol: '⚡', cue: 'burst' } },
 ];
+
+const lookup = (haystack: string): SurprisePresentation | undefined =>
+  PRESENTATIONS.find((entry) => entry.matches.some((term) => haystack.includes(term)))?.value;
 
 /**
  * Prefer structured labels when the engine supplies them, then fall back to
@@ -119,8 +126,10 @@ const PRESENTATIONS: ReadonlyArray<{
 export function presentationForMoment(moment: RaceMoment | null): SurprisePresentation | null {
   if (!moment) return null;
   const presentable = moment as PresentableMoment;
-  const haystack = `${presentable.kind ?? ''} ${presentable.label ?? ''} ${moment.text}`.toUpperCase();
-  return PRESENTATIONS.find((entry) => entry.matches.some((term) => haystack.includes(term)))?.value ?? {
+  /* The label names the twist. The caption also names snails, and a snail
+     called "Rainbow" must never turn a lettuce crate into a rain cloud. */
+  const byLabel = presentable.label ? lookup(presentable.label.toUpperCase()) : undefined;
+  return byLabel ?? lookup(`${presentable.kind ?? ''} ${moment.text}`.toUpperCase()) ?? {
     art: null,
     symbol: '!',
     cue: moment.big ? 'burst' : 'drop',
