@@ -16,7 +16,9 @@ const DIR = join(process.cwd(), 'public', 'audio');
 const AUDIO = /\.(mp3|ogg|wav)$/i;
 
 const files = await readdir(DIR)
-  .then((all) => all.filter((f) => AUDIO.test(f)).sort())
+  /* voice-reference.mp3 is the commentary generator's source voice, not a
+     music or effects file, so it is never listed as a drop-in. */
+  .then((all) => all.filter((f) => AUDIO.test(f) && f !== 'voice-reference.mp3').sort())
   .catch(() => []); // No folder is a normal state: everything is synthesised.
 
 await writeFile(
