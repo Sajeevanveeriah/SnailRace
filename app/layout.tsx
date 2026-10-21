@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './broadcast-theatre.css';
 import './moderator-desk.css';
+import './show-screens.css';
 
 const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
 const fallbackSiteUrl = 'https://sajeevanveeriah.github.io/SnailRace';
@@ -28,12 +29,12 @@ export const metadata: Metadata = {
   metadataBase,
   title: 'Snail Racing - A Night at the Races | Newcomb & District Cricket Club',
   description:
-    'Newcomb & District Cricket Club presents Snail Racing: a night at the races, Saturday 24 October 2026 from 7 pm at the club rooms. $10 per snail. Back your snail, cheer it home. Slow race, big cheers.',
+    'Newcomb & District Cricket Club presents Snail Racing: a night at the races, Saturday 24 October 2026 from 7 pm at the club rooms. Buy a snail, name it, cheer it home. Slow race, big cheers.',
   applicationName: 'NDCC Snail Race',
   openGraph: {
     title: 'Snail Racing - A Night at the Races',
     description:
-      'Saturday 24 October 2026 from 7 pm at the NDCC club rooms. $10 per snail. Back your snail, cheer it home.',
+      'Saturday 24 October 2026 from 7 pm at the NDCC club rooms. Buy a snail, name it, cheer it home.',
     type: 'website',
     images: [{ url: poster, width: 900, height: 1125, alt: 'NDCC Snail Racing poster: Saturday 24 October, from 7 pm, club rooms, $10 per snail' }],
   },

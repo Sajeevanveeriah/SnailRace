@@ -155,11 +155,15 @@ test('show flow isolates the hidden stage and remains accessible', async ({
   await page.getByRole('button', { name: /Show the racecard/i }).click();
   const racecard = page.getByRole('region', { name: 'RACECARD screen' });
   await expect(racecard).toBeVisible();
-  /* Ten numbered snails, unsold ones said so, no market and no chips. */
+  /* Ten numbered snails, unsold ones offered for sale, the race's track,
+     length and surprise level, no market and no chips. A league race carries no label. */
   await expect(racecard).toContainText('Race 1 of 10');
-  await expect(racecard).toContainText(/snails 1 to 10/);
-  await expect(racecard.getByRole('list', { name: 'Owners for race 1' }).locator('li')).toHaveCount(10);
-  await expect(racecard).toContainText('Unsold');
+  await expect(racecard).toContainText(/Snails 1 to 10/);
+  await expect(racecard.getByRole('list', { name: 'Race 1 field, 10 runners' }).locator('li')).toHaveCount(10);
+  await expect(racecard).toContainText('For sale');
+  await expect(racecard.getByRole('list', { name: 'Race details' })).toContainText('Side-on straight');
+  await expect(racecard.getByRole('list', { name: 'Race details' })).toContainText('Standard surprises');
+  await expect(racecard).not.toContainText(/Heat|Unsold/);
   await expect(racecard).not.toContainText(/fun chip|market|odds/i);
   await assertNoSeriousAxeFindings(page);
   await expect(page.getByRole('button', { name: /market/i })).toHaveCount(0);
@@ -642,15 +646,15 @@ test.describe('light colour scheme', () => {
   test('the racecard stays readable on a light-scheme laptop', async ({ page }) => {
     await page.getByRole('button', { name: /Show the racecard/i }).click();
     const board = page.getByRole('region', { name: 'RACECARD screen' })
-      .getByRole('list', { name: 'Owners for race 1' });
+      .getByRole('list', { name: 'Race 1 field, 10 runners' });
     await expect(board).toBeVisible();
     const colours = await board.evaluate((list) => {
-      const name = list.querySelector('.show-owner-name') as HTMLElement;
-      const panel = list.closest('.show-panel') as HTMLElement;
+      const name = list.querySelector('.ss-runner-name') as HTMLElement;
+      const card = list.querySelector('.ss-runner') as HTMLElement;
       return {
         text: getComputedStyle(name).color,
-        board: getComputedStyle(list).backgroundColor,
-        panel: getComputedStyle(panel).backgroundColor,
+        board: getComputedStyle(card).backgroundColor,
+        panel: getComputedStyle(list).backgroundColor,
         scheme: getComputedStyle(list).colorScheme,
       };
     });

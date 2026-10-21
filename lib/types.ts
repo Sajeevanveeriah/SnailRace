@@ -414,6 +414,8 @@ export interface RaceHistoryEntry {
   owners?: string[];
   /** First snail number minus one for this race on the card. Absent on races numbered by lane. */
   snailOffset?: number;
+  /** Snail number per lane, when the field was not a run of numbers (a winners' run-off). */
+  snails?: number[];
   laps?: number;
   surprises?: boolean;
   trackShape?: 'lanes' | 'circuit';
@@ -534,8 +536,14 @@ export interface EventState {
   backingCents?: number;
   /** Which product the night runs on: the animated engine, or a Race Pack. */
   eventMode: 'live' | 'recorded';
-  /** How many races the card plans. Presentation only; never a limit. */
+  /** How many races the run sheet holds. Always the card's race count. */
   plannedRaces: number;
+  /**
+   * The night is a league: each result goes straight to the next racecard.
+   * On, the championship screens (the quaddie board while a quaddie runs)
+   * show between races. Off by default.
+   */
+  championshipScreens: boolean;
   /** Rehearsal nights are loudly labelled and cheap to reset. */
   rehearsal: boolean;
   /** Where the run of show currently stands. Survives reloads. */
@@ -582,8 +590,8 @@ export interface EventState {
   /** Optional sponsor per runner lane, shown on the racecard and lower thirds. */
   runnerSponsors: string[];
   /**
-   * The card: one hundred numbered snails, ten per race, named by the
-   * people who bought them. Race N's field is always snails 10N-9 to 10N.
+   * The card: the numbered snails on sale, named by the people who bought
+   * them, and the run sheet that says which race each number runs in.
    */
   card: CardState;
   /** The quaddie on four nominated races, switched on in Admin. Off by default. */

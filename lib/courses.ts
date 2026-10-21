@@ -133,3 +133,26 @@ export function designForRace(
     ? { trackShape: 'lanes', courseId: courseForRace(raceNo).id }
     : { trackShape: 'circuit', courseId: design };
 }
+
+/** What the room calls a race view: "Side-on straight", or the circuit's own name. */
+export function designNameOf(trackShape: 'lanes' | 'circuit', courseId: string | null | undefined): string {
+  return trackShape === 'lanes' ? 'Side-on straight' : courseById(courseId).name;
+}
+
+/**
+ * The display name of the design a race runs on. The straight carries a
+ * course id for its plan hash, so the name comes from the shape first and
+ * never from that id.
+ */
+export function designName(
+  designs: readonly TrackDesignId[] | null | undefined,
+  trackShape: 'lanes' | 'circuit',
+  raceNo: number,
+): string {
+  const design = designForRace(designs, trackShape, raceNo);
+  return designNameOf(design.trackShape, design.courseId);
+}
+
+/** The display name of one design id. */
+export const designIdName = (id: TrackDesignId): string =>
+  id === 'straight' ? 'Side-on straight' : courseById(id).name;

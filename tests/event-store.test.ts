@@ -126,23 +126,27 @@ test('addAudit prepends, never edits, and stays capped', () => {
 test('a saved night that already raced keeps the races its snails were sold into', async () => {
   const { cardLayout, describeLayout, raceForSnail, resizeCard } = await import('../lib/card');
   const state = freshState();
-  const card = { ...state.card, snailCount: 64, names: new Array(64).fill(''), owners: new Array(64).fill('') };
-  delete (card as { split?: string }).split;
+  /* A card as the 5.3 build saved it: a count and no split marker or run sheet. */
+  const card = { ...state.card, snailCount: 64, names: new Array(64).fill(''), owners: new Array(64).fill('') } as Record<string, unknown>;
+  delete card.split;
+  delete card.races;
+  delete card.snailsPerRace;
   const ran = { raceNo: 1, void: false };
+  const layoutNow = () => describeLayout(cardLayout(currentState().card));
   assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
   assert.equal(currentState().card.split, 'legacy');
-  assert.equal(describeLayout(cardLayout(64)), '7 races: 1 of 10, 6 of 9');
-  assert.equal(raceForSnail(10, 64), 1);
+  assert.equal(layoutNow(), '7 races: 1 of 10, 6 of 9');
+  assert.equal(raceForSnail(10, currentState().card), 1);
   assert.equal(currentState().plannedRaces, 7);
-  /* The marker survives a save and reload on its own. */
+  /* The migrated run sheet survives a save and reload on its own. */
   assert.ok(restore(JSON.stringify({ ...currentState(), history: [] })));
   assert.equal(currentState().card.split, 'legacy');
-  assert.equal(describeLayout(cardLayout(64)), '7 races: 1 of 10, 6 of 9');
-  /* The same card with no race run takes tonight's equal split. */
+  assert.equal(layoutNow(), '7 races: 1 of 10, 6 of 9');
+  /* The same card with no race run takes the even split. */
   assert.ok(restore(JSON.stringify({ ...state, card, history: [] })));
   assert.equal(currentState().card.split, 'even');
-  assert.equal(describeLayout(cardLayout(64)), '8 races of 8');
-  assert.equal(raceForSnail(10, 64), 2);
+  assert.equal(layoutNow(), '8 races of 8');
+  assert.equal(raceForSnail(10, currentState().card), 2);
   assert.equal(currentState().plannedRaces, 8);
   /* A ticket, sale or bid sold before any race is tied to a lane too. */
   for (const key of ['quaddieEntries', 'toteSales', 'auctionBids', 'cashLedger'] as const) {
@@ -152,16 +156,51 @@ test('a saved night that already raced keeps the races its snails were sold into
   /* A voided race does not lock the old split in. */
   assert.ok(restore(JSON.stringify({ ...state, card, history: [{ ...ran, void: true }] })));
   assert.equal(currentState().card.split, 'even');
-  /* Clearing a rehearsal keeps the pinned split: tickets and bids survive the clear. */
+  /* Clearing a rehearsal keeps the run sheet: tickets and bids survive the clear. */
   assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
   setState({ history: [], raceNumber: 0 });
   assert.equal(currentState().card.split, 'legacy');
   assert.equal(currentState().plannedRaces, 7);
-  assert.equal(describeLayout(cardLayout(64)), '7 races: 1 of 10, 6 of 9');
-  /* Resizing (only possible before a race and with no ticket sold) lands on the equal split. */
-  assert.ok(restore(JSON.stringify({ ...state, card, history: [ran] })));
+  assert.equal(layoutNow(), '7 races: 1 of 10, 6 of 9');
+  /* Putting more snails on sale never moves a race: the run sheet stays put. */
   const resized = resizeCard(currentState().card, 72);
-  assert.ok(!('error' in resized) && resized.split === 'even');
-  assert.equal(describeLayout(cardLayout(72)), '8 races of 9');
+  assert.ok(!('error' in resized));
+  if ('error' in resized) return;
+  setState({ card: resized });
+  assert.equal(layoutNow(), '7 races: 1 of 10, 6 of 9');
+  assert.equal(currentState().plannedRaces, 7);
+  /* A bare count still splits on its own the even way. */
   assert.equal(describeLayout(cardLayout(64)), '8 races of 8');
+});
+
+test('a fresh night is a league of ten races of ten, 30 s, Standard surprises', () => {
+  const s = freshState();
+  assert.equal(s.card.races.length, 10);
+  assert.equal(s.raceType, 'League');
+  assert.equal(s.raceDurationMs, 30_000);
+  assert.equal(s.intensity, 'standard');
+  assert.equal(s.championshipScreens, false);
+  /* An old night's forced "Heat" default reads as a league race; a Heat chosen since is kept. */
+  const old: Record<string, unknown> = { ...s, raceType: 'Heat' };
+  delete old.championshipScreens;
+  assert.ok(restore(JSON.stringify(old)));
+  assert.equal(currentState().raceType, 'League');
+  assert.ok(restore(JSON.stringify({ ...s, raceType: 'Heat' })));
+  assert.equal(currentState().raceType, 'Heat');
+  assert.ok(restore(JSON.stringify({ ...s, raceType: 'Final', championshipScreens: true })));
+  assert.equal(currentState().raceType, 'Final');
+  assert.equal(currentState().championshipScreens, true);
+});
+
+test('the race count follows the run sheet, and quaddie legs stay on the card', async () => {
+  const { addRace, freshCard, setRaceCount, runSheetLocks } = await import('../lib/card');
+  assert.ok(restore(JSON.stringify(freshState())));
+  setState({ card: addRace(freshCard()) });
+  assert.equal(currentState().plannedRaces, 11);
+  const short = setRaceCount(freshCard(), 6, runSheetLocks(freshCard(), { history: [] }));
+  assert.ok(!('error' in short));
+  if ('error' in short) return;
+  setState({ card: short });
+  assert.equal(currentState().plannedRaces, 6);
+  assert.ok(currentState().quaddie.legs.every((leg) => leg <= 6));
 });

@@ -1,28 +1,32 @@
 'use client';
 
-import { SNAILS_ON_CARD, snailOffsetForRace, snailsForRace } from '@/lib/card';
-import { useEffect, useRef } from 'react';
-import { Snail } from './Snail';
+import { useEffect, useRef, useState } from 'react';
+import { raceTitle, snailsForRace, type CardState } from '@/lib/card';
+import { Confetti } from './Confetti';
 import { SponsorReel } from './SponsorReel';
 import { laneColour } from '@/lib/palette';
 import { money } from '@/lib/money';
 import { ordinal } from '@/lib/race-engine';
-import type { AuctionSettlement, RaceHighlight, RaceResult, ToteDividend } from '@/lib/types';
+import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { snailOfLane } from '@/lib/run-sheet';
+import type { AuctionSettlement, RaceHighlight, RaceHistoryEntry, RaceResult, ToteDividend } from '@/lib/types';
 
-export function WinnerOverlay({
-  open,
-  audienceOnly = false,
-  raceNo,
-  results,
-  owners = [],
-  nextRaceNo,
-  sponsor,
-  lastRace = false,
-  tote,
-  auction,
-  onClose,
-  snailCount = SNAILS_ON_CARD,
-}: {
+/** The winner moment's three steps, in order. */
+type Step = 'winner' | 'result' | 'sponsors';
+/** When each step starts, in ms from the reveal. */
+const RESULT_AT = 7_000;
+const SPONSORS_AT = 17_000;
+
+/**
+ * The winner moment, after the finish-line hold.
+ *
+ * Three full-screen steps that cross-fade into each other: the winner (its
+ * own racecard art, name, owner, number, margin and time, with confetti),
+ * then the top three large with the full order compact, then the sponsor
+ * slate. The whole layer fades in opaque over the track, so no half-drawn
+ * frame of the card ever shows over the race. Sized in projector units.
+ */
+export function WinnerOverlay(props: {
   open: boolean;
   audienceOnly?: boolean;
   raceNo: number;
@@ -38,129 +42,195 @@ export function WinnerOverlay({
   tote?: ToteDividend;
   auction?: AuctionSettlement;
   onClose: () => void;
-  /** Snails on tonight's card, which fixes the numbers in each race. */
-  snailCount?: number;
+  /** Tonight's card, which fixes the numbers in each race. */
+  card: CardState;
+  /** The standing record of the race just run, for its numbers, owners and times. */
+  entry?: RaceHistoryEntry;
+  calm?: boolean;
 }) {
+  if (!props.open || props.results.length === 0) return null;
+  return <WinnerMoment key={props.raceNo} {...props} />;
+}
+
+function WinnerMoment({
+  audienceOnly = false,
+  raceNo,
+  results,
+  owners = [],
+  nextRaceNo,
+  sponsor,
+  lastRace = false,
+  tote,
+  auction,
+  onClose,
+  card,
+  entry,
+  calm = false,
+}: Parameters<typeof WinnerOverlay>[0]) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const [step, setStep] = useState<Step>('winner');
 
   useEffect(() => {
-    if (!open || audienceOnly) return;
-    closeRef.current?.focus();
+    const a = window.setTimeout(() => setStep('result'), RESULT_AT);
+    const b = window.setTimeout(() => setStep('sponsors'), SPONSORS_AT);
+    return () => {
+      window.clearTimeout(a);
+      window.clearTimeout(b);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (audienceOnly) return;
+    closeRef.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose, audienceOnly]);
+  }, [onClose, audienceOnly]);
 
-  if (!open || results.length === 0) return null;
+  const ordered = results.slice().sort((a, b) => a.place - b.place);
+  const winner = ordered[0];
+  const second = ordered[1];
+  const ownerOf = (lane: number) => (entry?.owners?.[lane] ?? owners[lane] ?? '').trim();
+  const numberOf = (lane: number) =>
+    entry ? snailOfLane(entry, lane) : (snailsForRace(raceNo, card)[lane] ?? lane + 1);
+  const snailNo = numberOf(winner.lane);
+  const owner = ownerOf(winner.lane);
+  const colour = laneColour(winner.lane);
+  const title = raceTitle(entry?.raceType, raceNo);
+  const art = runnerArtForLane(winner.lane);
+  const nextSnails = snailsForRace(nextRaceNo, card);
+  const nextRunOff = Boolean(card.races[nextRaceNo - 1]?.field?.length);
 
-  const winner = results[0];
-  const c = laneColour(winner.lane);
-  const owner = owners[winner.lane]?.trim() ?? '';
-  const snailNo = snailOffsetForRace(raceNo, snailCount) + winner.lane + 1;
-  const nextSnails = snailsForRace(nextRaceNo, snailCount);
+  const time = winner.finishMs !== null ? `${(winner.finishMs / 1000).toFixed(1)} s` : '';
+  /* The runner-up's crossing time when it has one; otherwise how far it had left when the winner crossed, at race pace. */
+  const gap = second && winner.finishMs !== null && second.finishMs !== null
+    ? (second.finishMs - winner.finishMs) / 1000
+    : second?.progressAtStop !== undefined && entry?.durationMs
+      ? ((1 - second.progressAtStop) * entry.durationMs) / 1000
+      : null;
+  const estimated = second?.finishMs === null;
+  const margin = entry?.photoFinish
+    ? 'Photo finish'
+    : gap === null
+      ? 'Clear winner'
+      : gap < 0.05
+        ? 'By a whisker'
+        : `Won by ${estimated ? 'about ' : ''}${gap.toFixed(1)} s`;
+
 
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center p-4">
-      {!audienceOnly ? <button
-        type="button"
-        className="overlay-scrim"
-        aria-label="Close winner announcement"
-        onClick={onClose}
-      /> : <div className="overlay-scrim" />}
-      <div className="winner-row relative">
-      <div
-        role={audienceOnly ? "region" : "dialog"}
-        aria-modal={audienceOnly ? undefined : true}
-        aria-labelledby="winner-name"
-        className="winner-card glass glass-strong relative w-full max-w-lg p-9 text-center"
-        style={
-          {
-            '--shell': c.shell,
-            '--shell-dk': c.dark,
-            '--body': c.body,
-            '--glow': c.glow,
-          } as React.CSSProperties
-        }
-      >
-        <div className="winner-glow" aria-hidden="true" />
+    <div
+      className={`wm ${calm ? 'wm-calm' : ''}`}
+      role={audienceOnly ? 'region' : 'dialog'}
+      aria-modal={audienceOnly ? undefined : true}
+      aria-labelledby="winner-name"
+      data-step={step}
+      style={{ '--shell': colour.shell, '--shell-dk': colour.dark, '--glow': colour.glow } as React.CSSProperties}
+    >
+      <Confetti fire={raceNo} highlight={colour.shell} calm={calm} />
 
-        <p className="eyebrow">Race {raceNo} winner</p>
-        {sponsor ? (
-          <p className="sponsor-line mt-1">
-            Sponsored by <b>{sponsor}</b>
-          </p>
-        ) : null}
-
-        <div className="mx-auto my-4 w-40">
-          <Snail />
+      <div className="wm-body">
+      {/* Step 1: the winner. */}
+      <section className={`wm-step wm-winner ${step === 'winner' ? 'on' : ''}`} aria-hidden={step !== 'winner'}>
+        <div className="wm-winner-art">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={art.src} alt="" width={art.width} height={art.height} style={{ filter: `hue-rotate(${runnerHueRotation(winner.lane)}deg)` }} />
         </div>
-
-        <h2 id="winner-name" className="display text-5xl sm:text-6xl">
-          {winner.name}
-        </h2>
-
-        <p className="num mt-3 text-lg font-semibold text-(--gold)">
-          {winner.name === `Snail ${snailNo}` ? `No. ${snailNo}` : `Snail ${snailNo}`}{owner ? ` · owned by ${owner}` : ''}
-        </p>
-
-        {tote ? (
-          <div className="tote-result mt-4" role="note" aria-label="Cash tote dividend">
-            <p className="tote-result-label">CLUB CASH TOTE</p>
-            {tote.unbacked ? (
-              <p className="tote-result-pay">No winning tickets - pool {money(tote.poolCents)} to the club</p>
-            ) : (
-              <p className="tote-result-pay">
-                Pays <b className="num">{money(tote.dividendCents)}</b> per {money(tote.ticketCents)} ticket
+        <div className="wm-winner-text">
+          <p className="wm-kicker">{title} winner</p>
+          <h2 id="winner-name" className="wm-name">{winner.name}</h2>
+          <p className="wm-owner num">
+            {winner.name === `Snail ${snailNo}` ? `No. ${snailNo}` : `Snail ${snailNo}`}
+            {owner ? ` · owned by ${owner}` : ''}
+          </p>
+          <ul className="wm-facts">
+            <li>{margin}</li>
+            {time ? <li className="num">Time {time}</li> : null}
+          </ul>
+          {sponsor ? <p className="wm-sponsor">Race sponsored by <b>{sponsor}</b></p> : null}
+          {tote ? (
+            <div className="wm-tote" role="note" aria-label="Cash tote dividend">
+              <p className="wm-tote-label">CLUB CASH TOTE</p>
+              <p>
+                {tote.unbacked ? (
+                  <>No winning tickets: pool {money(tote.poolCents)} to the club</>
+                ) : (
+                  <>Pays <b className="num">{money(tote.dividendCents)}</b> per {money(tote.ticketCents)} ticket</>
+                )}
               </p>
-            )}
-            <p className="tote-result-detail num">
-              {tote.winningTickets} winning {tote.winningTickets === 1 ? 'ticket' : 'tickets'} · pool {money(tote.poolCents)} ·{' '}
-              {tote.retainedPercent}% to the club
-            </p>
-            {auction ? (
-              <p className="tote-result-detail">
-                {auction.winningOwner
-                  ? `Auction: ${auction.winningOwner.bidder} owned the winner and collects ${money(auction.prizeCents)}`
-                  : `Auction: the winner was unowned; pool ${money(auction.poolCents)} to the club`}
+              <p className="wm-tote-detail num">
+                {tote.winningTickets} winning {tote.winningTickets === 1 ? 'ticket' : 'tickets'} · pool {money(tote.poolCents)} · {tote.retainedPercent}% to the club
               </p>
-            ) : null}
-          </div>
-        ) : null}
+              {auction ? (
+                <p className="wm-tote-detail">
+                  {auction.winningOwner
+                    ? `Auction: ${auction.winningOwner.bidder} owned the winner and collects ${money(auction.prizeCents)}`
+                    : `Auction: the winner was unowned; pool ${money(auction.poolCents)} to the club`}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </section>
 
-        <ol className="mt-6 grid gap-1.5 text-left">
-          {results.slice(0, 4).map((r) => (
-            <li
-              key={r.lane}
-              className="flex items-center gap-3 rounded-xl bg-(--tx)/5 px-3 py-2 text-sm"
-            >
-              <span className="num w-8 shrink-0 font-bold text-(--tx)/60">{ordinal(r.place)}</span>
-              <span
-                className="h-3 w-3 shrink-0 rounded-full"
-                style={{ background: laneColour(r.lane).shell }}
-                aria-hidden="true"
-              />
-              <span className="truncate font-medium">{r.name}</span>
-              <span className="ml-auto truncate text-(--tx)/55">
-                {r.status === 'retired' ? 'Retired' : owners[r.lane]?.trim() ?? ''}
-              </span>
-            </li>
-          ))}
+      {/* Step 2: the top three large, then everyone. */}
+      <section className={`wm-step wm-result ${step === 'result' ? 'on' : ''}`} aria-hidden={step !== 'result'} aria-label={`${title} result`}>
+        <h2 className="wm-result-title">{title} result</h2>
+        <ol className="wm-podium">
+          {ordered.slice(0, 3).map((r) => {
+            const a = runnerArtForLane(r.lane);
+            return (
+              <li key={r.lane} className={`wm-podium-${r.place}`} style={{ '--shell': laneColour(r.lane).shell } as React.CSSProperties}>
+                <span className="wm-place num">{ordinal(r.place)}</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={a.src} alt="" width={a.width} height={a.height} style={{ filter: `hue-rotate(${runnerHueRotation(r.lane)}deg)` }} />
+                <span className="wm-podium-name">{r.name}</span>
+                <span className="wm-podium-owner num">
+                  {r.name === `Snail ${numberOf(r.lane)}` ? `No. ${numberOf(r.lane)}` : `Snail ${numberOf(r.lane)}`}
+                  {ownerOf(r.lane) ? ` · ${ownerOf(r.lane)}` : ''}
+                </span>
+              </li>
+            );
+          })}
         </ol>
-
-        <p className="mt-6 text-sm font-medium text-(--tx)/70">
+        {ordered.length > 3 ? (
+          <ol className="wm-order" start={4}>
+            {ordered.slice(3).map((r) => (
+              <li key={r.lane}>
+                <span className="num wm-order-place">{r.status === 'retired' ? 'Ret' : ordinal(r.place)}</span>
+                <span className="wm-order-dot" style={{ background: laneColour(r.lane).shell }} aria-hidden="true" />
+                <span className="wm-order-name">{r.name}</span>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+        <p className="wm-next">
           {lastRace
-            ? 'That was the last race on the card. Thank you for racing with us.'
-            : `Race ${nextRaceNo} is next: snails ${nextSnails[0]} to ${nextSnails[nextSnails.length - 1]}.`}
+            ? 'That was the last race on the card.'
+            : nextRunOff
+              ? `Next: ${raceTitle(card.races[nextRaceNo - 1]?.raceType, nextRaceNo)}.`
+              : `Race ${nextRaceNo} is next: snails ${nextSnails[0]} to ${nextSnails[nextSnails.length - 1]}.`}
         </p>
+      </section>
 
-        {!audienceOnly ? <button ref={closeRef} type="button" className="btn btn-ghost mt-4" onClick={onClose}>
-          Close <kbd>Esc</kbd>
-        </button> : null}
+      {/* Step 3: the sponsors. Mounted from the start so every logo has loaded before its turn. */}
+      <section className={`wm-step wm-sponsors ${step === 'sponsors' ? 'on' : ''}`} aria-hidden={step !== 'sponsors'}>
+        <SponsorReel raceNo={raceNo} running={step === 'sponsors'} />
+      </section>
       </div>
-      <SponsorReel key={raceNo} raceNo={raceNo} />
-      </div>
+
+      {!audienceOnly ? (
+        <div className="wm-controls no-print">
+          <button type="button" className="btn btn-ghost" onClick={() => setStep(step === 'winner' ? 'result' : step === 'result' ? 'sponsors' : 'winner')}>
+            {step === 'winner' ? 'Show the result' : step === 'result' ? 'Show the sponsors' : 'Back to the winner'}
+          </button>
+          <button ref={closeRef} type="button" className="btn btn-ghost" onClick={onClose}>
+            Close <kbd>Esc</kbd>
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

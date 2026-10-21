@@ -1,5 +1,6 @@
 'use client';
 
+import { raceTitle } from '@/lib/card';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Telecast } from './Telecast';
 import { courseForRace } from '@/lib/courses';
@@ -177,7 +178,7 @@ export function ReplayPlayer({
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-xl font-bold">
-            {entry.raceType} {entry.raceNo} replay
+            {raceTitle(entry.raceType, entry.raceNo)} replay
             {entry.void ? <span className="ml-2 text-sm font-bold text-(--bad)">VOID</span> : null}
           </h2>
           <p className="num text-xs text-(--tx)/50">
