@@ -125,7 +125,7 @@ export function OfficialResult({
       </div>
       <ol className="tv-result-podium">
         {podium.map((r) => (
-          <li key={r.lane} className={`tv-result-row tv-result-${r.place}`} style={{ '--shell': laneColour(r.lane).shell } as React.CSSProperties}>
+          <li key={r.lane} className={`tv-result-row tv-result-${r.place}`} style={{ '--shell': laneColour(r.lane).shell, '--len': r.name.length } as React.CSSProperties}>
             <span className="tv-result-place num">{ordinal(r.place)}</span>
             <span className="tv-result-dot num" style={{ background: laneColour(r.lane).dark }}>
               {numberOffset + r.lane + 1}
