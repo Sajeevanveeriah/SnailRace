@@ -37,7 +37,7 @@ import {
   type StagedTwist,
   type StoryWindow,
 } from './race-broadcast/twist-staging';
-import { lapsDown, lapsDownText, placeTag } from './race-broadcast/standings-format';
+import { lapsDown, lapsDownText, placeTag, snailNumber } from './race-broadcast/standings-format';
 
 interface Props {
   names: string[];
@@ -64,6 +64,8 @@ interface Props {
   toteResult?: ToteDividend | null;
   /** Added to every lane number on screen, so race 3 shows snails 21 to 30. */
   numberOffset?: number;
+  /** Snail number per lane, for a field that is not a run of numbers (a run-off). Wins over `numberOffset`. */
+  numbers?: number[];
 }
 
 /** How many runners the telecast shot tries to hold: the leader and three more. */
@@ -166,6 +168,7 @@ export function Telecast({
   sponsor,
   toteResult,
   numberOffset = 0,
+  numbers,
 }: Props) {
   const { setPainter } = race;
   const prefersReducedMotion = useReducedMotion();
@@ -734,7 +737,7 @@ export function Telecast({
                 key={lane}
                 lane={lane}
                 name={name}
-                number={numberOffset + lane + 1}
+                number={snailNumber(lane, numberOffset, numbers)}
                 onNodes={(nodes) => {
                   if (nodes) runnersRef.current.set(lane, nodes);
                   else runnersRef.current.delete(lane);
@@ -799,6 +802,7 @@ export function Telecast({
           replay={replay}
           runnerSponsors={owners}
           numberOffset={numberOffset}
+          numbers={numbers}
         />
       ) : null}
       <BroadcastHud
@@ -813,6 +817,7 @@ export function Telecast({
         race={race}
         names={names}
         numberOffset={numberOffset}
+        numbers={numbers}
         raceNo={raceNo}
         courseName={course.name}
         replay={replay}

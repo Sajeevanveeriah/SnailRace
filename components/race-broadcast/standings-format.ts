@@ -36,6 +36,15 @@ export function finalGapText(result: RaceResult, winner: RaceResult | undefined,
   return `+${Math.max(0.1, (1 - at) * (winnerMs / 1000)).toFixed(1)}s`;
 }
 
+/**
+ * The snail number a lane wears on screen: the race's own list when it has
+ * one (a run-off of snails 3, 17, 26 ...), else the card's run of numbers.
+ */
+export function snailNumber(lane: number, numberOffset = 0, numbers?: readonly number[] | null): number {
+  const listed = numbers?.[lane];
+  return typeof listed === 'number' && Number.isFinite(listed) ? listed : numberOffset + lane + 1;
+}
+
 /** "1ST", "2ND", "11TH": the tag on a snail's shell after the line. */
 export function placeTag(place: number): string {
   const tens = place % 100;

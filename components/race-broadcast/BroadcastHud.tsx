@@ -4,13 +4,15 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { laneColour } from '@/lib/palette';
 import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
 import type { BoardRow, RaceController } from '@/lib/use-race';
-import { finalGapText, lapsDownText } from './standings-format';
+import { finalGapText, lapsDownText, snailNumber } from './standings-format';
 
 interface BroadcastHudProps {
   brand: ReactNode;
   race: RaceController;
   names: string[];
   numberOffset?: number;
+  /** Snail number per lane, when the field is not a run of numbers. */
+  numbers?: readonly number[];
   raceNo: number;
   courseName: string;
   replay: boolean;
@@ -71,6 +73,7 @@ export function BroadcastHud({
   race,
   names,
   numberOffset = 0,
+  numbers,
   raceNo,
   courseName,
   replay,
@@ -139,7 +142,7 @@ export function BroadcastHud({
         </p>
       </div>
 
-      <RunnerTower race={race} names={names} numberOffset={numberOffset} laps={laps} lapped={lapped} raceNo={raceNo} />
+      <RunnerTower race={race} names={names} numberOffset={numberOffset} numbers={numbers} laps={laps} lapped={lapped} raceNo={raceNo} />
     </section>
   );
 }
@@ -161,6 +164,7 @@ function RunnerTower({
   race,
   names,
   numberOffset,
+  numbers,
   laps,
   lapped,
   raceNo,
@@ -168,6 +172,7 @@ function RunnerTower({
   race: RaceController;
   names: string[];
   numberOffset: number;
+  numbers?: readonly number[];
   laps: number;
   lapped: ReadonlyMap<number, number>;
   raceNo: number;
@@ -228,7 +233,8 @@ function RunnerTower({
       <ol ref={listRef} className="tv-order" aria-live="off" aria-label={gate ? 'Runners' : 'Runner positions'}>
         {shown.map((row) => {
           const colour = laneColour(row.lane);
-          const name = names[row.lane] ?? `Snail ${numberOffset + row.lane + 1}`;
+          const no = snailNumber(row.lane, numberOffset, numbers);
+          const name = names[row.lane] ?? `Snail ${no}`;
           const top = gate || row.place <= 5;
           const down = !gate && !final ? (lapped.get(row.lane) ?? 0) : 0;
           return (
@@ -239,8 +245,8 @@ function RunnerTower({
               style={{ '--shell': colour.shell, '--shell-dk': colour.dark, '--len': name.length } as CSSProperties}
             >
               {gate ? null : <span className="tv-order-pos num">{row.place}</span>}
-              <span className="tv-order-dot num" style={{ background: colour.dark }} aria-label={`Snail ${numberOffset + row.lane + 1}`}>
-                {numberOffset + row.lane + 1}
+              <span className="tv-order-dot num" style={{ background: colour.dark }} aria-label={`Snail ${no}`}>
+                {no}
               </span>
               {gate ? (
                 <span

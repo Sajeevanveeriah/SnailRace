@@ -8,7 +8,7 @@ import {
   storyWindows,
   twistKicker,
 } from '../components/race-broadcast/twist-staging';
-import { finalGapText, lapsDown, lapsDownText, placeTag } from '../components/race-broadcast/standings-format';
+import { finalGapText, lapsDown, lapsDownText, placeTag, snailNumber } from '../components/race-broadcast/standings-format';
 import {
   CameraRig,
   boxOf,
@@ -110,6 +110,12 @@ test('final standings give every place a gap and never say classified', () => {
   assert.equal(finalGapText(result(3, 9, { status: 'classified', progressAtStop: 0.7 }), winner, 4), '+1 LAP');
   assert.equal(finalGapText(result(5, 10, { status: 'retired' }), winner, 4), 'RET');
   for (const text of [finalGapText(result(2, 3, { status: 'classified', progressAtStop: 0.99 }), winner, 1)]) assert.doesNotMatch(text, /CLASSIFIED/);
+});
+
+test('a run-off shows its own snail numbers; a normal race counts on from the offset', () => {
+  assert.equal(snailNumber(0, 20), 21);
+  assert.equal(snailNumber(2, 20, [3, 17, 26]), 26);
+  assert.equal(snailNumber(3, 20, [3, 17, 26]), 24);
 });
 
 test('lapped runners are counted in whole laps', () => {
