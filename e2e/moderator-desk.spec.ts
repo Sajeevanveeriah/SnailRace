@@ -171,16 +171,17 @@ test('each twist card parks before the next twist goes on air', async ({ page })
      twist's card go up: one story at a time. A MutationObserver records every
      card change as it happens, so a test-runner round trip cannot eat it. */
   await page.evaluate(() => {
-    const log: { t: number; label: string; text: string; prop: boolean }[] = [];
+    const log: { t: number; label: string; text: string; kicker: string; prop: boolean }[] = [];
     (window as unknown as { __tickerLog: typeof log }).__tickerLog = log;
     const read = () => {
       /* The title card is the one place a twist is named on the side-on course. */
       const el = document.querySelector('.side-splash');
       const label = el?.querySelector('.side-splash-title')?.textContent ?? '';
       const text = el?.textContent ?? '';
+      const kicker = el?.getAttribute('data-kicker') ?? '';
       const last = log[log.length - 1];
-      if (!last || last.label !== label || last.text !== text) {
-        log.push({ t: performance.now(), label, text, prop: Boolean(document.querySelector('.side-prop')) });
+      if (!last || last.label !== label || last.text !== text || last.kicker !== kicker) {
+        log.push({ t: performance.now(), label, text, kicker, prop: Boolean(document.querySelector('.side-prop')) });
       }
     };
     new MutationObserver(read).observe(document.body, {
@@ -188,18 +189,19 @@ test('each twist card parks before the next twist goes on air', async ({ page })
     });
   });
   await desk.getByRole('button', { name: 'Start race', exact: true }).click();
-  const signal = page.locator('.side-splash');
-  await expect(signal).toContainText('TWIST', { timeout: 15_000 });
-  await expect(page.locator('.side-prop')).toBeVisible();
+  /* The hit card reads TWIST, BOOST or OUT by what the twist does; any of them is the hit. */
+  const signal = page.locator('.side-splash.side-splash-effect');
+  await expect(signal).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.side-prop').first()).toBeVisible();
   const readLog = () => page.evaluate(
-    () => (window as unknown as { __tickerLog: { t: number; label: string; text: string; prop: boolean }[] }).__tickerLog,
+    () => (window as unknown as { __tickerLog: { t: number; label: string; text: string; kicker: string; prop: boolean }[] }).__tickerLog,
   );
   /* Wait for a second, different twist to go on air. */
   await expect
     .poll(async () => new Set((await readLog()).filter((row) => row.label !== '').map((row) => row.label)).size, { timeout: 20_000 })
     .toBeGreaterThanOrEqual(2);
   const log = await readLog();
-  const effectAt = log.findIndex((row) => row.label !== '' && row.text.includes('TWIST'));
+  const effectAt = log.findIndex((row) => row.label !== '' && row.kicker !== '' && row.kicker !== 'incoming');
   expect(effectAt, JSON.stringify(log)).toBeGreaterThanOrEqual(0);
   const first = log[effectAt].label;
   /* The card parks, there is a breath with no card, then the next twist's card goes up. */
