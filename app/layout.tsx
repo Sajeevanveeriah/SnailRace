@@ -21,7 +21,7 @@ const clubLogo = new URL(
 ).toString();
 
 const poster = new URL(
-  `${basePath || '/SnailRace'}/brand/20261003-NDCC-Snail-Racing-Poster-Rev00.webp`,
+  `${basePath || '/SnailRace'}/brand/20261021-NDCC-Snail-Racing-Poster-Share-Rev00.webp`,
   metadataBase.origin,
 ).toString();
 
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     description:
       'Saturday 24 October 2026 from 7 pm at the NDCC club rooms. Buy a snail, name it, cheer it home.',
     type: 'website',
-    images: [{ url: poster, width: 900, height: 1125, alt: 'NDCC Snail Racing poster: Saturday 24 October, from 7 pm, club rooms, $10 per snail' }],
+    images: [{ url: poster, width: 900, height: 1125, alt: 'NDCC Snail Racing poster: Saturday 24 October, from 7 pm, club rooms. Buy a snail, back it, cheer it home.' }],
   },
   icons: {
     icon: clubLogo,
