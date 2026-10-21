@@ -81,6 +81,8 @@ interface Props {
   sponsors?: string[];
   toteResult?: ToteDividend | null;
   numberOffset?: number;
+  /** Snail number per lane when the field is not consecutive (a run-off). */
+  numbers?: number[];
   replay?: boolean;
 }
 
@@ -555,6 +557,7 @@ export function Sidescroller({
   sponsors = [],
   toteResult,
   numberOffset = 0,
+  numbers,
   replay = false,
 }: Props) {
   const { setPainter } = race;
@@ -1287,7 +1290,7 @@ export function Sidescroller({
               >
                 <SnailSprite
                   lane={lane}
-                  number={numberOffset + lane + 1}
+                  number={numbers?.[lane] ?? numberOffset + lane + 1}
                   name={name}
                   scale={lanes[lane].scale}
                   nodeRef={(node) => {
@@ -1350,7 +1353,7 @@ export function Sidescroller({
         {winner ? (
           <div className="side-finish-plate" style={{ '--shell': laneColour(winner.lane).shell } as CSSProperties} aria-hidden="true">
             <span className="side-finish-kicker">{phase === 'done' ? 'OFFICIAL' : 'WINNER'}</span>
-            <span className="side-finish-num num">{numberOffset + winner.lane + 1}</span>
+            <span className="side-finish-num num">{numbers?.[winner.lane] ?? numberOffset + winner.lane + 1}</span>
             <strong ref={plateNameRef} className="side-finish-name">{winner.name}</strong>
           </div>
         ) : null}
@@ -1372,7 +1375,7 @@ export function Sidescroller({
                   else orderRefs.current.delete(lane);
                 }}
               >
-                <span className="side-order-num num">{numberOffset + lane + 1}</span>
+                <span className="side-order-num num">{numbers?.[lane] ?? numberOffset + lane + 1}</span>
                 <span className="side-order-name">{name}</span>
               </li>
             );

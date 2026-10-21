@@ -148,6 +148,8 @@ export function Stage() {
   const shownLaps = event.heldRaceStart?.config.laps ?? finishedEntry?.laps ?? nextSettings.laps;
   /* A run-off's lanes are not a run of numbers: the track shows lane numbers. */
   const shownOffset = isRunOff(event.card, shownRaceNo) ? 0 : snailOffsetForRace(shownRaceNo, event.card);
+  /* The snail number in each lane: a run-off's runners are not consecutive. */
+  const shownNumbers = useMemo(() => snailsForRace(shownRaceNo, event.card), [shownRaceNo, event.card]);
   const sponsor = useMemo(
     () => sponsorFor(event.sponsors, nextRaceNo),
     [event.sponsors, nextRaceNo],
@@ -1310,7 +1312,6 @@ export function Stage() {
                   sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
                   toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                   numberOffset={shownOffset}
-
                 />
               ) : (
                 <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1330,7 +1331,7 @@ export function Stage() {
                 sponsors={event.sponsors}
                 toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                 numberOffset={shownOffset}
-
+                numbers={shownNumbers}
               />
             ) : (
               <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
