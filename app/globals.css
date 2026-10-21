@@ -50,6 +50,11 @@
  * own blacks inside a light page.
  */
 :root {
+  /* Projector unit: 1% of the width of the largest 16:9 frame that fits the
+     window. Every graphic the room reads (straps, standings, cards, results,
+     racecard) is sized in multiples of it, so a 4K projector shows the same
+     picture as a 720p one, only sharper. The desk does not use it. */
+  --u: min(1vw, 1.7778vh);
   --shell: #3ca5ff;
   --shell-dk: #14508f;
   --body: #cfe6ff;
