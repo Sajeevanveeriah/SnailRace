@@ -6,6 +6,7 @@ import { money } from '@/lib/money';
 import { onAirClock, splitText } from '@/lib/broadcast-ticker';
 import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
 import { ordinal } from '@/lib/race-engine';
+import { snailNumber } from './standings-format';
 import type { RaceResult, ToteDividend } from '@/lib/types';
 import type { RaceSplit } from '@/lib/use-race';
 import type { Weather } from '@/lib/race-engine';
@@ -104,6 +105,7 @@ export function OfficialResult({
   replay,
   runnerSponsors = [],
   numberOffset = 0,
+  numbers,
 }: {
   results: RaceResult[];
   raceNo: number;
@@ -113,6 +115,8 @@ export function OfficialResult({
   runnerSponsors?: string[];
   /** Added to the lane: race 3's lane 1 is snail 21 on the card. */
   numberOffset?: number;
+  /** Snail number per lane, when the field is not a run of numbers (a run-off). */
+  numbers?: readonly number[];
 }) {
   const podium = results.slice(0, 3);
   if (!podium.length) return null;
@@ -125,10 +129,10 @@ export function OfficialResult({
       </div>
       <ol className="tv-result-podium">
         {podium.map((r) => (
-          <li key={r.lane} className={`tv-result-row tv-result-${r.place}`} style={{ '--shell': laneColour(r.lane).shell } as React.CSSProperties}>
+          <li key={r.lane} className={`tv-result-row tv-result-${r.place}`} style={{ '--shell': laneColour(r.lane).shell, '--len': r.name.length } as React.CSSProperties}>
             <span className="tv-result-place num">{ordinal(r.place)}</span>
             <span className="tv-result-dot num" style={{ background: laneColour(r.lane).dark }}>
-              {numberOffset + r.lane + 1}
+              {snailNumber(r.lane, numberOffset, numbers)}
             </span>
             <span className="tv-result-name">
               {r.name}

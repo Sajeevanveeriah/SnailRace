@@ -5,6 +5,7 @@ import { Snail } from './Snail';
 import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ordinal, type RaceEvent, type SnailRun } from '@/lib/race-engine';
 import type { PaintInfo, RaceController, RacePainter } from '@/lib/use-race';
+import { snailNumber } from './race-broadcast/standings-format';
 
 /**
  * The straight track: one lane per snail, left to right.
@@ -20,6 +21,10 @@ interface Props {
   names: string[];
   race: RaceController;
   surface: StageThemeId;
+  /** Added to the lane number, so race 3's lane 1 reads snail 21. */
+  numberOffset?: number;
+  /** Snail number per lane, when the field is not a run of numbers (a run-off). */
+  numbers?: number[];
 }
 
 /**
@@ -48,7 +53,7 @@ interface LaneNodes {
   fx: HTMLElement;
 }
 
-export function RaceTrack({ names, race, surface }: Props) {
+export function RaceTrack({ names, race, surface, numberOffset = 0, numbers }: Props) {
   const { setPainter } = race;
   const phase = race.phase as string;
   const confirming = phase === 'confirming';
@@ -245,7 +250,7 @@ export function RaceTrack({ names, race, surface }: Props) {
               ref={laneRef(i)}
               className="lane"
               role="listitem"
-              aria-label={`Lane ${i + 1}, ${name}`}
+              aria-label={`Lane ${i + 1}, snail ${snailNumber(i, numberOffset, numbers)}, ${name}`}
               style={
                 {
                   '--shell': c.shell,
@@ -256,7 +261,7 @@ export function RaceTrack({ names, race, surface }: Props) {
               }
             >
               <div className="rail">
-                <span className="lane-badge num">{i + 1}</span>
+                <span className="lane-badge num">{snailNumber(i, numberOffset, numbers)}</span>
               </div>
               <div className="field">
                 <div className="gate" aria-hidden="true" />

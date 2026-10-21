@@ -1,8 +1,9 @@
 import { laneColour } from '@/lib/palette';
 import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { snailNumber } from './standings-format';
 
 /** Projector-sized field card. The racecard below remains the factual layer. */
-export function RunnerLineup({ names, numberOffset = 0, dense = false }: { names: string[]; /** Added to the lane number: snail 21 is lane 1 of race 3. */ numberOffset?: number; dense?: boolean }) {
+export function RunnerLineup({ names, numberOffset = 0, numbers, dense = false }: { names: string[]; /** Added to the lane number: snail 21 is lane 1 of race 3. */ numberOffset?: number; /** Snail number per lane, when the field is not a run of numbers (a run-off). */ numbers?: readonly number[]; dense?: boolean }) {
   const field = names;
 
   return (
@@ -20,7 +21,7 @@ export function RunnerLineup({ names, numberOffset = 0, dense = false }: { names
               } as React.CSSProperties
             }
           >
-            <span className="show-runner-number num">{numberOffset + lane + 1}</span>
+            <span className="show-runner-number num">{snailNumber(lane, numberOffset, numbers)}</span>
             <span
               className="show-runner-art"
               style={{
