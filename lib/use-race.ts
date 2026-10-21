@@ -11,6 +11,7 @@ import {
   countdownLine,
   drawRace,
   type IntensityId,
+  CAPTION_MAX,
   eventLine,
   freshSeed,
   instantiateLockedRace,
@@ -78,6 +79,8 @@ export const NO_MINOR_CALL_MS = 3000;
  * lands, so the run-home call would be late and cut by the winner.
  */
 export const RUN_HOME_CLEARANCE_MS = 4000;
+/** About how long a recorded finish call runs; used to decide whether it can finish before the line. */
+export const FINISH_CLIP_MS = 2600;
 /** How long an ordinary call owns the strap before the next may replace it. */
 export const CALL_HOLD_MS = 2600;
 /** A run-of-play line is offered after this long with nothing said. */
@@ -695,7 +698,12 @@ export function useRace(
 
       /** Say a line now and give it the strap. */
       const deliver = (item: PendingCall) => {
-        call(item.text, item.priority, item.cue, item.opts, item.altCue);
+        /* A finish call whose clip could not end before the line goes on the
+           strap only: started late, the winner call would cut it mid-word. */
+        const toLine = race.stopAt - race.raceT;
+        const lateFinishCall = (item.key === 'runhome' || item.key === 'together') && voiceBusyMs() + FINISH_CLIP_MS > toLine;
+        if (lateFinishCall) setCommentary(item.text);
+        else call(item.text, item.priority, item.cue, item.opts, item.altCue);
         item.sound?.();
         item.onSaid?.();
         race.air = { key: item.key, rank: item.rank, until: race.raceT + item.hold };
@@ -1011,7 +1019,18 @@ export function useRace(
         const voiceFree = voiceBusyMs() < 350 || (best?.opts?.preempt ?? false);
         if (best && (free || cut) && voiceFree) {
           race.pending = race.pending.filter((p) => p !== best);
-          deliver(best);
+          /* A lead or top-3 call that lands on a lap change carries the lap
+             with it, so short laps are still all named on the strap. */
+          const lapCall = best.rank <= CALL_RANK.top3 && !best.key.startsWith('lap-')
+            ? race.pending.find((p) => p.key.startsWith('lap-') && p.rank === CALL_RANK.lap)
+            : undefined;
+          const lapPrefix = lapCall ? `Lap ${lapCall.key.slice(4)} of ${laps}: ` : '';
+          if (lapCall && lapPrefix.length + best.text.length <= CAPTION_MAX) {
+            race.pending = race.pending.filter((p) => p !== lapCall);
+            deliver({ ...best, text: lapPrefix + best.text });
+          } else {
+            deliver(best);
+          }
         }
       }
 
