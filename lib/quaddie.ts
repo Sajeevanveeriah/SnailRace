@@ -1,4 +1,4 @@
-import { MAX_SNAILS_ON_CARD, SNAILS_ON_CARD, cardLayout, raceForSnail, validSnailNo } from './card';
+import { MAX_RACES, MAX_SNAILS_ON_CARD, SNAILS_ON_CARD, raceForSnail, validSnailNo, type CardSource } from './card';
 import type { RaceHistoryEntry } from './types';
 
 /**
@@ -52,7 +52,7 @@ export function normaliseQuaddie(value: unknown): QuaddieSettings {
   if (!value || typeof value !== 'object') return base;
   const v = value as Partial<QuaddieSettings>;
   const legs = Array.isArray(v.legs)
-    ? [...new Set(v.legs.filter((n): n is number => Number.isSafeInteger(n) && n >= 1 && n <= cardLayout(MAX_SNAILS_ON_CARD).races))].sort((a, b) => a - b)
+    ? [...new Set(v.legs.filter((n): n is number => Number.isSafeInteger(n) && n >= 1 && n <= MAX_RACES))].sort((a, b) => a - b)
     : base.legs;
   return {
     enabled: v.enabled === true,
@@ -82,16 +82,16 @@ export const validQuaddieEntry = (value: unknown): value is QuaddieEntry => {
 };
 
 /** A pick is valid only if the snail actually runs in that leg. */
-export const picksMatchLegs = (picks: number[], legs: number[], snailCount: number = SNAILS_ON_CARD): boolean =>
-  picks.length === legs.length && picks.every((snail, i) => validSnailNo(snail, snailCount) && raceForSnail(snail, snailCount) === legs[i]);
+export const picksMatchLegs = (picks: number[], legs: number[], card: CardSource = SNAILS_ON_CARD): boolean =>
+  picks.length === legs.length && picks.every((snail, i) => validSnailNo(snail, card) && raceForSnail(snail, card) === legs[i]);
 
 /** Winning snail number for a race, from the standing result, or null. */
 export function winnerSnailFor(history: RaceHistoryEntry[], raceNo: number): number | null {
   const entry = history.find((h) => h.raceNo === raceNo && !h.void);
   const winner = entry?.results.find((r) => r.place === 1);
   if (!entry || !winner) return null;
-  /* The ledger records where the race's numbers started; old entries are ten a race. */
-  return (entry.snailOffset ?? (raceNo - 1) * 10) + winner.lane + 1;
+  /* The ledger records the race's numbers; old entries are ten a race. */
+  return entry.snails?.[winner.lane] ?? (entry.snailOffset ?? (raceNo - 1) * 10) + winner.lane + 1;
 }
 
 export interface QuaddieLegStatus {
@@ -129,10 +129,10 @@ export function quaddieStatus(
   settings: QuaddieSettings,
   entries: QuaddieEntry[],
   history: RaceHistoryEntry[],
-  snailCount: number = SNAILS_ON_CARD,
+  card: CardSource = SNAILS_ON_CARD,
 ): QuaddieStatus {
   const live = quaddieIsLive(settings);
-  const standing = entries.filter((e) => !e.void && picksMatchLegs(e.picks, settings.legs, snailCount));
+  const standing = entries.filter((e) => !e.void && picksMatchLegs(e.picks, settings.legs, card));
   const poolCents = standing.length * settings.entryCents;
   const retainedCents = Math.round((poolCents * settings.retainedPercent) / 100);
   const returnedCents = poolCents - retainedCents;

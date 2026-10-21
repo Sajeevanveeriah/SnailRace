@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModeratorDesk } from './ModeratorDesk';
-import { ClubBrand } from './brand/ClubBrand';
 import { useModeratorWindow } from '@/lib/use-moderator-window';
 import { useProjectorDisplay } from '@/lib/use-projector-display';
 import { Telecast } from './Telecast';
@@ -14,7 +13,8 @@ import { addAudit, audioPatch, currentState, hydrate, useEvent, setState } from 
 import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
 import { hostLineFor, nextShowPhase, showPhaseSpec } from '@/lib/show';
-import { applyPurchases, cardRaceNames, cardRaceOwners, raceForSnail, validSnailNo, releaseRefunded, snailOffsetForRace, type SnailPurchase } from '@/lib/card';
+import { addRunOff, applyPurchases, cardRaceNames, cardRaceOwners, isRunOff, nextSnailsRace, raceForSnail, validSnailNo, releaseRefunded, snailOffsetForRace, snailsForRace, type SnailPurchase } from '@/lib/card';
+import { championField, raceSettings } from '@/lib/run-sheet';
 import { quaddieIsLive } from '@/lib/quaddie';
 import { usePhonePlay } from '@/lib/use-phone-play';
 import { ShowOverlay } from './ShowScreens';
@@ -36,7 +36,7 @@ import { funChipPoolsFor } from '@/lib/tote';
 import { sponsorFor } from '@/lib/standings';
 import { money } from '@/lib/money';
 import { MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
-import { courseById, designForRace } from '@/lib/courses';
+import { courseById } from '@/lib/courses';
 import {
   audioState,
   initVoice,
@@ -84,6 +84,13 @@ export function Stage() {
   const [clientReady, setClientReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
+  /* True for a moment after the winner moment hands over to the next screen. */
+  const [winnerHandoff, setWinnerHandoff] = useState(false);
+  useEffect(() => {
+    if (!winnerHandoff) return;
+    const id = window.setTimeout(() => setWinnerHandoff(false), 700);
+    return () => window.clearTimeout(id);
+  }, [winnerHandoff]);
   const [dismissedToast, setDismissedToast] = useState<string | null>(null);
   const origin = useOrigin();
 
@@ -125,18 +132,22 @@ export function Stage() {
   const names = useMemo(() => cardRaceNames(event.card, shownRaceNo), [event.card, shownRaceNo]);
   const owners = useMemo(() => cardRaceOwners(event.card, shownRaceNo), [event.card, shownRaceNo]);
   const fieldNames = useMemo(() => cardRaceNames(event.card, nextRaceNo), [event.card, nextRaceNo]);
-  /* The enabled track designs take turns; this is the one the next race runs on. */
-  const nextDesign = designForRace(event.trackDesigns, event.trackShape, nextRaceNo);
+  /* Everything the next race runs on comes from its run sheet row. */
+  const nextSettings = useMemo(() => raceSettings(event, nextRaceNo), [event, nextRaceNo]);
   const finishedEntry = event.showPhase === 'results'
     ? event.history.find((entry) => entry.raceNo === event.raceNumber && !entry.void)
     : undefined;
   const finishedCourseId = finishedEntry?.courseId;
   const activeCourse = courseById(
-    event.heldRaceStart?.plan.courseId ?? finishedCourseId ?? nextDesign.courseId,
+    event.heldRaceStart?.plan.courseId ?? finishedCourseId ?? nextSettings.courseId,
   );
   /* The view on the projector: the held race's, the finished race's, or the next one's. */
   const shownTrackShape =
-    event.heldRaceStart?.config.trackShape ?? finishedEntry?.trackShape ?? nextDesign.trackShape;
+    event.heldRaceStart?.config.trackShape ?? finishedEntry?.trackShape ?? nextSettings.trackShape;
+  /* Laps on screen: the held race's, the finished race's, or the next one's. */
+  const shownLaps = event.heldRaceStart?.config.laps ?? finishedEntry?.laps ?? nextSettings.laps;
+  /* A run-off's lanes are not a run of numbers: the track shows lane numbers. */
+  const shownOffset = isRunOff(event.card, shownRaceNo) ? 0 : snailOffsetForRace(shownRaceNo, event.card);
   const sponsor = useMemo(
     () => sponsorFor(event.sponsors, nextRaceNo),
     [event.sponsors, nextRaceNo],
@@ -158,9 +169,9 @@ export function Stage() {
     () =>
       liveDonations
         /* A Stripe snail purchase is tagged by number; its race depends on tonight's card size. */
-        .filter((donation) => (donation.snailNo ? validSnailNo(donation.snailNo, event.card.snailCount) && raceForSnail(donation.snailNo, event.card.snailCount) : donation.raceNo) === nextRaceNo)
+        .filter((donation) => (donation.snailNo ? validSnailNo(donation.snailNo, event.card) && raceForSnail(donation.snailNo, event.card) : donation.raceNo) === nextRaceNo)
         .reduce((sum, donation) => sum + donation.cents, 0),
-    [liveDonations, nextRaceNo, event.card.snailCount],
+    [liveDonations, nextRaceNo, event.card],
   );
 
   /* Fixed fair-play prices for the lock snapshot and any Phone Play room. */
@@ -204,26 +215,27 @@ export function Stage() {
      * once the race has settled; manual edits are disabled for the same
      * reason, and Stripe gets no exception.
      */
-    const snailCount = event.card.snailCount;
+    const card = event.card;
+    const snailCount = card.snailCount;
     const purchases: SnailPurchase[] = feed.donations
-      .filter((d) => !d.void && d.snailNo && raceForSnail(d.snailNo, snailCount) !== lockedRaceNo)
+      .filter((d) => !d.void && d.snailNo && raceForSnail(d.snailNo, card) !== lockedRaceNo)
       .map((d) => ({ snailNo: d.snailNo!, snailName: d.snailName, owner: d.backerName, id: d.id }));
     /* A fully refunded purchase releases the slot it bought. */
-    const refunded = feed.donations.filter((d) => d.void && d.snailNo && raceForSnail(d.snailNo, snailCount) !== lockedRaceNo).map((d) => d.id);
+    const refunded = feed.donations.filter((d) => d.void && d.snailNo && raceForSnail(d.snailNo, card) !== lockedRaceNo).map((d) => d.id);
     if (!purchases.length && !refunded.length) return;
     const id = window.setTimeout(() => {
       /* Re-check inside the deferred callback: arming may have begun since. */
-      if (armedRef.current && purchases.some((p) => raceForSnail(p.snailNo, snailCount) === armedRef.current!.raceNo)) return;
+      if (armedRef.current && purchases.some((p) => raceForSnail(p.snailNo, card) === armedRef.current!.raceNo)) return;
       const before = currentState().card;
       const freed = releaseRefunded(before, refunded);
       const applied = applyPurchases(freed.card, purchases);
       if (freed.released.length || applied.changed) setState({ card: applied.card });
       for (const n of freed.released) {
-        addAudit({ kind: 'note', raceNo: raceForSnail(n, snailCount), detail: `Snail ${n} released: its card payment was refunded in full.` });
+        addAudit({ kind: 'note', raceNo: raceForSnail(n, card), detail: `Snail ${n} released: its card payment was refunded in full.` });
       }
       const fresh = purchases.filter((p) => !freed.card.claims[p.snailNo] && applied.card.claims[p.snailNo] === p.id);
       for (const p of fresh) {
-        addAudit({ kind: 'snail_sold', raceNo: raceForSnail(p.snailNo, snailCount), detail: `Snail ${p.snailNo} sold by card: "${p.snailName}" for ${p.owner || 'an anonymous owner'}.` });
+        addAudit({ kind: 'snail_sold', raceNo: raceForSnail(p.snailNo, card), detail: `Snail ${p.snailNo} sold by card: "${p.snailName}" for ${p.owner || 'an anonymous owner'}.` });
       }
       /* A paid number that was already taken is a real problem for a real
          person at the bar: it goes to the audit trail and the desk notice. */
@@ -232,7 +244,7 @@ export function Stage() {
         reportedConflictsRef.current.add(c.id);
         addAudit({
           kind: 'note',
-          raceNo: raceForSnail(c.snailNo, snailCount),
+          raceNo: raceForSnail(c.snailNo, card),
           detail: `CONFLICT: ${c.owner || 'a buyer'} paid for snail ${c.snailNo} ("${c.snailName}", Stripe ${c.id}) but that number ${c.snailNo > snailCount ? `is past the ${snailCount} snails on the card` : 'is already taken'}. Resolve at the desk and refund or reassign.`,
         });
       }
@@ -242,7 +254,7 @@ export function Stage() {
       });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [feed.donations, lockedRaceNo, preparingRace, heldRaceStart, nextRaceNo, event.card.snailCount]);
+  }, [feed.donations, lockedRaceNo, preparingRace, heldRaceStart, nextRaceNo, event.card]);
 
   /** Set once Phone Play mounts; onFinish settles the room through it. */
   const phonePlayRef = useRef<((raceNo: number, results: RaceResult[]) => Promise<void>) | null>(
@@ -273,10 +285,10 @@ export function Stage() {
        */
       const { recorded } = recordRaceResult({
         raceNo,
-        raceType: armed?.config.raceType ?? event.raceType,
+        raceType: armed?.config.raceType ?? nextSettings.raceType,
         seedHex: drawn.seedHex,
         fieldSize: armed?.config.fieldSize ?? names.length,
-        durationMs: armed?.config.durationMs ?? event.raceDurationMs,
+        durationMs: armed?.config.durationMs ?? nextSettings.durationMs,
         at: finishedAt,
         results,
         potCents: raceDonationCents,
@@ -286,12 +298,13 @@ export function Stage() {
         source: 'engine',
         names: armed?.config.names ?? names,
         owners: cardRaceOwners(event.card, raceNo),
-        snailOffset: snailOffsetForRace(raceNo, event.card.snailCount),
+        snailOffset: snailOffsetForRace(raceNo, event.card),
+        ...(isRunOff(event.card, raceNo) ? { snails: snailsForRace(raceNo, event.card) } : {}),
         laps: armed?.config.laps,
         surprises: armed?.config.surprises,
-        trackShape: armed?.config.trackShape ?? nextDesign.trackShape,
+        trackShape: armed?.config.trackShape ?? nextSettings.trackShape,
         courseId: armed?.config.courseId ?? activeCourse.id,
-        intensity: armed?.config.intensity ?? event.intensity,
+        intensity: armed?.config.intensity ?? nextSettings.intensity,
         lockedAt: armed?.lockedAt,
         startedAt: armed?.startedAt,
         finishedAt,
@@ -327,7 +340,7 @@ export function Stage() {
       setHighlights(reel);
       setOverlayOpen(true);
     },
-    [event.raceDurationMs, event.raceType, nextDesign.trackShape, event.intensity, event.card, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
+    [nextSettings, event.card, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
   );
 
   const race = useRace(onFinish);
@@ -533,7 +546,7 @@ export function Stage() {
       return;
     }
 
-    const laps = nextDesign.trackShape === 'circuit' ? event.laps : 1;
+    const laps = nextSettings.trackShape === 'circuit' ? nextSettings.laps : 1;
     const lockedAt = nowMs();
     const oddsAtLock: Record<number, number> = {};
     for (const lane of lanes) oddsAtLock[lane.lane] = lane.odds;
@@ -541,25 +554,25 @@ export function Stage() {
     const plan = drawLockedRacePlan(
       freshSeed(),
       fieldNames,
-      event.raceDurationMs,
+      nextSettings.durationMs,
       event.surprises,
-      event.intensity,
+      nextSettings.intensity,
       laps,
-      nextDesign.trackShape,
-      activeCourse.id,
+      nextSettings.trackShape,
+      nextSettings.courseId,
       event.dealtCards,
     );
     const config: HeldRaceStartState['config'] = {
       raceNo: nextRaceNo,
-      raceType: event.raceType,
+      raceType: nextSettings.raceType,
       fieldSize: fieldNames.length,
       names: fieldNames.slice(),
-      durationMs: event.raceDurationMs,
+      durationMs: nextSettings.durationMs,
       laps,
       surprises: event.surprises,
-      trackShape: nextDesign.trackShape,
-      courseId: activeCourse.id,
-      intensity: event.intensity,
+      trackShape: nextSettings.trackShape,
+      courseId: nextSettings.courseId,
+      intensity: nextSettings.intensity,
     };
     const armedDraft: HeldRaceStartState = {
       raceNo: nextRaceNo,
@@ -635,13 +648,8 @@ export function Stage() {
     fieldNames,
     lanes,
     nextRaceNo,
-    event.raceDurationMs,
-    event.raceType,
+    nextSettings,
     event.surprises,
-    event.intensity,
-    nextDesign.trackShape,
-    activeCourse.id,
-    event.laps,
     event.phonePlay,
     event.heldRaceStart,
     event.dealtCards,
@@ -747,10 +755,10 @@ export function Stage() {
     setVoidingRace(true);
     const voidEntry: RaceHistoryEntry = {
       raceNo,
-      raceType: armed?.config.raceType ?? event.raceType,
+      raceType: armed?.config.raceType ?? nextSettings.raceType,
       seedHex: race.seedHex || '--------',
       fieldSize: armed?.config.fieldSize ?? fieldNames.length,
-      durationMs: armed?.config.durationMs ?? event.raceDurationMs,
+      durationMs: armed?.config.durationMs ?? nextSettings.durationMs,
       at: nowMs(),
       results: [],
       potCents: raceDonationCents,
@@ -758,7 +766,8 @@ export function Stage() {
       sponsor,
       names: armed?.config.names ?? fieldNames,
       owners: cardRaceOwners(event.card, raceNo),
-      snailOffset: snailOffsetForRace(raceNo, event.card.snailCount),
+      snailOffset: snailOffsetForRace(raceNo, event.card),
+      ...(isRunOff(event.card, raceNo) ? { snails: snailsForRace(raceNo, event.card) } : {}),
       lockedAt: armed?.lockedAt,
       startedAt: armed?.startedAt,
       commitHash: armed?.commitHash || undefined,
@@ -809,7 +818,7 @@ export function Stage() {
         ? ''
         : 'Race voided locally, but Phone Play recovery is held. Retry the same void and rearm commands; no new race plan can be drawn.',
     );
-  }, [race, nextRaceNo, event.raceType, event.raceDurationMs, event.card, fieldNames, raceDonationCents, sponsor, acknowledgeVoidAndRearm]);
+  }, [race, nextRaceNo, nextSettings, event.card, fieldNames, raceDonationCents, sponsor, acknowledgeVoidAndRearm]);
 
   /** Retry only the stable void/rearm commands; never redraw the held race. */
   const retryVoidRecovery = useCallback(async () => {
@@ -857,7 +866,8 @@ export function Stage() {
     [event.history],
   );
 
-  const quaddieLive = quaddieIsLive(event.quaddie);
+  /* The night is a league: the quaddie board shows between races only when Admin switches the championship screens on. */
+  const quaddieLive = quaddieIsLive(event.quaddie) && event.championshipScreens;
 
   /** The host speaks between races; the race keeps its own richer caller. */
   const sayHost = useCallback((text: string) => {
@@ -867,6 +877,8 @@ export function Stage() {
   const goToPhase = useCallback(
     (phase: ShowPhase) => {
       setState({ showPhase: phase, ...(phase === 'race' ? { bettingOpen: false } : {}) });
+      /* A race with its own camera on the run sheet starts on it. */
+      if ((phase === 'racecard' || phase === 'race') && nextSettings.camera) setCameraFull(nextSettings.camera === 'full');
       addAudit({
         kind: 'phase_change',
         raceNo: nextRaceNo,
@@ -884,7 +896,37 @@ export function Stage() {
         }),
       );
     },
-    [sayHost, event.clubName, event.eventName, event.plannedRaces, event.intensity, nextRaceNo, sponsor],
+    [sayHost, event.clubName, event.eventName, event.plannedRaces, event.intensity, nextRaceNo, sponsor, nextSettings.camera, setCameraFull],
+  );
+
+  /*
+   * The night never dead-ends: after the last race the desk can add one
+   * more, either the next snails on the card or a winners' run-off. The
+   * show goes straight to the new race's racecard.
+   */
+  const addRaceAfterCard = useCallback(
+    (kind: 'next' | 'runoff') => {
+      if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery) return;
+      const card = currentState().card;
+      const raceNo = card.races.length + 1;
+      if (kind === 'runoff') {
+        const field = championField(currentState().history);
+        if (field.length < MIN_LIVE_FIELD) return;
+        setState({ card: addRunOff(card, field) });
+        addAudit({ kind: 'note', raceNo, detail: `Race ${raceNo} added after the card: Champion of champions, snails ${field.join(', ')}.` });
+      } else {
+        const next = nextSnailsRace(card);
+        setState({ card: next.card });
+        addAudit({ kind: 'note', raceNo, detail: `Race ${raceNo} added after the card: snails ${next.first} to ${next.last}${next.added ? `, ${next.added} more put on sale` : ''}.` });
+      }
+      if (event.showPhase === 'results' || event.showPhase === 'finale' || event.showPhase === 'championship') {
+        if (overlayOpen) setWinnerHandoff(true);
+        setOverlayOpen(false);
+        race.reset();
+        goToPhase('racecard');
+      }
+    },
+    [holding, preparingRace, heldRaceStart, event.heldRaceStart, voidingRace, voidRecovery, event.showPhase, race, goToPhase, overlayOpen],
   );
 
   const advanceShow = useCallback(() => {
@@ -892,22 +934,24 @@ export function Stage() {
     const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces, quaddieLive });
     if (next === event.showPhase) return;
     if (event.showPhase === 'results') {
+      /* The winner moment fades out over the next screen, which comes on at once beneath it. */
+      if (overlayOpen) setWinnerHandoff(true);
       setOverlayOpen(false);
       race.reset();
     }
     goToPhase(next);
-  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive]);
+  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive, overlayOpen]);
 
   const backShow = useCallback(() => {
     if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.eventMode === 'recorded' && event.packCurrent) return;
     const back: Partial<Record<ShowPhase, ShowPhase>> = {
       racecard: 'lobby',
       race: 'racecard',
-      finale: 'championship',
+      finale: quaddieLive ? 'championship' : 'results',
     };
     const prev = back[event.showPhase];
     if (prev) goToPhase(prev);
-  }, [event.showPhase, event.heldRaceStart, event.eventMode, event.packCurrent, goToPhase, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery]);
+  }, [event.showPhase, event.heldRaceStart, event.eventMode, event.packCurrent, goToPhase, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive]);
 
   /* A race taking the gate always lands the show in the race phase. */
   useEffect(() => {
@@ -993,7 +1037,7 @@ export function Stage() {
       const finishedAt = nowMs();
       const { recorded } = recordRaceResult({
         raceNo,
-        raceType: event.raceType,
+        raceType: nextSettings.raceType,
         seedHex: packRace.mediaSha256.slice(0, 8).toUpperCase(),
         fieldSize: packRace.runners.length,
         durationMs: packRace.durationMs,
@@ -1015,7 +1059,7 @@ export function Stage() {
       setHighlights([]);
       setOverlayOpen(true);
     },
-    [nextRaceNo, event.raceType, event.racePack?.packId, event.packCommit, raceDonationCents, sponsor, lanes],
+    [nextRaceNo, nextSettings.raceType, event.racePack?.packId, event.packCommit, raceDonationCents, sponsor, lanes],
   );
 
   const onPackVoid = useCallback(
@@ -1026,7 +1070,7 @@ export function Stage() {
         history: [
           {
             raceNo,
-            raceType: event.raceType,
+            raceType: nextSettings.raceType,
             seedHex: packRace.mediaSha256.slice(0, 8).toUpperCase(),
             fieldSize: packRace.runners.length,
             durationMs: packRace.durationMs,
@@ -1051,7 +1095,7 @@ export function Stage() {
         detail: `Recorded race ${packRace.raceId} ("${packRace.title}") declared VOID: ${reason}`,
       });
     },
-    [nextRaceNo, event.raceType, event.racePack?.packId, raceDonationCents, sponsor],
+    [nextRaceNo, nextSettings.raceType, event.racePack?.packId, raceDonationCents, sponsor],
   );
 
   /* ── Donation arrivals ───────────────────────────────────────────────── */
@@ -1221,13 +1265,17 @@ export function Stage() {
           corner appears once the desk is open or the projector is fullscreen
           (it has no other controls then; it fades until hovered), for a held
           show, or for a notice. */}
-      {moderator.target || display.fullscreen || holding || display.error || moderator.notice ? (
+      {/* With the desk connected the projector carries no operator controls:
+          the desk has them all. Fullscreen without a desk keeps a corner that
+          fades until hovered. */}
+      {!moderator.target && (display.fullscreen || holding) ? (
         <div className="projector-tools no-print" role="toolbar" aria-label="Projector display">
-          {moderator.target ? deskButton : null}
-          {moderator.target || display.fullscreen ? fullscreenButton : null}
+          {display.fullscreen ? fullscreenButton : null}
           {holding ? <button type="button" className="btn btn-go" onClick={() => setHolding(false)}>Resume show</button> : null}
-          {display.error || moderator.notice ? <p role="status">{display.error || moderator.notice}</p> : null}
         </div>
+      ) : null}
+      {display.error || moderator.notice ? (
+        <p className="projector-notice no-print" role="status">{display.error || moderator.notice}</p>
       ) : null}
 
       <div
@@ -1251,7 +1299,7 @@ export function Stage() {
                   owners={owners}
                   race={race}
                   surface={event.stageTheme}
-                  laps={event.laps}
+                  laps={shownLaps}
                   cameraMode={event.cameraMode}
                   calm={event.calm}
                   clubName={event.clubName}
@@ -1261,7 +1309,8 @@ export function Stage() {
                   onCourseViewChange={setCameraFull}
                   sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
                   toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
-                  numberOffset={snailOffsetForRace(shownRaceNo, event.card.snailCount)}
+                  numberOffset={shownOffset}
+
                 />
               ) : (
                 <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1280,7 +1329,8 @@ export function Stage() {
                 sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
                 sponsors={event.sponsors}
                 toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
-                numberOffset={snailOffsetForRace(shownRaceNo, event.card.snailCount)}
+                numberOffset={shownOffset}
+
               />
             ) : (
               <div className="track-wrap tv-wrap race-broadcast" aria-hidden="true" />
@@ -1392,6 +1442,9 @@ export function Stage() {
         nextRaceNo={nextRaceNo}
         sponsor={sponsor}
         snailLinkUrl={snailLinkUrl}
+        controlsVisible={!audienceOnly && event.showPhase !== 'race'}
+        holding={holding}
+        beneathWinner={winnerHandoff}
       />
 
       {!audienceOnly && event.showPhase !== 'race' ? (
@@ -1461,23 +1514,22 @@ export function Stage() {
         owners={owners}
         highlights={highlights}
         nextRaceNo={event.raceNumber + 1}
-        snailCount={event.card.snailCount}
+        card={event.card}
+        entry={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)}
         sponsor={event.history[0]?.sponsor ?? ''}
         lastRace={racesRun >= event.plannedRaces}
+        calm={event.calm}
         tote={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote}
         auction={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.auction}
         onClose={() => setOverlayOpen(false)}
       />
 
-      {holding ? <div className="projector-hold" role="status">
-        <ClubBrand className="hold-brand" />
-        <h2>Back shortly</h2><p>{event.eventName}</p>
-      </div> : null}
-
       {moderator.target ? createPortal(
         <ModeratorDesk
           packControlsRef={setPackControlsRoot}
           event={event} race={race} courseName={activeCourse.name}
+          onAddRace={addRaceAfterCard}
+
           raceNo={shownRaceNo} nextRaceNo={nextRaceNo}
           fullscreen={display.fullscreen} wakeLock={display.wakeLock} audio={audio}
           holding={holding} fullCourse={fullCourse || event.cameraMode === 'full'} locked={racing || event.eventMode === 'recorded' && event.packCurrent !== null}

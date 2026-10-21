@@ -1,5 +1,6 @@
 'use client';
 
+import { raceTitle } from '@/lib/card';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ReplayPlayer } from './ReplayPlayer';
@@ -128,7 +129,7 @@ export function Archive() {
                 return (
                   <div key={keyOf(h)} className="archive-row">
                     <span className="num text-sm font-bold text-(--tx)/60">
-                      {h.raceType} {h.raceNo}
+                      {raceTitle(h.raceType, h.raceNo)}
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm">

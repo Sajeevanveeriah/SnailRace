@@ -93,12 +93,14 @@ test('race survives closing, reopening and reloading the desk with one settlemen
 test('fullscreen fills the game window and stays independent of the moderator', async ({ page, isMobile }) => {
   test.skip(isMobile, 'Mobile Chrome does not provide desktop multi-display fullscreen.');
   const desk = await openDesk(page);
-  await page.getByRole('button', { name: /^Fullscreen/ }).click();
+  /* With the desk connected the projector carries no operator controls: F on the projector goes fullscreen. */
+  await expect(page.locator('.projector-tools')).toHaveCount(0);
+  await page.locator('body').press('f');
   await expect(page.locator('[data-projector-fullscreen]')).toHaveAttribute('data-projector-fullscreen', 'true');
   await expect(desk.getByRole('status').filter({ hasText: 'Projector connected' })).toContainText('Fullscreen');
   expect(await desk.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
   await page.mouse.move(500, 500);
-  await expect(page.locator('.projector-tools')).toHaveCSS('opacity', '0');
+  await expect(page.locator('.projector-tools')).toHaveCount(0);
   await raceCard(desk);
   const size = await page.locator('.race-broadcast').boundingBox();
   expect(size?.width).toBe(page.viewportSize()?.width);
@@ -296,6 +298,8 @@ test('a quaddie switched on in Admin takes entries at the desk and shows the boa
   const quaddie = desk.getByRole('region', { name: 'Quaddie', exact: true });
   await quaddie.getByRole('button', { name: /Enable quaddie/i }).click();
   await expect(quaddie).toContainText(/LIVE/);
+  /* The night is a league: the quaddie board between races is a championship screen, off until switched on. */
+  await desk.getByRole('checkbox', { name: 'Championship screens between races' }).check();
   await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
   { const laps = desk.getByLabel('Laps'); if (await laps.count()) await laps.selectOption('1'); }
   await desk.getByRole('button', { name: /Hide/ }).click();
@@ -312,7 +316,7 @@ test('a quaddie switched on in Admin takes entries at the desk and shows the boa
   await expect.poll(async () => (await readNight(page)).quaddieEntries.length).toBe(1);
 
   await desk.getByRole('button', { name: 'Show the racecard', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toContainText('QUADDIE LEG 1');
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toContainText(/Quaddie leg 1/i);
   await desk.getByRole('button', { name: 'To the gate', exact: true }).click();
   await desk.getByRole('button', { name: 'Start race', exact: true }).click();
   await expect.poll(async () => (await readNight(page)).history.filter((h: { void?: boolean; raceNo: number }) => !h.void && h.raceNo === 3).length, { timeout: 30_000 }).toBe(1);

@@ -1,28 +1,38 @@
 'use client';
 
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { DonateQr } from './DonateQr';
 import { ClubBrand } from './brand/ClubBrand';
-import { RunnerLineup } from './race-broadcast/RunnerLineup';
 import { showPhaseSpec } from '@/lib/show';
 import { money, moneyShort } from '@/lib/money';
 import { eventWhen } from '@/lib/event-when';
-import { cardLayout, cardRaceNames, cardRaceOwners, describeLayout, snailsForRace, soldCount } from '@/lib/card';
+import { cardRaceNames, cardRaceOwners, isSold, raceTitle, sizesPhrase, snailsForRace, soldCount } from '@/lib/card';
 import { quaddieStatus } from '@/lib/quaddie';
 import { laneColour } from '@/lib/palette';
 import { toteProceeds } from '@/lib/cash-tote';
-import type { EventState } from '@/lib/types';
+import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { SURPRISE_LEVEL_NAMES, lengthPhrase, raceSettings, snailOfLane } from '@/lib/run-sheet';
+import { designNameOf } from '@/lib/courses';
+import type { EventState, ShowPhase } from '@/lib/types';
 
 const POSTER = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/brand/20261003-NDCC-Snail-Racing-Poster-Rev00.webp`;
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
+/** What the projector shows outside a race: a phase screen, the holding card, or nothing. */
+type View = ShowPhase | 'holding' | null;
+
+/** How long a screen takes to cross-fade out, in ms. Matches the CSS. */
+const LEAVE_MS = 520;
+
 /**
  * The projector's non-race screens.
  *
- * Five screens make the night: welcome, racecard, race, result and, when the
- * club is running one, the quaddie board; then the thank-you. Each is one
- * full-bleed screen with the crest top left, the phase top right and one
- * subject in the middle. Nothing scrolls, nothing cycles.
+ * Welcome, racecard, (the quaddie board when championship screens are on),
+ * thank-you and the holding card. Each is one full-bleed screen sized in
+ * projector units (var(--u)), so 720p, 1080p and 4K show the same
+ * composition. Every change of screen cross-fades: the screen going off
+ * fades out over the one coming on, and the race view underneath shows
+ * through as the racecard fades to the gate.
  */
 export function ShowOverlay({
   event,
@@ -30,56 +40,91 @@ export function ShowOverlay({
   nextRaceNo,
   sponsor,
   snailLinkUrl,
+  controlsVisible = false,
+  holding = false,
+  beneathWinner = false,
 }: {
   event: EventState;
   nightCents: number;
   nextRaceNo: number;
   sponsor?: string;
-  /** The $4 snail link the QR encodes. Empty when none is configured. */
+  /** The snail link the QR encodes. Empty when none is configured. */
   snailLinkUrl: string;
+  /** The operator bar is showing at the bottom: keep the strap clear of it. */
+  controlsVisible?: boolean;
+  /** The holding card is up. */
+  holding?: boolean;
+  /** The winner moment is fading out on top: the next screen comes on at once beneath it. */
+  beneathWinner?: boolean;
 }) {
   const phase = event.showPhase;
-  if (phase === 'race' || phase === 'results') return null;
+  const view: View = phase === 'race' || phase === 'results' ? null : phase;
+  const screen = usePresence(view, beneathWinner);
+  const hold = usePresence<View>(holding ? 'holding' : null);
+
+  const render = (v: View, state: 'enter' | 'under' | 'leave') => {
+    if (!v) return null;
+    return (
+      <ShowScreen key={`${v}-${state === 'leave' ? 'leave' : 'on'}`} view={v} state={state} controlsVisible={controlsVisible}>
+        {v === 'holding' ? (
+          <Holding event={event} />
+        ) : (
+          <>
+            <ShowHeader event={event} phase={v} />
+            {v === 'lobby' || v === 'intermission' ? <Lobby event={event} snailLinkUrl={snailLinkUrl} /> : null}
+            {v === 'racecard' || v === 'market' ? <RacecardScreen event={event} raceNo={nextRaceNo} sponsor={sponsor} snailLinkUrl={snailLinkUrl} /> : null}
+            {v === 'championship' ? <QuaddieBoard event={event} /> : null}
+            {v === 'finale' ? <Finale event={event} nightCents={nightCents} /> : null}
+            <footer className="ss-strap">
+              <span>{v === 'finale' ? `Thank you from ${event.clubName}. Safe travels home.` : 'Every snail has the same chance. The result is drawn and sealed before the gates open.'}</span>
+            </footer>
+          </>
+        )}
+      </ShowScreen>
+    );
+  };
 
   return (
-    <ShowDialog phase={phase}>
-      <header className="show-top">
-        <ClubBrand
-          className="club-brand show-club-brand"
-          imageClassName="club-brand-logo show-club-logo"
-          nameClassName="show-club"
-          priority
-        />
-        <div className="min-w-0 show-event-block">
-          <p className="show-event truncate">{event.eventName}</p>
-        </div>
-        {event.rehearsal ? <span className="show-rehearsal">REHEARSAL</span> : null}
-        <span className="show-phase num">{showPhaseSpec(phase).screen}</span>
-      </header>
-
-      {phase === 'lobby' || phase === 'intermission' ? <Lobby event={event} snailLinkUrl={snailLinkUrl} /> : null}
-      {phase === 'racecard' || phase === 'market' ? (
-        <RacecardScreen event={event} raceNo={nextRaceNo} sponsor={sponsor} snailLinkUrl={snailLinkUrl} />
-      ) : null}
-      {phase === 'championship' ? <QuaddieBoard event={event} /> : null}
-      {phase === 'finale' ? <Finale event={event} nightCents={nightCents} /> : null}
-
-      <footer className="show-strap">
-        <span className="text-sm text-(--tx)/55">
-          Every snail has the same chance. The result is drawn and sealed before the gates open.
-        </span>
-      </footer>
-    </ShowDialog>
+    <>
+      {render(screen.leaving, 'leave')}
+      {render(screen.current, screen.under ? 'under' : 'enter')}
+      {render(hold.leaving, 'leave')}
+      {render(hold.current, hold.under ? 'under' : 'enter')}
+    </>
   );
 }
 
-function ShowDialog({ phase, children }: { phase: EventState['showPhase']; children: React.ReactNode }) {
+/**
+ * The value on screen now, and the one going off while it fades. The
+ * leaving value is derived during render and cleared by a timer.
+ */
+function usePresence<T>(value: T, beneath = false): { current: T; leaving: T | null; under: boolean } {
+  const [current, setCurrent] = useState<T>(value);
+  const [leaving, setLeaving] = useState<T | null>(null);
+  /* True when the screen came on beneath another: it shows at once while the other fades. */
+  const [under, setUnder] = useState(false);
+  if (value !== current) {
+    setLeaving(current);
+    setUnder(current !== null || beneath);
+    setCurrent(value);
+  }
+  useEffect(() => {
+    if (leaving === null) return;
+    const id = window.setTimeout(() => setLeaving(null), LEAVE_MS);
+    return () => window.clearTimeout(id);
+  }, [leaving]);
+  return { current, leaving: leaving !== current ? leaving : null, under };
+}
+
+function ShowScreen({ view, state, controlsVisible, children }: { view: Exclude<View, null>; state: 'enter' | 'under' | 'leave'; controlsVisible: boolean; children: React.ReactNode }) {
+  const label = view === 'holding' ? 'Holding screen' : `${showPhaseSpec(view).screen} screen`;
   return (
     <div
-      className="show-screen"
-      role="region"
-      aria-label={`${showPhaseSpec(phase).screen} screen`}
-      tabIndex={0}
+      className={`${state !== 'leave' && view !== 'holding' ? 'show-screen ' : ''}ss-screen ss-${state} ${controlsVisible ? 'ss-has-controls' : ''} ${view === 'holding' ? 'ss-holding' : ''}`}
+      role={view === 'holding' ? 'status' : 'region'}
+      aria-label={label}
+      aria-hidden={state === 'leave' ? true : undefined}
+      tabIndex={state !== 'leave' ? 0 : -1}
       style={{ '--show-art': `url(${ART_BASE}/snail-race-oval.webp)` } as React.CSSProperties}
     >
       {children}
@@ -87,264 +132,298 @@ function ShowDialog({ phase, children }: { phase: EventState['showPhase']; child
   );
 }
 
-/* ── Screens ───────────────────────────────────────────────────────────── */
-
-function SnailQr({ url, cents, compact = false }: { url: string; cents: number; compact?: boolean }) {
-  if (!url) {
-    return (
-      <div className="show-panel text-center">
-        <p className="eyebrow mb-1">Buy a snail</p>
-        <p className="show-backing-price num">{moneyShort(cents)}</p>
-        <p className="mt-2 text-sm text-(--tx)/60">See the table to buy and name your snail.</p>
-      </div>
-    );
-  }
+function ShowHeader({ event, phase }: { event: EventState; phase: ShowPhase }) {
   return (
-    <div className="show-panel text-center">
-      <p className="eyebrow mb-2">Buy a snail, {moneyShort(cents)}</p>
-      <DonateQr url={url} caption={compact ? 'Scan to buy and name a snail' : 'Scan, pay by card, name your snail'} />
-    </div>
+    <header className="ss-top">
+      <ClubBrand className="ss-brand" imageClassName="ss-crest" nameClassName="ss-club" priority />
+      {/* The welcome poster carries the title; every other screen names the night here. */}
+      {phase !== 'lobby' && phase !== 'intermission' ? <p className="ss-event">{event.eventName}</p> : null}
+      {event.rehearsal ? <span className="ss-tag ss-tag-rehearsal">REHEARSAL</span> : null}
+      <span className="ss-tag num">{showPhaseSpec(phase).screen}</span>
+    </header>
   );
 }
 
+/** Long names step down a size so they wrap onto two lines at most instead of being cut. */
+const lengthClass = (name: string): string => (name.length > 26 ? 'ss-xlong' : name.length > 15 ? 'ss-long' : '');
+
+function Art({ lane, className = '' }: { lane: number; className?: string }) {
+  return (
+    <span
+      className={`ss-art ${className}`}
+      aria-hidden="true"
+      style={{ backgroundImage: `url(${runnerArtForLane(lane).src})`, filter: `hue-rotate(${runnerHueRotation(lane)}deg)` }}
+    />
+  );
+}
+
+/* ── Welcome ───────────────────────────────────────────────────────────── */
+
+/** "Snails 1 to 8 race first, 9 to 16 next, and so on." from the run sheet. */
+export function runOrderSentence(event: Pick<EventState, 'card'>): string {
+  const numbered = event.card.races
+    .map((row, i) => (row.field?.length ? [] : snailsForRace(i + 1, event.card)))
+    .filter((x) => x.length > 0);
+  const span = (s: number[]) => `${s[0]} to ${s[s.length - 1]}`;
+  if (!numbered.length) return '';
+  if (numbered.length === 1) return `Snails ${span(numbered[0])} race tonight.`;
+  return `Snails ${span(numbered[0])} race first, ${span(numbered[1])} next${numbered.length > 2 ? ', and so on' : ''}.`;
+}
+
 function Lobby({ event, snailLinkUrl }: { event: EventState; snailLinkUrl: string }) {
-  const sponsors = event.sponsors.map((s) => s.trim()).filter(Boolean);
+  const sponsors = [...new Set(event.sponsors.map((s) => s.trim()).filter(Boolean))].slice(0, 8);
   const when = eventWhen(event);
   const sold = soldCount(event.card);
+  const races = event.card.races.length;
+  const price = moneyShort(event.card.snailCents);
+  const sizes = event.card.races.filter((r) => !r.field?.length).map((r) => r.runners);
+  const fields = sizes.length && sizes.every((n) => n === sizes[0]) ? `${sizes[0]} snails in each` : sizes.length ? `${sizesPhrase(sizes)} snails` : '';
   return (
-    <section className="show-body show-center">
-      <div className="grid w-full max-w-[1200px] gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="show-panel">
-          {event.eventTagline?.trim() ? <p className="eyebrow mb-2 show-tagline">{event.eventTagline.trim()}</p> : null}
-          <h2 className="display text-balance text-6xl leading-[0.98]">{event.eventName}</h2>
-          {when ? <p className="show-when num mt-3">{when}</p> : null}
-          <p className="mt-4 text-xl text-(--tx)/65">
-            {event.card.snailCount} snails on the card in {describeLayout(cardLayout(event.card.snailCount))}.
-          </p>
-          <p className="show-backing mt-4">
-            <span className="show-backing-price num">{moneyShort(event.card.snailCents)} a snail</span>
-            <span>Buy one, name it, cheer it home.</span>
-          </p>
-          <ul className="mt-6 grid gap-2 text-[15px] text-(--tx)/70">
-            <li>
-              Your snail number decides its race: {snailsForRace(1, event.card.snailCount)[0]} to {snailsForRace(1, event.card.snailCount).at(-1)} run first
-              {cardLayout(event.card.snailCount).races > 1
-                ? `, ${snailsForRace(2, event.card.snailCount)[0]} to ${snailsForRace(2, event.card.snailCount).at(-1)} next, and so on.`
-                : '.'}
-            </li>
-            <li>Every snail wins with exactly the same chance, drawn before the off.</li>
-            <li>{sold} of {event.card.snailCount} snails have an owner so far.</li>
-          </ul>
-          <p className="show-slogan mt-6">Slow race. Big cheers.</p>
-          {sponsors.length ? (
-            <div className="mt-7 border-t border-(--tx)/10 pt-4">
-              <p className="eyebrow mb-2">Tonight&apos;s sponsors</p>
-              <p className="flex flex-wrap gap-x-6 gap-y-1 text-lg font-semibold text-(--gold)">
-                {sponsors.map((s) => (
-                  <span key={s}>{s}</span>
-                ))}
-              </p>
-            </div>
-          ) : null}
-        </div>
-        <div className="flex flex-col gap-4">
-          <div className="show-poster" aria-hidden="true">
-            <Image unoptimized src={POSTER} alt="" width={900} height={1125} sizes="(max-width: 1024px) 100vw, 400px" />
+    <section className="ss-body ss-welcome">
+      {/* The poster, rebuilt live around its illustration: the title, price and date always match the night's settings. */}
+      <div className="ss-poster">
+        <div className="ss-poster-text">
+          <p className="ss-poster-club">{event.clubName}</p>
+          {event.eventTagline?.trim() ? <p className="ss-poster-tagline">{event.eventTagline.trim()}</p> : null}
+          <h1 className="ss-poster-title">{event.eventName}</h1>
+          <div className="ss-poster-price">
+            <span className="ss-price num">{price} per snail</span>
+            <span className="ss-poster-call">Back your snail.<br />Cheer it home.</span>
           </div>
-          <SnailQr url={snailLinkUrl} cents={event.card.snailCents} />
+        </div>
+        <div className="ss-poster-art" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={POSTER} alt="" width={900} height={1125} />
+        </div>
+        {when ? <p className="ss-poster-when num">{when}</p> : null}
+      </div>
+      <div className="ss-welcome-info">
+        <div className="ss-card">
+          <p className="ss-kicker">Tonight</p>
+          <p className="ss-big num">
+            {races} {races === 1 ? 'race' : 'races'}
+          </p>
+          <p className="ss-line">{fields ? `${fields}. ` : ''}{runOrderSentence(event)}</p>
+        </div>
+        <div className="ss-card">
+          <p className="ss-kicker">Owners so far</p>
+          <p className="ss-big num">
+            {sold} <span className="ss-big-note">of {event.card.snailCount}</span>
+          </p>
+          <p className="ss-line">{sponsors.length ? `Snails named so far. With thanks to ${sponsors.join(' · ')}.` : 'Snails named so far. Buy one, name it, cheer it home.'}</p>
+        </div>
+        <div className="ss-card ss-buy">
+          {snailLinkUrl ? <div className="ss-qr"><DonateQr url={snailLinkUrl} size={240} caption="" /></div> : null}
+          <div>
+            <p className="ss-kicker">Buy a snail</p>
+            <p className="ss-big num">{price}</p>
+            <p className="ss-line">{snailLinkUrl ? 'Scan, pay by card, name your snail.' : 'See the table to buy and name your snail.'}</p>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function RacecardScreen({
-  event,
-  raceNo,
-  sponsor,
-  snailLinkUrl,
-}: {
-  event: EventState;
-  raceNo: number;
-  sponsor?: string;
-  snailLinkUrl: string;
-}) {
+/* ── Racecard ──────────────────────────────────────────────────────────── */
+
+function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: EventState; raceNo: number; sponsor?: string; snailLinkUrl: string }) {
+  const settings = raceSettings(event, raceNo);
   const names = cardRaceNames(event.card, raceNo);
   const owners = cardRaceOwners(event.card, raceNo);
-  const numbers = snailsForRace(raceNo, event.card.snailCount);
-  const unsold = numbers.filter((n) => !event.card.names[n - 1]?.trim() && !event.card.owners[n - 1]?.trim());
-  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
+  const numbers = settings.snails;
+  const forSale = numbers.filter((n) => !isSold(event.card, n));
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
   const leg = quaddie.live ? event.quaddie.legs.indexOf(raceNo) : -1;
+  const cols = numbers.length <= 8 ? 4 : numbers.length <= 10 ? 5 : 6;
   return (
-    <section className="show-body">
-      <div className="show-panel show-panel-wide show-racecard-panel">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="display text-4xl">
-            Race {raceNo} of {event.plannedRaces}
-            <span className="num ml-3 text-lg text-(--tx)/55">snails {numbers[0]} to {numbers[numbers.length - 1]}</span>
+    <section className="ss-body ss-racecard">
+      <div className="ss-rc-head">
+        <div className="ss-rc-title">
+          <h2>
+            {settings.title}
+            {!settings.runOff ? <span className="ss-of num"> of {event.plannedRaces}</span> : null}
           </h2>
-          <div className="flex items-center gap-3 text-sm">
-            {leg >= 0 ? <span className="show-leg num">QUADDIE LEG {leg + 1}</span> : null}
-            {sponsor ? <span className="text-(--gold)">Sponsored by {sponsor}</span> : null}
-          </div>
+          <p className="ss-rc-snails num">
+            {settings.runOff ? `${numbers.length} winners race again` : `Snails ${numbers[0]} to ${numbers[numbers.length - 1]}`}
+          </p>
         </div>
-        <RunnerLineup names={names} numberOffset={numbers[0] - 1} dense />
-        <ol className="show-owner-grid" aria-label={`Owners for race ${raceNo}`}>
-          {numbers.map((snailNo, lane) => (
-            <li key={snailNo} className={owners[lane] || names[lane] !== `Snail ${snailNo}` ? '' : 'show-owner-unsold'}>
-              <span className="show-owner-no num" style={{ background: laneColour(lane).shell }}>
-                {snailNo}
-              </span>
-              <span className="show-owner-name">{names[lane]}</span>
-              <span className="show-owner-owner">{owners[lane] || (names[lane] === `Snail ${snailNo}` ? 'Unsold' : '')}</span>
-            </li>
-          ))}
-        </ol>
-        {unsold.length && snailLinkUrl ? (
-          <div className="show-racecard-qr">
-            <SnailQr url={snailLinkUrl} cents={event.card.snailCents} compact />
-            <p className="text-sm text-(--tx)/60">
-              Still unsold in this race: <b className="num">{unsold.join(', ')}</b>. Buy before the gate.
+        <ul className="ss-chips" aria-label="Race details">
+          <li>{settings.designName}</li>
+          <li className="num">{lengthPhrase(settings)}</li>
+          <li>{SURPRISE_LEVEL_NAMES[settings.intensity]} surprises</li>
+          {leg >= 0 ? <li className="ss-chip-gold num">Quaddie leg {leg + 1}</li> : null}
+          {sponsor ? <li className="ss-chip-gold">Sponsored by {sponsor}</li> : null}
+        </ul>
+        {forSale.length && snailLinkUrl && !settings.runOff ? (
+          <div className="ss-rc-buy">
+            <div className="ss-qr ss-qr-small"><DonateQr url={snailLinkUrl} size={160} caption="" /></div>
+            <p>
+              For sale in this race: <b className="num">{forSale.join(', ')}</b>
             </p>
           </div>
         ) : null}
       </div>
+      <ol className={`ss-field ss-cols-${cols}`} aria-label={`Race ${raceNo} field, ${numbers.length} runners`}>
+        {numbers.map((snailNo, lane) => {
+          const colour = laneColour(lane);
+          const sold = isSold(event.card, snailNo);
+          return (
+            <li key={`${lane}-${snailNo}`} className="ss-runner" style={{ '--shell': colour.shell, '--shell-dk': colour.dark } as React.CSSProperties}>
+              <span className="ss-runner-no num">{snailNo}</span>
+              <Art lane={lane} className="ss-runner-art" />
+              <span className={`ss-runner-name ${lengthClass(names[lane])}`}>{names[lane]}</span>
+              {owners[lane] ? (
+                <span className="ss-runner-owner">{owners[lane]}</span>
+              ) : sold || settings.runOff ? (
+                <span className="ss-runner-owner">&nbsp;</span>
+              ) : (
+                <span className="ss-runner-sale">For sale</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }
 
+/* ── Quaddie board (championship screens) ─────────────────────────────── */
+
 export function QuaddieBoard({ event }: { event: EventState }) {
-  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
+  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
   if (!status.live) {
     return (
-      <section className="show-body show-center">
-        <div className="show-panel text-center">
-          <h2 className="display text-5xl">Next race shortly</h2>
-        </div>
+      <section className="ss-body ss-center">
+        <h2 className="ss-headline">Next race shortly</h2>
       </section>
     );
   }
   const nextLeg = status.legs.find((l) => l.alive === null);
   return (
-    <section className="show-body show-center">
-      <div className="show-panel show-panel-wide">
-        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="display text-5xl">Quaddie</h2>
-          <p className="num text-lg text-(--tx)/70">
-            {status.entries} {status.entries === 1 ? 'ticket' : 'tickets'} · pool {money(status.poolCents)} ·{' '}
-            {money(status.returnedCents)} to the winners
+    <section className="ss-body ss-center">
+      <div className="ss-card ss-quaddie">
+        <div className="ss-quaddie-head">
+          <h2 className="ss-headline">Quaddie</h2>
+          <p className="ss-line num">
+            {status.entries} {status.entries === 1 ? 'ticket' : 'tickets'} · pool {money(status.poolCents)} · {money(status.returnedCents)} to the winners
           </p>
         </div>
-        <ol className="quaddie-legs">
+        <ol className="ss-legs">
           {status.legs.map((leg) => (
-            <li key={leg.raceNo} className={leg.alive === null ? 'quaddie-leg-pending' : 'quaddie-leg-run'}>
-              <span className="num quaddie-leg-no">Leg {leg.index + 1}</span>
-              <span className="quaddie-leg-race">Race {leg.raceNo}</span>
-              <span className="quaddie-leg-result">
+            <li key={leg.raceNo} className={leg.alive === null ? 'ss-leg-pending' : ''}>
+              <span className="num ss-leg-no">Leg {leg.index + 1}</span>
+              <span>Race {leg.raceNo}</span>
+              <span>
                 {leg.winnerSnail !== null ? (
-                  <>
-                    won by <b className="num">{leg.winnerSnail}</b> {leg.winnerName}
-                  </>
+                  <>won by <b className="num">{leg.winnerSnail}</b> {leg.winnerName}</>
                 ) : (
                   'to run'
                 )}
               </span>
-              <span className="num quaddie-leg-alive">
-                {leg.alive === null ? '' : `${leg.alive} alive`}
-              </span>
+              <span className="num ss-leg-alive">{leg.alive === null ? '' : `${leg.alive} alive`}</span>
             </li>
           ))}
         </ol>
-        {status.complete ? (
-          <p className="mt-5 text-xl">
-            {status.unwon
+        <p className="ss-line">
+          {status.complete
+            ? status.unwon
               ? `No ticket picked all four. The pool of ${money(status.poolCents)} stays with ${event.clubName}.`
-              : `${status.winners.length} winning ${status.winners.length === 1 ? 'ticket' : 'tickets'}: ${status.winners
-                  .map((w) => w.holder)
-                  .join(', ')}. Each collects ${money(status.dividendCents)}.`}
-          </p>
-        ) : status.legsRun > 0 ? (
-          <p className="mt-5 text-xl">
-            {status.alive.length === 0
-              ? `Nobody is still alive. The pool stays with ${event.clubName}.`
-              : `${status.alive.length} ${status.alive.length === 1 ? 'ticket is' : 'tickets are'} still alive: ${status.alive
-                  .slice(0, 8)
-                  .map((a) => `${a.holder} (needs ${a.picks[nextLeg?.index ?? 3]})`)
-                  .join(', ')}${status.alive.length > 8 ? ' and more' : ''}.`}
-          </p>
-        ) : (
-          <p className="mt-5 text-lg text-(--tx)/60">
-            Entries close when race {event.quaddie.legs[0]} goes to the gate.
-          </p>
-        )}
-        <p className="mt-4 text-sm text-(--tx)/50">
-          {event.quaddie.retainedPercent}% of the pool to {event.clubName}; dividends rounded down to 10c. Club product under its
-          own authority.
+              : `${status.winners.length} winning ${status.winners.length === 1 ? 'ticket' : 'tickets'}: ${status.winners.map((w) => w.holder).join(', ')}. Each collects ${money(status.dividendCents)}.`
+            : status.legsRun > 0
+              ? status.alive.length === 0
+                ? `Nobody is still alive. The pool stays with ${event.clubName}.`
+                : `${status.alive.length} ${status.alive.length === 1 ? 'ticket is' : 'tickets are'} still alive: ${status.alive
+                    .slice(0, 8)
+                    .map((a) => `${a.holder} (needs ${a.picks[nextLeg?.index ?? 3]})`)
+                    .join(', ')}${status.alive.length > 8 ? ' and more' : ''}.`
+              : `Entries close when race ${event.quaddie.legs[0]} goes to the gate.`}
         </p>
       </div>
     </section>
   );
 }
 
+/* ── Thank you ─────────────────────────────────────────────────────────── */
+
+/** Everything the night raised that the ledgers in state know about. */
+export function nightTotal(event: EventState, nightCents: number): number {
+  const proceeds = toteProceeds(event.history);
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
+  return nightCents + proceeds.toteCents + proceeds.auctionCents + (quaddie.entries ? quaddie.retainedCents + quaddie.breakageCents + (quaddie.unwon ? quaddie.returnedCents : 0) : 0);
+}
+
 function Finale({ event, nightCents }: { event: EventState; nightCents: number }) {
   const winners = event.history
-    .filter((h) => !h.void)
+    .filter((h) => !h.void && h.results.length)
     .slice()
     .sort((a, b) => a.raceNo - b.raceNo)
     .map((h) => {
       const w = h.results.find((r) => r.place === 1);
-      const offset = h.snailOffset ?? (h.raceNo - 1) * 10;
-      return w ? { raceNo: h.raceNo, name: w.name, snailNo: offset + w.lane + 1, owner: h.owners?.[w.lane] ?? event.card.owners[offset + w.lane] ?? '' } : null;
+      if (!w) return null;
+      const snailNo = snailOfLane(h, w.lane);
+      return {
+        raceNo: h.raceNo,
+        title: raceTitle(h.raceType, h.raceNo),
+        lane: w.lane,
+        name: w.name,
+        snailNo,
+        owner: h.owners?.[w.lane] ?? event.card.owners[snailNo - 1] ?? '',
+        track: h.trackShape ? designNameOf(h.trackShape, h.courseId) : '',
+      };
     })
-    .filter((x): x is { raceNo: number; name: string; snailNo: number; owner: string } => x !== null);
-  const sponsors = [...new Set([...event.sponsors, ...event.history.map((h) => h.sponsor ?? '')])]
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card.snailCount);
-  const proceeds = toteProceeds(event.history);
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+  const total = nightTotal(event, nightCents);
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
+  const cols = winners.length <= 4 ? Math.max(1, winners.length) : winners.length <= 8 ? 4 : winners.length <= 10 ? 5 : 6;
+  const sponsors = [...new Set(event.sponsors.map((s) => s.trim()).filter(Boolean))].slice(0, 10);
   return (
-    <section className="show-body show-center">
-      <div className="show-panel show-panel-wide text-center">
-        <h2 className="display mt-2 text-5xl">Thank you for racing</h2>
-        {winners.length ? (
-          <ol className="finale-winners">
-            {winners.map((w) => (
-              <li key={w.raceNo}>
-                <span className="num">Race {w.raceNo}</span>
-                <b>{w.name}</b>
-                <span className="num">#{w.snailNo}</span>
-                <span className="text-(--tx)/60">{w.owner}</span>
-              </li>
-            ))}
-          </ol>
+    <section className="ss-body ss-finale">
+      <div className="ss-finale-head">
+        <h2 className="ss-headline">Thank you for racing</h2>
+        {total > 0 ? (
+          <p className="ss-raised">
+            <span className="ss-kicker">Raised tonight</span>
+
+            <span className="ss-raised-amount num">{moneyShort(total)}</span>
+          </p>
         ) : null}
-        {nightCents > 0 ? (
-          <div className="mx-auto mt-7 w-fit text-center">
-            <p className="eyebrow">Raised for {event.clubName}</p>
-            <p className="display money-ink text-6xl num">{moneyShort(nightCents)}</p>
-          </div>
-        ) : null}
+      </div>
+      {winners.length ? (
+        <ol className={`ss-winners ss-cols-${cols}`} aria-label="Tonight's winners">
+          {winners.map((w) => (
+            <li key={w.raceNo} className="ss-winner" style={{ '--shell': laneColour(w.lane).shell } as React.CSSProperties}>
+              <span className="ss-winner-race">{w.title}</span>
+              <Art lane={w.lane} className="ss-winner-art" />
+              <span className={`ss-winner-name ${lengthClass(w.name)}`}>{w.name}</span>
+
+              <span className="ss-winner-owner">
+                {w.name === `Snail ${w.snailNo}` ? w.owner : `No. ${w.snailNo}${w.owner ? ` · ${w.owner}` : ''}`}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      <div className="ss-finale-foot">
         {quaddie.live && quaddie.complete ? (
-          <p className="mt-4 text-base text-(--tx)/70">
-            Quaddie:{' '}
-            {quaddie.unwon
-              ? `no winner, ${money(quaddie.poolCents)} to the club`
-              : `${quaddie.winners.map((w) => w.holder).join(', ')} collected ${money(quaddie.dividendCents)} each`}
+          <p className="ss-line">
+            Quaddie: {quaddie.unwon ? `no winner, ${money(quaddie.poolCents)} to the club` : `${quaddie.winners.map((w) => w.holder).join(', ')} collected ${money(quaddie.dividendCents)} each`}
           </p>
         ) : null}
-        {proceeds.races || proceeds.auctionCents ? (
-          <p className="mt-2 text-base text-(--tx)/70">
-            Cash tote to the club <b className="num text-(--gold)">{money(proceeds.toteCents)}</b> · paid out{' '}
-            <b className="num">{money(proceeds.paidOutCents)}</b>
-          </p>
-        ) : null}
-        {sponsors.length ? (
-          <p className="mt-7 text-sm text-(--tx)/55">
-            With thanks to tonight&apos;s sponsors: <b className="text-(--gold)">{sponsors.join(' · ')}</b>
-          </p>
-        ) : null}
-        <p className="mt-6 text-lg text-(--tx)/70">Safe travels home.</p>
+        {sponsors.length ? <p className="ss-line ss-dim">With thanks to tonight&apos;s sponsors: {sponsors.join(' · ')}</p> : null}
       </div>
     </section>
+  );
+}
+
+/* ── Holding ───────────────────────────────────────────────────────────── */
+
+function Holding({ event }: { event: EventState }) {
+  return (
+    <div className="ss-hold">
+      <ClubBrand className="ss-hold-brand" imageClassName="ss-hold-crest" showName={false} />
+      <h2>Back shortly</h2>
+      <p>{event.eventName}</p>
+    </div>
   );
 }

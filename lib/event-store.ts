@@ -5,7 +5,7 @@ import { DEFAULT_NAMES, MAX_FIELD, MIN_LIVE_FIELD } from './palette';
 import { normaliseCourseId, normaliseTrackDesigns } from './courses';
 import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
-import { DEFAULT_CARD, RACES_ON_CARD, SNAILS_PER_RACE, cardLayout, normaliseCard, pinLegacySplit, snailCountLock } from './card';
+import { DEFAULT_CARD, DEFAULT_RACE_TYPE, RACES_ON_CARD, SNAILS_PER_RACE, freshCard, normaliseCard, snailCountLock } from './card';
 import type { CardState } from './card';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
@@ -68,10 +68,10 @@ export function freshState(): EventState {
     timezone: 'Australia/Melbourne',
     eventMode: 'live',
     plannedRaces: RACES_ON_CARD,
+    championshipScreens: false,
     rehearsal: false,
     showPhase: 'lobby',
-    /* A card night is sold on surprises: the deck is dealt hard by default. */
-    intensity: 'chaos',
+    intensity: 'standard',
     racePack: null,
     packPlayed: [],
     packCurrent: null,
@@ -82,26 +82,21 @@ export function freshState(): EventState {
     names: DEFAULT_NAMES.slice(),
     goalCents: 100_000,
     goalShow: false,
-    /*
-     * 40 seconds a lap, three laps. Pace matters more than it looks: the
-     * oval is about 2,200 course units round and a snail is 48 long, so a
-     * 12-second lap has them covering five body-lengths a second, which
-     * reads as a sprinting animal rather than a snail. 40 seconds is about
-     * one length a second, which is brisk enough for a two-minute race-night film.
-     */
-    raceDurationMs: 120_000,
+    /* Thirty seconds, one of the listed lengths: on the straight that is the
+       whole race; switch a circuit on and it becomes the lap length. */
+    raceDurationMs: 30_000,
     /* The side-on cartoon straight is the night's race view; the oval stays
        as an option in Admin. */
     trackShape: 'lanes',
     courseId: 'boundary-oval',
     trackDesigns: null,
-    laps: 3,
+    laps: 1,
     surprises: true,
-    raceType: 'Heat',
+    raceType: DEFAULT_RACE_TYPE,
     raceNumber: 0,
     sponsors: [],
     runnerSponsors: [],
-    card: { ...DEFAULT_CARD, names: DEFAULT_CARD.names.slice(), owners: DEFAULT_CARD.owners.slice(), claims: {} },
+    card: freshCard(),
     quaddie: { ...DEFAULT_QUADDIE, legs: DEFAULT_QUADDIE.legs.slice() },
     quaddieEntries: [],
     audioMode: 'music',
@@ -290,12 +285,12 @@ function merge(raw: string | null): EventState {
     const phases: ShowPhase[] = ['lobby', 'racecard', 'race', 'results', 'championship', 'finale'];
     const audioModes: AudioMode[] = ['music', 'commentary', 'both', 'off'];
     const cameraModes: CameraMode[] = ['telecast', 'full'];
-    /* A night saved before 5.4 keeps the split its snails were sold into
+    /* A card saved before the run sheet becomes the races its split gave.
+       A night saved before 5.4 keeps the split its snails were sold into
        whenever anything on the record is tied to a lane: a race run, a
        quaddie ticket, a tote sale, a bid, cash taken or an armed race (the
        same records that lock the snail count). Its card carries no split
-       marker, so those records decide. A card with none takes tonight's rule. */
-    const card = normaliseCard(parsed.card);
+       marker, so those records decide. A card with none takes the even split. */
     const live = <T extends { void?: boolean }>(list: unknown): T[] =>
       Array.isArray(list) ? (list as T[]).filter((x) => x && typeof x === 'object') : [];
     const tied =
@@ -310,12 +305,7 @@ function merge(raw: string | null): EventState {
         validHeldRaceStart(parsed.heldRaceStart) !== null,
       ) !== '';
     const storedCard = parsed.card as Partial<CardState> | undefined;
-    if (tied && storedCard?.split === undefined) {
-      card.split = 'legacy';
-      pinLegacySplit(card.snailCount, true);
-    } else if (card.split === 'even') {
-      pinLegacySplit(card.snailCount, false);
-    }
+    const card = normaliseCard(parsed.card, tied && storedCard?.split === undefined);
     const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
       ? (parsed.audioMode as AudioMode)
       : parsed.sound === false
@@ -359,9 +349,17 @@ function merge(raw: string | null): EventState {
           ? parsed.backingCents
           : base.backingCents,
       eventMode: parsed.eventMode === 'recorded' ? 'recorded' : 'live',
-      /* The races come from the card's snail count, never from the backup, so
-         a backup cannot desynchronise the snail numbers from their races. */
-      plannedRaces: cardLayout(card.snailCount).races,
+      /* The races come from the card's run sheet, never from the backup's
+         count, so a backup cannot desynchronise the numbers from their races. */
+      plannedRaces: card.races.length,
+      championshipScreens: parsed.championshipScreens === true,
+      /* "Heat" was forced on every race before the night became a league. A
+         night saved before the championship switch existed reads it as League;
+         a Heat chosen since is kept. */
+      raceType:
+        typeof parsed.raceType === 'string' && parsed.raceType.trim() && !(parsed.raceType === 'Heat' && parsed.championshipScreens === undefined)
+          ? parsed.raceType.slice(0, 40)
+          : DEFAULT_RACE_TYPE,
       rehearsal: parsed.rehearsal === true,
       showPhase: phases.includes(parsed.showPhase as ShowPhase)
         ? (parsed.showPhase as ShowPhase)
@@ -466,9 +464,9 @@ export function setState(patch: Partial<EventState> | ((s: EventState) => Partia
   if (typeof patch === 'function') syncFromStorage();
   const next = typeof patch === 'function' ? patch(state) : patch;
   state = { ...state, ...next };
-  /* The number of races always follows the snails on the card. */
+  /* The number of races always follows the run sheet. */
   if (next.card) {
-    const races = cardLayout(state.card.snailCount).races;
+    const races = state.card.races.length;
     state.plannedRaces = races;
     /* A quaddie leg past the last race could never be run: spread the four legs over the card. */
     if (races < 4) {

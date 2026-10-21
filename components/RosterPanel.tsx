@@ -3,21 +3,25 @@
 import { useState } from 'react';
 import { addAudit, setState } from '@/lib/event-store';
 import {
+  MAX_NAME,
+  MAX_OWNER,
   MAX_SNAILS_ON_CARD,
   MIN_SNAILS_ON_CARD,
+  cardFit,
   cardLayout,
   describeLayout,
+  isRunOff,
   isSold,
   parseRosterPaste,
   raceForSnail,
   resizeCard,
   rosterCsv,
-  snailCountFits,
   snailsForRace,
   soldCount,
 } from '@/lib/card';
 import { laneColour } from '@/lib/palette';
-import type { CardState } from '@/lib/card';
+import { CardFitNotice } from './RunSheetPanel';
+import type { EventState } from '@/lib/types';
 
 /**
  * The roster: every snail on the card, by number, with its name and owner.
@@ -27,23 +31,22 @@ import type { CardState } from '@/lib/card';
  * race is armed, so the plan hash and the board can never disagree.
  */
 export function RosterPanel({
-  card,
+  event,
   raceNo,
   lockedRaceNo,
   compact = false,
-  resizeLockedReason = '',
 }: {
-  card: CardState;
+  event: EventState;
   /** The race shown first. */
   raceNo: number;
   /** Race whose names are locked, if one is armed or running. */
   lockedRaceNo: number | null;
-  /** The desk shows one race; Admin shows the whole card. */
+  /** The desk shows one race with the snails on sale; Admin shows the whole card (the run sheet holds the count). */
   compact?: boolean;
-  /** Why the number of snails cannot change right now; empty when it can. */
-  resizeLockedReason?: string;
 }) {
-  const [countDraft, setCountDraft] = useState(String(card.snailCount));
+  const card = event.card;
+  /* Null while not being edited, so the box always shows the card as it stands. */
+  const [countDraft, setCountDraft] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(!compact);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [paste, setPaste] = useState('');
@@ -54,7 +57,7 @@ export function RosterPanel({
   const update = (snailNo: number, field: 'names' | 'owners', value: string) => {
     setState((s) => {
       const list = s.card[field].slice();
-      list[snailNo - 1] = value.slice(0, 24);
+      list[snailNo - 1] = value.slice(0, field === 'names' ? MAX_NAME : MAX_OWNER);
       const claims = { ...s.card.claims };
       delete claims[snailNo];
       return { card: { ...s.card, [field]: list, claims } };
@@ -62,7 +65,7 @@ export function RosterPanel({
   };
 
   const applyPaste = () => {
-    const { rows, skipped } = parseRosterPaste(paste, card.snailCount);
+    const { rows, skipped } = parseRosterPaste(paste, card);
     if (!rows.length) {
       setNotice(`Nothing to import${skipped ? ` (${skipped} lines skipped)` : ''}. One snail per line: number, name, owner.`);
       return;
@@ -73,8 +76,8 @@ export function RosterPanel({
       const owners = s.card.owners.slice();
       const claims = { ...s.card.claims };
       for (const row of rows) {
-        const race = raceForSnail(row.snailNo, s.card.snailCount);
-        if (lockedRaceNo === race) {
+        const race = raceForSnail(row.snailNo, s.card);
+        if (race && lockedRaceNo === race) {
           blocked += 1;
           continue;
         }
@@ -99,8 +102,11 @@ export function RosterPanel({
     }
   };
 
-  const races = showAll ? Array.from({ length: cardLayout(card.snailCount).races }, (_, i) => i + 1) : [raceNo];
+  const races = (showAll ? Array.from({ length: card.races.length }, (_, i) => i + 1) : [raceNo]).filter((race) => !isRunOff(card, race) || !showAll);
   const sold = soldCount(card);
+  const fit = cardFit(card);
+  /* Snails on sale with no race yet still need their names typed. */
+  const spare = showAll && fit.diff > 0 ? Array.from({ length: fit.diff }, (_, k) => fit.places + 1 + k) : [];
 
   return (
     <div className="roster" data-roster-sold={sold}>
@@ -122,44 +128,42 @@ export function RosterPanel({
           </button>
         </div>
       </div>
-      <div className="roster-count">
-        <label>
-          <span className="desk-label">Snails on sale</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={MIN_SNAILS_ON_CARD}
-            max={MAX_SNAILS_ON_CARD}
-            value={countDraft}
-            disabled={Boolean(resizeLockedReason)}
-            onChange={(e) => setCountDraft(e.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={Boolean(resizeLockedReason) || Number(countDraft) === card.snailCount}
-          onClick={() => {
-            const result = resizeCard(card, Number(countDraft));
-            if ('error' in result) {
-              setNotice(result.error);
-              return;
-            }
-            setState({ card: result });
-            setCountDraft(String(result.snailCount));
-            addAudit({ kind: 'note', raceNo: 0, detail: `Card set to ${result.snailCount} snails: ${describeLayout(cardLayout(result.snailCount))}.` });
-            setNotice(`${result.snailCount} snails on sale: ${describeLayout(cardLayout(result.snailCount))}.`);
-          }}
-        >
-          Set
-        </button>
-        <p className="desk-label">
-          {resizeLockedReason ||
-            (snailCountFits(Number(countDraft))
-              ? describeLayout(cardLayout(Number(countDraft)))
-              : `Pick ${MIN_SNAILS_ON_CARD} to ${MAX_SNAILS_ON_CARD} snails that split into races of eight to ten.`)}
-        </p>
-      </div>
+      {compact ? (
+        <div className="roster-count">
+          <label>
+            <span className="desk-label">Snails on sale</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_SNAILS_ON_CARD}
+              max={MAX_SNAILS_ON_CARD}
+              value={countDraft ?? String(card.snailCount)}
+              onChange={(e) => setCountDraft(e.target.value)}
+              onBlur={() => { if (countDraft === String(card.snailCount)) setCountDraft(null); }}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={countDraft === null || Number(countDraft) === card.snailCount}
+            onClick={() => {
+              const result = resizeCard(card, Number(countDraft));
+              if ('error' in result) {
+                setNotice(result.error);
+                return;
+              }
+              setState({ card: result });
+              setCountDraft(null);
+              addAudit({ kind: 'note', raceNo: 0, detail: `${result.snailCount} snails on sale.` });
+              setNotice(`${result.snailCount} snails on sale.`);
+            }}
+          >
+            Set
+          </button>
+          <p className="desk-label">{describeLayout(cardLayout(card))}, {fit.places} places</p>
+        </div>
+      ) : null}
+      {compact ? <CardFitNotice event={event} armedRaceNo={lockedRaceNo} compact /> : null}
       {pasteOpen ? (
         <div className="roster-paste">
           <label>
@@ -186,20 +190,22 @@ export function RosterPanel({
           {notice}
         </p>
       ) : null}
-      {races.map((race) => {
-        const locked = lockedRaceNo === race;
+      {[...races, ...(spare.length ? [0] : [])].map((race) => {
+        const locked = race > 0 && lockedRaceNo === race;
+        const numbers = race > 0 ? snailsForRace(race, card) : spare;
         return (
-          <section key={race} className="roster-race" aria-label={`Race ${race} snails`}>
+          <section key={race} className="roster-race" aria-label={race > 0 ? `Race ${race} snails` : 'Snails with no race'}>
             {showAll ? (
               <h3 className="roster-race-title">
-                Race {race} <span className="num">snails {snailsForRace(race, card.snailCount)[0]} to {snailsForRace(race, card.snailCount).at(-1)}</span>
+                {race > 0 ? `Race ${race}` : 'No race yet'} <span className="num">{numbers.length === 1 ? `snail ${numbers[0]}` : `snails ${numbers[0]} to ${numbers.at(-1)}`}</span>
                 {locked ? <span className="roster-locked">locked</span> : null}
               </h3>
             ) : locked ? (
               <p className="roster-locked">Race {race} is armed: names are locked until it finishes.</p>
             ) : null}
             <ol className="roster-rows">
-              {snailsForRace(race, card.snailCount).map((snailNo, lane) => (
+              {numbers.map((snailNo, lane) => (
+
                 <li key={snailNo} className={`roster-row ${isSold(card, snailNo) ? '' : 'roster-unsold'}`}>
                   <span className="desk-lane num" style={{ background: laneColour(lane).shell }}>
                     {snailNo}
@@ -208,7 +214,7 @@ export function RosterPanel({
                     type="text"
                     aria-label={`Snail ${snailNo} name`}
                     placeholder="Unsold"
-                    maxLength={24}
+                    maxLength={MAX_NAME}
                     value={card.names[snailNo - 1] ?? ''}
                     disabled={locked}
                     onChange={(e) => update(snailNo, 'names', e.target.value)}
@@ -217,7 +223,7 @@ export function RosterPanel({
                     type="text"
                     aria-label={`Snail ${snailNo} owner`}
                     placeholder="Owner"
-                    maxLength={24}
+                    maxLength={MAX_OWNER}
                     value={card.owners[snailNo - 1] ?? ''}
                     disabled={locked}
                     onChange={(e) => update(snailNo, 'owners', e.target.value)}

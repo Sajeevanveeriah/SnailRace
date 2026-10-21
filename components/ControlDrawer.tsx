@@ -14,7 +14,9 @@ import { Preflight } from './Preflight';
 import { RosterPanel } from './RosterPanel';
 import { QuaddieSettingsPanel } from './QuaddiePanel';
 import { AudioModePicker } from './AudioModePicker';
-import { cardLayout, cardRaceNames, describeLayout, snailCountLock } from '@/lib/card';
+import { RACE_TYPES, cardLayout, cardRaceNames, describeLayout, raceTitle } from '@/lib/card';
+import { RunSheetPanel } from './RunSheetPanel';
+import { nightRaceType } from '@/lib/run-sheet';
 import type { usePhonePlay } from '@/lib/use-phone-play';
 import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
@@ -871,13 +873,13 @@ export function ControlDrawer({
                 <label className="fld">
                   <span>Race type</span>
                   <select
-                    value={event.raceType}
+                    value={nightRaceType(event)}
                     disabled={locked}
                     onChange={(e) => setState({ raceType: e.target.value })}
                   >
-                    <option>Heat</option>
-                    <option>Final</option>
-                    <option>Champion of champions</option>
+                    {RACE_TYPES.map((t) => (
+                      <option key={t} value={t}>{t === 'League' ? 'League (no label)' : t}</option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -887,7 +889,7 @@ export function ControlDrawer({
                   : `A ${raceLength} race.`}
               </p>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                Every race runs the numbers sold into it on the card: {describeLayout(cardLayout(event.card.snailCount))}. Change the snails on sale under The card.
+                These are the night&apos;s settings. Every race takes them unless its row in the Run sheet says otherwise: {describeLayout(cardLayout(event.card))}.
               </p>
               <fieldset className="mt-3" disabled={locked}>
                 <legend className="text-sm font-medium">Track designs</legend>
@@ -989,9 +991,28 @@ export function ControlDrawer({
                   Clear rehearsal (keep set-up and donations)
                 </button>
               ) : null}
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={event.championshipScreens}
+                  onChange={(e) => {
+                    setState({ championshipScreens: e.target.checked });
+                    addAudit({
+                      kind: 'note',
+                      raceNo: 0,
+                      detail: e.target.checked
+                        ? 'Championship screens on: the quaddie board shows between races while a quaddie runs.'
+                        : 'Championship screens off: each result goes straight to the next racecard.',
+                    });
+                  }}
+                />
+                Championship screens between races
+              </label>
               <p className="mt-2 text-[11px] leading-snug text-(--tx)/50">
-                On the stage, the clicker walks the night forward: welcome, racecard, race, result,
-                the quaddie board when one is running, and the thank-you after race ten. PageUp steps back.
+                The night is a league: the clicker walks it forward through welcome, then racecard, gate, race and
+                result for each race in turn, and the thank-you after race {event.plannedRaces}.
+                {event.championshipScreens ? ' With championship screens on, the quaddie board shows after each result while a quaddie runs.' : ' Championship screens are off.'}{' '}
+                PageUp steps back.
               </p>
             </section>
 
@@ -1121,6 +1142,8 @@ export function ControlDrawer({
               </div>
             </section>
 
+            <RunSheetPanel event={event} armedRaceNo={locked ? nextRaceNo : null} />
+
             {/* ── The card ─────────────────────────────────────────── */}
             <section className="panel lg:col-span-2" aria-label="The card">
               <h3 className="mb-3 font-semibold">The card</h3>
@@ -1157,7 +1180,8 @@ export function ControlDrawer({
                 export with Paste list.
               </p>
               <div className="mt-4">
-                <RosterPanel card={event.card} raceNo={nextRaceNo} lockedRaceNo={locked ? nextRaceNo : null} resizeLockedReason={snailCountLock(event, locked)} />
+                <RosterPanel event={event} raceNo={nextRaceNo} lockedRaceNo={locked ? nextRaceNo : null} />
+
               </div>
             </section>
 
@@ -1425,7 +1449,7 @@ export function ControlDrawer({
                     >
                       <div className="flex items-baseline justify-between gap-2">
                         <span className={`font-semibold ${h.void ? 'line-through' : ''}`}>
-                          {h.raceType} {h.raceNo}: {h.results[0]?.name ?? 'no result'}
+                          {raceTitle(h.raceType, h.raceNo)}: {h.results[0]?.name ?? 'no result'}
                         </span>
                         <span className="num text-xs text-(--tx)/45">{moneyShort(h.potCents)}</span>
                       </div>
