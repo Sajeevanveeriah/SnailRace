@@ -7,6 +7,7 @@ import { presentationForMoment, type SurprisePresentation } from './race-broadca
 import { PropGlyph } from './race-broadcast/prop-glyphs';
 import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import { OfficialResult } from './race-broadcast/BroadcastGraphics';
+import { frameClockMs, smoothDamp } from './race-broadcast/circuit-camera';
 import { clockText } from '@/lib/broadcast';
 import { sponsorsFromRace } from '@/lib/club-sponsors';
 import { ordinal, type SnailRun } from '@/lib/race-engine';
@@ -93,6 +94,9 @@ export const LEAD_PACK = 4;
 const PACK_VIEW_W = 1900;
 /** The widest the following shot goes before it lets the tail of the field go. */
 const FOLLOW_MAX_W = 3000;
+/** The straight camera's pan and zoom settle times, in seconds. */
+const CAM_PAN_S = 0.35;
+const CAM_ZOOM_S = 0.6;
 /** The opening shot starts at least this far back; further when the name flags need it. */
 const OPEN_X = -460;
 /** From here to the post the winning post is always in the shot. */
@@ -593,6 +597,8 @@ export function Sidescroller({
   const momentRef = useRef(race.moment);
   const aspectRef = useRef(16 / 9);
   const camRef = useRef({ x: OPEN_X, w: PACK_VIEW_W });
+  /* The camera's speed on each axis, and its estimate of how fast the shot itself is moving. */
+  const camMotionRef = useRef({ vx: { v: 0 }, vw: { v: 0 }, speed: 0, lastTarget: null as number | null });
   const lastPaintRef = useRef(0);
   const namesRef = useRef(names);
   /* The twist on air, derived from the plan on every frame; React only hears
@@ -746,16 +752,34 @@ export function Sidescroller({
         if (card.style.getPropertyValue('--splash-shift') !== value) card.style.setProperty('--splash-shift', value);
       }
     };
-    /** Ease the camera towards a shot, by elapsed time rather than per frame. */
+    /*
+     * Ease the camera towards a shot with a critically damped follow: no
+     * step in position or speed when the shot changes (a runner joining,
+     * a prop, the run home), and it aims ahead by the shot's own smoothed
+     * speed so riding with the pack carries no lag.
+     */
     const ease = (targetX: number, wantW: number) => {
       const narrowest = minW();
       const cam = camRef.current;
-      const now = wallClockMs();
-      const dt = lastPaintRef.current ? Math.min(100, now - lastPaintRef.current) : 16.7;
+      const motion = camMotionRef.current;
+      const now = frameClockMs();
+      const dt = (lastPaintRef.current ? Math.min(100, now - lastPaintRef.current) : 16.7) / 1000;
       lastPaintRef.current = now;
-      const k = reduceMotionRef.current ? 1 : 1 - Math.pow(0.9, dt / 16.7);
-      cam.x += (targetX - cam.x) * k;
-      cam.w += (wantW - cam.w) * k;
+      if (reduceMotionRef.current) {
+        cam.x = targetX;
+        cam.w = wantW;
+        motion.vx.v = 0;
+        motion.vw.v = 0;
+      } else {
+        if (motion.lastTarget !== null && dt > 0) {
+          const v = (targetX - motion.lastTarget) / dt;
+          /* A jump in the shot is not a speed: only the steady ride is led. */
+          if (Math.abs(v) <= Math.max(4 * Math.abs(motion.speed), 2000)) motion.speed += (v - motion.speed) * (1 - Math.exp(-dt / 0.3));
+        }
+        motion.lastTarget = targetX;
+        cam.x = smoothDamp(cam.x, targetX + motion.speed * CAM_PAN_S, motion.vx, CAM_PAN_S, dt);
+        cam.w = smoothDamp(cam.w, wantW, motion.vw, CAM_ZOOM_S, dt);
+      }
       /* Never narrower than every lane allows, even mid-ease. */
       const viewW = Math.max(cam.w, narrowest);
       frame(cam.x, viewW, viewW / aspectRef.current);
@@ -1026,6 +1050,7 @@ export function Sidescroller({
           /* The opening shot is where the race camera starts, so the gates opening is not a jump cut. */
           const x = openX();
           camRef.current = { x, w };
+          camMotionRef.current = { vx: { v: 0 }, vw: { v: 0 }, speed: 0, lastTarget: null };
           frame(x, w, w / aspectRef.current);
           /* The chips are sized in layer pixels, so a new size moves them too. */
           nodesRef.current.forEach((node, lane) => place(lane, Number(node.dataset.progress ?? 0)));
@@ -1044,6 +1069,7 @@ export function Sidescroller({
         layerWrapRefs.current.crowd?.classList.remove('run-home');
         const w = minW();
         camRef.current = { x: OPEN_X, w };
+        camMotionRef.current = { vx: { v: 0 }, vw: { v: 0 }, speed: 0, lastTarget: null };
         lastPaintRef.current = 0;
         stagedRef.current = null;
         setStaged(null);
@@ -1067,6 +1093,7 @@ export function Sidescroller({
         if (toGoRef.current) toGoRef.current.textContent = `${RACE_METRES.toFixed(1)} m to go`;
         const x = openX();
         camRef.current = { x, w };
+        camMotionRef.current = { vx: { v: 0 }, vw: { v: 0 }, speed: 0, lastTarget: null };
         frame(x, w, w / aspectRef.current);
       },
       paint,

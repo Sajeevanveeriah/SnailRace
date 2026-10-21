@@ -21,7 +21,9 @@ import {
   boxOf,
   finishShot,
   fitBox,
+  frameClockMs,
   grow,
+  smoothDamp,
   packShot,
   spanFor,
   type Box,
@@ -117,7 +119,9 @@ const LOOK: Record<CourseId, { turf: [string, string]; scene: string; track: str
   'practice-nets': { turf: ['#2a5f3c', '#2f6842'], scene: '#2c643f', track: '#e0c597', laneA: '#d8bb8a', laneB: '#cbab79', edge: '#14402a', night: false },
 };
 
-const wallClockMs = () => performance.now();
+const wallClockMs = frameClockMs;
+/** How long the camera's frame takes to follow the board folding into the tower (the panel's own transition is 0.7 s). */
+const VP_GLIDE_S = 0.28;
 const setText = (el: Element | null | undefined, text: string) => {
   if (el && el.textContent !== text) el.textContent = text;
 };
@@ -211,6 +215,10 @@ export function Telecast({
   const propAheadRef = useRef({ value: 90, at: 0 });
   /** How much the runner art is enlarged in a wide shot, so a snail is never a speck. */
   const artScaleRef = useRef(1);
+  /* The frame the camera composes in, eased between the gate's and the race's. */
+  const vpRef = useRef<{ rect: Rect | null; v: { x: { v: number }; y: { v: number }; w: { v: number }; h: { v: number } }; at: number }>({ rect: null, v: { x: { v: 0 }, y: { v: 0 }, w: { v: 0 }, h: { v: 0 } }, at: 0 });
+  /* When the race loop last drew a frame, on the frame clock. */
+  const paintedAtRef = useRef(-Infinity);
   const propScaleRef = useRef<SVGGElement>(null);
 
   const course = courseById(courseId);
@@ -435,7 +443,24 @@ export function Telecast({
         if (leadP > 0.5 && (remaining < span * 0.42 || (leadP >= 0.9 && remaining < span * 0.7))) finishLatchRef.current = true;
         kind = finishLatchRef.current ? 'finish' : 'pack';
       }
-      const vp = kind === 'gate' ? vps.gate : kind === 'hold' ? vps.hold : vps.race;
+      /* The frame the shot is composed in glides between the gate board's
+         width and the timing tower's, as the panel itself does, so the
+         course never jumps sideways when the board folds into the tower. */
+      const vpWant = kind === 'gate' ? vps.gate : kind === 'hold' ? vps.hold : vps.race;
+      const vpLive = vpRef.current;
+      const vpDt = vpLive.at ? Math.min(0.1, Math.max(0, (now - vpLive.at) / 1000)) : 0;
+      if (!vpLive.rect || reduce || !snap || phase === 'idle') {
+        vpLive.rect = { ...vpWant };
+        vpLive.v = { x: { v: 0 }, y: { v: 0 }, w: { v: 0 }, h: { v: 0 } };
+      } else {
+        const r = vpLive.rect;
+        r.x = smoothDamp(r.x, vpWant.x, vpLive.v.x, VP_GLIDE_S, vpDt);
+        r.y = smoothDamp(r.y, vpWant.y, vpLive.v.y, VP_GLIDE_S, vpDt);
+        r.w = smoothDamp(r.w, vpWant.w, vpLive.v.w, VP_GLIDE_S, vpDt);
+        r.h = smoothDamp(r.h, vpWant.h, vpLive.v.h, VP_GLIDE_S, vpDt);
+      }
+      vpLive.at = now;
+      const vp: Rect = { ...vpLive.rect };
       const courseSpan = furniture.box.x1 - furniture.box.x0;
       const line = [furniture.lineA, furniture.lineB, { x: furniture.label.x, y: furniture.label.y + 6 }];
       let target;
@@ -469,13 +494,19 @@ export function Telecast({
       setText(shotRef.current, kind === 'pack' ? 'LEAD PACK' : kind === 'full' ? 'FULL FIELD' : kind === 'finish' || kind === 'hold' ? 'FINISH LINE' : '');
       wrapRef.current?.setAttribute('data-shot', kind);
 
-      /* Paint the course at a raster that keeps the closest shot sharp. */
-      /* Pushing in, paint for where the shot is going, not each step on the way. */
-      const want = Math.max(shot.z, target.z) / met.m0;
+      /*
+       * Paint the course at a raster that keeps the closest shot sharp.
+       * Repainting the course at a new raster costs frames, so it is done at
+       * the gate, for the tightest shot the race can take (the finish hold),
+       * and never while the race is running: the camera then only ever
+       * scales one painted layer, which is smooth.
+       */
+      const tightest = Math.max(shot.z, target.z, vps.race.w / 280);
+      const want = (kind === 'gate' ? tightest : Math.max(shot.z, target.z)) / met.m0;
       const fitR = RASTERS.find((r) => r >= want * 0.92) ?? RASTERS[RASTERS.length - 1];
       const maxR = Math.max(1, Math.sqrt(36e6 / Math.max(1, met.sw * met.sh)));
       const nextR = Math.min(fitR, RASTERS.filter((r) => r <= maxR).pop() ?? 1);
-      if (nextR > met.r || nextR < met.r * 0.6) setRaster(nextR);
+      if (kind === 'gate' ? nextR !== met.r : nextR > met.r) setRaster(nextR);
 
       const s = shot.z / met.m;
       const tx = vp.x + vp.w / 2 - shot.z * shot.cx - s * met.ox;
@@ -491,7 +522,7 @@ export function Telecast({
          art; in the close shots it is drawn at its course size. */
       const wholeZ = fitBox(grow(furniture.box, 20), vp).z;
       const pulledOut = Math.min(1, Math.max(0, (wholeZ * 1.6 - z) / (wholeZ * 0.6)));
-      const artScale = Math.round(Math.max(1, ((3.4 + 0.9 * pulledOut) * met.u) / (SPRITE_W * z)) * 50) / 50;
+      const artScale = Math.round(Math.max(1, ((3.4 + 0.9 * pulledOut) * met.u) / (SPRITE_W * z)) * 1000) / 1000;
       artScaleRef.current = artScale;
       write(propScaleRef.current, 'prop-scale', 'transform', `scale(${artScale})`);
       const badgeU = wide ? CIRCUIT_LAYOUT.badge * 0.78 : CIRCUIT_LAYOUT.badge;
@@ -611,16 +642,17 @@ export function Telecast({
     const painter: RacePainter = {
       measure,
       start: () => {
-        svgRef.current?.classList.add('racing');
+        /* Only the runners' layer changes at the off: touching the course
+           SVG would repaint the whole high-resolution course in one frame. */
         runnerLayerRef.current?.classList.add('racing');
       },
       reset: () => {
         snapshotRef.current = null;
         writtenRef.current.clear();
         rigRef.current?.reset();
+        vpRef.current.rect = null;
         finishLatchRef.current = false;
         lapNowRef.current = 1;
-        svgRef.current?.classList.remove('racing');
         runnerLayerRef.current?.classList.remove('racing');
         runnersRef.current.forEach((nodes) => nodes.node.classList.remove('finished', 'retired', 'is-winner', 'is-leader', 'is-lapped', 'is-target'));
         setText(clockRef.current, '0:00.0');
@@ -633,6 +665,11 @@ export function Telecast({
         snapshotRef.current = { snails, info };
         for (const snail of info.justFinished) runnersRef.current.get(snail.lane)?.node.classList.add('finished');
         setText(clockRef.current, clockText(info.raceTimeMs));
+        /* Draw in the same frame the positions were worked out, so the
+           runners and the camera always move by one frame's worth. */
+        const now = wallClockMs();
+        paintedAtRef.current = now;
+        render(now);
       },
     };
     return { painter, render };
@@ -654,7 +691,10 @@ export function Telecast({
   useEffect(() => {
     let frame = 0;
     const tick = () => {
-      render(wallClockMs());
+      /* While the race loop is painting, it draws; this loop covers the
+         gate, the hold and anything else with no race clock running. */
+      const now = wallClockMs();
+      if (now - paintedAtRef.current > 50) render(now);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);

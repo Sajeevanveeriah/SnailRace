@@ -15,6 +15,7 @@ import {
   finishShot,
   fitBox,
   packShot,
+  smoothDamp,
   spanFor,
   toScreen,
   type Rect,
@@ -226,4 +227,61 @@ test('a compact tower row holds a long name in whole words, never ending on a jo
   assert.equal(towerName('Slow Motion Steve'), 'Slow Motion Steve');
   assert.equal(towerName('Supercalifragilisticexpialidocious'), 'Supercalifragilis…');
   assert.ok(towerName('Lightning McSlime of the Bellarine').length <= 18);
+});
+
+test('a jump in the target moves the camera with no step in speed and no overshoot', () => {
+  const state = { v: 0 };
+  let x = 0;
+  let lastV = 0;
+  let biggestKick = 0;
+  for (let t = 0; t < 3000; t += 16) {
+    const target = t < 500 ? 0 : 100;
+    const next = smoothDamp(x, target, state, 0.45, 0.016);
+    const v = (next - x) / 0.016;
+    biggestKick = Math.max(biggestKick, Math.abs(v - lastV));
+    lastV = v;
+    x = next;
+    assert.ok(x <= 100 + 1e-9, `overshot to ${x}`);
+  }
+  assert.ok(Math.abs(x - 100) < 0.5, `settled at ${x}`);
+  /* A first-order ease would jump straight to about 100 / 0.45 = 222 units/s on the first frame. */
+  assert.ok(biggestKick < 40, `largest frame-to-frame speed change ${biggestKick.toFixed(1)} units/s`);
+});
+
+test('when a runner joins the shot the pan eases on without a jolt', () => {
+  const rig = new CameraRig();
+  let t = 0;
+  let shot = rig.step({ cx: 600, cy: 400, z: 3 }, 'pack', t, { vp, reduce: false });
+  let lastV = 0;
+  let kick = 0;
+  for (let i = 0; i < 200; i++) {
+    t += 16;
+    /* The shot's centre jumps 60 units when a chaser is let in at frame 50, and back out at frame 120. */
+    const cx = 600 + (i >= 50 && i < 120 ? 60 : 0);
+    const next = rig.step({ cx, cy: 400, z: 3 }, 'pack', t, { vp, reduce: false });
+    const v = ((next.cx - shot.cx) * next.z) / 0.016;
+    if (i > 0) kick = Math.max(kick, Math.abs(v - lastV));
+    lastV = v;
+    shot = next;
+  }
+  /* In screen pixels per second per frame: about 1 px/s/frame for every 100 px/s of travel is a glide; a snap is thousands. */
+  assert.ok(kick < 150, `largest frame-to-frame pan speed change ${kick.toFixed(0)} px/s`);
+});
+
+test('a twist far from the leader is reached by a glide, and the camera glides back after it', () => {
+  const rig = new CameraRig();
+  const leader = { x: 600, y: 400 };
+  const twist = [{ x: 200, y: 150 }, { x: 240, y: 150 }];
+  let t = 0;
+  let shot = rig.step({ cx: 600, cy: 400, z: 3 }, 'pack', t, { vp, reduce: false, keepIn: leader });
+  let biggestStep = 0;
+  for (let i = 0; i < 260; i++) {
+    t += 16;
+    const onAir = i >= 40 && i < 140;
+    const next = rig.step({ cx: onAir ? 220 : 600, cy: onAir ? 150 : 400, z: 3 }, 'pack', t, { vp, reduce: false, keepIn: onAir ? twist : leader });
+    biggestStep = Math.max(biggestStep, Math.hypot(next.cx - shot.cx, next.cy - shot.cy) * next.z);
+    shot = next;
+  }
+  /* A 450-unit reframe at this zoom is about 1350 px: as a glide over 0.9 s no frame moves more than a few dozen px. */
+  assert.ok(biggestStep < 60, `largest single-frame move ${biggestStep.toFixed(0)} px`);
 });
