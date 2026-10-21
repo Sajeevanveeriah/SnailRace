@@ -484,12 +484,16 @@ export function Telecast({
 
       /* Runners: feet on the lane, art along the lane, number and tag upright and a constant size on screen. */
       const z = shot.z;
-      /* A snail is at least 3.4u of art on screen: in the whole-course shots
-         the art grows, in the close shots it is drawn at its course size. */
-      const artScale = Math.round(Math.max(1, (3.4 * met.u) / (SPRITE_W * z)) * 50) / 50;
+      const wide = kind === 'full' || kind === 'gate';
+      /* A snail is at least 3.4u of art on screen, growing to 4.3u as the
+         camera pulls out to the whole course, so the back of the room can
+         still pick out a shell. It follows the zoom, so a cut never pops the
+         art; in the close shots it is drawn at its course size. */
+      const wholeZ = fitBox(grow(furniture.box, 20), vp).z;
+      const pulledOut = Math.min(1, Math.max(0, (wholeZ * 1.6 - z) / (wholeZ * 0.6)));
+      const artScale = Math.round(Math.max(1, ((3.4 + 0.9 * pulledOut) * met.u) / (SPRITE_W * z)) * 50) / 50;
       artScaleRef.current = artScale;
       write(propScaleRef.current, 'prop-scale', 'transform', `scale(${artScale})`);
-      const wide = kind === 'full' || kind === 'gate';
       const badgeU = wide ? CIRCUIT_LAYOUT.badge * 0.78 : CIRCUIT_LAYOUT.badge;
       const badgeScale = (badgeU * met.u) / BADGE_DESIGN_R / z;
       const zKey = badgeScale.toFixed(3);

@@ -8,7 +8,7 @@ import {
   storyWindows,
   twistKicker,
 } from '../components/race-broadcast/twist-staging';
-import { finalGapText, lapsDown, lapsDownText, placeTag, snailNumber } from '../components/race-broadcast/standings-format';
+import { finalGapText, lapsDown, lapsDownText, placeTag, snailNumber, towerName } from '../components/race-broadcast/standings-format';
 import {
   CameraRig,
   boxOf,
@@ -219,4 +219,11 @@ test('the leader is never left at the edge of the frame', () => {
     assert.ok(s.x >= vp.x + vp.w * 0.13 && s.x <= vp.x + vp.w * 0.87, `leader at ${s.x}`);
     assert.ok(inFrame(leader, shot, vp.h * 0.13));
   }
+});
+
+test('a compact tower row holds a long name in whole words, never ending on a joining word', () => {
+  assert.equal(towerName('Speedy Gonzales the Third of Geelong West'), 'Speedy Gonzales');
+  assert.equal(towerName('Slow Motion Steve'), 'Slow Motion Steve');
+  assert.equal(towerName('Supercalifragilisticexpialidocious'), 'Supercalifragilis…');
+  assert.ok(towerName('Lightning McSlime of the Bellarine').length <= 18);
 });

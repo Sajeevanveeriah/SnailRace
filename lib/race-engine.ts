@@ -1321,6 +1321,8 @@ export const TWIST_MIN_SPACING_MS = 3000;
 export const TWIST_SPACING_MS = 6200;
 /** "At the post" cards land with the leader this far home. */
 export const POST_PROGRESS = { from: 0.9, to: 0.95, max: 0.96 } as const;
+/** How long before the line an "at the post" twist would like to hit, so its call is said before the winner's. */
+export const POST_LINE_CLEAR_MS = 4400;
 /** The race finishes within this share of its set length. */
 export const RACE_LENGTH_TOLERANCE = 0.03;
 
@@ -1446,13 +1448,21 @@ export function shortName(name: string, max = 18): string {
   const trimmed = name.trim();
   if (trimmed.length <= max) return trimmed;
   const words = trimmed.split(/\s+/);
-  let out = words[0];
-  for (const word of words.slice(1)) {
-    if (`${out} ${word}`.length > max) break;
-    out = `${out} ${word}`;
-  }
+  let kept = 1;
+  while (kept < words.length && words.slice(0, kept + 1).join(' ').length <= max) kept++;
+  /* Never stop on a joining word ("Speedy Gonzales the"), and never on a
+     possessive ("Nan's" for Nan's Favourite) or a bare title ("Sir"):
+     take the next word instead, a little over length, or drop back. */
+  while (kept > 1 && SHORT_NAME_JOINER.test(words[kept - 1])) kept--;
+  const bare = kept === 1 && (SHORT_NAME_JOINER.test(words[0]) || SHORT_NAME_TITLE.test(words[0]));
+  if (kept < words.length && (bare || /['\u2019]s?$/i.test(words[kept - 1])) && words.slice(0, kept + 1).join(' ').length <= max + 6) kept++;
+  const out = words.slice(0, kept).join(' ');
   return out.length > max + 6 ? out.slice(0, max) : out;
 }
+
+const SHORT_NAME_JOINER = /^(?:the|of|and|de|von|van|la|le|a)$/i;
+/* A title alone is no name: "Sir" is not Sir Slimes-a-Lot. */
+const SHORT_NAME_TITLE = /^(?:sir|dame|lady|lord|mr|mrs|ms|miss|dr|captain|capt|king|queen|prince|princess|saint|st)\.?$/i;
 
 /** The first line that reads in one go, else the first that fits, else the shortest. */
 export function fitCaption(candidates: readonly string[]): string {
@@ -1488,8 +1498,9 @@ interface CaptionFill {
   pos?: string;
 }
 
+/* With no place to quote, "{a}, {pos}, slips" reads "{a} slips". */
 const fillCaption = (line: string, fill: CaptionFill): string =>
-  line
+  (fill.pos ? line : line.replace(/, \{pos\},?/g, ''))
     .replace(/\{a\}/g, fill.a ?? '')
     .replace(/\{b\}/g, fill.b ?? '')
     .replace(/\{pos\}/g, fill.pos ?? '');
@@ -2422,6 +2433,14 @@ function planTwists(ctx: TwistContext): TwistBuild {
     const finish = earliestCrossingOf(runners, events);
     let at = earliest;
     while (at < finish && leaderAt(at) < target) at += 50;
+    /* The caller's line for the hit wants about four seconds before the
+       winner is called: bring the hit forward for it, but never out of the
+       last stretch the card is named for. */
+    if (finish - at < POST_LINE_CLEAR_MS) {
+      let floor = earliest;
+      while (floor < at && leaderAt(floor) < POST_PROGRESS.from - 0.025) floor += 50;
+      at = Math.max(floor, finish - POST_LINE_CLEAR_MS);
+    }
     for (const def of weightedOrder(pickRnd, postCards.filter((card) => !usedFamilies.has(card.family)), (card) => card.weight)) {
       if (placed) break;
       if (leaderAt(at) > POST_PROGRESS.max) break;
@@ -2462,7 +2481,10 @@ function scaleRace(runners: LockedRaceRunner[], events: LockedRaceEvent[], k: nu
   }
 }
 
-/** Write every twist caption from the running order at the moment of its hit. */
+/** How long a twist's caption is on air and being read, from its hit. */
+export const CAPTION_READ_MS = 3000;
+
+/** Write every twist caption from the running order at its hit. */
 function writeCaptions(
   runners: LockedRaceRunner[],
   events: LockedRaceEvent[],
@@ -2473,11 +2495,21 @@ function writeCaptions(
 ): void {
   for (const event of events) {
     const plan = captions.get(event.id);
+    const featured = plan?.featured ?? event.targetLanes[0];
     const ranked = rankedAt(runners, events, event.effectAtMs, motion);
     const nameOf = (lane: number | undefined) => (lane === undefined ? undefined : names[lane]);
-    const featured = plan?.featured ?? event.targetLanes[0];
-    const rank = ranked.indexOf(featured);
-    const pos = positionPhrase(rank < 0 ? ranked.length - 1 : rank, ranked.length);
+    /* The caption stays up for a few seconds while a held snail drops
+       places, so its place is quoted only when the board shows that same
+       place from the hit until the room has read it; otherwise the line
+       names the snail without one. */
+    const phraseAt = (at: number) => {
+      const order = rankedAt(runners, events, at, motion);
+      const rank = order.indexOf(featured);
+      return positionPhrase(rank < 0 ? order.length - 1 : rank, order.length);
+    };
+    const readEnd = Math.min(event.effectAtMs + CAPTION_READ_MS, earliestCrossingOf(runners, events) - 1);
+    let pos: string | undefined = phraseAt(event.effectAtMs);
+    for (let at = event.effectAtMs + 200; pos && at <= readEnd; at += 200) if (phraseAt(at) !== pos) pos = undefined;
 
     if (plan?.retirement) {
       event.featuredLane = event.targetLanes[0];

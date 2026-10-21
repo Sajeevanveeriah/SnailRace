@@ -68,17 +68,22 @@
 .race-broadcast.circuit-broadcast .tv-clock { font-size: calc(var(--u) * 2.3); min-width: calc(var(--u) * 9); justify-content: center; }
 .race-broadcast.circuit-broadcast .tv-shot { color: var(--race-gold); font-size: calc(var(--u) * 1.6); padding: 0 calc(var(--u) * 0.8); }
 .race-broadcast.circuit-broadcast .tv-shot:empty { display: none; }
+/* The final lap and a photo finish take the camera pill's place, so the course name keeps its size and the bar never runs off the edge. */
+.race-broadcast.circuit-broadcast .tv-top:has(.tv-photo, .tv-lap.is-final:not([hidden])) .tv-shot { display: none; }
+/* A photo finish is live by definition: its pill stands in for LIVE too. */
+.race-broadcast.circuit-broadcast .tv-top:has(.tv-photo) .tv-live { display: none; }
 .race-broadcast.circuit-broadcast .tv-photo { color: var(--race-maroon-deep); background: #fff9ed; animation: tv-photo-flash .6s steps(2, end) infinite; }
 .race-broadcast.circuit-broadcast .tv-title[data-wrap="true"] { white-space: normal; line-height: 1; }
 .race-broadcast.circuit-broadcast .tv-title {
   flex: 1 1 0;
-  min-width: calc(var(--u) * 20);
+  min-width: 0;
   display: block;
   padding: 0;
   border: 0;
   background: transparent;
   overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
   text-align: center;
   font: 900 calc(var(--u) * 2.9 * var(--fit, 1)) / 1.1 Inter, Arial, sans-serif;
   letter-spacing: 0.05em;
@@ -250,7 +255,9 @@
 
 /* ── The twist card: the straight's card, top centre over the course ───── */
 .race-broadcast.circuit-broadcast .side-splash {
-  left: calc((100% - var(--tower-w) - var(--gap)) / 2);
+  /* Centred over the course pane, clear of the standings tower. */
+  left: 0;
+  right: calc(var(--tower-w) + var(--gap));
   top: calc(var(--u) * 0.9);
   z-index: 8;
   max-width: calc(100% - var(--tower-w) - var(--u) * 6);
@@ -389,7 +396,10 @@
   line-height: 1.02;
   font-size: calc(var(--u) * clamp(1.7, 2.15 - 0.03 * (var(--len) - 12), 2.15) * var(--fit, 1));
 }
-.race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-compact .tv-order-name { font-size: calc(var(--u) * 1.6 * var(--fit, 1)); font-weight: 750; }
+/* Two lines at most in a big row, one in a compact row: a long name never spills into the next place. */
+.race-broadcast.circuit-broadcast .circuit-tower.is-racing .tv-order-name,
+.race-broadcast.circuit-broadcast .circuit-tower.is-final .tv-order-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-compact .tv-order-name { display: block; font-size: calc(var(--u) * 1.6 * var(--fit, 1)); font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-compact .tv-order-pos { font-size: calc(var(--u) * 1.6 * var(--fit, 1)); }
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-compact .tv-order-dot { width: calc(var(--u) * 2.6 * var(--fit, 1)); height: calc(var(--u) * 2.6 * var(--fit, 1)); }
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-gap { color: inherit; opacity: .92; font: 800 calc(var(--u) * 1.6) / 1 Inter, Arial, sans-serif; white-space: nowrap; }

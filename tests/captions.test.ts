@@ -19,6 +19,7 @@ import {
   overtakeLine,
   runHomeCue,
   runHomeLine,
+  shortName,
   sectorCall,
   togetherLine,
   trackWording,
@@ -157,4 +158,13 @@ test('a twist caption keeps the natural line with a shortened name before the te
   const long = composeTwistCaption(mower, 'RIDE-ON MOWER', { a: 'Speedy Gonzales the Third of Geelong West', pos: 'in 7th' }, () => 0);
   assert.match(long, /^The mower is on the course and Speedy/);
   assert.ok(long.length <= 90, long);
+});
+
+test('a shortened name never stops on a possessive, a joining word or a bare title', () => {
+  assert.equal(shortName("Nan's Favourite 3", 12), "Nan's Favourite");
+  assert.equal(shortName('Speedy Gonzales the Third of Geelong West'), 'Speedy Gonzales');
+  assert.equal(shortName('Sir Slimes-a-Lot of Newcomb 2', 12), 'Sir Slimes-a-Lot');
+  assert.equal(shortName('The Undertaker 2', 12), 'The Undertaker');
+  assert.equal(shortName('Slow Motion Steve 2', 12), 'Slow Motion');
+  assert.equal(shortName('Gary', 12), 'Gary');
 });

@@ -1650,7 +1650,11 @@
 .race-broadcast.course-broadcast.side-broadcast .tv-clock,
 .race-broadcast.course-broadcast.side-broadcast .side-togo,
 .race-broadcast.course-broadcast.side-broadcast .tv-photo { flex: none; display: inline-flex; align-items: center; min-height: calc(var(--u) * 3.3); padding-inline: calc(var(--u) * 1.1); border-width: calc(var(--u) * 0.15); border-radius: calc(var(--u) * 0.6); font-size: calc(var(--u) * 1.7); line-height: 1; letter-spacing: 0.06em; }
-.race-broadcast.course-broadcast.side-broadcast .tv-title { flex: 1 1 auto; min-width: 0; font-size: calc(var(--u) * 2.4); }
+.race-broadcast.course-broadcast.side-broadcast .tv-title { flex: 1 1 auto; min-width: 0; font-size: calc(var(--u) * 2.4); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Once the race is on, the crest alone carries the club, as on the circuits: the bar's room goes to the race. */
+.race-broadcast.course-broadcast.side-broadcast:is([data-race-phase="running"], [data-race-phase="confirming"]) .tv-club-name { display: none; }
+.race-broadcast.course-broadcast.side-broadcast:is([data-race-phase="running"], [data-race-phase="confirming"]) .tv-club-brand { flex: none; }
+.race-broadcast.course-broadcast.side-broadcast .tv-top:has(.tv-photo) .tv-live { display: none; }
 .race-broadcast.course-broadcast.side-broadcast .tv-clock,
 .race-broadcast.course-broadcast.side-broadcast .side-togo { font-size: calc(var(--u) * 2.3); font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; }
 .race-broadcast.course-broadcast.side-broadcast .side-togo { color: #fff; background: #1e2a1a; border: calc(var(--u) * 0.15) solid rgb(255 255 255 / 0.3); }

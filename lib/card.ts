@@ -313,7 +313,7 @@ export const isRunOff = (card: Pick<CardState, 'races'>, raceNo: number): boolea
   Boolean(card.races?.[raceNo - 1]?.field?.length);
 
 /** Long enough for "Speedy Gonzales the Third of Geelong West" in full. */
-export const MAX_NAME = 40;
+export const MAX_NAME = 48;
 export const MAX_OWNER = 32;
 
 const clean = (value: unknown, max: number): string =>

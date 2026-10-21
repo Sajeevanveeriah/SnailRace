@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { laneColour } from '@/lib/palette';
 import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
 import type { BoardRow, RaceController } from '@/lib/use-race';
-import { finalGapText, lapsDownText, snailNumber } from './standings-format';
+import { finalGapText, lapsDownText, snailNumber, towerName } from './standings-format';
 
 interface BroadcastHudProps {
   brand: ReactNode;
@@ -255,7 +255,9 @@ function RunnerTower({
                   aria-hidden="true"
                 />
               ) : null}
-              <span className="tv-order-name">{name}</span>
+              <span className="tv-order-name" title={name}>
+                {top ? name : towerName(name)}
+              </span>
               {gate ? null : <span className="tv-order-gap num">{row.gap}</span>}
             </li>
           );

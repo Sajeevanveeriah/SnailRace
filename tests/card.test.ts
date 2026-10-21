@@ -386,12 +386,13 @@ test('a card saved before the run sheet migrates to the races its split gave', (
   assert.deepEqual(junk.races, [{ runners: 12 }, { runners: 8 }]);
 });
 
-test('a long snail name survives in full up to forty characters', () => {
+test('a long snail name survives in full up to forty-eight characters', () => {
   const long = 'Sir Slimes-a-Lot of Newcomb and District';
   assert.equal(long.length, 40);
-  const card = normaliseCard({ snailCount: 10, names: [long, `${long} the Second`] });
+  const card = normaliseCard({ snailCount: 10, names: [long, `${long} the Second`, 'Speedy Gonzales the Third of Geelong West'] });
   assert.equal(card.names[0], long);
-  assert.equal(card.names[1].length, 40);
+  assert.equal(card.names[1].length, 48);
+  assert.equal(card.names[2], 'Speedy Gonzales the Third of Geelong West');
   const paste = parseRosterPaste(`1, ${long}, Priya`);
   assert.equal(paste.rows[0].name, long);
 });

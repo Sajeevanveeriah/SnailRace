@@ -980,9 +980,12 @@ export function useRace(
        * since the run home, one last line to carry the room to the line.
        */
       const toLineMs = race.stopAt - race.raceT;
+      const nextTwistLine = race.twistLines.find((at) => at >= race.raceT) ?? Infinity;
+      /* A twist still to land before the line has the last word: no closing call to talk over it. */
       if (
         racing && race.runHomeQueued && !race.lineCalled && !race.photoCalled &&
-        toLineMs < 5500 && toLineMs > 3000 && race.raceT - race.lastCallAt > 3500 && chaser.lane !== lead.lane
+        toLineMs < 5500 && toLineMs > 3000 && race.raceT - race.lastCallAt > 3500 && chaser.lane !== lead.lane &&
+        nextTwistLine >= race.stopAt
       ) {
         race.lineCalled = true;
         const clear = gapLengths >= 2;
@@ -1000,7 +1003,6 @@ export function useRace(
        * Nothing said for a while and nothing coming: quote the race. The
        * caller talks about the leaders, never the back of the field.
        */
-      const nextTwistLine = race.twistLines.find((at) => at >= race.raceT) ?? Infinity;
       if (
         racing && !race.pending.length && race.raceT >= race.air.until &&
         race.raceT - race.lastCallAt >= SILENCE_FILL_MS && leadP > 0.1 && leadP < RUN_HOME_FROM - 0.05 &&

@@ -51,3 +51,23 @@ export function placeTag(place: number): string {
   const suffix = tens >= 11 && tens <= 13 ? 'TH' : place % 10 === 1 ? 'ST' : place % 10 === 2 ? 'ND' : place % 10 === 3 ? 'RD' : 'TH';
   return `${place}${suffix}`;
 }
+
+const TRAILING_LINK = /\s+(?:the|of|and|de|von|van|la|le|a)$/i;
+
+/**
+ * The name a compact tower row can hold on one line: whole words up to
+ * `max` characters, never ending on a joining word ("Speedy Gonzales the
+ * Third of Geelong West" reads "Speedy Gonzales").
+ */
+export function towerName(name: string, max = 18): string {
+  const trimmed = name.trim();
+  if (trimmed.length <= max) return trimmed;
+  const words = trimmed.split(/\s+/);
+  let out = words[0];
+  for (const word of words.slice(1)) {
+    if (`${out} ${word}`.length > max) break;
+    out = `${out} ${word}`;
+  }
+  while (TRAILING_LINK.test(out)) out = out.replace(TRAILING_LINK, '');
+  return out.length > max ? `${out.slice(0, max - 1)}…` : out;
+}
