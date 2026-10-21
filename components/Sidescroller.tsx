@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { laneColour } from '@/lib/palette';
 import { ClubBrand } from './brand/ClubBrand';
 import { presentationForMoment, type SurprisePresentation } from './race-broadcast/surprise-presentation';
@@ -9,9 +9,35 @@ import { useReducedMotion } from './race-broadcast/useReducedMotion';
 import { OfficialResult } from './race-broadcast/BroadcastGraphics';
 import { clockText } from '@/lib/broadcast';
 import { sponsorsFromRace } from '@/lib/club-sponsors';
-import type { SnailRun } from '@/lib/race-engine';
+import { ordinal, type SnailRun } from '@/lib/race-engine';
 import { STORY_CARD_MS, STORY_GAP_MS, STORY_READ_MS, type PaintInfo, type RaceController, type RacePainter, type SurprisePhase } from '@/lib/use-race';
-import type { CameraMode, LockedRaceEvent, ToteDividend } from '@/lib/types';
+import type { CameraMode, LockedRaceEvent, RaceResult, ToteDividend } from '@/lib/types';
+import {
+  ART_NOSE,
+  ART_SHELL_Y,
+  ART_TAIL,
+  CROWD_BASE,
+  DISTANCE_POSTS,
+  FULL_VIEW_EXTRA,
+  RACE_METRES,
+  REQUIRED_H,
+  START_X,
+  TRACK_BOTTOM,
+  TRACK_LEN,
+  TRACK_TOP,
+  VIEW_H,
+  featuredLane,
+  fenceSlots,
+  isFieldTwist,
+  laneGeometry,
+  propLanes,
+  runInStep,
+  splashKicker,
+  worldX,
+  type RunInRunner,
+} from './sidescroller-geometry';
+
+export { TRACK_LEN, RACE_METRES, laneGeometry, type LaneGeometry } from './sidescroller-geometry';
 
 /**
  * The side-on cartoon race.
@@ -21,23 +47,19 @@ import type { CameraMode, LockedRaceEvent, ToteDividend } from '@/lib/types';
  * snail per marked lane in racecard order (lowest number on top), starting
  * stalls that open at the off, distance posts counting down to a vertical
  * winning post, and a running-order strip along the bottom that names the
- * field leader first. The first nose to the post is the winner on screen,
- * as it is in the result.
+ * leaders. The first nose to the post is the winner on screen, as it is in
+ * the result.
  *
- * The camera is tight: it rides with the leading pack so the scenery flies
- * past and a snail is a real size on the projector, and the POSITIONS strip
- * names whoever has dropped out of shot. Full field view widens to every
- * runner. The lanes overlap the way the cartoon films stack their runners,
- * with every saddlecloth number kept clear of the shell below it, and the
- * lower lane is always drawn in front so the stacking order never flickers.
+ * Every snail stands inside its own lane and carries its name on a flag
+ * behind it, so the room can read who is who anywhere on the track. The
+ * camera rides with the leading pack, frames the winning post for the run
+ * home, and holds on the line for the photo once the winner is in.
  *
  * Surprises are physical gags, one at a time. Every twist is staged from
- * the locked plan itself: an INCOMING card names it, the prop arrives and
- * lands on the snail (or a band falls across the whole field) and the title
- * card slams in, while the snail it hit shakes, squashes, or lights up and
- * streaks away. The next twist cannot go on air until this one's card has
- * parked, so the room never reads two stories at once. Who it hit is read
- * from the prop and the saddlecloth numbers, not from a table of seconds.
+ * the locked plan itself: an INCOMING card names it and its prop looms in
+ * front of each runner it will hit, then the card turns to TWIST, BOOST or
+ * OUT as the prop lands. Props sit in the target's own lane just ahead of
+ * its nose and the snails are always drawn above them.
  *
  * Same painter seam as the oval: the engine hands over one progress number
  * per snail per frame and this only decides where on the screen it lands.
@@ -62,76 +84,38 @@ interface Props {
   replay?: boolean;
 }
 
-/* ── The world ─────────────────────────────────────────────────────────── */
+/** Kept for the oval's import shape; the straight follows the field instead. */
+export const LEAD_PACK = 4;
 
-/** World units. The stalls are at START_X, the winning post at TRACK_LEN. */
-export const TRACK_LEN = 9000;
-/** Where every nose starts: the front of the stalls. */
-const START_X = 160;
-const VIEW_H = 1350;
 /** The narrowest shot, in world units: close enough that a snail is a real size. */
 const PACK_VIEW_W = 1900;
 /** The widest the following shot goes before it lets the tail of the field go. */
 const FOLLOW_MAX_W = 3000;
-/** The marked lanes. Racecard order, lane 0 on top. */
-const TRACK_TOP = 540;
-const TRACK_BOTTOM = 1300;
-/*
- * Full field view takes in the whole straight, which at a 16:9 screen is a
- * frame of mostly sky over a thin track. The lanes are drawn deeper for
- * that shot, so every snail is bigger and the track owns more of the frame.
- */
-const FULL_VIEW_EXTRA = 760;
-/** Every frame shows from the distance-post signs down to the crowd. */
-const REQUIRED_H = VIEW_H - 380;
-/** The straight is called in metres to go, like a race caller's distance posts. */
-export const RACE_METRES = 10;
-/** Kept for the oval's import shape; the straight follows the field instead. */
-export const LEAD_PACK = 4;
-
-/* Snail art, unscaled: the front of the foot is the nose. */
-const ART_NOSE = 190;
-const ART_TAIL = 150;
-const ART_HEIGHT = 176;
-/** From the foot line up to the bottom of the saddlecloth number. */
-const ART_NUMBER_CLEARANCE = 124;
-
-export interface LaneGeometry {
-  /** Top of the lane band. */
-  top: number;
-  /** Lane band height. */
-  pitch: number;
-  /** Where the snail's foot sits. */
-  y: number;
-  /** One scale for every snail, so nobody looks closer or bigger. */
-  scale: number;
-}
-
-/**
- * Equal lanes, equal snails, no perspective. The snails are allowed to stand
- * taller than their lane, like the cartoon films stack a field, but never so
- * tall that the shell in the lane below covers a saddlecloth number.
- */
-export function laneGeometry(lane: number, fieldSize: number, extra = 0): LaneGeometry {
-  const n = Math.max(1, fieldSize);
-  const pitch = (TRACK_BOTTOM + extra - TRACK_TOP) / n;
-  const scale = Math.min(0.8, (pitch * 0.95) / ART_NUMBER_CLEARANCE);
-  const top = TRACK_TOP + lane * pitch;
-  return { top, pitch, y: top + pitch - 8 * scale - pitch * 0.04, scale };
-}
-
-const worldX = (p: number): number => START_X + p * (TRACK_LEN - START_X);
+/** Where the opening shot starts: far enough back to read every name flag behind the stalls. */
+const OPEN_X = -460;
+/** From here to the post the winning post is always in the shot. */
+const FRAME_FINISH_FROM = 0.82;
+/** Where the winning post sits across the frame while the camera holds on the line. */
+const FINISH_HOLD_AT = 0.6;
+/** The photo-finish still, before the rest of the field runs in. */
+const PHOTO_MS = 750;
+/** For the first second the running order stays in draw order: nobody has gone anywhere yet. */
+const ORDER_FROZEN_MS = 1000;
+/** A glyph is 64 units square, drawn at 6x inside the prop. */
+const GLYPH_UNITS = 64 * 6;
+/** How tall a prop stands, in lanes. */
+const PROP_LANES = 1.35;
 
 /* ── Scenery, repeating ───────────────────────────────────────────────── */
 
 const SCENE_W = 3200;
 
 /*
- * Each depth of the picture (sky, hills, lake, buildings, and the track world
- * itself) is painted once into its own layer and slid by the camera with a
+ * Each depth of the picture (sky, hills, lake, buildings, the track world and
+ * the crowd) is painted once into its own layer and slid by the camera with a
  * CSS transform. Moving a painted layer is nearly free; re-drawing the whole
- * scene every frame, which a changing viewBox forces, is what made the
- * following shot stutter while the full-course view stayed smooth.
+ * scene every frame, which a changing viewBox forces, made the following
+ * shot stutter.
  */
 const LAYER_TOP = VIEW_H - 1700;
 const LAYER_H = 1820 + FULL_VIEW_EXTRA;
@@ -139,30 +123,70 @@ const LAYER_H = 1820 + FULL_VIEW_EXTRA;
 const SCENERY_BOX = { x: -400, w: SCENE_W * 3 + 800 };
 /** Local box of the track world, wide enough for any shot the camera takes. */
 const WORLD_BOX = { x: -1500, w: TRACK_LEN + 3000 };
-type LayerName = 'sky' | 'mountains' | 'lake' | 'buildings' | 'fence' | 'world' | 'crowd';
+type LayerName = 'sky' | 'mountains' | 'lake' | 'buildings' | 'world' | 'crowd';
 /*
- * The fence and the crowd move with the track but repeat, so each is its own
- * layer at factor 1: the world layer never repaints for them, and the crowd's
- * bob runs on the compositor instead of restyling the world every frame.
+ * The crowd moves with the track but repeats, so it is its own layer at
+ * factor 1: the world layer never repaints for it, and the crowd's bob runs
+ * on the compositor instead of restyling the world every frame. The fence is
+ * part of the world, so its boards sit on the same grid as the posts.
  */
 const SCENERY_LAYERS: { name: Exclude<LayerName, 'world'>; factor: number }[] = [
   { name: 'sky', factor: 0 },
   { name: 'mountains', factor: 0.12 },
   { name: 'lake', factor: 0.25 },
   { name: 'buildings', factor: 0.5 },
-  { name: 'fence', factor: 1 },
   { name: 'crowd', factor: 1 },
 ];
 /** The crowd bobs in three groups, out of step, so the stand never moves as one. */
 const CROWD_PHASES = [0, 1, 2];
 /*
- * Each runner, with its tag, is drawn into its own small chip that the camera
+ * Each runner, with its flag, is drawn into its own small chip that the camera
  * world carries and a transform slides along. Moving a snail inside the world
  * picture made the browser redraw the track under it every frame; a chip is
  * painted once and only its own little animations repaint.
  */
-const CHIP = { x: -720, y: -340, w: 1160, h: 420 };
+const CHIP = { x: -1100, y: -340, w: 1540, h: 420 };
 const wallClockMs = () => performance.now();
+
+/** One projector unit in pixels: 1% of the widest 16:9 frame that fits the window. */
+const unitPx = () => (typeof window === 'undefined' ? 12.8 : Math.min(window.innerWidth / 100, (window.innerHeight * 1.7778) / 100));
+
+/**
+ * Shrink a line of text to fit its box, never below `min` of its size. Reads
+ * layout, so it runs only when the text or the box changes.
+ */
+function fitText(el: HTMLElement | null, min = 0.6): void {
+  if (!el) return;
+  el.style.setProperty('--fit', '1');
+  el.classList.remove('fit-wrap');
+  let fit = 1;
+  const over = () => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+  while (over() && fit > min) {
+    fit = Math.max(min, fit - 0.06);
+    el.style.setProperty('--fit', fit.toFixed(2));
+  }
+  /* Still too long at the smallest size: let it take a second line rather than run off. */
+  if (over()) el.classList.add('fit-wrap');
+}
+
+/**
+ * A value that stays on screen for `ms` after it has gone, flagged as
+ * leaving, so a card can ease out instead of vanishing.
+ */
+function useLingering<T>(value: T | null, ms: number, keyOf: (item: T) => string): { shown: T | null; leaving: boolean } {
+  const [state, setState] = useState<{ shown: T | null; leaving: boolean }>({ shown: value, leaving: false });
+  if (value !== null && (state.shown === null || state.leaving || keyOf(state.shown) !== keyOf(value))) {
+    setState({ shown: value, leaving: false });
+  } else if (value === null && state.shown !== null && !state.leaving) {
+    setState({ shown: state.shown, leaving: true });
+  }
+  useEffect(() => {
+    if (!state.leaving) return;
+    const id = window.setTimeout(() => setState({ shown: null, leaving: false }), ms);
+    return () => window.clearTimeout(id);
+  }, [state, ms]);
+  return state;
+}
 
 function Mountains() {
   return (
@@ -227,13 +251,13 @@ function Ambulance({ x }: { x: number }) {
   return (
     <g transform={`translate(${x} 0)`}>
       <g className="side-ambulance">
-      <rect x="0" y="636" width="150" height="54" rx="10" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
-      <rect x="104" y="648" width="36" height="24" fill="#8fc9f0" stroke="#2a1a1a" strokeWidth="3" />
-      <rect x="36" y="648" width="30" height="8" fill="#e8262b" />
-      <rect x="47" y="637" width="8" height="30" fill="#e8262b" />
-      <rect x="62" y="624" width="20" height="14" rx="4" fill="#3b93e6" stroke="#2a1a1a" strokeWidth="3" />
-      <circle cx="34" cy="692" r="12" fill="#2a1a1a" />
-      <circle cx="118" cy="692" r="12" fill="#2a1a1a" />
+        <rect x="0" y="636" width="150" height="54" rx="10" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
+        <rect x="104" y="648" width="36" height="24" fill="#8fc9f0" stroke="#2a1a1a" strokeWidth="3" />
+        <rect x="36" y="648" width="30" height="8" fill="#e8262b" />
+        <rect x="47" y="637" width="8" height="30" fill="#e8262b" />
+        <rect x="62" y="624" width="20" height="14" rx="4" fill="#3b93e6" stroke="#2a1a1a" strokeWidth="3" />
+        <circle cx="34" cy="692" r="12" fill="#2a1a1a" />
+        <circle cx="118" cy="692" r="12" fill="#2a1a1a" />
       </g>
     </g>
   );
@@ -262,17 +286,17 @@ function Scenery({ clubName }: { clubName: string }) {
   );
 }
 
-/** The crowd on the front rail: one of the three groups of heads and arms that bob while they race. */
+/** The crowd in front of the rail: one of the three groups of heads and arms that bob while they race. */
 function Crowd({ phase }: { phase: number }) {
   const heads = Array.from({ length: 26 }, (_, i) => i).filter((i) => i % 3 === phase);
   return (
     <g className="side-crowd">
       {heads.map((i) => {
         const x = i * (SCENE_W / 26) + ((i * 37) % 50);
-        const h = 54 + ((i * 13) % 24);
+        const h = 34 + ((i * 13) % 24);
         const fill = i % 3 === 0 ? '#4a2a5e' : i % 3 === 1 ? '#5a3272' : '#3f2554';
         return (
-          <g key={i} transform={`translate(${x} ${VIEW_H + 40})`}>
+          <g key={i} transform={`translate(${x} ${CROWD_BASE})`}>
             <g className="side-fan">
               <path d={`M-30 0 L-22 -${h} L-34 -${h + 30} L-26 -${h + 36} L-12 -${h + 4} L12 -${h + 4} L26 -${h + 36} L34 -${h + 30} L22 -${h} L30 0Z`} fill={fill} />
               <circle cx="0" cy={-h - 20} r="24" fill={fill} />
@@ -280,6 +304,41 @@ function Crowd({ phase }: { phase: number }) {
           </g>
         );
       })}
+    </g>
+  );
+}
+
+/** A fence board: a sponsor's words, squeezed to the board rather than cut off. */
+function FenceBoard({ x, w, board }: { x: number; w: number; board: string | { src: string } | undefined }) {
+  if (!board) return null;
+  if (typeof board !== 'string') {
+    return (
+      <g className="side-fence-logo">
+        <rect x={x + w * 0.12} y="440" width={w * 0.76} height="88" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
+        <image href={board.src} x={x + w * 0.12 + 8} y="444" width={w * 0.76 - 16} height="80" preserveAspectRatio="xMidYMid meet" />
+      </g>
+    );
+  }
+  const fontSize = 30;
+  const room = w - 36;
+  /* Arial Black capitals run about 0.74 em; anything longer is fitted to the board. */
+  const tooLong = board.length * fontSize * 0.74 > room;
+  return (
+    <g>
+      <rect x={x} y="476" width={w} height="44" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="3" />
+      <text
+        x={x + w / 2}
+        y="509"
+        textAnchor="middle"
+        fontSize={fontSize}
+        fontWeight="900"
+        fontFamily="Arial Black, Arial, sans-serif"
+        fill="#a81d2f"
+        textLength={tooLong ? room : undefined}
+        lengthAdjust={tooLong ? 'spacingAndGlyphs' : undefined}
+      >
+        {board}
+      </text>
     </g>
   );
 }
@@ -306,44 +365,72 @@ function SnailSprite({ lane, number, name, scale, nodeRef }: {
       <g className="side-art" transform={`scale(${scale}) translate(${-ART_NOSE} 0)`}>
         <ellipse cx="0" cy="8" rx="150" ry="14" fill="#000" opacity=".18" />
         <g className="side-body">
-        {/* foot */}
-        <path className="side-foot" d="M-150 0 Q-150 -40 -100 -46 L120 -46 Q190 -46 190 -4 Q190 8 170 8 L-130 8 Q-150 8 -150 0Z" fill="#e9b96a" stroke="#2a1a1a" strokeWidth="5" />
-        {/* eye stalks */}
-        <g className="tv-snail-sprite side-stalks">
-          <path d="M150 -44 L185 -120" stroke="#e9b96a" strokeWidth="9" strokeLinecap="round" />
-          <path d="M165 -44 L210 -108" stroke="#e9b96a" strokeWidth="9" strokeLinecap="round" />
-          <circle cx="186" cy="-124" r="11" fill="#fff" stroke="#2a1a1a" strokeWidth="4" />
-          <circle cx="211" cy="-112" r="11" fill="#fff" stroke="#2a1a1a" strokeWidth="4" />
-          <circle className="side-pupil" cx="189" cy="-124" r="4" fill="#1b1a19" />
-          <circle className="side-pupil" cx="214" cy="-112" r="4" fill="#1b1a19" />
-        </g>
-        {/* shell */}
-        <g className="side-shell">
-          <ellipse cx="-20" cy="-82" rx="112" ry="84" fill={c.shell} stroke="#2a1a1a" strokeWidth="6" />
-          <path d="M-20 -82 m-70 0 a70 70 0 1 1 140 0 a50 50 0 1 1 -100 0 a30 30 0 1 1 60 0" fill="none" stroke="#2a1a1a" strokeWidth="5" opacity=".35" />
-          <text x="-20" y={number >= 10 ? -46 : -42} textAnchor="middle" fontSize={number >= 100 ? 78 : number >= 10 ? 104 : 120} fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" stroke="#2a1a1a" strokeWidth="8" paintOrder="stroke">{number}</text>
-        </g>
-        {/* mouth */}
-        <path className="side-mouth" d="M150 -16 Q165 -8 178 -18" fill="none" stroke="#2a1a1a" strokeWidth="4" strokeLinecap="round" />
+          {/* foot */}
+          <path className="side-foot" d="M-150 0 Q-150 -40 -100 -46 L120 -46 Q190 -46 190 -4 Q190 8 170 8 L-130 8 Q-150 8 -150 0Z" fill="#e9b96a" stroke="#2a1a1a" strokeWidth="5" />
+          {/* eye stalks */}
+          <g className="tv-snail-sprite side-stalks">
+            <path d="M150 -44 L185 -120" stroke="#e9b96a" strokeWidth="9" strokeLinecap="round" />
+            <path d="M165 -44 L210 -108" stroke="#e9b96a" strokeWidth="9" strokeLinecap="round" />
+            <circle cx="186" cy="-124" r="11" fill="#fff" stroke="#2a1a1a" strokeWidth="4" />
+            <circle cx="211" cy="-112" r="11" fill="#fff" stroke="#2a1a1a" strokeWidth="4" />
+            <circle className="side-pupil" cx="189" cy="-124" r="4" fill="#1b1a19" />
+            <circle className="side-pupil" cx="214" cy="-112" r="4" fill="#1b1a19" />
+          </g>
+          {/* shell, with the saddlecloth number as big as the shell allows */}
+          <g className="side-shell">
+            <ellipse cx="-20" cy="-82" rx="112" ry="84" fill={c.shell} stroke="#2a1a1a" strokeWidth="6" />
+            <path d="M-20 -82 m-70 0 a70 70 0 1 1 140 0 a50 50 0 1 1 -100 0 a30 30 0 1 1 60 0" fill="none" stroke="#2a1a1a" strokeWidth="5" opacity=".35" />
+            <text x="-20" y={number >= 100 ? -52 : number >= 10 ? -40 : -36} textAnchor="middle" fontSize={number >= 100 ? 84 : number >= 10 ? 116 : 132} fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" stroke="#2a1a1a" strokeWidth="10" paintOrder="stroke" letterSpacing={number >= 10 ? -6 : 0}>{number}</text>
+          </g>
+          {/* mouth */}
+          <path className="side-mouth" d="M150 -16 Q165 -8 178 -18" fill="none" stroke="#2a1a1a" strokeWidth="4" strokeLinecap="round" />
         </g>
         {/* dizzy stars while stuck */}
         <g className="side-dizzy" aria-hidden="true">
-          <path d="M-60 -200 l12 27 30 3 -22 20 6 30 -26 -15 -26 15 6 -30 -22 -20 30 -3Z" fill="#ffe36b" stroke="#2a1a1a" strokeWidth="4" />
-          <path d="M40 -225 l9 20 22 3 -16 15 4 22 -19 -12 -19 12 4 -22 -16 -15 22 -3Z" fill="#ffe36b" stroke="#2a1a1a" strokeWidth="4" />
+          <path d="M-60 -170 l12 27 30 3 -22 20 6 30 -26 -15 -26 15 6 -30 -22 -20 30 -3Z" fill="#ffe36b" stroke="#2a1a1a" strokeWidth="4" />
+          <path d="M40 -175 l9 20 22 3 -16 15 4 22 -19 -12 -19 12 4 -22 -16 -15 22 -3Z" fill="#ffe36b" stroke="#2a1a1a" strokeWidth="4" />
         </g>
       </g>
     </g>
   );
 }
 
-/** The tag over a snail: what just happened to it, in words the back row can read. Drawn above every prop. */
-function SnailTag({ lane, offset, nodeRef }: { lane: number; offset: string; nodeRef: (node: SVGGElement | null) => void }) {
+/** Flag sizes as shares of the lane, so a flag never reaches the next lane. */
+const FLAG_H = 0.66;
+const FLAG_FONT = 0.48;
+const FLAG_MAX_W = 6.4;
+
+/**
+ * The snail's name on a flag trailing behind it, inside its own lane, so a
+ * flag never covers another runner. It turns red when the snail is held up,
+ * green when it is sent on, and gold for the winner.
+ */
+function SnailFlag({ lane, pitch, scale, name, nodeRef }: {
+  lane: number;
+  pitch: number;
+  scale: number;
+  name: string;
+  nodeRef: (node: SVGGElement | null) => void;
+}) {
+  const c = laneColour(lane);
+  const h = pitch * FLAG_H;
+  const tail = -(ART_NOSE + ART_TAIL) * scale - pitch * 0.12;
   return (
-    <g transform={offset}>
-    <g ref={nodeRef} className="side-tag" data-lane={lane} aria-hidden="true">
-      <rect className="side-tag-box" x="-90" y="-44" width="180" height="48" rx="10" />
-      <text className="side-tag-text" x="0" y="-10" textAnchor="middle" fontSize="34" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" />
-    </g>
+    <g transform={`translate(${tail.toFixed(1)} ${(-ART_SHELL_Y * scale).toFixed(1)})`}>
+      <g
+        ref={nodeRef}
+        className="side-name-flag"
+        data-lane={lane}
+        data-tone="none"
+        data-max={(pitch * FLAG_MAX_W).toFixed(1)}
+        data-font={(pitch * FLAG_FONT).toFixed(1)}
+        data-pad={(pitch * 0.2).toFixed(1)}
+        style={{ '--shell': c.shell } as CSSProperties}
+        aria-hidden="true"
+      >
+        <rect className="side-name-flag-box" x={-pitch * 3} y={-h / 2} width={pitch * 3} height={h} rx={h * 0.22} />
+        <text className="side-name-flag-text" x={-pitch * 0.2} y={pitch * FLAG_FONT * 0.36} textAnchor="end" fontSize={pitch * FLAG_FONT} fontWeight="900" fontFamily="Arial Black, Arial, sans-serif">{name}</text>
+      </g>
     </g>
   );
 }
@@ -358,12 +445,15 @@ interface StagedTwist {
   kind: string;
   tone: 'good' | 'bad' | 'wild';
   targetLanes: number[];
-  /** Signed clock shift per affected lane, when the engine knows it. */
-  deltaByLane: Record<number, number>;
+  /** The lanes that get a prop: the runners it hits. */
+  propLanes: number[];
+  /** The runner the caption is about, when the event data says who. */
+  featured: number | null;
+  /** Three or more runners: a band falls across the field as well. */
+  field: boolean;
   consequence?: 'advance' | 'delay' | 'retire';
-  warningText: string;
   commentaryText: string;
-  big: boolean;
+  presentation: SurprisePresentation;
   /** Where this came from, so the two paths can never both draw a prop. */
   source: 'plan' | 'moment';
 }
@@ -379,6 +469,8 @@ interface StoryWindow {
   onAirMs: number;
   /** When this story has finished owning the screen. */
   offAirMs: number;
+  /** The staged twist for each phase, built once. */
+  staged: Partial<Record<SurprisePhase, StagedTwist>>;
 }
 
 /**
@@ -394,27 +486,20 @@ function storyWindows(events: LockedRaceEvent[]): StoryWindow[] {
   let busyUntil = -Infinity;
   for (const event of sorted) {
     const previous = windows[windows.length - 1];
-    /* The warning waits for the last card to park, but the hit is never
-       shown late: if it lands while that card is still up, the card is cut
-       short (after at least a readable beat) and this story takes over. */
     const onAirMs = Math.min(event.effectAtMs, Math.max(event.warningAtMs, busyUntil));
     if (previous && onAirMs < previous.offAirMs + STORY_GAP_MS) {
-      /* The hit is never late. The card before it gets what time there is:
-         a readable beat and a breath when the plan leaves room, the time to
-         the hit when it does not. The beat is measured from when the card
-         went up, which for a card that itself waited is later than its hit. */
       const cardUp = Math.max(previous.onAirMs, previous.event.effectAtMs);
       previous.offAirMs = Math.min(onAirMs, Math.max(cardUp + MIN_READ_MS, onAirMs - STORY_GAP_MS));
     }
     const offAirMs = Math.max(event.effectAtMs, onAirMs) + EFFECT_ON_AIR_MS;
-    windows.push({ event, onAirMs, offAirMs });
+    windows.push({ event, onAirMs, offAirMs, staged: {} });
     busyUntil = offAirMs + STORY_GAP_MS;
   }
   return windows;
 }
 
 /** The twist on air at race-time `t`: the latest story that has started and not yet parked. */
-function stagedFromPlan(windows: StoryWindow[], t: number): StagedTwist | null {
+function stagedFromPlan(windows: StoryWindow[], t: number, names: readonly string[]): StagedTwist | null {
   let best: StoryWindow | null = null;
   for (const w of windows) {
     if (t < w.onAirMs || t >= w.offAirMs) continue;
@@ -423,7 +508,10 @@ function stagedFromPlan(windows: StoryWindow[], t: number): StagedTwist | null {
   if (!best) return null;
   const { event } = best;
   const phase: SurprisePhase = t < event.effectAtMs ? 'warning' : 'effect';
-  return {
+  const cached = best.staged[phase];
+  if (cached) return cached;
+  const presentation = presentationForMoment({ id: 0, text: event.commentaryText, tone: 'hot', label: event.label, kind: event.kind }) ?? { art: null, symbol: '!', cue: 'drop' };
+  const staged: StagedTwist = {
     key: `${event.id}:${phase}`,
     eventId: event.id,
     phase,
@@ -431,17 +519,27 @@ function stagedFromPlan(windows: StoryWindow[], t: number): StagedTwist | null {
     kind: event.kind,
     tone: event.tone,
     targetLanes: event.targetLanes,
-    deltaByLane: event.clockDeltaMsByLane,
+    propLanes: propLanes(event),
+    featured: featuredLane(event, names),
+    field: isFieldTwist(event),
     consequence: event.consequence === 'retire' ? 'retire' : event.consequence === 'advance' ? 'advance' : 'delay',
-    warningText: event.warningText,
     commentaryText: event.commentaryText,
-    /* Two snails is a duel (the bat and its victim, a shell swap); a field twist is three or more. */
-    big: event.targetLanes.length > 2,
+    presentation,
     source: 'plan',
   };
+  best.staged[phase] = staged;
+  return staged;
 }
 
 /* ── The renderer ─────────────────────────────────────────────────────── */
+
+interface FinishHold {
+  runners: RunInRunner[];
+  startedAt: number;
+  lastAt: number;
+  crossed: Set<number>;
+  photo: boolean;
+}
 
 export function Sidescroller({
   names,
@@ -473,30 +571,34 @@ export function Sidescroller({
   const sceneRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const nodesRef = useRef(new Map<number, SVGGElement>());
-  const tagNodesRef = useRef(new Map<number, SVGGElement>());
+  const flagNodesRef = useRef(new Map<number, SVGGElement>());
   const chipsRef = useRef(new Map<number, SVGSVGElement>());
   const chipLayerRef = useRef<HTMLDivElement>(null);
-    const layerWrapRefs = useRef<Partial<Record<LayerName, HTMLDivElement | null>>>({});
+  const layerWrapRefs = useRef<Partial<Record<LayerName, HTMLDivElement | null>>>({});
   /** World units to layer pixels, fixed per screen size so layers paint once. */
   const rasterRef = useRef(1);
   const sceneWidthRef = useRef(0);
-  const propRef = useRef<SVGGElement>(null);
+  const propNodesRef = useRef(new Map<number, SVGGElement>());
   const clockRef = useRef<HTMLSpanElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const toGoRef = useRef<HTMLSpanElement>(null);
   const orderRefs = useRef(new Map<number, HTMLLIElement>());
-  const bandRef = useRef<SVGRectElement>(null);
+  const splashRef = useRef<HTMLDivElement>(null);
+  const strapRef = useRef<HTMLParagraphElement>(null);
   const snapshotRef = useRef<{ snails: SnailRun[]; info: PaintInfo } | null>(null);
   const momentRef = useRef(race.moment);
   const aspectRef = useRef(16 / 9);
-  const camRef = useRef({ x: -200, w: PACK_VIEW_W });
+  const camRef = useRef({ x: OPEN_X, w: PACK_VIEW_W });
   const lastPaintRef = useRef(0);
+  const namesRef = useRef(names);
   /* The twist on air, derived from the plan on every frame; React only hears
      about it when it changes, which is a handful of times a race. */
   const stagedRef = useRef<StagedTwist | null>(null);
   const [staged, setStaged] = useState<StagedTwist | null>(null);
-  const tagRef = useRef(new Map<number, string>());
+  const flagRef = useRef(new Map<number, string>());
   const windowsRef = useRef<{ events: LockedRaceEvent[] | null; windows: StoryWindow[] }>({ events: null, windows: [] });
+  /* The hold on the line after the winner crosses, while the field runs in. */
+  const finishRef = useRef<FinishHold | null>(null);
 
   /* The lanes are deeper in full field view; the painter reads them through
      a ref so a camera change never rebuilds (and resets) the painter mid-race. */
@@ -504,17 +606,22 @@ export function Sidescroller({
   const lanes = useMemo(() => names.map((_, lane) => laneGeometry(lane, names.length, extra)), [names, extra]);
   const lanesRef = useRef(lanes);
   const trackBottom = TRACK_BOTTOM + extra;
-  const snailLen = (ART_NOSE + ART_TAIL) * (lanes[0]?.scale ?? 0.5);
   const signs = useMemo(() => {
     const list = [clubName.toUpperCase(), sponsor ? `PRESENTED BY ${sponsor.toUpperCase()}` : 'SNAIL RACING', ...sponsors.map((s) => s.toUpperCase())];
     return list.filter(Boolean);
   }, [clubName, sponsor, sponsors]);
   /* Two club sponsors' logos on the fence each race, a different pair every race. */
   const fenceLogos = useMemo(() => sponsorsFromRace(raceNo).slice(0, 2), [raceNo]);
+  /* The fence boards, on the post grid from behind the stalls to past the post. */
+  const fenceBoards = useMemo(() => {
+    const boards = [signs[0], fenceLogos[0], signs[1], fenceLogos[1]];
+    return fenceSlots(WORLD_BOX.x, WORLD_BOX.x + WORLD_BOX.w).map((slot, i) => ({ ...slot, board: boards[((i % boards.length) + boards.length) % boards.length] }));
+  }, [signs, fenceLogos]);
 
-  const painter = useMemo<RacePainter>(() => {
+  const painter = useMemo(() => {
     const place = (lane: number, progress: number) => {
       const geo = lanesRef.current[lane];
+      if (!geo) return worldX(progress);
       const x = worldX(progress);
       const k = rasterRef.current;
       const chip = chipsRef.current.get(lane);
@@ -531,40 +638,71 @@ export function Sidescroller({
       /* A portrait phone gets a close shot of the track rather than a frame of sky. */
       return aspect < 1.2 ? required * aspect * 1.15 : Math.max(PACK_VIEW_W, required * aspect);
     };
+    /** Fit a leader's name into its slot in the positions strip. */
+    const fitOrderName = (el: HTMLLIElement) => fitText(el.querySelector('.side-order-name') as HTMLElement | null, 0.62);
     const setOrder = (ranked: SnailRun[]) => {
       ranked.forEach((s, i) => {
         const el = orderRefs.current.get(s.lane);
         if (!el) return;
         const rank = String(i + 1);
         if (el.dataset.rank !== rank) {
+          const wasLeader = Number(el.dataset.rank) <= 3;
           el.dataset.rank = rank;
           el.style.order = rank;
+          if (i < 3 || wasLeader) fitOrderName(el);
         }
         el.classList.toggle('done', s.done);
         el.classList.toggle('retired', Boolean(s.retired));
       });
     };
-    const setTag = (lane: number, text: string, tone: string) => {
-      if (tagRef.current.get(lane) === `${tone}|${text}`) return;
-      tagRef.current.set(lane, `${tone}|${text}`);
-      const tag = tagNodesRef.current.get(lane);
-      const label = tag?.querySelector('.side-tag-text') as SVGTextElement | null;
-      const box = tag?.querySelector('.side-tag-box') as SVGRectElement | null;
-      if (!tag || !label || !box) return;
-      label.textContent = text;
-      tag.setAttribute('data-tone', tone);
-      tag.classList.toggle('on', Boolean(text));
-      const w = Math.max(120, text.length * 21 + 36);
-      box.setAttribute('x', String(-w / 2));
-      box.setAttribute('width', String(w));
+    /**
+     * Write a snail's flag: its name, or its placing once it is home, in the
+     * colour of what is happening to it. Sized to its text, and squeezed to
+     * the most a lane allows rather than cut off.
+     */
+    const setFlag = (lane: number, text: string, tone: string, force = false) => {
+      if (!force && flagRef.current.get(lane) === `${tone}|${text}`) return;
+      flagRef.current.set(lane, `${tone}|${text}`);
+      const flag = flagNodesRef.current.get(lane);
+      const label = flag?.querySelector('.side-name-flag-text') as SVGTextElement | null;
+      const box = flag?.querySelector('.side-name-flag-box') as SVGRectElement | null;
+      if (!flag || !label || !box) return;
+      flag.setAttribute('data-tone', tone);
+      if (label.textContent !== text) label.textContent = text;
+      const font = Number(flag.dataset.font);
+      const max = Number(flag.dataset.max);
+      const pad = Number(flag.dataset.pad);
+      label.setAttribute('font-size', String(font));
+      label.removeAttribute('textLength');
+      label.removeAttribute('lengthAdjust');
+      let width = 0;
+      try {
+        width = label.getComputedTextLength();
+      } catch {
+        width = text.length * font * 0.7;
+      }
+      if (!width) width = text.length * font * 0.7;
+      if (width > max) {
+        /* Smaller first, then squeezed: a long name is never cut short. */
+        const smaller = Math.max(0.72, max / width);
+        label.setAttribute('font-size', String(font * smaller));
+        width *= smaller;
+        if (width > max) {
+          label.setAttribute('textLength', String(max));
+          label.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+          width = max;
+        }
+      }
+      box.setAttribute('x', String(-(width + pad * 2)));
+      box.setAttribute('width', String(width + pad * 2));
     };
     /** Where a repeating layer drawn at this parallax factor starts, in world x. */
     const sceneryAt = (camX: number, factor: number) =>
       factor === 0 ? camX : camX + ((-camX * factor) % SCENE_W) - SCENE_W;
     /*
      * Point the camera at world x camX with a shot viewW by viewH, bottom
-     * anchored on the ground line. Only layer transforms change; the fence and
-     * crowd copies jump a whole scenery width now and then, never per frame.
+     * anchored on the ground line. Only layer transforms change; the crowd
+     * copies jump a whole scenery width now and then, never per frame.
      */
     const frame = (camX: number, viewW: number, viewH: number) => {
       const sceneW = sceneWidthRef.current;
@@ -573,7 +711,7 @@ export function Sidescroller({
       const viewY = VIEW_H + extraY - viewH;
       const k = rasterRef.current;
       const s = sceneW / viewW;
-      const place = (name: LayerName, boxX: number, originX: number) => {
+      const put = (name: LayerName, boxX: number, originX: number) => {
         const el = layerWrapRefs.current[name];
         if (!el) return;
         const tx = (boxX + originX - camX) * s;
@@ -581,8 +719,33 @@ export function Sidescroller({
         const ty = (LAYER_TOP - viewY + (name === 'crowd' ? extraY : 0)) * s;
         el.style.transform = `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0) scale(${(s / k).toFixed(5)})`;
       };
-      for (const layer of SCENERY_LAYERS) place(layer.name, SCENERY_BOX.x, sceneryAt(camX, layer.factor));
-      place('world', WORLD_BOX.x, 0);
+      for (const layer of SCENERY_LAYERS) put(layer.name, SCENERY_BOX.x, sceneryAt(camX, layer.factor));
+      put('world', WORLD_BOX.x, 0);
+      /* Keep the twist card clear of the winning post once it is in shot. */
+      const card = splashRef.current;
+      if (card) {
+        const finishPx = (TRACK_LEN - camX) * s;
+        const half = card.offsetWidth / 2;
+        const margin = unitPx() * 1.5;
+        let centre = sceneW / 2;
+        if (finishPx > 0 && finishPx < sceneW && centre + half + margin > finishPx) centre = Math.max(half + margin, finishPx - half - margin);
+        const value = `${Math.round(centre)}px`;
+        if (card.style.left !== value) card.style.left = value;
+      }
+    };
+    /** Ease the camera towards a shot, by elapsed time rather than per frame. */
+    const ease = (targetX: number, wantW: number) => {
+      const narrowest = minW();
+      const cam = camRef.current;
+      const now = wallClockMs();
+      const dt = lastPaintRef.current ? Math.min(100, now - lastPaintRef.current) : 16.7;
+      lastPaintRef.current = now;
+      const k = reduceMotionRef.current ? 1 : 1 - Math.pow(0.9, dt / 16.7);
+      cam.x += (targetX - cam.x) * k;
+      cam.w += (wantW - cam.w) * k;
+      /* Never narrower than every lane allows, even mid-ease. */
+      const viewW = Math.max(cam.w, narrowest);
+      frame(cam.x, viewW, viewW / aspectRef.current);
     };
     /** Size every layer for this screen: crisp at the closest shot the camera takes. */
     const sizeLayers = () => {
@@ -600,7 +763,11 @@ export function Sidescroller({
       chipLayerRef.current?.style.setProperty('--chip-w', `${(CHIP.w * k).toFixed(2)}px`);
       chipLayerRef.current?.style.setProperty('--chip-h', `${(CHIP.h * k).toFixed(2)}px`);
     };
-    const paint: RacePainter['paint'] = (snails, info) => {
+
+    /* Each runner's recent pace, for the run-in after the winner is home. */
+    const paceRef = new Map<number, { p: number; t: number; rate: number }>();
+
+    const paint = (snails: SnailRun[], info: PaintInfo) => {
       snapshotRef.current = { snails, info };
       const t = info.raceTimeMs;
       /* The stalls follow the race clock, so a replay or a seek opens and shuts them too. */
@@ -614,23 +781,26 @@ export function Sidescroller({
       let next: StagedTwist | null = null;
       if (planEvents) {
         if (windowsRef.current.events !== planEvents) windowsRef.current = { events: planEvents, windows: storyWindows(planEvents) };
-        next = stagedFromPlan(windowsRef.current.windows, t);
+        next = stagedFromPlan(windowsRef.current.windows, t, namesRef.current);
       } else {
         const moment = momentRef.current;
         if (moment && info.leadP <= 1) {
-          next = {
-            key: `moment-${moment.id}`,
+          const key = `moment-${moment.id}-${moment.phase ?? ''}`;
+          const targets = moment.targetLanes ?? [info.ranked[0]?.lane ?? 0];
+          next = stagedRef.current?.key === key ? stagedRef.current : {
+            key,
             eventId: moment.eventId ?? `moment-${moment.id}`,
             phase: moment.phase === 'warning' || moment.phase === 'reveal' ? 'warning' : 'effect',
             label: moment.label ?? moment.text,
             kind: moment.kind ?? '',
             tone: moment.tone === 'good' ? 'good' : moment.tone === 'bad' ? 'bad' : 'wild',
-            targetLanes: moment.targetLanes ?? [info.ranked[0]?.lane ?? 0],
-            deltaByLane: moment.deltaMs && moment.targetLanes?.length ? { [moment.targetLanes[0]]: moment.deltaMs } : {},
+            targetLanes: targets,
+            propLanes: targets,
+            featured: targets.length === 1 ? targets[0] : null,
+            field: targets.length > 2,
             consequence: moment.consequence,
-            warningText: moment.text,
             commentaryText: moment.text,
-            big: Boolean(moment.big),
+            presentation: presentationForMoment(moment) ?? { art: null, symbol: '!', cue: 'drop' },
             source: 'moment',
           };
         }
@@ -639,6 +809,7 @@ export function Sidescroller({
         stagedRef.current = next;
         setStaged(next);
       }
+      const twist = stagedRef.current;
 
       for (const snail of snails) {
         const node = nodesRef.current.get(snail.lane);
@@ -646,11 +817,10 @@ export function Sidescroller({
         node.classList.toggle('retired', Boolean(snail.retired));
         /* The reaction follows the consequence, not the name of the gag. */
         let delta = 0;
-        let live: LockedRaceEvent | undefined;
         if (snail.lockedMotion) {
           /* The newest consequence on this lane is the one to show: a boost
-             still easing in loses the tag to a hold that has just landed. */
-          live = snail.lockedMotion.events
+             still easing in loses to a hold that has just landed. */
+          const live = snail.lockedMotion.events
             .filter((event) => event.targetLanes.includes(snail.lane) && t >= event.effectAtMs && t < event.effectEndMs && (event.clockDeltaMsByLane[snail.lane] ?? 0) !== 0)
             .sort((x, y) => y.effectAtMs - x.effectAtMs)[0];
           delta = live?.clockDeltaMsByLane[snail.lane] ?? 0;
@@ -661,11 +831,22 @@ export function Sidescroller({
         const down = !snail.done && !snail.retired && delta < 0;
         node.classList.toggle('fx-up', up);
         node.classList.toggle('fx-down', down);
-        const place1 = snail.done && !snail.retired && snail.place === 1;
-        /* The snail's own number says who it is; the only word over a shell is the winner's. */
-        if (place1) setTag(snail.lane, 'WINNER!', 'win');
-        else setTag(snail.lane, '', 'none');
+        /* The runner the caption names (the first to shake off the plague) is lit up. */
+        const featured = Boolean(twist && twist.phase === 'effect' && twist.featured === snail.lane && twist.field);
+        node.classList.toggle('featured', featured);
+        const name = namesRef.current[snail.lane] ?? '';
+        if (snail.done && !snail.retired && snail.place === 1) setFlag(snail.lane, `WINNER  ${name}`, 'win');
+        else if (snail.retired) setFlag(snail.lane, `OUT  ${name}`, 'out');
+        else setFlag(snail.lane, name, featured || up ? 'up' : down ? 'down' : 'none');
         place(snail.lane, snail.p);
+
+        /* Pace over the last half second, never below the snail's average. */
+        const pace = paceRef.get(snail.lane);
+        if (!pace || t < pace.t) paceRef.set(snail.lane, { p: snail.p, t, rate: t > 0 ? snail.p / t : 0 });
+        else if (t - pace.t >= 250) {
+          const recent = (snail.p - pace.p) / (t - pace.t);
+          paceRef.set(snail.lane, { p: snail.p, t, rate: Math.max(recent, t > 0 ? (snail.p / t) * 0.7 : 0) });
+        }
       }
       for (const snail of info.justFinished) nodesRef.current.get(snail.lane)?.classList.add('finished');
 
@@ -673,18 +854,61 @@ export function Sidescroller({
        * Camera: ride with the leading pack. The leader is always in shot with
        * room to run into; runners behind are added in running order while
        * they fit a tight following shot, so the picture stays close and the
-       * scenery moves, and the running-order strip names the rest. Full
-       * field view takes everyone. Every lane is always in frame.
+       * scenery moves, and the running-order strip names the rest. For the
+       * run home the winning post joins the shot and stays in it. Full field
+       * view takes everyone. Every lane is always in frame.
        */
-      const aspect = aspectRef.current;
       const narrowest = minW();
-      const maxW = courseViewRef.current ? Infinity : Math.max(narrowest, Math.min(FOLLOW_MAX_W, narrowest * 1.3));
+      const maxW = courseViewRef.current ? Infinity : Math.max(narrowest, Math.min(FOLLOW_MAX_W, narrowest * 1.12));
       const order = info.ranked.length ? info.ranked : snails;
       const headroom = 380;
-      const leadX = worldX(order[0]?.p ?? 0);
+      const leadP = order[0]?.p ?? 0;
+      const leadX = worldX(leadP);
       const snailLen = snailLenNow();
       let right = leadX + headroom;
       let left = leadX - snailLen - 140;
+      if (leadP >= FRAME_FINISH_FROM || info.finalStraight) {
+        right = Math.max(right, TRACK_LEN + 320);
+        left = Math.max(Math.min(left, right - narrowest), right - maxW);
+      }
+
+      /*
+       * The props: one per runner it hits, a lane tall, just in front of that
+       * runner's nose, so it never covers a saddlecloth number; the snails
+       * are drawn above the props regardless. A field-wide twist also lays a
+       * tint across every lane, under the snails.
+       */
+      if (twist) {
+        const laneList = lanesRef.current;
+        const byLane = new Map(snails.map((s) => [s.lane, s]));
+        if (twist.presentation.cue === 'gate') {
+          /* The boom gate drops across the track just in front of the first runner it stopped. */
+          const node = propNodesRef.current.get(-1);
+          const stopped = twist.propLanes.map((lane) => byLane.get(lane)).filter((s): s is SnailRun => Boolean(s));
+          const frontP = stopped.length ? Math.max(...stopped.map((s) => s.p)) : leadP;
+          const pitch = laneList[0]?.pitch ?? 70;
+          const x = worldX(frontP) + pitch * 1.6;
+          const scale = ((TRACK_BOTTOM + extraNow() - TRACK_TOP) * 0.5) / GLYPH_UNITS;
+          node?.setAttribute('transform', `translate(${x.toFixed(1)} ${(TRACK_BOTTOM + extraNow()).toFixed(1)}) scale(${scale.toFixed(4)})`);
+          right = Math.max(right, x + 200);
+        } else {
+          for (const lane of twist.propLanes) {
+            const node = propNodesRef.current.get(lane);
+            const snail = byLane.get(lane);
+            const geo = laneList[lane];
+            if (!node || !snail || !geo) continue;
+            /* Taller than its lane so it reads from the back; the snails and flags are drawn over it, so it never hides one. */
+            const scale = (geo.pitch * PROP_LANES) / GLYPH_UNITS;
+            const half = (GLYPH_UNITS / 2) * scale;
+            /* In the warning the prop looms a little further up the lane; it lands right in front. */
+            const gap = twist.phase === 'warning' ? geo.pitch * 0.9 : geo.pitch * 0.22;
+            const x = worldX(snail.p) + 40 * geo.scale + gap + half;
+            node.setAttribute('transform', `translate(${x.toFixed(1)} ${geo.y.toFixed(1)}) scale(${scale.toFixed(4)})`);
+            if (snail.p >= leadP - 0.02) right = Math.max(right, x + half + 60);
+          }
+        }
+      }
+
       for (const snail of order) {
         const tail = worldX(snail.p) - snailLen - 140;
         if (tail >= left) continue;
@@ -692,75 +916,10 @@ export function Sidescroller({
         left = tail;
       }
 
-      /*
-       * The prop: one lane tall, just in front of the nose of the snail it
-       * hits, so it never covers a saddlecloth number. A field-wide twist
-       * drops a band across every lane with its prop in the middle of the
-       * shot. The band and the prop move with the camera, not the snails.
-       */
-      const twist = stagedRef.current;
-      if (twist && propRef.current) {
-        const targets = twist.targetLanes.length ? twist.targetLanes : [info.ranked[0]?.lane ?? 0];
-        const presentation = presentationForMoment({ id: 0, text: twist.commentaryText, tone: 'hot', label: twist.label, kind: twist.kind });
-        const cue = presentation?.cue ?? 'drop';
-        const laneList = lanesRef.current;
-        const scale = laneList[0]?.scale ?? 0.5;
-        const big = targets.length > 2 || cue === 'pull';
-        const held = targets.filter((lane) => (twist.deltaByLane[lane] ?? 0) < 0);
-        /* A glyph is 64 units tall at scale 1; a snail is about 176 * scale. */
-        const laneProp = Math.max(0.34, (ART_HEIGHT * scale * 1.5) / 64 / 6);
-        if (cue === 'gate') {
-          /* The gate drops just in front of the first snail it stopped. */
-          const stopped = snails.filter((s) => held.includes(s.lane));
-          const frontP = stopped.length ? Math.max(...stopped.map((s) => s.p)) : (order[0]?.p ?? 0);
-          const x = worldX(frontP) + 150;
-          propRef.current.setAttribute('data-size', 'field');
-          propRef.current.setAttribute('transform', `translate(${x} ${TRACK_BOTTOM + extraNow() + 10}) scale(${Math.max(0.6, laneProp * 2.4)})`);
-          right = Math.max(right, x + 260);
-        } else if (big) {
-          const bandX = (left + right) / 2;
-          propRef.current.setAttribute('data-size', 'field');
-          propRef.current.setAttribute('transform', `translate(${bandX} ${TRACK_TOP + (TRACK_BOTTOM + extraNow() - TRACK_TOP) * 0.55}) scale(${Math.max(0.5, laneProp * 1.8)})`);
-          if (bandRef.current) {
-            const bandW = Math.min(right - left, 2200);
-            bandRef.current.setAttribute('x', String(bandX - bandW / 2));
-            bandRef.current.setAttribute('width', String(bandW));
-            bandRef.current.setAttribute('height', String(TRACK_BOTTOM + extraNow() - TRACK_TOP));
-          }
-        } else {
-          /* The prop lands on the snail that wears the consequence: the one
-             the bat hit, not the one swinging it. */
-          const featured = snails.find((s) => s.lane === (held[0] ?? targets[0]));
-          if (featured) {
-            const geo = laneList[featured.lane];
-            propRef.current.setAttribute('data-size', 'single');
-            const ahead = twist.phase === 'warning' ? 200 : 70;
-            const x = worldX(featured.p) + ahead;
-            const propScale = laneProp * (cue === 'stomp' ? 1.6 : 1);
-            propRef.current.setAttribute('transform', `translate(${x} ${geo.y}) scale(${propScale})`);
-            right = Math.max(right, x + 220);
-          }
-        }
-      }
-
-      /* The run home: once the winning post can join the shot, it stays in it. */
-      if (info.finalStraight && TRACK_LEN + 320 - left <= maxW) right = Math.max(right, TRACK_LEN + 320);
       const wantW = Math.max(narrowest, right - left);
       let targetX = right - wantW + (wantW - (right - left)) * 0.5 * (courseViewRef.current ? 1 : 0.3);
-      targetX = Math.max(-260, Math.min(TRACK_LEN + 460 - wantW, targetX));
-      const cam = camRef.current;
-      /* Eased by elapsed time, not per frame, so a late frame catches up
-         instead of letting the snails slide against the scenery. */
-      const now = wallClockMs();
-      const dt = lastPaintRef.current ? Math.min(100, now - lastPaintRef.current) : 16.7;
-      lastPaintRef.current = now;
-      const ease = reduceMotionRef.current ? 1 : 1 - Math.pow(0.9, dt / 16.7);
-      cam.x += (targetX - cam.x) * ease;
-      cam.w += (wantW - cam.w) * ease;
-      /* Never narrower than every lane allows, even mid-ease. */
-      const viewW = Math.max(cam.w, narrowest);
-      const viewH = viewW / aspect;
-      frame(cam.x, viewW, viewH);
+      targetX = Math.max(OPEN_X, Math.min(TRACK_LEN + 460 - wantW, targetX));
+      ease(targetX, wantW);
 
       const clock = clockText(t);
       if (clockRef.current && clockRef.current.textContent !== clock) clockRef.current.textContent = clock;
@@ -773,8 +932,70 @@ export function Sidescroller({
         const text = lead >= 1 ? 'FINISH' : `${((1 - lead) * RACE_METRES).toFixed(1)} m to go`;
         if (toGoRef.current.textContent !== text) toGoRef.current.textContent = text;
       }
-      setOrder(order);
+      /* Nobody has gone anywhere in the first second: the order stays as drawn. */
+      setOrder(t < ORDER_FROZEN_MS ? [...snails].sort((a, b) => a.lane - b.lane) : order);
     };
+
+    /**
+     * The winner is home. Hold the shot on the line: a photo-finish still
+     * first, then the rest of the field runs in at its own pace, in the
+     * official order, each one's flag showing its placing as it crosses.
+     */
+    const beginFinish = (results: RaceResult[]) => {
+      const snapshot = snapshotRef.current;
+      if (!snapshot || finishRef.current) return;
+      const placeOf = new Map(results.map((r) => [r.lane, r.place]));
+      const finish: FinishHold = {
+        runners: snapshot.snails.map((s) => ({
+          lane: s.lane,
+          place: placeOf.get(s.lane) ?? 99,
+          p: s.p,
+          rate: paceRef.get(s.lane)?.rate ?? 0,
+          retired: s.retired,
+        })),
+        startedAt: wallClockMs(),
+        lastAt: wallClockMs(),
+        crossed: new Set(snapshot.snails.filter((s) => s.p >= 1).map((s) => s.lane)),
+        photo: !reduceMotionRef.current,
+      };
+      finishRef.current = finish;
+      sceneRef.current?.classList.toggle('side-photo', finish.photo);
+      setOrder(
+        [...snapshot.snails].sort((a, b) => (placeOf.get(a.lane) ?? 99) - (placeOf.get(b.lane) ?? 99)),
+      );
+    };
+    const finishFrame = () => {
+      const finish = finishRef.current;
+      if (!finish) return;
+      const now = wallClockMs();
+      const dt = Math.min(100, now - finish.lastAt);
+      finish.lastAt = now;
+      const held = now - finish.startedAt < PHOTO_MS && finish.photo;
+      if (!held) {
+        if (finish.photo) {
+          finish.photo = false;
+          const scene = sceneRef.current;
+          scene?.classList.replace('side-photo', 'side-photo-out');
+          window.setTimeout(() => scene?.classList.remove('side-photo-out'), 320);
+        }
+        finish.runners = runInStep(finish.runners, dt);
+        for (const runner of finish.runners) {
+          place(runner.lane, runner.p);
+          if (runner.retired || runner.p < 1 || finish.crossed.has(runner.lane)) continue;
+          finish.crossed.add(runner.lane);
+          nodesRef.current.get(runner.lane)?.classList.add('finished');
+          const name = namesRef.current[runner.lane] ?? '';
+          if (runner.place <= 3) setFlag(runner.lane, `${ordinal(runner.place).toUpperCase()}  ${name}`, 'placed');
+        }
+      }
+      const narrowest = minW();
+      ease(TRACK_LEN - narrowest * FINISH_HOLD_AT, narrowest);
+    };
+    const endFinish = () => {
+      finishRef.current = null;
+      sceneRef.current?.classList.remove('side-photo', 'side-photo-out');
+    };
+
     return {
       measure: () => {
         const scene = sceneRef.current;
@@ -784,56 +1005,72 @@ export function Sidescroller({
           sizeLayers();
         }
         const snapshot = snapshotRef.current;
-        if (snapshot) paint(snapshot.snails, snapshot.info);
+        if (finishRef.current) {
+          finishFrame();
+        } else if (snapshot) paint(snapshot.snails, snapshot.info);
         else {
           const w = minW();
           /* The opening shot is where the race camera starts, so the gates opening is not a jump cut. */
-          camRef.current = { x: -260, w };
-          frame(-260, w, w / aspectRef.current);
+          camRef.current = { x: OPEN_X, w };
+          frame(OPEN_X, w, w / aspectRef.current);
           /* The chips are sized in layer pixels, so a new size moves them too. */
           nodesRef.current.forEach((node, lane) => place(lane, Number(node.dataset.progress ?? 0)));
         }
+        orderRefs.current.forEach((el) => { if (Number(el.dataset.rank) <= 3) fitOrderName(el); });
       },
       start: () => {
         sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, svg.side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.add('racing'));
       },
       reset: () => {
         snapshotRef.current = null;
+        endFinish();
+        paceRef.clear();
         sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, svg.side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.remove('racing'));
         svgRef.current?.classList.remove('racing', 'gates-open', 'run-home');
         layerWrapRefs.current.crowd?.classList.remove('run-home');
         const w = minW();
-        camRef.current = { x: -260, w };
+        camRef.current = { x: OPEN_X, w };
         lastPaintRef.current = 0;
         stagedRef.current = null;
         setStaged(null);
-        tagRef.current.clear();
+        flagRef.current.clear();
         nodesRef.current.forEach((node, lane) => {
           place(lane, 0);
-          node.classList.remove('finished', 'retired', 'fx-up', 'fx-down');
-          const tag = tagNodesRef.current.get(lane);
-          tag?.classList.remove('on');
-          const label = tag?.querySelector('.side-tag-text');
-          if (label) label.textContent = '';
+          node.classList.remove('finished', 'retired', 'fx-up', 'fx-down', 'featured');
+          setFlag(lane, namesRef.current[lane] ?? '', 'none', true);
         });
         orderRefs.current.forEach((el, lane) => {
           el.dataset.rank = String(lane + 1);
           el.style.order = String(lane + 1);
           el.classList.remove('done', 'retired');
         });
+        orderRefs.current.forEach((el) => { if (Number(el.dataset.rank) <= 3) fitOrderName(el); });
         if (clockRef.current) clockRef.current.textContent = '0:00.0';
         if (barRef.current) {
           barRef.current.style.setProperty('--lead', '0');
           barRef.current.setAttribute('aria-valuenow', '0');
         }
         if (toGoRef.current) toGoRef.current.textContent = `${RACE_METRES.toFixed(1)} m to go`;
-        frame(-260, w, w / aspectRef.current);
+        frame(OPEN_X, w, w / aspectRef.current);
       },
       paint,
-    };
+      beginFinish,
+      finishFrame,
+      endFinish,
+      /** Re-measure every flag, after the names or the lanes change. */
+      refreshFlags: () => {
+        const flags = [...flagRef.current.entries()];
+        flagNodesRef.current.forEach((_, lane) => {
+          const known = flags.find(([l]) => l === lane)?.[1];
+          const [tone, ...rest] = (known ?? `none|${namesRef.current[lane] ?? ''}`).split('|');
+          setFlag(lane, known ? rest.join('|') : namesRef.current[lane] ?? '', tone, true);
+        });
+      },
+    } satisfies RacePainter & Record<string, unknown>;
   }, []);
 
-  useEffect(() => {
+  /* Before the first paint, so the scenery is sized and placed on the very first frame and never pops in. */
+  useLayoutEffect(() => {
     setPainter(painter);
     painter.reset();
     painter.measure();
@@ -849,30 +1086,63 @@ export function Sidescroller({
     const snapshot = snapshotRef.current;
     if (snapshot) painter.paint(snapshot.snails, snapshot.info);
   }, [race.moment, painter]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     lanesRef.current = lanes;
+    namesRef.current = names;
     courseViewRef.current = courseView;
-    /* Deeper lanes change the shot: re-measure, then repaint the last frame. */
+    /* Deeper lanes change the shot and every flag: re-measure, then repaint the last frame. */
+    painter.refreshFlags();
     painter.measure();
-    const snapshot = snapshotRef.current;
-    if (snapshot) painter.paint(snapshot.snails, snapshot.info);
-  }, [courseView, lanes, painter]);
+  }, [courseView, lanes, names, painter]);
 
   const phase = race.phase as string;
   const confirming = phase === 'confirming';
+  const finished = confirming || phase === 'done';
+  /* The finish: hold on the line while the field runs in, behind the winner card too. */
+  useEffect(() => {
+    if (!finished) return;
+    painter.beginFinish(race.results);
+    let raf = 0;
+    const until = wallClockMs() + 9000;
+    const tick = () => {
+      painter.finishFrame();
+      if (wallClockMs() < until) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [finished, painter, race.results]);
+  useEffect(() => {
+    if (phase === 'idle' || phase === 'countdown') painter.endFinish();
+  }, [phase, painter]);
+
   const twist = phase === 'running' ? staged : null;
-  const presentation: SurprisePresentation | null = twist
-    ? presentationForMoment({ id: 0, text: twist.commentaryText, tone: 'hot', label: twist.label, kind: twist.kind })
-    : null;
-  const showResult = (phase === 'confirming' || phase === 'done') && race.results.length > 0;
-  const label = replay ? 'REPLAY' : confirming ? 'FINISH' : phase === 'done' ? 'OFFICIAL' : phase === 'void' ? 'VOID' : phase === 'idle' ? 'READY' : 'LIVE';
+  const card = useLingering(twist, 420, (item) => item.key);
+  const countdown = useLingering(race.countdown || null, 420, (item) => item);
+  const showResult = phase === 'done' && race.results.length > 0;
+  const label = replay ? 'REPLAY' : confirming ? 'FINISH' : phase === 'done' ? 'OFFICIAL' : phase === 'void' ? 'VOID' : phase === 'running' ? 'LIVE' : 'READY';
   const announcement = confirming || phase === 'done' || phase === 'void' ? race.status : race.commentary || race.status;
+  const winner = finished ? race.results.find((r) => r.place === 1) : undefined;
   /* Scenery is drawn three times across so a shift never shows an edge. */
   const copies = [0, 1, 2];
+
+  /* The commentary always fits its strap on one line, shrinking rather than running off. */
+  useLayoutEffect(() => {
+    fitText(strapRef.current, 0.58);
+  }, [announcement]);
+  useEffect(() => {
+    const onResize = () => fitText(strapRef.current, 0.58);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  /* A long twist name shrinks to fit its card. */
+  useLayoutEffect(() => {
+    fitText(splashRef.current?.querySelector('.side-splash-title') as HTMLElement | null, 0.6);
+  }, [card.shown]);
 
   return (
     <div
       className={`track-wrap tv-wrap race-broadcast course-broadcast side-broadcast ${reduceMotion ? 'calm race-motion-reduced' : ''}`}
+      style={{ '--field': names.length } as CSSProperties}
       data-race-phase={phase}
       data-reduced-motion={String(reduceMotion)}
       data-weather={race.weather}
@@ -907,169 +1177,175 @@ export function Sidescroller({
             {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Scenery clubName={clubName} /></g>)}
           </svg>
         </div>
-        {/* The fence and its signs move with the track. */}
-        <div className="side-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.fence = el; }}>
-          <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
-            <g>
-              {copies.map((i) => (
-                <g key={i} transform={`translate(${i * SCENE_W} 0)`}>
-                  <rect x="0" y="468" width={SCENE_W} height="60" fill="#e8e4dc" stroke="#2a1a1a" strokeWidth="4" />
-                  {[signs[0], fenceLogos[0], signs[1], fenceLogos[1]].map((board, k) => (
-                    <g key={k} transform={`translate(${k * (SCENE_W / 4) + 160} 0)`}>
-                      {typeof board === 'string' ? (
-                        <>
-                          <rect x="0" y="476" width="520" height="44" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="3" />
-                          <text x="260" y="509" textAnchor="middle" fontSize="30" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">{board}</text>
-                        </>
-                      ) : board ? (
-                        <g className="side-fence-logo">
-                          <rect x="60" y="440" width="400" height="88" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
-                          <image href={board.src} x="68" y="444" width="384" height="80" preserveAspectRatio="xMidYMid meet" />
-                        </g>
-                      ) : null}
-                    </g>
-                  ))}
-                </g>
-              ))}
-            </g>
-          </svg>
-        </div>
         <div className="side-layer side-world" ref={(el) => { layerWrapRefs.current.world = el; }}>
-        <svg
-          ref={svgRef}
-          className="tv"
-          viewBox={`${WORLD_BOX.x} ${LAYER_TOP} ${WORLD_BOX.w} ${LAYER_H}`}
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={`Straight track: ${names.length} snails racing side on to the finish`}
-        >
-          {/* The track itself is world-fixed: one marked lane per snail. */}
-          <rect x="-4000" y={TRACK_TOP} width={TRACK_LEN + 8000} height={trackBottom - TRACK_TOP} fill="#9a8a62" />
-          {lanes.map((geo, lane) => (
-            <rect key={`band-${lane}`} className="side-lane" x="-4000" y={geo.top} width={TRACK_LEN + 8000} height={geo.pitch} fill={lane % 2 ? '#93825a' : '#a3936a'} />
-          ))}
-          {lanes.slice(1).map((geo, i) => (
-            <line key={`rail-${i}`} x1="-4000" x2={TRACK_LEN + 4000} y1={geo.top} y2={geo.top} stroke="#fff" strokeWidth="4" strokeDasharray="40 30" opacity=".55" />
-          ))}
-          {/* The inside rail, and the front rail with the crowd in front of it. */}
-          <rect x="-4000" y={TRACK_TOP - 12} width={TRACK_LEN + 8000} height="14" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
-          <rect x="-4000" y={trackBottom} width={TRACK_LEN + 8000} height={VIEW_H - TRACK_BOTTOM + 40} fill="#5fa83a" />
-          <rect x="-4000" y={trackBottom + 4} width={TRACK_LEN + 8000} height="14" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
-          {/* Distance posts: metres to go, the caller's markers. */}
-          {Array.from({ length: RACE_METRES - 1 }, (_, i) => RACE_METRES - 1 - i).map((m) => {
-            const x = worldX(1 - m / RACE_METRES);
-            return (
-              <g key={`post-${m}`} className="side-post" transform={`translate(${x} 0)`}>
+          <svg
+            ref={svgRef}
+            className="tv"
+            viewBox={`${WORLD_BOX.x} ${LAYER_TOP} ${WORLD_BOX.w} ${LAYER_H}`}
+            preserveAspectRatio="none"
+            role="img"
+            aria-label={`Straight track: ${names.length} snails racing side on to the finish`}
+          >
+            {/* The fence and its boards, on the same grid as the posts so no post cuts a board. */}
+            <rect x={WORLD_BOX.x} y="468" width={WORLD_BOX.w} height="60" fill="#e8e4dc" stroke="#2a1a1a" strokeWidth="4" />
+            {fenceBoards.map((slot) => (
+              <FenceBoard key={slot.x} x={slot.x} w={slot.w} board={slot.board} />
+            ))}
+            {/* The track itself is world-fixed: one marked lane per snail. */}
+            <rect x={WORLD_BOX.x} y={TRACK_TOP} width={WORLD_BOX.w} height={trackBottom - TRACK_TOP} fill="#9a8a62" />
+            {lanes.map((geo, lane) => (
+              <rect key={`band-${lane}`} className="side-lane" x={WORLD_BOX.x} y={geo.top} width={WORLD_BOX.w} height={geo.pitch} fill={lane % 2 ? '#93825a' : '#a3936a'} />
+            ))}
+            {lanes.slice(1).map((geo, i) => (
+              <line key={`rail-${i}`} x1={WORLD_BOX.x} x2={WORLD_BOX.x + WORLD_BOX.w} y1={geo.top} y2={geo.top} stroke="#fff" strokeWidth="4" strokeDasharray="40 30" opacity=".55" />
+            ))}
+            {/* The inside rail, and the front rail with the crowd in front of it. */}
+            <rect x={WORLD_BOX.x} y={TRACK_TOP - 12} width={WORLD_BOX.w} height="14" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
+            <rect x={WORLD_BOX.x} y={trackBottom} width={WORLD_BOX.w} height={VIEW_H - TRACK_BOTTOM + 200} fill="#5fa83a" />
+            <rect x={WORLD_BOX.x} y={trackBottom + 4} width={WORLD_BOX.w} height="14" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
+            {/* Distance posts: metres to go, the caller's markers, each on its own grid line. */}
+            {DISTANCE_POSTS.map(({ metres, x }) => (
+              <g key={`post-${metres}`} className="side-post" transform={`translate(${x} 0)`}>
                 <line x1="0" x2="0" y1={TRACK_TOP} y2={trackBottom} stroke="#fff" strokeWidth="4" opacity=".22" />
                 <rect x="-7" y={TRACK_TOP - 92} width="14" height="82" fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
-                <rect x="-50" y={TRACK_TOP - 150} width="100" height="58" rx="8" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
-                <text x="0" y={TRACK_TOP - 108} textAnchor="middle" fontSize="38" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">{m}m</text>
+                <rect x="-56" y={TRACK_TOP - 152} width="112" height="62" rx="8" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
+                <text x="0" y={TRACK_TOP - 107} textAnchor="middle" fontSize="42" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">{metres}m</text>
               </g>
-            );
-          })}
-          {/* The stalls: saddlecloth numbers behind, a gate in front of every nose. */}
-          <g className="side-start">
-            <rect x={START_X - 90} y="400" width="300" height="60" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
-            <text x={START_X + 60} y="446" textAnchor="middle" fontSize="44" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">START</text>
-            <rect x={START_X - 6} y={TRACK_TOP} width="12" height={trackBottom - TRACK_TOP} fill="#fff" opacity=".7" />
-            {lanes.map((geo, lane) => {
-              const c = laneColour(lane);
-              const size = Math.min(84, geo.pitch * 0.8);
-              return (
-                <g key={`stall-${lane}`}>
-                  <rect x={START_X - snailLen - 70 - size} y={geo.top + (geo.pitch - size) / 2} width={size} height={size} rx="10" fill={c.shell} stroke="#2a1a1a" strokeWidth="4" />
-                  <text x={START_X - snailLen - 70 - size / 2} y={geo.top + geo.pitch / 2 + size * 0.2} textAnchor="middle" fontSize={size * (numberOffset + lane + 1 >= 100 ? 0.42 : 0.56)} fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" stroke="#2a1a1a" strokeWidth="5" paintOrder="stroke">{numberOffset + lane + 1}</text>
-                </g>
-              );
-            })}
-          </g>
-          <g className="side-gates" aria-hidden="true">
-            <rect x={START_X + 44} y={TRACK_TOP - 30} width="34" height={trackBottom - TRACK_TOP + 46} fill="#2f6f3a" stroke="#2a1a1a" strokeWidth="4" />
-            {lanes.map((geo, lane) => (
-              <rect key={`gate-${lane}`} x={START_X + 50} y={geo.top + 6} width="22" height={geo.pitch - 12} fill="#fff" stroke="#a81d2f" strokeWidth="5" />
             ))}
-          </g>
-          {/* The winning post: a red line straight across, judged on the nose. */}
-          <g className="side-finish" transform={`translate(${TRACK_LEN} 0)`}>
-            <rect x="-160" y="400" width="320" height="60" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
-            <text x="0" y="446" textAnchor="middle" fontSize="44" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">FINISH</text>
-            <rect x="-10" y={TRACK_TOP} width="20" height={trackBottom - TRACK_TOP} fill="#e8262b" />
-            <line x1="0" x2="0" y1={TRACK_TOP} y2={trackBottom} stroke="#fff" strokeWidth="6" strokeDasharray="28 28" opacity=".7" />
-            <rect x="-8" y="460" width="16" height={TRACK_TOP - 460} fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
-          </g>
-          {twist && presentation && twist.big ? (
-            <rect key={`band-${twist.key}`} ref={bandRef} className={`side-band tone-${twist.tone}`} data-phase={twist.phase} y={TRACK_TOP} height={trackBottom - TRACK_TOP} aria-hidden="true" />
-          ) : null}
-          {twist && presentation ? (
-            <g key={twist.key} ref={propRef} className={`course-prop side-prop side-prop-${presentation.cue}`} data-phase={twist.phase} data-tone={twist.tone} aria-hidden="true">
-              <g className="course-prop-motion side-prop-motion">
-                {presentation.glyph ? (
-                  <g className="course-prop-symbol course-prop-vector" transform="scale(6) translate(0 -8)" data-glyph={presentation.glyph}>
-                    <PropGlyph id={presentation.glyph} />
-                  </g>
-                ) : (
-                  <text className="course-prop-symbol" y="-80" textAnchor="middle" fontSize="220">{presentation.symbol}</text>
-                )}
-              </g>
+            {/* The stalls. */}
+            <g className="side-start">
+              <rect x={START_X - 150} y="400" width="300" height="60" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
+              <text x={START_X} y="446" textAnchor="middle" fontSize="44" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">START</text>
+              <rect x={START_X - 6} y={TRACK_TOP} width="12" height={trackBottom - TRACK_TOP} fill="#fff" opacity=".7" />
             </g>
-          ) : null}
-        </svg>
-        <div className="side-runner-layer tv-runners side-runners" ref={chipLayerRef}>
-          {names.map((name, lane) => (
-            <svg
-              key={lane}
-              className="side-runner-chip"
-              viewBox={`${CHIP.x} ${CHIP.y} ${CHIP.w} ${CHIP.h}`}
-              ref={(node) => {
-                if (node) chipsRef.current.set(lane, node);
-                else chipsRef.current.delete(lane);
-              }}
-            >
-              <SnailSprite
-                lane={lane}
-                number={numberOffset + lane + 1}
-                name={name}
-                scale={lanes[lane].scale}
-                nodeRef={(node) => {
-                  if (node) nodesRef.current.set(lane, node);
-                  else nodesRef.current.delete(lane);
+            <g className="side-gates" aria-hidden="true">
+              <rect className="side-gate-frame" x={START_X + 44} y={TRACK_TOP - 30} width="34" height={trackBottom - TRACK_TOP + 46} fill="#2f6f3a" stroke="#2a1a1a" strokeWidth="4" />
+              {lanes.map((geo, lane) => (
+                <rect key={`gate-${lane}`} className="side-gate" style={{ '--i': lane } as CSSProperties} x={START_X + 50} y={geo.top + 6} width="22" height={geo.pitch - 12} fill="#fff" stroke="#a81d2f" strokeWidth="5" />
+              ))}
+            </g>
+            {/* The winning post: a red line straight across, judged on the nose. */}
+            <g className="side-finish" transform={`translate(${TRACK_LEN} 0)`}>
+              <rect x="-160" y="400" width="320" height="60" fill="#fff6d8" stroke="#2a1a1a" strokeWidth="4" />
+              <text x="0" y="446" textAnchor="middle" fontSize="44" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#a81d2f">FINISH</text>
+              <rect x="-10" y={TRACK_TOP} width="20" height={trackBottom - TRACK_TOP} fill="#e8262b" />
+              <line x1="0" x2="0" y1={TRACK_TOP} y2={trackBottom} stroke="#fff" strokeWidth="6" strokeDasharray="28 28" opacity=".7" />
+              <rect x="-8" y="460" width="16" height={TRACK_TOP - 460} fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
+            </g>
+            {twist && twist.field ? (
+              <rect key={`band-${twist.key}`} className={`side-band tone-${twist.tone}`} data-phase={twist.phase} x={WORLD_BOX.x} width={WORLD_BOX.w} y={TRACK_TOP} height={trackBottom - TRACK_TOP} aria-hidden="true" />
+            ) : null}
+            {twist
+              ? (twist.presentation.cue === 'gate' ? [-1] : twist.propLanes).map((lane) => (
+                  <g
+                    key={`${twist.key}:${lane}`}
+                    ref={(node) => {
+                      if (node) propNodesRef.current.set(lane, node);
+                      else propNodesRef.current.delete(lane);
+                    }}
+                    className={`course-prop side-prop side-prop-${twist.presentation.cue}`}
+                    data-lane={lane}
+                    data-phase={twist.phase}
+                    data-tone={twist.tone}
+                    aria-hidden="true"
+                  >
+                    <g className="course-prop-motion side-prop-motion">
+                      {twist.presentation.glyph ? (
+                        <g className="course-prop-symbol course-prop-vector" transform="scale(6)" data-glyph={twist.presentation.glyph}>
+                          <PropGlyph id={twist.presentation.glyph} />
+                        </g>
+                      ) : (
+                        <text className="course-prop-symbol" y="-60" textAnchor="middle" fontSize="300">{twist.presentation.symbol}</text>
+                      )}
+                    </g>
+                  </g>
+                ))
+              : null}
+          </svg>
+          <div className="side-runner-layer tv-runners side-runners" ref={chipLayerRef}>
+            {names.map((name, lane) => (
+              <svg
+                key={lane}
+                className="side-runner-chip"
+                viewBox={`${CHIP.x} ${CHIP.y} ${CHIP.w} ${CHIP.h}`}
+                ref={(node) => {
+                  if (node) chipsRef.current.set(lane, node);
+                  else chipsRef.current.delete(lane);
                 }}
-              />
-              <SnailTag
-                lane={lane}
-                offset={`translate(${-ART_NOSE * lanes[lane].scale + 20} ${-ART_HEIGHT * lanes[lane].scale - 26})`}
-                nodeRef={(node) => {
-                  if (node) tagNodesRef.current.set(lane, node);
-                  else tagNodesRef.current.delete(lane);
-                }}
-              />
-            </svg>
-          ))}
+              >
+                <SnailSprite
+                  lane={lane}
+                  number={numberOffset + lane + 1}
+                  name={name}
+                  scale={lanes[lane].scale}
+                  nodeRef={(node) => {
+                    if (node) nodesRef.current.set(lane, node);
+                    else nodesRef.current.delete(lane);
+                  }}
+                />
+                {/* After the sprite, so speed lines and dust never cross the name. */}
+                <SnailFlag
+                  lane={lane}
+                  pitch={lanes[lane].pitch}
+                  scale={lanes[lane].scale}
+                  name={name}
+                  nodeRef={(node) => {
+                    if (node) flagNodesRef.current.set(lane, node);
+                    else flagNodesRef.current.delete(lane);
+                  }}
+                />
+              </svg>
+            ))}
+          </div>
         </div>
-        </div>
-        {/* The crowd in front of the rail, a layer above the track. */}
+        {/* The crowd in front of the rail, a layer above the track and below every lane. */}
         <div className="side-layer side-crowd-layer" aria-hidden="true" ref={(el) => { layerWrapRefs.current.crowd = el; }}>
-          {CROWD_PHASES.map((phase) => (
-            <div key={phase} className={`side-crowd-phase side-crowd-phase-${phase}`}>
+          {CROWD_PHASES.map((crowdPhase) => (
+            <div key={crowdPhase} className={`side-crowd-phase side-crowd-phase-${crowdPhase}`}>
               <svg className="side-layer-art" viewBox={`${SCENERY_BOX.x} ${LAYER_TOP} ${SCENERY_BOX.w} ${LAYER_H}`} preserveAspectRatio="none">
-                {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Crowd phase={phase} /></g>)}
+                {copies.map((i) => <g key={i} transform={`translate(${i * SCENE_W} 0)`}><Crowd phase={crowdPhase} /></g>)}
               </svg>
             </div>
           ))}
         </div>
 
-        {/* The title card: the name of the twist and what kind it is. The prop shows who it hit. */}
-        {twist ? (
-          <div key={twist.key} className={`side-splash side-splash-${twist.phase} tone-${twist.tone}`} data-twist={twist.eventId} role="status" aria-live="assertive" aria-atomic="true">
-            <span className="side-splash-kicker">{twist.phase === 'warning' ? 'INCOMING' : twist.consequence === 'retire' ? 'OUT' : twist.tone === 'good' ? 'BOOST' : 'TWIST'}</span>
-            <strong className="side-splash-title">{twist.label}</strong>
+        {/* The twist card: one card for every course, over the top of the course, never over a lane. */}
+        {card.shown ? (
+          <div
+            ref={splashRef}
+            key={card.shown.key}
+            className={`side-splash side-splash-${card.shown.phase} tone-${card.shown.tone}${card.leaving ? ' side-splash-leaving' : ''}`}
+            data-twist={card.shown.eventId}
+            data-kicker={splashKicker(card.shown.phase === 'warning' ? 'warning' : 'effect', card.shown.tone, card.shown.consequence).toLowerCase()}
+            role="status"
+            aria-live="assertive"
+            aria-atomic="true"
+          >
+            <span className="side-splash-kicker">{splashKicker(card.shown.phase === 'warning' ? 'warning' : 'effect', card.shown.tone, card.shown.consequence)}</span>
+            <strong className="side-splash-title">{card.shown.label}</strong>
+          </div>
+        ) : null}
+
+        {/* The count to the off: one digit at a time on a dark plate, then GO. */}
+        {countdown.shown ? (
+          <div className={`side-countdown${countdown.leaving ? ' side-countdown-leaving' : ''}${countdown.shown.startsWith('GO') ? ' side-countdown-go' : ''}`} aria-hidden="true">
+            <span key={countdown.shown} className="side-countdown-digit num">{countdown.shown}</span>
+          </div>
+        ) : null}
+
+        {/* The finish: a flash for the photo, and the winner named clear of the line. */}
+        {confirming ? <div className="side-photo-flash" aria-hidden="true" /> : null}
+        {winner ? (
+          <div className="side-finish-plate" style={{ '--shell': laneColour(winner.lane).shell } as CSSProperties} aria-hidden="true">
+            <span className="side-finish-kicker">{phase === 'done' ? 'OFFICIAL' : 'WINNER'}</span>
+            <span className="side-finish-num num">{numberOffset + winner.lane + 1}</span>
+            <strong className="side-finish-name">{winner.name}</strong>
           </div>
         ) : null}
       </div>
 
-      {/* The running order, leader first, as a racing telecast shows it, and the distance to go. */}
+      {/* The running order, leader first, as a racing telecast shows it: the top three by name. */}
       <div className="side-progress" ref={barRef} role="progressbar" aria-label="Leader's progress to the finish, in metres" aria-valuemin={0} aria-valuemax={RACE_METRES} aria-valuenow={0}>
-        <span className="side-order-label" aria-hidden="true">POSITIONS</span>
         <ol className="side-order" aria-hidden="true">
           {names.map((name, lane) => {
             const c = laneColour(lane);
@@ -1084,12 +1360,12 @@ export function Sidescroller({
                   else orderRefs.current.delete(lane);
                 }}
               >
-                <span className="num">{numberOffset + lane + 1}</span>
+                <span className="side-order-num num">{numberOffset + lane + 1}</span>
+                <span className="side-order-name">{name}</span>
               </li>
             );
           })}
         </ol>
-        <span ref={toGoRef} className="side-togo num" aria-hidden="true">{RACE_METRES.toFixed(1)} m to go</span>
         <span className="side-flag" aria-hidden="true" />
         <div className="side-progress-fill" aria-hidden="true" />
       </div>
@@ -1119,26 +1395,22 @@ export function Sidescroller({
       <section className="race-hud" aria-label={`Race ${raceNo} status`}>
         <div className="tv-top">
           <ClubBrand className="club-brand tv-club-brand" imageClassName="club-brand-logo tv-club-logo" nameClassName="tv-club-name" priority />
-          <span className={`tv-live ${phase === 'void' ? 'tv-void' : ''} ${replay ? 'tv-replay' : ''} ${confirming ? 'tv-confirming-badge' : ''}`}>
+          <span className={`tv-live ${phase === 'running' ? 'tv-live-on' : ''} ${phase === 'void' ? 'tv-void' : ''} ${replay ? 'tv-replay' : ''} ${confirming ? 'tv-confirming-badge' : ''}`}>
             <i aria-hidden="true" /> {label}
           </span>
           <span className="tv-race-chip num">RACE {raceNo}</span>
           <span className="tv-title">SNAIL RACING</span>
+          {race.photoFinish && phase !== 'done' ? <span className="tv-photo num" role="status">PHOTO FINISH</span> : null}
+          <span ref={toGoRef} className="side-togo num" aria-hidden="true">{RACE_METRES.toFixed(1)} m to go</span>
           {replay ? null : (
             <span ref={clockRef} className="tv-clock num" role="timer" aria-label="Elapsed race time">0:00.0</span>
           )}
-          {race.photoFinish && phase !== 'done' ? <span className="tv-photo num" role="status">PHOTO FINISH</span> : null}
         </div>
         <div className="tv-strap">
           <span className="tv-strap-badge" aria-hidden="true">{confirming || phase === 'done' ? 'RESULT' : 'COMMENTARY'}</span>
-          <p className="tv-strap-line" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
+          <p ref={strapRef} className="tv-strap-line" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
         </div>
       </section>
-      {race.countdown ? (
-        <div className="countdown" aria-hidden="true">
-          <span key={race.countdown}>{race.countdown}</span>
-        </div>
-      ) : null}
     </div>
   );
 }

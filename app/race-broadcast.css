@@ -1597,189 +1597,6 @@
 .course-out-of-shot:empty { display: none; }
 .tv-order-owner { font-size: .78em; opacity: .6; font-weight: 500; }
 
-/* ── The side-on cartoon race ───────────────────────────────────────────── */
-.side-broadcast { --tower-width: 0px; background: #5aa9e6; }
-.side-broadcast .course-scene { inset: 108px 12px 150px 12px; background: #7cc6ff; border-color: #2a1a1a66; }
-.side-broadcast .course-scene .tv { width: 100%; height: 100%; }
-/* Painted once per screen size and slid by the camera (see LAYER_TOP in Sidescroller). */
-.side-broadcast .side-scene { background: #7cc6ff; }
-.side-broadcast .side-layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; pointer-events: none; }
-.side-broadcast .side-world { pointer-events: auto; }
-.side-broadcast .side-layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; max-height: none; }
-.side-broadcast .side-runner-layer { position: absolute; inset: 0; }
-.side-broadcast .side-runner-chip { position: absolute; left: 0; top: 0; width: var(--chip-w, 300px); height: var(--chip-h, 110px); overflow: visible; will-change: transform; }
-.side-broadcast .race-standings { display: none; }
-.side-broadcast .tv-runner { transition: none; }
-.side-broadcast .tv-snail-sprite { animation: none; transform: none; }
-.side-broadcast .side-runner-chip.racing .side-stalks { animation: side-stalks 1.6s ease-in-out infinite; transform-origin: 150px -44px; }
-.side-broadcast .side-runner-chip.racing .side-foot { animation: side-foot .9s ease-in-out infinite; transform-origin: 0 0; }
-@keyframes side-stalks { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
-@keyframes side-foot { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(1.06) translateX(-8px); } }
-
-/* Reactions. A boosted snail leans in and streaks; a held one is stuck,
-   shaking, with stars over its head; a retired one has tipped over. */
-.side-broadcast .side-speed { opacity: 0; }
-.side-broadcast .side-dizzy { opacity: 0; }
-.side-broadcast .tv-runner.fx-up .side-speed { opacity: 1; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-speed path { animation: side-speed-lines .28s linear infinite; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-dust { animation: side-dust .5s ease-out infinite; transform-box: fill-box; transform-origin: center; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-dust-2 { animation-delay: .25s; }
-.side-broadcast .tv-runner.fx-up .side-art { filter: drop-shadow(0 0 18px #ffe36b); }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-body { animation: side-lean .6s ease-in-out infinite; transform-box: fill-box; transform-origin: 40% 100%; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-foot { animation-duration: .35s; }
-.side-broadcast .tv-runner.fx-down .side-dizzy { opacity: 1; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-dizzy { animation: side-dizzy 1.4s linear infinite; transform-box: fill-box; transform-origin: center; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-shell { animation: side-shake .32s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-stalks { animation: side-droop 1s ease-in-out infinite; }
-.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-foot { animation: none; }
-.side-broadcast .tv-runner.retired .side-art { opacity: .55; filter: grayscale(.8); }
-.side-broadcast .tv-runner.retired .side-body { transform-box: fill-box; transform-origin: 50% 100%; transform: rotate(-28deg); }
-.side-broadcast .tv-runner.finished .side-art { filter: drop-shadow(0 0 22px #fff); }
-.side-broadcast .side-runner-chip.racing .tv-runner.finished .side-body { animation: side-hop .6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
-@keyframes side-speed-lines { from { transform: translateX(40px); opacity: .9; } to { transform: translateX(-60px); opacity: .2; } }
-@keyframes side-dust { from { transform: scale(.4); opacity: .9; } to { transform: translate(-70px, -20px) scale(1.6); opacity: 0; } }
-@keyframes side-lean { 0%, 100% { transform: skewX(-8deg) translateY(0); } 50% { transform: skewX(-12deg) translateY(-6px); } }
-@keyframes side-shake { 0%, 100% { transform: rotate(-5deg) scaleY(.94); } 50% { transform: rotate(5deg) scaleY(1); } }
-@keyframes side-droop { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(-26deg); } }
-@keyframes side-dizzy { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes side-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-26px); } }
-
-/* The tag over a snail: what it just got, readable from the back of the room. */
-.side-broadcast .side-tag { opacity: 0; transition: opacity .2s; }
-.side-broadcast .side-tag.on { opacity: 1; }
-.side-broadcast .side-tag-box { fill: #fff6d8; stroke: #2a1a1a; stroke-width: 5; }
-.side-broadcast .side-tag-text { fill: #2a1a1a; }
-.side-broadcast .side-tag[data-tone="down"] .side-tag-box { fill: #e8262b; }
-.side-broadcast .side-tag[data-tone="down"] .side-tag-text { fill: #fff; }
-.side-broadcast .side-tag[data-tone="up"] .side-tag-box { fill: #2fb24a; }
-.side-broadcast .side-tag[data-tone="up"] .side-tag-text { fill: #fff; }
-.side-broadcast .side-tag[data-tone="win"] .side-tag-box { fill: #ffe36b; }
-.side-broadcast .side-tag[data-tone="out"] .side-tag-box { fill: #5a5a5a; }
-.side-broadcast .side-tag[data-tone="out"] .side-tag-text { fill: #fff; }
-.side-broadcast .side-runner-chip.racing .side-tag.on { animation: side-tag-in .35s cubic-bezier(.2, 1.6, .4, 1) both; transform-box: fill-box; transform-origin: 50% 100%; }
-@keyframes side-tag-in { from { scale: .3; } to { scale: 1; } }
-
-/* The crowd bobs while they race and goes up as the leaders hit the straight. */
-/* Each crowd group is its own layer, so the bob is a compositor animation: no restyle, no repaint. */
-.side-broadcast .side-crowd-phase { position: absolute; inset: 0; will-change: transform; }
-.side-broadcast .side-crowd-phase > svg { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; max-height: none; }
-.side-broadcast .side-crowd-phase.racing { animation: side-fan 1.1s ease-in-out infinite; }
-.side-broadcast .side-crowd-phase-1.racing { animation-delay: -.35s; }
-.side-broadcast .side-crowd-phase-2.racing { animation-delay: -.7s; }
-.side-broadcast .run-home .side-crowd-phase.racing { animation-duration: .45s; }
-/* 16 of the layer's 1820 units: the same lift the heads had when they bobbed one by one. */
-@keyframes side-fan { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.88%); } }
-.side-broadcast .racing .side-ambulance { animation: side-ambulance 1s steps(2) infinite; }
-@keyframes side-ambulance { to { transform: translateX(10px); } }
-
-/* Props: the gag arrives, lands, and stays on its snail while the consequence runs. */
-.side-broadcast .side-prop[data-size="field"] .course-prop-motion { transform-origin: 0 0; }
-.side-broadcast .course-prop[data-phase="warning"] { opacity: .9; }
-.side-broadcast .course-prop[data-phase="warning"] .course-prop-motion { animation: side-prop-loom 1s ease-in-out infinite alternate; }
-.side-broadcast .course-prop[data-phase="effect"] .course-prop-motion { animation: side-prop-stamp .7s ease-in-out 3; }
-/* A field-wide twist: a tinted band falls across every lane, so the whole field reads as hit. */
-.side-broadcast .side-band { fill: #2a1a1a; opacity: 0; transition: opacity .3s; }
-.side-broadcast .side-band.tone-bad { fill: #e8262b; }
-.side-broadcast .side-band.tone-good { fill: #2fb24a; }
-.side-broadcast .side-band.tone-wild { fill: #ffe36b; }
-.side-broadcast .side-band[data-phase="effect"] { opacity: .22; animation: side-band-in .5s ease-out both; }
-@keyframes side-band-in { from { opacity: 0; } to { opacity: .22; } }
-@keyframes side-prop-loom { from { transform: translate(0, -80px) scale(.9); opacity: .7; } to { transform: translate(0, -40px) scale(1); opacity: 1; } }
-@keyframes side-prop-arrive { from { transform: translate(0,-420px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
-@keyframes side-prop-stamp { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(0,-60px) rotate(-6deg); } }
-@keyframes side-impact { from { transform: scale(.4); opacity: 1; } to { transform: scale(2.4); opacity: 0; } }
-/* The big boot: in from the sky, slams flat on the snail, grinds, lifts a little and slams again. */
-.side-broadcast .side-prop-stomp[data-phase="warning"] .course-prop-motion { animation: side-boot-loom 1.2s ease-in-out infinite alternate; }
-.side-broadcast .side-prop-stomp[data-phase="reveal"] .course-prop-motion { animation: side-boot-drop .55s cubic-bezier(.6, 0, 1, .6) both; }
-.side-broadcast .side-prop-stomp[data-phase="effect"] .course-prop-motion { animation: side-boot-grind 1.6s ease-in-out infinite; transform-origin: 0 0; }
-@keyframes side-boot-loom { from { transform: translate(0,-760px) rotate(-6deg); } to { transform: translate(0,-700px) rotate(6deg); } }
-@keyframes side-boot-drop { from { transform: translate(0,-760px); } to { transform: translate(0,0); } }
-@keyframes side-boot-grind { 0%, 100% { transform: translate(0,0) rotate(0); } 30% { transform: translate(-14px,0) rotate(-3deg); } 60% { transform: translate(0,-120px) rotate(2deg); } 75% { transform: translate(0,0); } }
-/* The boom gate: arm swings down across the course and flashes. */
-.side-broadcast .side-prop-gate .prop-gate-arm { transform-box: fill-box; transform-origin: 2px 50%; }
-.side-broadcast .side-prop-gate[data-phase="warning"] .prop-gate-arm { transform: rotate(-80deg); }
-.side-broadcast .side-prop-gate[data-phase="reveal"] .prop-gate-arm { animation: side-gate-down .5s ease-in both; }
-.side-broadcast .side-prop-gate[data-phase="effect"] .course-prop-motion { animation: none; }
-.side-broadcast .side-prop-gate[data-phase="effect"] .course-prop-vector { animation: side-gate-flash .6s steps(2) infinite; }
-@keyframes side-gate-down { from { transform: rotate(-80deg); } to { transform: rotate(0); } }
-@keyframes side-gate-flash { to { filter: drop-shadow(0 0 14px #ff3b3b) brightness(1.3); } }
-/* The catapult: the rocket rides the snail and fires up the course. */
-.side-broadcast .side-prop-launch[data-phase="effect"] .course-prop-motion { animation: side-launch 1.1s ease-out infinite; }
-@keyframes side-launch { from { transform: translate(-40px,0) rotate(25deg); opacity: 1; } to { transform: translate(260px,-260px) rotate(45deg); opacity: 0; } }
-/* The bat: wound up on the warning, swung down on the snail in front. */
-.side-broadcast .side-prop-swing .course-prop-motion { transform-origin: -40px 0; }
-.side-broadcast .side-prop-swing[data-phase="warning"] .course-prop-motion { animation: side-bat-wind 1s ease-in-out infinite alternate; }
-.side-broadcast .side-prop-swing[data-phase="reveal"] .course-prop-motion { animation: side-bat-wind .6s ease-in-out both; }
-.side-broadcast .side-prop-swing[data-phase="effect"] .course-prop-motion { animation: side-bat-swing .5s cubic-bezier(.7, 0, .3, 1) 4 alternate; }
-@keyframes side-bat-wind { from { transform: translate(-120px, -40px) rotate(-70deg); } to { transform: translate(-120px, -60px) rotate(-90deg); } }
-@keyframes side-bat-swing { from { transform: translate(-120px, -60px) rotate(-90deg); } to { transform: translate(-30px, 0) rotate(40deg); } }
-/* The magnet: pulses over the field and pulls. */
-.side-broadcast .side-prop-pull[data-phase="effect"] .course-prop-motion { animation: side-pull 1s ease-in-out infinite alternate; }
-@keyframes side-pull { from { transform: scale(1) translate(0,0); } to { transform: scale(1.18) translate(0,-30px); } }
-/* The swoop and the roll travel across the lane instead of sitting on it. */
-.side-broadcast .side-prop-swoop[data-phase="reveal"] .course-prop-motion { animation: side-swoop-in .9s ease-out both; }
-.side-broadcast .side-prop-swoop[data-phase="effect"] .course-prop-motion { animation: side-swoop-over 1.2s ease-in-out infinite alternate; }
-@keyframes side-swoop-in { from { transform: translate(600px,-500px) rotate(-20deg); opacity: 0; } to { transform: translate(0,0) rotate(0); opacity: 1; } }
-@keyframes side-swoop-over { from { transform: translate(-60px,-80px) rotate(-8deg); } to { transform: translate(60px,-20px) rotate(8deg); } }
-.side-broadcast .side-prop-roll[data-phase="reveal"] .course-prop-motion { animation: side-roll-in .8s ease-out both; }
-.side-broadcast .side-prop-roll[data-phase="effect"] .course-prop-motion { animation: side-roll-spin 1s linear infinite; transform-origin: 0 -60px; }
-@keyframes side-roll-in { from { transform: translate(700px,0) rotate(540deg); opacity: 0; } to { transform: translate(0,0) rotate(0); opacity: 1; } }
-@keyframes side-roll-spin { to { transform: rotate(360deg); } }
-.side-broadcast .side-prop-cross[data-phase="reveal"] .course-prop-motion { animation: side-cross-in .7s ease-out both; }
-@keyframes side-cross-in { from { transform: translate(0,-700px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
-.side-broadcast .side-prop-burst[data-phase="effect"] .course-prop-motion { animation: side-burst .7s ease-in-out infinite alternate; }
-@keyframes side-burst { from { transform: scale(1); } to { transform: scale(1.22); } }
-.side-broadcast .side-prop-spray[data-phase="effect"] .course-prop-motion { animation: side-spray .8s ease-in-out infinite alternate; transform-origin: 0 0; }
-@keyframes side-spray { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
-.side-broadcast .side-prop-drop[data-phase="reveal"] .course-prop-motion { animation: side-drop-in .7s cubic-bezier(.3, 1.5, .5, 1) both; }
-@keyframes side-drop-in { from { transform: translate(0,-600px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
-.side-broadcast.race-motion-reduced .side-prop *, .side-broadcast.race-motion-reduced .tv-runner *, .side-broadcast.race-motion-reduced .side-crowd-phase, .side-broadcast.race-motion-reduced .side-ambulance { animation: none !important; }
-
-/* The title card: slams in across the top band of the scene, clear of the track, then parks small. */
-.side-splash { position: absolute; left: 50%; top: 1.5%; translate: -50% 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 14px; max-width: 96%; padding: 6px 18px; border: 4px solid #2a1a1a; border-radius: 14px; background: #fff6d8; color: #2a1a1a; box-shadow: 0 10px 0 #2a1a1a55; text-align: center; pointer-events: none; z-index: 8; }
-.side-splash-kicker { font: 900 clamp(10px, 1.1vw, 14px)/1 'Arial Black', Arial, sans-serif; letter-spacing: .22em; padding: 4px 10px; border-radius: 999px; background: #2a1a1a; color: #fff6d8; }
-.side-splash-title { font: 900 clamp(18px, 2.6vw, 40px)/1.05 'Arial Black', Arial, sans-serif; letter-spacing: .02em; text-transform: uppercase; }
-.side-splash-numbers { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
-.side-splash-numbers i { display: grid; place-items: center; min-width: 1.8em; height: 1.8em; padding: 0 .3em; border: 3px solid #2a1a1a; border-radius: 8px; background: var(--shell, #ccc); color: #fff; font: 900 clamp(12px, 1.5vw, 20px)/1 'Arial Black', Arial, sans-serif; font-style: normal; text-shadow: 0 0 3px #000, 0 1px 0 #000; }
-.side-splash-cost { font: 900 clamp(13px, 1.7vw, 24px)/1.1 'Arial Black', Arial, sans-serif; color: #a81d2f; letter-spacing: .04em; }
-.side-splash.tone-good .side-splash-cost { color: #1d7a34; }
-.side-splash-warning { background: #ffe36b; animation: side-splash-in .3s ease-out both, side-splash-nudge .5s ease-in-out .3s infinite alternate; }
-.side-splash-warning .side-splash-kicker { background: #a81d2f; }
-.side-splash-warning .side-splash-title { font-size: clamp(16px, 2.1vw, 32px); }
-@keyframes side-splash-nudge { from { translate: -50% 0; } to { translate: -50% 4px; } }
-.side-splash-effect { animation: side-splash-slam .5s cubic-bezier(.2, 1.5, .4, 1) both, side-splash-park 1s ease-in 2.6s both; }
-.side-splash-effect.tone-bad { background: #ffb3b3; }
-.side-splash-effect.tone-good { background: #bff2c6; }
-.side-splash-effect.tone-wild { background: #ffe36b; }
-@keyframes side-splash-in { from { opacity: 0; translate: -50% -20px; } to { opacity: 1; translate: -50% 0; } }
-@keyframes side-splash-flash { to { border-color: #e8262b; } }
-@keyframes side-splash-slam { from { opacity: 0; scale: 1.8; rotate: -3deg; } to { opacity: 1; scale: 1; rotate: 0deg; } }
-@keyframes side-splash-park { to { scale: .7; opacity: .9; } }
-.side-broadcast.race-motion-reduced .side-splash { animation: none; }
-
-.side-broadcast .course-director-bar { top: 78px; justify-content: flex-end; }
-.side-broadcast .tv-strap { inset: auto 12px 8px; }
-/* The running order: saddlecloths in race order, leader first, then metres to go. */
-.side-broadcast .course-scene { bottom: 158px; }
-.side-broadcast .course-event-ticker { bottom: 118px; }
-.side-progress { position: absolute; left: 12px; right: 12px; bottom: 68px; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 10px 4px; background: #1e2a1a; border: 2px solid #2a1a1a; border-radius: 6px; overflow: hidden; z-index: 12; }
-.side-order-label { flex: none; color: #fff6d8; font: 900 12px/1 Arial, sans-serif; letter-spacing: .12em; }
-.side-order { flex: 1; min-width: 0; display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; overflow: hidden; }
-.side-order li { flex: none; display: grid; place-items: center; min-width: 40px; height: 32px; padding: 0 6px; border-radius: 6px; background: var(--shell); border: 2px solid #2a1a1a; color: #fff; font: 900 20px/1 'Arial Black', Arial, sans-serif; text-shadow: 0 0 3px #000, 0 1px 0 #000; }
-.side-order li[data-rank="1"] { outline: 3px solid #ffe36b; outline-offset: 1px; }
-.side-order li.done::after { content: ''; }
-.side-order li.retired { opacity: .45; }
-.side-togo { flex: none; color: #fff; font: 900 18px/1 Arial, sans-serif; white-space: nowrap; }
-.side-flag { flex: none; width: 28px; height: 28px; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / 14px 14px; border: 1px solid #fff; }
-.side-progress-fill { position: absolute; left: 0; bottom: 0; height: 4px; width: calc(var(--lead, 0) * 100%); background: #2fb24a; transition: width .25s linear; }
-.side-broadcast.race-motion-reduced .side-progress-fill { transition: none; }
-/* The stalls open at the off. */
-.side-broadcast .side-gates { transition: opacity .35s ease-out, transform .35s ease-out; transform-box: fill-box; transform-origin: top; }
-.side-broadcast .tv.gates-open .side-gates { opacity: 0; transform: scaleY(.05); }
-.side-broadcast.race-motion-reduced .side-gates { transition: none; }
-.side-broadcast .tv-top { background: #a81d2f; }
-@media (max-width: 900px) { .side-broadcast .course-scene { inset: 72px 8px 158px 8px; } .side-order li { min-width: 30px; height: 26px; font-size: 15px; } .side-order-label { display: none; } .side-togo { font-size: 14px; } .side-splash { padding: 8px 14px; gap: 4px; } }
-
 /* ── Commentary on top, bigger and simpler ─────────────────────────────────
    The call sits under the title bar, clear of the course, so it never covers
    a runner; the surprise strip and the running order share the bottom. */
@@ -1794,31 +1611,245 @@
 .race-broadcast.course-broadcast .tv-result { bottom: 60px; }
 .race-broadcast.course-broadcast .tv-slate { top: 184px; bottom: 60px; }
 
-.race-broadcast.side-broadcast .course-scene { top: 184px; bottom: 120px; }
-.race-broadcast.side-broadcast .course-event-ticker { inset: auto 12px 66px; }
-.race-broadcast.side-broadcast .tv-result { bottom: 120px; }
-.race-broadcast.side-broadcast .side-leader { font-size: clamp(13px, 1.1vw, 18px); }
-.side-progress { bottom: 8px; height: 54px; }
-.side-order li { min-width: 52px; height: 42px; font-size: 26px; }
-.side-order-label { font-size: 14px; }
-.side-togo { font-size: 24px; }
-.side-flag { width: 34px; height: 34px; background-size: 17px 17px; }
-.side-splash { top: 1%; gap: 6px 16px; padding: 4px 20px; }
-.side-splash-kicker { font-size: clamp(11px, 1.1vw, 16px); }
-.side-splash-title { font-size: clamp(22px, 2.6vw, 52px); }
-.side-splash-warning .side-splash-title { font-size: clamp(16px, 1.8vw, 32px); }
-
-@media (max-width: 900px) {
-  .race-broadcast.side-broadcast .course-scene { top: 184px; bottom: 120px; left: 8px; right: 8px; }
-  .side-order li { min-width: 34px; height: 30px; font-size: 17px; }
-  .side-togo { font-size: 16px; }
-}
 @media (max-width: 600px) {
   .race-broadcast.course-broadcast .tv-strap { inset: 70px 8px auto; height: 52px; }
   .race-broadcast.course-broadcast .tv-strap-line { font-size: 14px; padding: 4px 10px; }
   .race-broadcast.course-broadcast .course-director-bar { top: 126px; }
-  .race-broadcast.side-broadcast .course-scene { top: 158px; }
   .race-broadcast.course-broadcast .race-standings { top: 158px; bottom: auto; }
   .race-broadcast.course-broadcast:not(.side-broadcast) .course-scene { top: 240px; }
   .race-broadcast.course-broadcast .course-event-ticker { left: 8px; right: 8px; height: 36px; font-size: 13px; }
 }
+
+/* ── The side-on straight ───────────────────────────────────────────────────
+   Every graphic the room reads is sized in projector units (--u, 1% of the
+   widest 16:9 frame that fits), so 1280x720, 1920x1080 and 3840x2160 show
+   the same picture. Selectors carry all three course classes so they win
+   over the shared circuit rules above them. */
+.side-broadcast {
+  --u: min(1vw, 1.7778vh);
+  --side-top: calc(var(--u) * 4.8);
+  --side-strap: calc(var(--u) * 4.6);
+  --side-strip: calc(var(--u) * 6.2);
+  --side-gap: calc(var(--u) * 0.45);
+  --side-edge: calc(var(--u) * 0.6);
+  --tower-width: 0px;
+  background: #1d4f7a;
+  animation: side-in 0.45s ease-out both;
+}
+@keyframes side-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes side-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes side-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* The title bar. */
+.race-broadcast.course-broadcast.side-broadcast .tv-top { height: var(--side-top); min-height: 0; padding: 0 calc(var(--u) * 1.2); gap: calc(var(--u) * 0.9); border-bottom-width: calc(var(--u) * 0.25); background: linear-gradient(100deg, #7d1323, #a81d2f 60%, #7d1323); }
+.race-broadcast.course-broadcast.side-broadcast .tv-club-brand { flex: 0 1 calc(var(--u) * 24); gap: calc(var(--u) * 0.8); }
+.race-broadcast.course-broadcast.side-broadcast .tv-club-logo { height: calc(var(--u) * 4); max-width: calc(var(--u) * 5.5); }
+.race-broadcast.course-broadcast.side-broadcast .tv-club-name { font-size: calc(var(--u) * 1.3); }
+.race-broadcast.course-broadcast.side-broadcast .tv-live,
+.race-broadcast.course-broadcast.side-broadcast .tv-race-chip,
+.race-broadcast.course-broadcast.side-broadcast .tv-clock,
+.race-broadcast.course-broadcast.side-broadcast .side-togo,
+.race-broadcast.course-broadcast.side-broadcast .tv-photo { flex: none; display: inline-flex; align-items: center; min-height: calc(var(--u) * 3.3); padding-inline: calc(var(--u) * 1.1); border-width: calc(var(--u) * 0.15); border-radius: calc(var(--u) * 0.6); font-size: calc(var(--u) * 1.7); line-height: 1; letter-spacing: 0.06em; }
+.race-broadcast.course-broadcast.side-broadcast .tv-title { flex: 1 1 auto; min-width: 0; font-size: calc(var(--u) * 2.4); }
+.race-broadcast.course-broadcast.side-broadcast .tv-clock,
+.race-broadcast.course-broadcast.side-broadcast .side-togo { font-size: calc(var(--u) * 2.3); font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; }
+.race-broadcast.course-broadcast.side-broadcast .side-togo { color: #fff; background: #1e2a1a; border: calc(var(--u) * 0.15) solid rgb(255 255 255 / 0.3); }
+.race-broadcast.course-broadcast.side-broadcast .tv-live { gap: 0.5em; }
+/* LIVE only once they are off: before that the badge reads READY, quietly. */
+.race-broadcast.course-broadcast.side-broadcast .tv-live:not(.tv-live-on):not(.tv-replay):not(.tv-void):not(.tv-confirming-badge) { opacity: 0.75; }
+.race-broadcast.course-broadcast.side-broadcast .tv-live:not(.tv-live-on) i { animation: none; opacity: 0.5; }
+
+/* The commentary strap, under the title bar, one line that shrinks to fit. */
+.race-broadcast.course-broadcast.side-broadcast .tv-strap { inset: calc(var(--side-top) + var(--side-gap)) var(--side-edge) auto; height: var(--side-strap); min-height: 0; padding: 0; border-width: calc(var(--u) * 0.15); border-radius: calc(var(--u) * 0.7); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap-badge { flex: none; min-width: 0; padding: 0 calc(var(--u) * 2.1) 0 calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.3); letter-spacing: 0.12em; clip-path: polygon(0 0, calc(100% - var(--u) * 1.2) 0, 100% 50%, calc(100% - var(--u) * 1.2) 100%, 0 100%); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap-line { flex: 1; min-width: 0; margin: 0; padding: 0 calc(var(--u) * 1.4); overflow: hidden; font-size: calc(var(--u) * 2.5 * var(--fit, 1)); font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap-line.fit-wrap { white-space: normal; line-height: 1.02; }
+
+/* The course. */
+.race-broadcast.course-broadcast.side-broadcast .course-scene { inset: calc(var(--side-top) + var(--side-strap) + var(--side-gap) * 2) var(--side-edge) calc(var(--side-strip) + var(--side-gap) * 2); border: calc(var(--u) * 0.15) solid #2a1a1a66; border-radius: calc(var(--u) * 0.7); background: #7cc6ff; overflow: hidden; }
+.race-broadcast.course-broadcast.side-broadcast .course-director-bar { top: calc(var(--side-top) + var(--side-strap) + var(--side-gap) * 3); left: auto; right: calc(var(--u) * 1.2); justify-content: flex-end; z-index: 13; }
+.race-broadcast.course-broadcast.side-broadcast .tv-result { bottom: calc(var(--side-strip) + var(--side-gap) * 2); }
+/* Painted once per screen size and slid by the camera (see LAYER_TOP in Sidescroller). */
+.side-broadcast .side-layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; pointer-events: none; }
+.side-broadcast .side-world { pointer-events: auto; }
+.side-broadcast .side-layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; max-height: none; }
+.side-broadcast .side-runner-layer { position: absolute; inset: 0; }
+.side-broadcast .side-runner-chip { position: absolute; left: 0; top: 0; width: var(--chip-w, 300px); height: var(--chip-h, 110px); overflow: visible; will-change: transform; }
+.side-broadcast .race-standings { display: none; }
+.side-broadcast .tv-runner { transition: none; }
+.side-broadcast .tv-snail-sprite { animation: none; transform: none; }
+
+/* The snails. */
+.side-broadcast .side-runner-chip.racing .side-stalks { animation: side-stalks 1.6s ease-in-out infinite; transform-origin: 150px -44px; }
+.side-broadcast .side-runner-chip.racing .side-foot { animation: side-foot 0.9s ease-in-out infinite; transform-origin: 0 0; }
+@keyframes side-stalks { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes side-foot { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(1.06) translateX(-8px); } }
+.side-broadcast .side-speed { opacity: 0; }
+.side-broadcast .side-dizzy { opacity: 0; }
+.side-broadcast .tv-runner.fx-up .side-speed { opacity: 1; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-speed path { animation: side-speed-lines 0.28s linear infinite; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-dust { animation: side-dust 0.5s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-dust-2 { animation-delay: 0.25s; }
+.side-broadcast .tv-runner.fx-up .side-art { filter: drop-shadow(0 0 18px #ffe36b); }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-body { animation: side-lean 0.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 40% 100%; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-up .side-foot { animation-duration: 0.35s; }
+.side-broadcast .tv-runner.fx-down .side-dizzy { opacity: 1; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-dizzy { animation: side-dizzy 1.4s linear infinite; transform-box: fill-box; transform-origin: center; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-shell { animation: side-shake 0.32s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-stalks { animation: side-droop 1s ease-in-out infinite; }
+.side-broadcast .side-runner-chip.racing .tv-runner.fx-down .side-foot { animation: none; }
+/* The runner the caption names (first to shake off a field-wide hold) glows gold. */
+.side-broadcast .tv-runner.featured .side-art { filter: drop-shadow(0 0 10px #fff) drop-shadow(0 0 22px #ffd23f); }
+.side-broadcast .side-runner-chip.racing .tv-runner.featured .side-body { animation: side-hop 0.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.side-broadcast .tv-runner.retired .side-art { opacity: 0.55; filter: grayscale(0.8); }
+.side-broadcast .tv-runner.retired .side-body { transform-box: fill-box; transform-origin: 50% 100%; transform: rotate(-28deg); }
+.side-broadcast .tv-runner.finished .side-art { filter: drop-shadow(0 0 16px #fff); }
+.side-broadcast .side-runner-chip.racing .tv-runner.finished .side-body { animation: side-hop 0.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes side-speed-lines { from { transform: translateX(40px); opacity: 0.9; } to { transform: translateX(-60px); opacity: 0.2; } }
+@keyframes side-dust { from { transform: scale(0.4); opacity: 0.9; } to { transform: translate(-70px, -20px) scale(1.6); opacity: 0; } }
+@keyframes side-lean { 0%, 100% { transform: skewX(-8deg) translateY(0); } 50% { transform: skewX(-12deg) translateY(-6px); } }
+@keyframes side-shake { 0%, 100% { transform: rotate(-5deg) scaleY(0.94); } 50% { transform: rotate(5deg) scaleY(1); } }
+@keyframes side-droop { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(-26deg); } }
+@keyframes side-dizzy { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes side-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+
+/* The name flag behind every snail, inside its own lane. */
+.side-broadcast .side-name-flag-box { fill: var(--shell); stroke: #2a1a1a; stroke-width: 4; transition: fill 0.25s ease-out; }
+.side-broadcast .side-name-flag-text { fill: #fff; stroke: #2a1a1a; stroke-width: 5; stroke-linejoin: round; paint-order: stroke; }
+.side-broadcast .side-name-flag[data-tone="down"] .side-name-flag-box { fill: #d7263d; }
+.side-broadcast .side-name-flag[data-tone="up"] .side-name-flag-box { fill: #1f9d55; }
+.side-broadcast .side-name-flag[data-tone="win"] .side-name-flag-box { fill: #ffd23f; }
+.side-broadcast .side-name-flag[data-tone="win"] .side-name-flag-text,
+.side-broadcast .side-name-flag[data-tone="placed"] .side-name-flag-text { fill: #2a1a1a; stroke: none; }
+.side-broadcast .side-name-flag[data-tone="placed"] .side-name-flag-box { fill: #fff6d8; }
+.side-broadcast .side-name-flag[data-tone="out"] .side-name-flag-box { fill: #5a5a5a; }
+
+/* The crowd: heads bob below the front rail, never over a lane. */
+.side-broadcast .side-crowd-phase { position: absolute; inset: 0; will-change: transform; }
+.side-broadcast .side-crowd-phase > svg { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; max-height: none; }
+.side-broadcast .side-crowd-phase.racing { animation: side-fan 1.1s ease-in-out infinite; }
+.side-broadcast .side-crowd-phase-1.racing { animation-delay: -0.35s; }
+.side-broadcast .side-crowd-phase-2.racing { animation-delay: -0.7s; }
+.side-broadcast .run-home .side-crowd-phase.racing { animation-duration: 0.45s; }
+/* 0.88% of the layer is 23 world units: inside CROWD_BOB in sidescroller-geometry. */
+@keyframes side-fan { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.88%); } }
+.side-broadcast .racing .side-ambulance { animation: side-ambulance 1s steps(2) infinite; }
+@keyframes side-ambulance { to { transform: translateX(10px); } }
+
+/* The stalls: each gate swings up in turn at the off, then the frame goes. */
+.side-broadcast .side-gate { transform-box: fill-box; transform-origin: 50% 0; transition: transform 0.5s cubic-bezier(0.5, 0, 0.2, 1) calc(var(--i, 0) * 30ms), opacity 0.25s ease-out calc(0.35s + var(--i, 0) * 30ms); }
+.side-broadcast .tv.gates-open .side-gate { transform: scaleY(0.06); opacity: 0; }
+.side-broadcast .side-gate-frame { transition: opacity 0.4s ease-out 0.75s; }
+.side-broadcast .tv.gates-open .side-gate-frame { opacity: 0; }
+.side-broadcast.race-motion-reduced .side-gate,
+.side-broadcast.race-motion-reduced .side-gate-frame { transition: none; }
+
+/* Props: a lane tall, in the target's lane, under the snails. */
+.side-broadcast .course-prop[data-phase="warning"] { opacity: 0.92; }
+.side-broadcast .course-prop[data-phase="warning"] .course-prop-motion { animation: side-prop-loom 1s ease-in-out infinite alternate; }
+.side-broadcast .course-prop[data-phase="effect"] .course-prop-motion { animation: side-prop-stamp 0.7s ease-in-out 3; }
+.side-broadcast .side-band { fill: #2a1a1a; opacity: 0; transition: opacity 0.3s; }
+.side-broadcast .side-band.tone-bad { fill: #e8262b; }
+.side-broadcast .side-band.tone-good { fill: #2fb24a; }
+.side-broadcast .side-band.tone-wild { fill: #ffe36b; }
+.side-broadcast .side-band[data-phase="effect"] { opacity: 0.2; animation: side-band-in 0.5s ease-out both; }
+@keyframes side-band-in { from { opacity: 0; } to { opacity: 0.2; } }
+@keyframes side-prop-loom { from { transform: translate(0, -60px) scale(0.92); opacity: 0.75; } to { transform: translate(0, -24px) scale(1); opacity: 1; } }
+@keyframes side-prop-stamp { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(0, -50px) rotate(-6deg); } }
+.side-broadcast .side-prop-stomp[data-phase="warning"] .course-prop-motion { animation: side-boot-loom 1.2s ease-in-out infinite alternate; }
+.side-broadcast .side-prop-stomp[data-phase="effect"] .course-prop-motion { animation: side-boot-grind 1.6s ease-in-out infinite; transform-origin: 0 0; }
+@keyframes side-boot-loom { from { transform: translate(0, -420px) rotate(-6deg); } to { transform: translate(0, -360px) rotate(6deg); } }
+@keyframes side-boot-grind { 0% { transform: translate(0, -420px); } 18% { transform: translate(0, 0); } 40% { transform: translate(-14px, 0) rotate(-3deg); } 70% { transform: translate(0, -90px) rotate(2deg); } 85%, 100% { transform: translate(0, 0); } }
+.side-broadcast .side-prop-gate .prop-gate-arm { transform-box: fill-box; transform-origin: 2px 50%; }
+.side-broadcast .side-prop-gate[data-phase="warning"] .prop-gate-arm { transform: rotate(-80deg); }
+.side-broadcast .side-prop-gate[data-phase="effect"] .prop-gate-arm { animation: side-gate-down 0.5s ease-in both; }
+.side-broadcast .side-prop-gate[data-phase="effect"] .course-prop-motion { animation: none; }
+.side-broadcast .side-prop-gate[data-phase="effect"] .course-prop-vector { animation: side-gate-flash 0.6s steps(2) infinite; }
+@keyframes side-gate-down { from { transform: rotate(-80deg); } to { transform: rotate(0); } }
+@keyframes side-gate-flash { to { filter: drop-shadow(0 0 14px #ff3b3b) brightness(1.3); } }
+.side-broadcast .side-prop-launch[data-phase="effect"] .course-prop-motion { animation: side-launch 1.1s ease-out infinite; }
+@keyframes side-launch { from { transform: translate(-40px, 0) rotate(25deg); opacity: 1; } to { transform: translate(260px, -260px) rotate(45deg); opacity: 0; } }
+.side-broadcast .side-prop-swing .course-prop-motion { transform-origin: -40px 0; }
+.side-broadcast .side-prop-swing[data-phase="warning"] .course-prop-motion { animation: side-bat-wind 1s ease-in-out infinite alternate; }
+.side-broadcast .side-prop-swing[data-phase="effect"] .course-prop-motion { animation: side-bat-swing 0.5s cubic-bezier(0.7, 0, 0.3, 1) 4 alternate; }
+@keyframes side-bat-wind { from { transform: translate(-120px, -40px) rotate(-70deg); } to { transform: translate(-120px, -60px) rotate(-90deg); } }
+@keyframes side-bat-swing { from { transform: translate(-120px, -60px) rotate(-90deg); } to { transform: translate(-30px, 0) rotate(40deg); } }
+.side-broadcast .side-prop-pull[data-phase="effect"] .course-prop-motion { animation: side-pull 1s ease-in-out infinite alternate; }
+@keyframes side-pull { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(0, -24px); } }
+.side-broadcast .side-prop-swoop[data-phase="effect"] .course-prop-motion { animation: side-swoop-over 1.2s ease-in-out infinite alternate; }
+@keyframes side-swoop-over { from { transform: translate(-60px, -80px) rotate(-8deg); } to { transform: translate(60px, -20px) rotate(8deg); } }
+.side-broadcast .side-prop-roll[data-phase="effect"] .course-prop-motion { animation: side-roll-spin 1s linear infinite; transform-origin: 0 -110px; }
+@keyframes side-roll-spin { to { transform: rotate(360deg); } }
+.side-broadcast .side-prop-burst[data-phase="effect"] .course-prop-motion { animation: side-burst 0.7s ease-in-out infinite alternate; }
+@keyframes side-burst { from { transform: scale(1); } to { transform: scale(1.14); } }
+.side-broadcast .side-prop-spray[data-phase="effect"] .course-prop-motion { animation: side-spray 0.8s ease-in-out infinite alternate; transform-origin: 0 0; }
+@keyframes side-spray { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
+.side-broadcast.race-motion-reduced .side-prop *,
+.side-broadcast.race-motion-reduced .tv-runner *,
+.side-broadcast.race-motion-reduced .side-crowd-phase,
+.side-broadcast.race-motion-reduced .side-ambulance { animation: none !important; }
+
+/* The running order along the bottom: the top three by name, the leader biggest. */
+.race-broadcast.course-broadcast.side-broadcast .side-progress { position: absolute; left: var(--side-edge); right: var(--side-edge); bottom: var(--side-gap); height: var(--side-strip); z-index: 12; display: flex; align-items: center; gap: calc(var(--u) * 0.8); padding: 0 calc(var(--u) * 0.8) calc(var(--u) * 0.3); box-sizing: border-box; overflow: hidden; background: #1e2a1a; border: calc(var(--u) * 0.15) solid #2a1a1a; border-radius: calc(var(--u) * 0.7); }
+.race-broadcast.course-broadcast.side-broadcast .side-order { flex: 1; min-width: 0; display: flex; align-items: center; gap: calc(var(--u) * 0.45); margin: 0; padding: 0; overflow: hidden; list-style: none; }
+.race-broadcast.course-broadcast.side-broadcast .side-order li { flex: none; display: flex; align-items: center; gap: calc(var(--u) * 0.6); height: calc(var(--u) * 4.4); border-radius: calc(var(--u) * 0.7); }
+.race-broadcast.course-broadcast.side-broadcast .side-order-num { display: grid; place-items: center; min-width: calc(var(--u) * 3.8); height: 100%; padding: 0 calc(var(--u) * 0.35); box-sizing: border-box; border: calc(var(--u) * 0.15) solid #2a1a1a; border-radius: calc(var(--u) * 0.6); background: var(--shell); color: #fff; font: 900 calc(var(--u) * 2.3)/1 'Arial Black', Arial, sans-serif; letter-spacing: -0.02em; text-shadow: 0 0 calc(var(--u) * 0.25) #000, 0 calc(var(--u) * 0.1) 0 #000; }
+.race-broadcast.course-broadcast.side-broadcast .side-order-name { display: none; }
+.race-broadcast.course-broadcast.side-broadcast .side-order li:is([data-rank="1"], [data-rank="2"], [data-rank="3"]) { padding-right: calc(var(--u) * 0.9); background: #fff6d8; box-shadow: inset 0 0 0 calc(var(--u) * 0.15) #2a1a1a; }
+.race-broadcast.course-broadcast.side-broadcast .side-order li:is([data-rank="1"], [data-rank="2"], [data-rank="3"]) .side-order-name { display: flex; align-items: center; height: 100%; max-width: calc(var(--u) * (14 - (var(--field, 10) - 8) * 0.75)); overflow: hidden; color: #2a1a1a; font: 900 calc(var(--u) * 2.1 * var(--fit, 1))/1 'Arial Black', Arial, sans-serif; white-space: nowrap; }
+.race-broadcast.course-broadcast.side-broadcast .side-order li[data-rank="1"] { height: calc(var(--u) * 5.3); background: #ffd23f; }
+.race-broadcast.course-broadcast.side-broadcast .side-order li[data-rank="1"] .side-order-num { min-width: calc(var(--u) * 4.6); font-size: calc(var(--u) * 2.9); }
+.race-broadcast.course-broadcast.side-broadcast .side-order li[data-rank="1"] .side-order-name { max-width: calc(var(--u) * (20 - (var(--field, 10) - 8))); font-size: calc(var(--u) * 2.7 * var(--fit, 1)); }
+.race-broadcast.course-broadcast.side-broadcast .side-order li .side-order-name.fit-wrap { white-space: normal; line-height: 0.98; }
+.race-broadcast.course-broadcast.side-broadcast .side-order li.retired { opacity: 0.45; }
+.race-broadcast.course-broadcast.side-broadcast .side-flag { flex: none; width: calc(var(--u) * 3); height: calc(var(--u) * 3); background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / calc(var(--u) * 1.5) calc(var(--u) * 1.5); border: calc(var(--u) * 0.1) solid #fff; }
+.race-broadcast.course-broadcast.side-broadcast .side-progress-fill { position: absolute; left: 0; bottom: 0; height: calc(var(--u) * 0.35); width: calc(var(--lead, 0) * 100%); background: #2fb24a; transition: width 0.25s linear; }
+.side-broadcast.race-motion-reduced .side-progress-fill { transition: none; }
+
+/* The count to the off: a big digit on a dark plate, each one held until the next. */
+.side-countdown { position: absolute; inset: 0; z-index: 15; display: grid; place-items: center; pointer-events: none; animation: side-fade-in 0.25s ease-out both; }
+.side-countdown-digit { display: grid; place-items: center; min-width: calc(var(--u) * 17); height: calc(var(--u) * 17); padding: 0 calc(var(--u) * 2.2); box-sizing: border-box; border: calc(var(--u) * 0.5) solid #ffd23f; border-radius: calc(var(--u) * 2.4); background: rgb(22 12 16 / 0.9); color: #fff; font: 900 calc(var(--u) * 12)/1 'Arial Black', Arial, sans-serif; letter-spacing: -0.02em; box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 4) rgb(0 0 0 / 0.5); animation: side-count-pop 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.side-countdown-go .side-countdown-digit { border-color: #fff; background: #1f9d55; }
+.side-countdown-leaving { animation: side-fade-out 0.42s ease-in both; }
+@keyframes side-count-pop { from { transform: scale(1.25); opacity: 0.5; } to { transform: scale(1); opacity: 1; } }
+.side-broadcast.race-motion-reduced .side-countdown,
+.side-broadcast.race-motion-reduced .side-countdown-digit { animation: none; }
+
+/* The finish: the photo, then the winner named over the fence, clear of the line. */
+/* The still: a grey wash over the visible frame only (a filter on the painted layers would repaint all of them). */
+.side-broadcast .side-scene:is(.side-photo, .side-photo-out)::after { content: ""; position: absolute; inset: 0; z-index: 13; pointer-events: none; backdrop-filter: grayscale(1) contrast(1.12); }
+.side-broadcast .side-scene.side-photo-out::after { animation: side-fade-out 0.3s ease-out both; }
+.side-photo-flash { position: absolute; inset: 0; z-index: 16; background: #fff; pointer-events: none; animation: side-flash 0.4s ease-out both; }
+@keyframes side-flash { from { opacity: 0.55; } to { opacity: 0; } }
+.side-broadcast.race-motion-reduced .side-photo-flash { display: none; }
+.side-finish-plate { position: absolute; left: 28%; top: calc(var(--u) * 0.5); z-index: 14; translate: -50% 0; display: flex; align-items: center; gap: calc(var(--u) * 1); max-width: 48%; padding: calc(var(--u) * 0.6) calc(var(--u) * 1.8) calc(var(--u) * 0.6) calc(var(--u) * 0.8); box-sizing: border-box; border: calc(var(--u) * 0.3) solid #2a1a1a; border-radius: calc(var(--u) * 1.2); background: #ffd23f; color: #2a1a1a; box-shadow: 0 calc(var(--u) * 0.5) 0 #2a1a1a66; white-space: nowrap; pointer-events: none; animation: side-splash-in 0.45s 0.25s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.side-finish-kicker { flex: none; padding: calc(var(--u) * 0.55) calc(var(--u) * 1); border-radius: 999px; background: #2a1a1a; color: #ffd23f; font: 900 calc(var(--u) * 1.5)/1 'Arial Black', Arial, sans-serif; letter-spacing: 0.14em; }
+.side-finish-num { flex: none; display: grid; place-items: center; min-width: calc(var(--u) * 4); height: calc(var(--u) * 4); padding: 0 calc(var(--u) * 0.4); box-sizing: border-box; border: calc(var(--u) * 0.2) solid #2a1a1a; border-radius: calc(var(--u) * 0.7); background: var(--shell); color: #fff; font: 900 calc(var(--u) * 2.5)/1 'Arial Black', Arial, sans-serif; text-shadow: 0 0 calc(var(--u) * 0.25) #000; }
+.side-finish-name { min-width: 0; overflow: hidden; font: 900 calc(var(--u) * 3 * var(--fit, 1))/1.05 'Arial Black', Arial, sans-serif; }
+.side-finish-name.fit-wrap { white-space: normal; }
+.side-broadcast.race-motion-reduced .side-finish-plate { animation: none; }
+
+/* ── The twist card: one card for every course ─────────────────────────────
+   Large, over the top of the course and clear of the lanes, readable from
+   the back of the room. INCOMING is amber, TWIST and OUT are red, BOOST is
+   green. It eases in and out; it never just appears or vanishes. */
+.side-splash { --u: min(1vw, 1.7778vh); position: absolute; left: 50%; top: calc(var(--u) * 0.5); z-index: 14; translate: -50% 0; display: flex; align-items: center; gap: calc(var(--u) * 1.2); max-width: calc(100% - var(--u) * 2); padding: calc(var(--u) * 0.7) calc(var(--u) * 1.8) calc(var(--u) * 0.7) calc(var(--u) * 0.9); box-sizing: border-box; border: calc(var(--u) * 0.3) solid #2a1a1a; border-radius: calc(var(--u) * 1.2); background: #ffb81c; color: #2a1a1a; box-shadow: 0 calc(var(--u) * 0.5) 0 #2a1a1a66, 0 calc(var(--u) * 0.8) calc(var(--u) * 2.4) rgb(0 0 0 / 0.3); text-align: left; white-space: nowrap; pointer-events: none; animation: side-splash-in 0.38s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.side-splash-kicker { flex: none; padding: calc(var(--u) * 0.6) calc(var(--u) * 1.1); border-radius: 999px; background: #2a1a1a; color: #ffb81c; font: 900 calc(var(--u) * 1.6)/1 'Arial Black', Arial, sans-serif; letter-spacing: 0.14em; }
+.side-splash-title { min-width: 0; overflow: hidden; font: 900 calc(var(--u) * 3.2 * var(--fit, 1))/1.05 'Arial Black', Arial, sans-serif; letter-spacing: 0.01em; text-transform: uppercase; white-space: nowrap; }
+.side-splash-title.fit-wrap { white-space: normal; }
+.side-splash-warning { background: #ffb81c; color: #2a1a1a; }
+.side-splash-warning .side-splash-kicker { background: #2a1a1a; color: #ffb81c; }
+.side-splash-effect { background: #d7263d; color: #fff; animation: side-splash-slam 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.side-splash-effect .side-splash-kicker { background: #fff; color: #b3141c; }
+.side-splash-effect .side-splash-title { text-shadow: 0 calc(var(--u) * 0.15) 0 rgb(0 0 0 / 0.35); }
+.side-splash-effect.tone-good { background: #1f9d55; }
+.side-splash-effect.tone-good .side-splash-kicker { color: #157a40; }
+.side-splash.side-splash-leaving { animation: side-splash-out 0.4s ease-in both; }
+.side-splash-numbers { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 0.4); }
+.side-splash-numbers i { display: grid; place-items: center; min-width: 1.8em; height: 1.8em; padding: 0 0.3em; border: calc(var(--u) * 0.2) solid #2a1a1a; border-radius: calc(var(--u) * 0.5); background: var(--shell, #ccc); color: #fff; font: 900 calc(var(--u) * 1.8)/1 'Arial Black', Arial, sans-serif; font-style: normal; text-shadow: 0 0 3px #000; }
+.side-splash-cost { font: 900 calc(var(--u) * 2)/1.1 'Arial Black', Arial, sans-serif; letter-spacing: 0.04em; }
+@keyframes side-splash-in { from { opacity: 0; translate: -50% -40%; } to { opacity: 1; translate: -50% 0; } }
+@keyframes side-splash-slam { from { opacity: 0; translate: -50% 0; scale: 1.2; } to { opacity: 1; translate: -50% 0; scale: 1; } }
+@keyframes side-splash-out { from { opacity: 1; translate: -50% 0; } to { opacity: 0; translate: -50% -40%; } }
+.race-motion-reduced .side-splash { animation: none; }
+.race-motion-reduced .side-splash.side-splash-leaving { opacity: 0; }
