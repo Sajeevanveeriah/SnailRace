@@ -304,6 +304,9 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
     },
     [renderAt],
   );
+  const releasePainter = useCallback((painter: RacePainter) => {
+    if (painterRef.current === painter) painterRef.current = null;
+  }, []);
 
   const winner = entry?.results.find((r) => r.place === 1);
 
@@ -328,6 +331,7 @@ export function useReplay(entry: RaceHistoryEntry | null): ReplayController {
     weather: tape?.weather ?? 'clear',
     onBoard,
     setPainter,
+    releasePainter,
     start: play,
     startLocked: () => play(),
     reset: restart,

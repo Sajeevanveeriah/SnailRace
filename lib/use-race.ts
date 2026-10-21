@@ -268,6 +268,12 @@ export interface RaceController {
   onBoard: (cb: (rows: BoardRow[]) => void) => () => void;
   /** Register the renderer that turns each frame's positions into pixels. */
   setPainter: (painter: RacePainter | null) => void;
+  /**
+   * Unregister a renderer, but only if it is still the registered one. When
+   * the stage swaps track designs the incoming renderer can register before
+   * the outgoing one cleans up; clearing by identity keeps the newcomer.
+   */
+  releasePainter: (painter: RacePainter) => void;
   start: (
     names: string[],
     durationMs: number,
@@ -452,6 +458,9 @@ export function useRace(
   const setPainter = useCallback((painter: RacePainter | null) => {
     painterRef.current = painter;
     painter?.measure();
+  }, []);
+  const releasePainter = useCallback((painter: RacePainter) => {
+    if (painterRef.current === painter) painterRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -1259,6 +1268,7 @@ export function useRace(
     weather,
     onBoard,
     setPainter,
+    releasePainter,
     start,
     startLocked,
     reset,

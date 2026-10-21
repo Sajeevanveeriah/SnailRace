@@ -54,7 +54,7 @@ interface LaneNodes {
 }
 
 export function RaceTrack({ names, race, surface, numberOffset = 0, numbers }: Props) {
-  const { setPainter } = race;
+  const { setPainter, releasePainter } = race;
   const phase = race.phase as string;
   const confirming = phase === 'confirming';
   const lanesRef = useRef<Map<number, LaneNodes>>(new Map());
@@ -220,8 +220,8 @@ export function RaceTrack({ names, race, surface, numberOffset = 0, numbers }: P
 
   useEffect(() => {
     setPainter(painter);
-    return () => setPainter(null);
-  }, [painter, setPainter]);
+    return () => releasePainter(painter);
+  }, [painter, setPainter, releasePainter]);
 
   return (
     <div

@@ -560,7 +560,7 @@ export function Sidescroller({
   numbers,
   replay = false,
 }: Props) {
-  const { setPainter } = race;
+  const { setPainter, releasePainter } = race;
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = calm || prefersReducedMotion;
   /* Read by the painter through a ref: a Calm toggle mid-race must not
@@ -1086,8 +1086,8 @@ export function Sidescroller({
     setPainter(painter);
     painter.reset();
     painter.measure();
-    return () => setPainter(null);
-  }, [painter, setPainter]);
+    return () => releasePainter(painter);
+  }, [painter, setPainter, releasePainter]);
   useEffect(() => {
     const observer = new ResizeObserver(() => painter.measure());
     if (sceneRef.current) observer.observe(sceneRef.current);

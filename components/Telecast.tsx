@@ -170,7 +170,7 @@ export function Telecast({
   numberOffset = 0,
   numbers,
 }: Props) {
-  const { setPainter } = race;
+  const { setPainter, releasePainter } = race;
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = calm || prefersReducedMotion;
   const [localCourseView, setCourseView] = useState(false);
@@ -638,8 +638,8 @@ export function Telecast({
     setPainter(painter);
     painter.reset();
     painter.measure();
-    return () => setPainter(null);
-  }, [painter, setPainter]);
+    return () => releasePainter(painter);
+  }, [painter, setPainter, releasePainter]);
   useEffect(() => {
     const observer = new ResizeObserver(() => painter.measure());
     if (wrapRef.current) observer.observe(wrapRef.current);
