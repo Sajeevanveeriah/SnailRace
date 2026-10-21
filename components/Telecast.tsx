@@ -88,7 +88,7 @@ export const CIRCUIT_LAYOUT = {
   mapW: 17,
   mapH: 10.6,
   /** The result bar at the foot of the pane. */
-  resultH: 11,
+  resultH: 15,
   /** A runner's number badge radius. */
   badge: 1.3,
 } as const;
@@ -394,7 +394,7 @@ export function Telecast({
         let lane = featuredLane(twist, leader);
         if (targets.size > 2) lane = [...targets].sort((a, b) => progressOf[b] - progressOf[a])[0];
         if (lane >= count) lane = leader;
-        const want = (twist.phase === 'warning' ? 110 : 66) * artScaleRef.current;
+        const want = (twist.phase === 'warning' ? 92 : 54) * artScaleRef.current;
         const ahead = propAheadRef.current;
         const dt = ahead.at ? Math.min(0.1, (now - ahead.at) / 1000) : 1;
         ahead.at = now;
@@ -717,7 +717,7 @@ export function Telecast({
                   {presentation.art ? (
                     <image className="course-prop-image" href={`${ART_BASE}/surprises/${presentation.art}.png`} x="-28" y="-28" width="56" height="56" />
                   ) : presentation.glyph ? (
-                    <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph} transform="scale(1.1) translate(0 32)">
+                    <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph} transform="scale(0.92) translate(0 32)">
                       <PropGlyph id={presentation.glyph} />
                     </g>
                   ) : (
@@ -1026,12 +1026,13 @@ function Floodlights() {
   return (
     <g className="course-floodlights" aria-hidden="true">
       {towers.map(([x, y]) => (
-        <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+        <g key={`${x}-${y}`} transform={`translate(${x} ${y}) rotate(${x < 600 ? (y < 360 ? 45 : -45) : y < 360 ? -45 : 45})`}>
           <circle r="70" fill="url(#flood-pool)" />
-          <rect x="-13" y="-9" width="26" height="18" rx="3" fill="#2b2f36" stroke="#0b0d10" strokeWidth="2" />
-          {[-8, 0, 8].map((dx) => (
-            <circle key={dx} cx={dx} cy="0" r="3.2" fill="#fff8d8" />
-          ))}
+          <line x1="0" y1="0" x2="0" y2={y < 360 ? -34 : 34} stroke="#0b0d10" strokeWidth="4" opacity=".55" />
+          <rect x="-15" y="-11" width="30" height="22" rx="1.5" fill="#3a3f47" stroke="#0b0d10" strokeWidth="2" />
+          {[-9, 0, 9].flatMap((dx) =>
+            [-5, 5].map((dy) => <rect key={`${dx}${dy}`} x={dx - 3.5} y={dy - 3.5} width="7" height="7" fill="#fff8d8" />),
+          )}
         </g>
       ))}
     </g>

@@ -457,6 +457,10 @@
   background: linear-gradient(90deg, rgb(7 17 30 / 0.95), rgb(96 29 41 / 0.94));
   color: #fff9ed;
 }
+/* At the line the camera settles on the line and the winner first; the
+   result bar rises into the space below them once it has. */
+.race-broadcast.circuit-broadcast[data-race-phase="confirming"] .tv-result { animation: tv-result-in .45s ease-out 1s both; }
+.race-broadcast.circuit-broadcast.race-motion-reduced[data-race-phase="confirming"] .tv-result { animation: none; }
 .race-broadcast.circuit-broadcast .tv-result-head { gap: calc(var(--u) * 1); margin-bottom: calc(var(--u) * 0.6); }
 .race-broadcast.circuit-broadcast .tv-result-kicker { padding: calc(var(--u) * 0.4) calc(var(--u) * 0.9); font-size: calc(var(--u) * 1.6); clip-path: none; border-radius: calc(var(--u) * 0.3); }
 .race-broadcast.circuit-broadcast .tv-result-race,
