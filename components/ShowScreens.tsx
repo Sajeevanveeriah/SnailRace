@@ -6,7 +6,7 @@ import { ClubBrand } from './brand/ClubBrand';
 import { showPhaseSpec } from '@/lib/show';
 import { money, moneyShort } from '@/lib/money';
 import { eventWhen } from '@/lib/event-when';
-import { cardRaceNames, cardRaceOwners, isSold, raceTitle, sizesPhrase, snailsForRace, soldCount } from '@/lib/card';
+import { cardRaceNames, cardRaceOwners, isSold, raceTitle, sizesPhrase, snailsForRace, soldCount, validSnailNo } from '@/lib/card';
 import { quaddieStatus } from '@/lib/quaddie';
 import { laneColour } from '@/lib/palette';
 import { toteProceeds } from '@/lib/cash-tote';
@@ -232,7 +232,8 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
   const names = cardRaceNames(event.card, raceNo);
   const owners = cardRaceOwners(event.card, raceNo);
   const numbers = settings.snails;
-  const forSale = numbers.filter((n) => !isSold(event.card, n));
+  /* Only numbers the payment link can sell: a place past the snails on sale has no ticket yet. */
+  const forSale = numbers.filter((n) => validSnailNo(n, event.card) && !isSold(event.card, n));
   const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
   const leg = quaddie.live ? event.quaddie.legs.indexOf(raceNo) : -1;
   const cols = numbers.length <= 8 ? 4 : numbers.length <= 10 ? 5 : 6;

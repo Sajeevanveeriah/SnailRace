@@ -13,7 +13,6 @@ import {
   isRunOff,
   isSold,
   parseRosterPaste,
-  raceForSnail,
   resizeCard,
   rosterCsv,
   snailsForRace,
@@ -45,6 +44,9 @@ export function RosterPanel({
   compact?: boolean;
 }) {
   const card = event.card;
+  /* The armed race's own field: a run-off's runners belong to their own
+     numbered races too, so race membership alone would leave them editable. */
+  const lockedSnails = new Set(lockedRaceNo === null ? [] : snailsForRace(lockedRaceNo, card));
   /* Null while not being edited, so the box always shows the card as it stands. */
   const [countDraft, setCountDraft] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(!compact);
@@ -75,9 +77,9 @@ export function RosterPanel({
       const names = s.card.names.slice();
       const owners = s.card.owners.slice();
       const claims = { ...s.card.claims };
+      const lockedNow = new Set(lockedRaceNo === null ? [] : snailsForRace(lockedRaceNo, s.card));
       for (const row of rows) {
-        const race = raceForSnail(row.snailNo, s.card);
-        if (race && lockedRaceNo === race) {
+        if (lockedNow.has(row.snailNo)) {
           blocked += 1;
           continue;
         }
@@ -191,8 +193,8 @@ export function RosterPanel({
         </p>
       ) : null}
       {[...races, ...(spare.length ? [0] : [])].map((race) => {
-        const locked = race > 0 && lockedRaceNo === race;
         const numbers = race > 0 ? snailsForRace(race, card) : spare;
+        const locked = race > 0 && (lockedRaceNo === race || numbers.some((n) => lockedSnails.has(n)));
         return (
           <section key={race} className="roster-race" aria-label={race > 0 ? `Race ${race} snails` : 'Snails with no race'}>
             {showAll ? (
@@ -201,7 +203,7 @@ export function RosterPanel({
                 {locked ? <span className="roster-locked">locked</span> : null}
               </h3>
             ) : locked ? (
-              <p className="roster-locked">Race {race} is armed: names are locked until it finishes.</p>
+              <p className="roster-locked">Race {lockedRaceNo} is armed: {lockedRaceNo === race ? 'names are' : 'its runners are'} locked until it finishes.</p>
             ) : null}
             <ol className="roster-rows">
               {numbers.map((snailNo, lane) => (
@@ -216,7 +218,7 @@ export function RosterPanel({
                     placeholder="Unsold"
                     maxLength={MAX_NAME}
                     value={card.names[snailNo - 1] ?? ''}
-                    disabled={locked}
+                    disabled={lockedSnails.has(snailNo)}
                     onChange={(e) => update(snailNo, 'names', e.target.value)}
                   />
                   <input
@@ -225,7 +227,7 @@ export function RosterPanel({
                     placeholder="Owner"
                     maxLength={MAX_OWNER}
                     value={card.owners[snailNo - 1] ?? ''}
-                    disabled={locked}
+                    disabled={lockedSnails.has(snailNo)}
                     onChange={(e) => update(snailNo, 'owners', e.target.value)}
                   />
                   {card.claims[snailNo] ? (

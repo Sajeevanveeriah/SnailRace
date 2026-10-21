@@ -1386,7 +1386,7 @@ export function Sidescroller({
       </div>
 
       {showResult ? (
-        <OfficialResult results={race.results} raceNo={raceNo} sponsor={sponsor} tote={toteResult} replay={replay} runnerSponsors={owners} numberOffset={numberOffset} />
+        <OfficialResult results={race.results} raceNo={raceNo} sponsor={sponsor} tote={toteResult} replay={replay} runnerSponsors={owners} numberOffset={numberOffset} numbers={numbers} />
       ) : null}
 
       <div className="course-director-bar">
