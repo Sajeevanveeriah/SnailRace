@@ -1,3 +1,4 @@
+import { splashKicker } from '../sidescroller-geometry';
 import { STORY_CARD_MS, STORY_GAP_MS, STORY_READ_MS, type RaceMoment } from '@/lib/use-race';
 
 /** The least a hit card stays up before the next warning may replace it. */
@@ -112,10 +113,9 @@ export function stagedFromMoment(moment: RaceMoment | null, fallbackLane: number
 
 /** The card's kicker: the same four words the side-on straight uses. */
 export function twistKicker(twist: Pick<StagedTwist, 'phase' | 'consequence' | 'tone'>): 'INCOMING' | 'OUT' | 'BOOST' | 'TWIST' {
-  if (twist.phase === 'warning') return 'INCOMING';
-  if (twist.consequence === 'retire') return 'OUT';
-  if (twist.tone === 'good' || twist.consequence === 'advance') return 'BOOST';
-  return 'TWIST';
+  /* One rule for every track, so the same twist never reads BOOST on a
+     circuit and TWIST on the straight: only a good-toned event is a BOOST. */
+  return splashKicker(twist.phase === 'warning' ? 'warning' : 'effect', twist.tone, twist.consequence === 'retire' ? 'retire' : undefined);
 }
 
 /**

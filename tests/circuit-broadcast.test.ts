@@ -82,9 +82,12 @@ test('a hit is never shown late, even when the plan crowds two stories', () => {
   assert.equal(stagedAt(windows, 4300)?.phase, 'effect');
 });
 
-test('kickers read BOOST and OUT from the consequence', () => {
-  assert.equal(twistKicker({ phase: 'effect', consequence: 'advance', tone: 'wild' }), 'BOOST');
+test('kickers match the straight: BOOST only for good news, OUT for a retirement', () => {
+  assert.equal(twistKicker({ phase: 'effect', consequence: 'advance', tone: 'good' }), 'BOOST');
+  /* A wild twist (a dog, a cricket ball) reads TWIST on every track, even when its target gains. */
+  assert.equal(twistKicker({ phase: 'effect', consequence: 'advance', tone: 'wild' }), 'TWIST');
   assert.equal(twistKicker({ phase: 'effect', consequence: 'retire', tone: 'bad' }), 'OUT');
+  assert.equal(twistKicker({ phase: 'warning', consequence: 'delay', tone: 'bad' }), 'INCOMING');
 });
 
 test('the prop lands on the snail that wears the card: the lifted chaser on a boost, the held one on a twist', () => {
