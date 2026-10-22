@@ -238,6 +238,13 @@ export function startTrack(id: TrackId, opts: { intensity?: number; level?: numb
       level,
       voice: playSample(slot, { bus: 'music', loop: id !== 'winner', fadeIn: 0.4, gain: level }),
     };
+    /* A supplied winner recording plays once, then hands over to the lobby bed as the sequenced one does. */
+    const played = track;
+    if (id === 'winner' && played.voice) {
+      played.voice.src.onended = () => {
+        if (track === played) startTrack('lobby', { level: BED_LEVEL });
+      };
+    }
     return;
   }
 
