@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModeratorDesk } from './ModeratorDesk';
 import { useModeratorWindow } from '@/lib/use-moderator-window';
-import { useProjectorDisplay } from '@/lib/use-projector-display';
+import { useProjectorDisplay, useShowLease } from '@/lib/use-projector-display';
 import { Telecast } from './Telecast';
 import { Sidescroller } from './Sidescroller';
 import { WinnerOverlay } from './WinnerOverlay';
@@ -12,7 +12,7 @@ import { ControlDrawer } from './ControlDrawer';
 import { addAudit, audioPatch, currentState, hydrate, useEvent, setState } from '@/lib/event-store';
 import { commitmentOf, planHashOf, shortHash } from '@/lib/audit';
 import { recordRaceResult } from '@/lib/settlement';
-import { hostLineFor, nextShowPhase, showPhaseSpec } from '@/lib/show';
+import { advanceLabel, heldRaceLine, hostLineFor, interruptedRace, nextRaceNumber, nextShowPhase, raceHasRun, showPhaseSpec } from '@/lib/show';
 import { addRunOff, applyPurchases, cardRaceNames, cardRaceOwners, isRunOff, nextSnailsRace, raceForSnail, validSnailNo, releaseRefunded, snailOffsetForRace, snailsForRace, type SnailPurchase } from '@/lib/card';
 import { championField, raceSettings } from '@/lib/run-sheet';
 import { quaddieIsLive } from '@/lib/quaddie';
@@ -31,7 +31,7 @@ import { HAS_API, HAS_LIVE_API, withBasePath } from '@/lib/deployment';
 import { useCanSpeak } from '@/lib/use-can-speak';
 import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
-import { useRace } from '@/lib/use-race';
+import { useRace, type RaceController } from '@/lib/use-race';
 import { funChipPoolsFor } from '@/lib/tote';
 import { sponsorFor } from '@/lib/standings';
 import { money } from '@/lib/money';
@@ -57,6 +57,7 @@ import {
   dealtDeckCards,
   drawLockedRacePlan,
   freshSeed,
+  instantiateLockedRace,
   type DrawnRace,
 } from '@/lib/race-engine';
 
@@ -64,6 +65,18 @@ export function Stage() {
   const event = useEvent();
   const moderator = useModeratorWindow();
   const display = useProjectorDisplay(Boolean(moderator.target));
+  /*
+   * One tab runs the show. A second tab of the site in the same browser is
+   * a mirror: it follows the screens, shows a running race as in progress
+   * on the main screen, and carries no controls, so nobody can start a race
+   * that is already running on the projector.
+   */
+  const lease = useShowLease();
+  const mirror = lease.settled && !lease.holder;
+  const mirrorRef = useRef(mirror);
+  useEffect(() => {
+    mirrorRef.current = mirror;
+  }, [mirror]);
   const { open: openModeratorWindow } = moderator;
   const { toggleFullscreen } = display;
   const [holding, setHolding] = useState(false);
@@ -74,7 +87,7 @@ export function Stage() {
     setState({ cameraMode: full ? 'full' : 'telecast' });
   }, []);
   const [packControlsRoot, setPackControlsRoot] = useState<HTMLDivElement | null>(null);
-  const audienceOnly = Boolean(moderator.target) || display.fullscreen;
+  const audienceOnly = mirror || Boolean(moderator.target) || display.fullscreen;
   /* The audience view locks page scroll with a body class rather than body:has(), which restyled the page every frame. */
   useEffect(() => {
     document.body.classList.toggle('projector-audience-on', audienceOnly);
@@ -96,13 +109,21 @@ export function Stage() {
 
   useEffect(() => {
     hydrate();
-    const id = window.setTimeout(() => setClientReady(true), 0);
+    /* A reload on a result comes back on the result: the winner card goes up
+       over the official result, as it was when the page went. */
+    const saved = currentState();
+    const standing = saved.history.find((h) => !h.void && h.raceNo === saved.raceNumber);
+    const id = window.setTimeout(() => {
+      setClientReady(true);
+      if (saved.showPhase === 'results' && standing && !saved.heldRaceStart) setOverlayOpen(true);
+    }, 0);
     return () => window.clearTimeout(id);
   }, []);
 
+  /* A mirror is silent: the main screen already plays the room's sound. */
   useEffect(() => {
-    setSoundEnabled(event.sound);
-  }, [event.sound]);
+    setSoundEnabled(event.sound && !mirror);
+  }, [event.sound, mirror]);
 
   useEffect(() => {
     setMusicOn(event.music);
@@ -121,7 +142,8 @@ export function Stage() {
   }, []);
 
   const feed = useDonations(event.eventId);
-  const nextRaceNo = event.raceNumber + 1;
+  /* One past the latest race that stands: never a race already in the history. */
+  const nextRaceNo = useMemo(() => nextRaceNumber(event.raceNumber, event.history), [event.raceNumber, event.history]);
   /*
    * The field on the projector. While the show sits on a result the stage
    * still shows the race that just ran, so its names come from that race's
@@ -231,7 +253,8 @@ export function Stage() {
       .map((d) => ({ snailNo: d.snailNo!, snailName: d.snailName, owner: d.backerName, id: d.id }));
     /* A fully refunded purchase releases the slot it bought. */
     const refunded = feed.donations.filter((d) => d.void && d.snailNo && !locked(d.snailNo)).map((d) => d.id);
-    if (!purchases.length && !refunded.length) return;
+    /* The holder applies payments to the card; a mirror only reads it. */
+    if (mirror || (!purchases.length && !refunded.length)) return;
     const id = window.setTimeout(() => {
       /* Re-check inside the deferred callback: arming may have begun since. */
       if (armedRef.current) {
@@ -267,7 +290,7 @@ export function Stage() {
       });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [feed.donations, lockedRaceNo, preparingRace, heldRaceStart, nextRaceNo, event.card]);
+  }, [feed.donations, lockedRaceNo, preparingRace, heldRaceStart, nextRaceNo, event.card, mirror]);
 
   /** Set once Phone Play mounts; onFinish settles the room through it. */
   const phonePlayRef = useRef<((raceNo: number, results: RaceResult[]) => Promise<void>) | null>(
@@ -289,6 +312,13 @@ export function Stage() {
       const armed = armedRef.current;
       const raceNo = armed?.raceNo ?? nextRaceNo;
       const finishedAt = nowMs();
+
+      /* A mirror never settles: only the tab that holds the show records a result. */
+      if (mirrorRef.current) {
+        armedRef.current = null;
+        setHighlights(reel);
+        return;
+      }
 
       /*
        * One settlement path for every race source. `recordRaceResult` holds
@@ -358,26 +388,48 @@ export function Stage() {
 
   const race = useRace(onFinish);
 
-  /* Re-arm the exact durable plan after hydration or a storage event. The
-     engine itself is intentionally in-memory; only an idle controller needs
-     to enter retry mode, while an already running instance keeps its banner. */
+  /*
+   * Re-arm the exact durable plan after hydration. The engine itself is
+   * intentionally in-memory; only an idle controller needs to act, while an
+   * already running instance keeps its banner. The plan is judged from the
+   * wall clock: a race whose result already stood before the page came back
+   * is recorded from the plan, and one the room was watching restarts from
+   * the gate with a plain line. (The engine runs a plan from the off only;
+   * resuming it part way needs `startLocked` to take a race time offset.)
+   */
   useEffect(() => {
     const held = event.heldRaceStart;
-    if (!held || armedRef.current?.planHash === held.planHash) return;
+    if (!held || !lease.settled || mirror || armedRef.current?.planHash === held.planHash) return;
     armedRef.current = held;
     if (race.phase === 'idle' || race.phase === 'done' || race.phase === 'void') {
       const id = window.setTimeout(() => {
         if (armedRef.current?.planHash !== held.planHash) return;
+        const verdict = interruptedRace(held, nowMs());
+        if (verdict.kind === 'finished' && !event.phonePlay) {
+          const ordered = held.plan.results.slice().sort((a, b) => a.place - b.place);
+          addAudit({
+            kind: 'note',
+            raceNo: held.raceNo,
+            detail: `Race ${held.raceNo} finished while the projector page was away: its sealed result (plan ${shortHash(held.planHash)}…) is recorded from the plan.`,
+          });
+          onFinish(instantiateLockedRace(held.plan), ordered, []);
+          return;
+        }
         setPreparingRace(false);
         setHeldRaceStart(true);
-        setStartError(
-          'Recovered the exact held race plan. Selections stay closed; retry the same Phone Play lock without redrawing.',
-        );
+        setStartError(heldRaceLine(held.raceNo, verdict.kind, Boolean(event.phonePlay)));
         if (event.bettingOpen) setState({ bettingOpen: false });
       }, 0);
       return () => window.clearTimeout(id);
     }
-  }, [event.heldRaceStart, event.bettingOpen, race.phase]);
+  }, [event.heldRaceStart, event.bettingOpen, event.phonePlay, race.phase, lease.settled, mirror, onFinish]);
+
+  /* A race left on a mirror's screen clears with the main screen's next step. */
+  useEffect(() => {
+    if (!mirror || event.showPhase === 'race' || event.showPhase === 'results') return;
+    if (race.phase === 'idle') return;
+    race.reset();
+  }, [mirror, event.showPhase, race]);
 
   /*
    * Audio waits for the room to touch something.
@@ -455,7 +507,8 @@ export function Stage() {
     });
 
     const beginArmedRace = (armed: HeldRaceStartState) => {
-      const started: HeldRaceStartState = { ...armed, startedAt: nowMs() };
+      /* Strictly after the lock: a reload reads "started" from this. */
+      const started: HeldRaceStartState = { ...armed, startedAt: Math.max(nowMs(), armed.lockedAt + 1) };
       armedRef.current = started;
       /* Retain the complete plan through the local run. If the moderator tab
          reloads before its standing result is durable, it restarts this exact
@@ -550,6 +603,10 @@ export function Stage() {
       return;
     }
 
+    if (raceHasRun(nextRaceNo, event.history)) {
+      setStartError(`Race ${nextRaceNo} has already run. Press Next.`);
+      return;
+    }
     if (nextRaceNo > event.plannedRaces) {
       setStartError(`The card is complete: all ${event.plannedRaces} races have run.`);
       return;
@@ -667,6 +724,7 @@ export function Stage() {
     event.heldRaceStart,
     event.dealtCards,
     event.plannedRaces,
+    event.history,
   ]);
 
   /*
@@ -729,13 +787,13 @@ export function Stage() {
       setVoidingRace(false);
       setStartError(
         event.heldRaceStart
-          ? 'Recovered the exact held race plan. Selections stay closed; retry the same Phone Play lock without redrawing.'
+          ? heldRaceLine(event.heldRaceStart.raceNo, interruptedRace(event.heldRaceStart, nowMs()).kind, Boolean(event.phonePlay))
           : '',
       );
       if (event.heldRaceStart && event.bettingOpen) setState({ bettingOpen: false });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [event.eventId, event.heldRaceStart, event.bettingOpen, race]);
+  }, [event.eventId, event.heldRaceStart, event.bettingOpen, event.phonePlay, race]);
 
   const acknowledgeVoidAndRearm = useCallback(
     async (recovery: VoidRecoveryState): Promise<boolean> => {
@@ -963,7 +1021,7 @@ export function Stage() {
     /* An armed race only has meaning on the race screen; one left behind
        anywhere else is cleared rather than left to hold the show. */
     if (event.heldRaceStart) setState({ heldRaceStart: null });
-    const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces, quaddieLive });
+    const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces, quaddieLive, nextRaceNo });
     if (next === event.showPhase) return;
     if (event.showPhase === 'results') {
       /* The winner moment fades out over the next screen, which comes on at once beneath it. */
@@ -972,7 +1030,7 @@ export function Stage() {
       race.reset();
     }
     goToPhase(next);
-  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive, overlayOpen]);
+  }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, nextRaceNo, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive, overlayOpen]);
 
   const backShow = useCallback(() => {
     if (holding || preparingRace || heldRaceStart || voidingRace || voidRecovery || (event.eventMode === 'recorded' && event.packCurrent)) return;
@@ -986,6 +1044,22 @@ export function Stage() {
     const prev = back[event.showPhase];
     if (prev) goToPhase(prev);
   }, [event.showPhase, event.heldRaceStart, event.eventMode, event.packCurrent, goToPhase, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive]);
+
+  /*
+   * The run sheet shrunk to (or below) the races already run while a
+   * racecard or an idle gate is up: there is no race left to show, so the
+   * show goes to the thank you screen rather than offering a race that has
+   * already happened. Adding a race afterwards brings the racecard back.
+   */
+  useEffect(() => {
+    if (mirror || !lease.settled || holding) return;
+    if (event.showPhase !== 'racecard' && event.showPhase !== 'race') return;
+    if (event.heldRaceStart || preparingRace || heldRaceStart || voidingRace || voidRecovery || race.phase !== 'idle') return;
+    if (event.eventMode === 'recorded') return;
+    if (racesRun === 0 || nextRaceNo <= event.plannedRaces) return;
+    const id = window.setTimeout(() => goToPhase('finale'), 0);
+    return () => window.clearTimeout(id);
+  }, [mirror, lease.settled, holding, event.showPhase, event.heldRaceStart, event.eventMode, event.plannedRaces, preparingRace, heldRaceStart, voidingRace, voidRecovery, race.phase, racesRun, nextRaceNo, goToPhase]);
 
   /* A race taking the gate always lands the show in the race phase. */
   useEffect(() => {
@@ -1040,7 +1114,7 @@ export function Stage() {
     liveShowRef.current = liveShow;
   }, [liveShow]);
 
-  const phonePlay = usePhonePlay(HAS_LIVE_API ? liveShow : null);
+  const phonePlay = usePhonePlay(HAS_LIVE_API && !mirror ? liveShow : null);
   useEffect(() => {
     const active = HAS_LIVE_API && Boolean(phonePlay.session);
     phonePlayRef.current = active ? phonePlay.settle : null;
@@ -1167,6 +1241,7 @@ export function Stage() {
   }, [holding, overlayOpen, event.showPhase, backShow, race.phase]);
 
   const openModerator = useCallback(() => {
+    if (mirrorRef.current) return;
     setDrawerOpen(false);
     openModeratorWindow();
   }, [openModeratorWindow]);
@@ -1184,10 +1259,17 @@ export function Stage() {
       const target = e.target as HTMLElement | null;
       // Tag/selector checks work in both document realms; instanceof does not.
       if (target?.closest?.('input,select,textarea,[contenteditable="true"]')) return;
-      if (e.code === 'Space' && target?.closest?.('button,a')) return;
+      /* A focused button already acts on Space and Enter: do not advance as well. */
+      if ((e.code === 'Space' || k === 'enter') && target?.closest?.('button,a')) return;
+      /* A mirror has one key: F for fullscreen. The show is driven from the main screen. */
+      if (mirror) {
+        if (k === 'f' && e.currentTarget === window) void toggleFullscreen();
+        return;
+      }
       if (k === 'm') { e.preventDefault(); setDrawerOpen((open) => !open); return; }
       if (drawerOpen) return;
-      if (e.code === 'Space' || e.code === 'PageDown' || e.code === 'ArrowRight') {
+      /* Enter is what a presenter clicker sends: forward, like Space. */
+      if (e.code === 'Space' || e.code === 'PageDown' || e.code === 'ArrowRight' || k === 'enter') {
         e.preventDefault(); forwardAction();
       } else if (e.code === 'PageUp' || e.code === 'ArrowLeft') {
         e.preventDefault(); backAction();
@@ -1197,7 +1279,8 @@ export function Stage() {
         const order: AudioMode[] = ['music', 'commentary', 'both', 'off'];
         setState(audioPatch(order[(order.indexOf(event.audioMode) + 1) % order.length]));
       }
-      else if (k === 'v') setCameraFull(!(fullCourse || event.cameraMode === 'full'));
+      /* The camera is a race-screen choice: V does nothing on the welcome or the racecard. */
+      else if (k === 'v') { if (event.showPhase === 'race') setCameraFull(!(fullCourse || event.cameraMode === 'full')); }
       else if (k === 'd') openModerator();
       else if (k === 'f' && e.currentTarget === window) void toggleFullscreen();
     };
@@ -1208,7 +1291,7 @@ export function Stage() {
       try { moderator.target?.window.removeEventListener('keydown', onKey); }
       catch { /* A desk navigated to another origin no longer exposes its listeners. */ }
     };
-  }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.audioMode, event.cameraMode, fullCourse, setCameraFull, openModerator]);
+  }, [drawerOpen, overlayOpen, forwardAction, backAction, moderator.target, toggleFullscreen, event.calm, event.audioMode, event.cameraMode, event.showPhase, fullCourse, setCameraFull, openModerator, mirror]);
 
   /* ── The snail link ──────────────────────────────────────────────────── */
 
@@ -1220,7 +1303,7 @@ export function Stage() {
    * when the price changes; a pasted link is never replaced by the stage.
    */
   useEffect(() => {
-    if (!event.eventId || !HAS_API) return;
+    if (!event.eventId || !HAS_API || mirror) return;
     let cancel = false;
     void (async () => {
       try {
@@ -1246,9 +1329,38 @@ export function Stage() {
     return () => {
       cancel = true;
     };
-  }, [event.eventId, event.card.snailCents, event.card.snailCount]);
+  }, [event.eventId, event.card.snailCents, event.card.snailCount, mirror]);
 
   const snailLinkUrl = event.card.paymentLinkUrl;
+
+  /*
+   * The result screen is rebuilt from the history whenever the show sits on
+   * a result with the engine idle: after a reload, after Back from the thank
+   * you screen, or on a mirror. The stage then draws the official result and
+   * the desk reads the winner, not "Ready to race".
+   */
+  const restoredEntry = useMemo(() => {
+    if (event.showPhase !== 'results' || race.phase !== 'idle' || event.heldRaceStart) return null;
+    const entry = event.history.find((h) => !h.void && h.raceNo === event.raceNumber);
+    return entry && entry.results.length ? entry : null;
+  }, [event.showPhase, event.history, event.raceNumber, event.heldRaceStart, race.phase]);
+  const shownRace = useMemo<RaceController>(() => {
+    if (!restoredEntry) return race;
+    const results = restoredEntry.results.slice().sort((a, b) => a.place - b.place);
+    const winner = results.find((r) => r.place === 1);
+    return {
+      ...race,
+      phase: 'done',
+      status: winner ? `${winner.name} wins!` : 'Race over',
+      commentary: '',
+      countdown: '',
+      seedHex: restoredEntry.seedHex,
+      photoFinish: restoredEntry.photoFinish,
+      results,
+      laps: restoredEntry.laps ?? 1,
+      moment: null,
+    };
+  }, [race, restoredEntry]);
 
   const voidable = race.phase === 'running' || race.phase === 'countdown';
   const racing = (event.eventMode === 'recorded' && event.packCurrent !== null) || preparingRace || heldRaceStart || event.heldRaceStart !== null || voidingRace || voidRecovery !== null || voidable || race.phase === 'confirming';
@@ -1259,7 +1371,20 @@ export function Stage() {
    * moderator reads between races gets out of the way. Measured on a 1080p
    * screen the course went from under half of it to nearly all of it.
    */
-  const cinema = audienceOnly || voidable || race.phase === 'confirming' || race.phase === 'done';
+  const cinema = audienceOnly || voidable || race.phase === 'confirming' || shownRace.phase === 'done';
+  const showControlsVisible = !audienceOnly && event.showPhase !== 'race' && event.showPhase !== 'results';
+  const showCtx = { racesRun, plannedRaces: event.plannedRaces, quaddieLive, nextRaceNo };
+  const nightDone = event.showPhase === 'finale';
+  /* The desk's or the display's one-line notice: in the control band when one is showing, else in the corner. */
+  const noticeText = display.error || moderator.notice;
+  const notice = noticeText ? <p className="projector-note" role="status">{noticeText}</p> : null;
+  /*
+   * A mirror never runs the engine: a second copy of the race in a hidden or
+   * throttled tab would finish early and show the result before the main
+   * screen does. While the main screen races, the mirror says so; the
+   * official result appears here when it stands.
+   */
+  const mirrorRacing = mirror && event.showPhase === 'race' && event.heldRaceStart !== null && event.heldRaceStart.startedAt > event.heldRaceStart.lockedAt;
 
   /* The same two buttons on every operator screen: open the desk, go fullscreen. */
   const deskButton = (
@@ -1302,14 +1427,26 @@ export function Stage() {
       {/* With the desk connected the projector carries no operator controls:
           the desk has them all. Fullscreen without a desk keeps a corner that
           fades until hovered. */}
-      {!moderator.target && (display.fullscreen || holding) ? (
+      {mirror ? (
+        <div className="projector-tools projector-mirror no-print" role="toolbar" aria-label="Projector display">
+          <span className="projector-mirror-badge">Mirror of the main screen</span>
+          {fullscreenButton}
+        </div>
+      ) : !moderator.target && (display.fullscreen || holding) ? (
         <div className="projector-tools no-print" role="toolbar" aria-label="Projector display">
           {display.fullscreen ? fullscreenButton : null}
           {holding ? <button type="button" className="btn btn-go" onClick={() => setHolding(false)}>Resume show</button> : null}
         </div>
       ) : null}
-      {display.error || moderator.notice ? (
-        <p className="projector-notice no-print" role="status">{display.error || moderator.notice}</p>
+      {noticeText && audienceOnly ? (
+        <p className="projector-notice no-print" role="status">{noticeText}</p>
+      ) : null}
+      {mirrorRacing ? (
+        <div className="mirror-card" role="status">
+          <span className="mirror-card-kicker">Race {event.heldRaceStart?.raceNo}</span>
+          <strong>Race in progress on the main screen</strong>
+          <span>The result shows here when it stands.</span>
+        </div>
       ) : null}
 
       <div
@@ -1331,7 +1468,7 @@ export function Stage() {
                 <Telecast
                   names={names}
                   owners={owners}
-                  race={race}
+                  race={shownRace}
                   surface={event.stageTheme}
                   laps={shownLaps}
                   cameraMode={event.cameraMode}
@@ -1353,7 +1490,7 @@ export function Stage() {
               <Sidescroller
                 names={names}
                 owners={owners}
-                race={race}
+                race={shownRace}
                 calm={event.calm}
                 clubName={event.clubName}
                 raceNo={shownRaceNo}
@@ -1383,22 +1520,22 @@ export function Stage() {
                           ? 'preparing'
                           : heldRaceStart
                             ? 'held'
-                            : race.phase
+                            : shownRace.phase
                     }
                   />
                   <p className="text-lg font-semibold">
-                    {preparingRace ? 'Locking the complete race plan…' : startError || race.status}
+                    {preparingRace ? 'Locking the complete race plan…' : startError || shownRace.status}
                   </p>
-                  {race.seedHex ? (
+                  {shownRace.seedHex ? (
                     <span
                       className="num text-[11px] text-(--tx)/35"
                       title="The seed the finishing order was drawn from, printed before the snails moved."
                     >
-                      seed {race.seedHex}
+                      seed {shownRace.seedHex}
                     </span>
                   ) : null}
                 </div>
-
+                {event.showPhase === 'race' || event.showPhase === 'results' ? notice : null}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -1411,7 +1548,7 @@ export function Stage() {
                        over the course; the keyboard still works unfocused. */
                     e.currentTarget.blur();
                     if (voidRecovery) void retryVoidRecovery();
-                    else if (race.phase === 'done') forwardAction();
+                    else if (shownRace.phase === 'done') forwardAction();
                     else void startRace();
                   }}
                   disabled={startDisabled}
@@ -1423,8 +1560,8 @@ export function Stage() {
                       : preparingRace
                     ? 'Locking…'
                     : heldRaceStart
-                      ? 'Retry lock'
-                    : race.phase === 'done'
+                      ? event.phonePlay ? 'Retry lock' : 'Start race'
+                    : shownRace.phase === 'done'
                       ? 'Next'
                       : race.phase === 'void'
                         ? 'Re-run race'
@@ -1476,13 +1613,14 @@ export function Stage() {
         nextRaceNo={nextRaceNo}
         sponsor={sponsor}
         snailLinkUrl={snailLinkUrl}
-        controlsVisible={!audienceOnly && event.showPhase !== 'race'}
+        controlsVisible={showControlsVisible}
         holding={holding}
         beneathWinner={winnerHandoff}
       />
 
-      {!audienceOnly && event.showPhase !== 'race' ? (
+      {showControlsVisible ? (
         <div className="show-controls no-print" role="toolbar" aria-label="Show controls">
+          {notice}
           <button type="button" className="btn btn-ghost" disabled={!clientReady} onClick={backAction}>
             Back <kbd>PgUp</kbd>
           </button>
@@ -1498,9 +1636,13 @@ export function Stage() {
           >
             Admin <kbd>M</kbd>
           </button>
-          <button type="button" className={`btn btn-go`} disabled={!clientReady} onClick={forwardAction}>
-            {showPhaseSpec(event.showPhase).advance} <kbd>Space</kbd>
-          </button>
+          {nightDone ? (
+            <span className="show-done" role="status">Night complete</span>
+          ) : (
+            <button type="button" className={`btn btn-go`} disabled={!clientReady} onClick={forwardAction}>
+              {advanceLabel(event.showPhase, showCtx)} <kbd>Space</kbd>
+            </button>
+          )}
         </div>
       ) : null}
 
@@ -1561,13 +1703,13 @@ export function Stage() {
       {moderator.target ? createPortal(
         <ModeratorDesk
           packControlsRef={setPackControlsRoot}
-          event={event} race={race} courseName={activeCourse.name}
+          event={event} race={shownRace} courseName={activeCourse.name}
           onAddRace={addRaceAfterCard}
 
           raceNo={shownRaceNo} nextRaceNo={nextRaceNo}
           fullscreen={display.fullscreen} wakeLock={display.wakeLock} audio={audio}
           holding={holding} fullCourse={fullCourse || event.cameraMode === 'full'} locked={racing || event.eventMode === 'recorded' && event.packCurrent !== null}
-          primaryLabel={event.showPhase !== 'race' ? showPhaseSpec(event.showPhase).advance : voidRecovery ? 'Retry void/rearm' : heldRaceStart ? 'Retry lock' : startDisabled ? race.phase === 'running' ? 'Race in progress' : 'Preparing race' : 'Start race'}
+          primaryLabel={event.showPhase !== 'race' ? advanceLabel(event.showPhase, showCtx) : voidRecovery ? 'Retry void/rearm' : heldRaceStart ? event.phonePlay ? 'Retry lock' : 'Start race' : startDisabled ? race.phase === 'running' ? 'Race in progress' : 'Preparing race' : 'Start race'}
           primaryDisabled={!clientReady || (event.showPhase === 'race' ? startDisabled || event.eventMode === 'recorded' : racing || event.showPhase === 'finale')}
           canBack={!racing && ['racecard', 'race', 'finale'].includes(event.showPhase)}
           startError={startError} winnerOpen={overlayOpen}
