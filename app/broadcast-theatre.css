@@ -342,3 +342,154 @@
 .show-slogan { font-size: clamp(1rem, 1.4vw, 1.3rem); font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: rgb(247 243 232 / 0.85); }
 .show-poster { overflow: hidden; border-radius: 4px; border: 1px solid rgb(255 255 255 / 0.16); box-shadow: 0 18px 44px rgb(0 0 0 / 0.28); }
 .show-poster img { display: block; width: 100%; height: auto; max-height: 46vh; object-fit: cover; object-position: top; }
+
+/* ── The projector with no desk open ──────────────────────────────────────
+   The projector's own control bar sits in a band below the broadcast frame,
+   never over the course or the result, exactly as the show screens leave
+   room for the volunteer's bar. The frame is sized to the height left above
+   the band, so the picture keeps its 16:9 units. With the desk open the bar
+   is gone and the frame takes the whole screen, as before. */
+/* On a phone the controls sit at the foot of the page, in the flow, so they never cover the race. */
+@media (max-width: 899px) {
+  .cinema .stage-bar { position: static; width: auto; translate: none; opacity: 1; padding: 1rem; background: transparent; }
+}
+.stage-void { color: var(--bad); }
+
+/* A projector screen, not a phone held in portrait. */
+@media (min-width: 900px) {
+  .cinema:not(.projector-audience) { --bar-h: 84px; }
+  /* The outer frame only: the course's own layers keep their 100% boxes inside it. */
+  .cinema:not(.projector-audience) .stage-track > .track-wrap { height: calc(100dvh - var(--bar-h)); }
+  .cinema:not(.projector-audience) .stage-track > .track-wrap > svg.tv { height: 100%; }
+  .cinema:not(.projector-audience) .race-broadcast,
+  .cinema:not(.projector-audience) .race-broadcast .side-broadcast,
+  .cinema:not(.projector-audience) .race-broadcast.side-broadcast,
+  .cinema:not(.projector-audience) .race-broadcast .side-splash { --u: min(1vw, calc((100dvh - var(--bar-h)) / 56.25)); }
+  .cinema:not(.projector-audience) .stage-bar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: var(--bar-h);
+    translate: none;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    padding: 0 1.5rem;
+    background: var(--broadcast-ink);
+    border-top: 1px solid rgb(255 255 255 / 0.16);
+    opacity: 1;
+    pointer-events: auto;
+    overflow: hidden;
+    transition: none;
+  }
+  .cinema:not(.projector-audience) .stage-bar > .min-w-0 { flex: 1 1 auto; min-width: 0; }
+  .cinema:not(.projector-audience) .stage-bar > .min-w-0 > div { flex-wrap: nowrap; min-width: 0; }
+  .cinema:not(.projector-audience) .stage-bar .text-lg {
+    font-size: 1rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-shadow: none;
+  }
+  .cinema:not(.projector-audience) .stage-bar .state-banner { flex: none; }
+  .cinema:not(.projector-audience) .stage-bar > .flex { flex: none; flex-wrap: nowrap; }
+  .cinema:not(.projector-audience) .stage-bar .btn { white-space: nowrap; }
+  .cinema:not(.projector-audience) .stage-bar .btn-ghost {
+    color: var(--broadcast-type);
+    border: 1px solid rgb(255 255 255 / 0.3);
+    background: rgb(255 255 255 / 0.06);
+  }
+  .cinema:not(.projector-audience) .stage-bar .btn-ghost:disabled { opacity: 0.45; }
+  .cinema:not(.projector-audience) .stage-bar kbd { color: var(--broadcast-type); }
+  .cinema:not(.projector-audience) .stage-bar .text-\(--tx\)\/35 { color: rgb(247 243 232 / 0.55); }
+    .cinema:not(.projector-audience) .stage-bar .stage-void { color: #ff9d94; border-color: rgb(255 157 148 / 0.5); }
+}
+
+/* A one-line notice (the desk closed, fullscreen refused) rides in the control band, under the strap. */
+.projector-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: 3px;
+  border: 1px solid rgb(232 181 94 / 0.5);
+  background: rgb(232 181 94 / 0.12);
+  color: var(--broadcast-type);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+.stage-bar .projector-note { max-width: 32ch; }
+.show-controls .projector-note { max-width: 26ch; }
+
+/* The end of the night is a done state, not a button that does nothing. */
+.show-done {
+  padding: 0.55rem 1rem;
+  border-radius: 3px;
+  border: 1px solid rgb(232 181 94 / 0.6);
+  color: var(--ndcc-gold);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* A second tab of the site mirrors the main screen: a quiet badge and fullscreen only. */
+.projector-tools.projector-mirror,
+.cinema .projector-tools.projector-mirror,
+.projector-fullscreen .projector-tools.projector-mirror { opacity: 1; }
+.projector-mirror-badge {
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ndcc-gold);
+}
+.mirror-card {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 70;
+  translate: -50% -50%;
+  display: grid;
+  gap: calc(var(--u) * 0.6);
+  max-width: calc(var(--u) * 70);
+  padding: calc(var(--u) * 2.4) calc(var(--u) * 4);
+  border-radius: calc(var(--u) * 0.6);
+  border: calc(var(--u) * 0.15) solid rgb(255 255 255 / 0.2);
+  border-left: calc(var(--u) * 0.6) solid var(--ndcc-gold);
+  background: rgb(7 17 30 / 0.96);
+  color: var(--broadcast-type);
+  text-align: center;
+  box-shadow: 0 calc(var(--u) * 1.5) calc(var(--u) * 4) rgb(0 0 0 / 0.4);
+  animation: ss-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.mirror-card-kicker { font-size: calc(var(--u) * 1.6); font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ndcc-gold); }
+.mirror-card strong { font-size: calc(var(--u) * 3.4); font-weight: 800; line-height: 1.1; }
+.mirror-card span:last-child { font-size: calc(var(--u) * 1.8); color: rgb(247 243 232 / 0.8); }
+
+/* Desk states that belong to the run of show rather than the desk's chrome. */
+.desk-done {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 5px;
+  border: 1px solid rgb(232 181 94 / 0.6);
+  color: var(--ndcc-gold);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.desk-orphan { margin: 40px auto; max-width: 48ch; font-size: 16px; line-height: 1.4; text-align: center; color: #d6e0ec; }
+
+/* On a narrow window the band keeps one row: the status shortens and the buttons scroll sideways. */
+@media (max-width: 700px) {
+  .cinema:not(.projector-audience) { --bar-h: 64px; }
+  .cinema:not(.projector-audience) .stage-bar { gap: 0.5rem; padding: 0 0.5rem; }
+  .cinema:not(.projector-audience) .stage-bar > .min-w-0 { flex: 0 1 30%; }
+  .cinema:not(.projector-audience) .stage-bar > .flex { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+  .cinema:not(.projector-audience) .stage-bar .projector-note { display: none; }
+}

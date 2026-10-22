@@ -18,6 +18,14 @@ export interface SayOptions {
    */
   preempt?: boolean;
   twist?: boolean;
+  /**
+   * Where the line sits in the caller's order of importance, `CALL_RANK` in
+   * `use-race`: 0 is a change of lead, 2 a twist's own line, 3 and above the
+   * minor calls (laps, sectors, fillers). A queued minor call is dropped when
+   * a more important one lands, and a line on air that is minor is cut by one
+   * that may pre-empt.
+   */
+  rank?: number;
 }
 
 /**
@@ -34,6 +42,20 @@ export const CLIP_FADE_MS = 300;
 export const FINISH_WAIT_MS = 1_500;
 /** Duck length used until the clip reports its own. */
 const CLIP_DUCK_FALLBACK_S = 3;
+/**
+ * The queue holds one line, and only for this long. A caption goes on the
+ * strap the moment its line is offered; if the line on air has not finished
+ * by then the room has read the strap and the voice would be answering a
+ * caption that has moved on (the audit heard a retirement 2.7 s late).
+ */
+export const QUEUE_MAX_WAIT_MS = 800;
+/** The breath between a line ending and the queued one starting. */
+export const QUEUE_GAP_MS = 250;
+/** Ranks from here up are minor calls: a lead change or a twist may cut them. */
+export const MINOR_RANK = 3;
+/** A line offered without a rank: ordinary when big, minor when not. */
+const rankOf = (priority: CallPriority, opts: SayOptions): number =>
+  opts.rank ?? (priority === 'big' ? MINOR_RANK - 1 : MINOR_RANK + 3);
 
 let enabled = false;
 let voice: SpeechSynthesisVoice | null = null;
@@ -42,9 +64,10 @@ let loaded = false;
 let generation = 0;
 let speaking = false;
 let audio: HTMLAudioElement | null = null;
-let current: { priority: CallPriority; startedAt: number } | null = null;
+/** The line on air, or the one about to go on air after a fade. */
+let current: { priority: CallPriority; rank: number; startedAt: number } | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
-let pending: { text: string; priority: CallPriority; cue?: RecordedCue; at: number; opts: SayOptions } | null = null;
+let pending: { text: string; priority: CallPriority; cue?: RecordedCue; at: number; opts: SayOptions; rank: number } | null = null;
 /** A winner call waiting for the run-home call to finish its sentence. */
 let afterCurrent: { text: string; cue?: RecordedCue } | null = null;
 let lastEndedAt = -Infinity;
@@ -173,7 +196,7 @@ export function pickTake(
 function speak(text: string, priority: CallPriority, cue?: RecordedCue, opts: SayOptions = {}): boolean {
   const token = ++generation;
   speaking = true;
-  current = { priority, startedAt: Date.now() };
+  current = { priority, rank: rankOf(priority, opts), startedAt: Date.now() };
   const complete = () => {
     if (token !== generation) return;
     clearTimeout(timer);
@@ -189,13 +212,16 @@ function speak(text: string, priority: CallPriority, cue?: RecordedCue, opts: Sa
       speak(waiting.text, 'finish', waiting.cue);
       return;
     }
+    /* The queued line is said only while its caption is still fresh. */
     const next = pending;
     pending = null;
-    if (next && Date.now() - next.at < 3500) {
+    if (next && Date.now() - next.at <= QUEUE_MAX_WAIT_MS) {
+      current = { priority: next.priority, rank: next.rank, startedAt: Date.now() };
       timer = setTimeout(() => {
         timer = undefined;
+        current = null;
         if (token === generation && enabled) speak(next.text, next.priority, next.cue, next.opts);
-      }, 350);
+      }, QUEUE_GAP_MS);
     }
   };
   try {
@@ -255,11 +281,31 @@ function speak(text: string, priority: CallPriority, cue?: RecordedCue, opts: Sa
   } catch { complete(); return false; }
 }
 
+/** Fade the line on air and say this one once it is gone. */
+function cutIn(text: string, priority: CallPriority, cue?: RecordedCue, opts: SayOptions = {}): void {
+  stopCurrent();
+  const token = generation;
+  current = { priority, rank: rankOf(priority, opts), startedAt: Date.now() };
+  timer = setTimeout(() => {
+    timer = undefined;
+    current = null;
+    if (token === generation && enabled) speak(text, priority, cue, opts);
+  }, CLIP_FADE_MS);
+}
+
 /**
- * One active line and at most one fresh priority call, never a speech
+ * One line on air and at most one fresh line queued, never a speech
  * backlog. The finish is never cut off and never cuts anyone off mid-word:
  * it waits for a big call that is nearly done, or fades the line on air
  * over 300 ms and then speaks.
+ *
+ * Everything else is ranked. A twist's line cuts whatever minor or ordinary
+ * line is on air (its card is already up); a lead change or any other
+ * pre-empting call cuts a minor line. A line that cannot cut in is queued
+ * only if nothing more important is already waiting, and the queue is one
+ * line deep: a lesser call landing on a queued bigger one is dropped, a
+ * bigger one replaces it. A queued line is said only while its caption is
+ * still fresh, `QUEUE_MAX_WAIT_MS`.
  */
 export function say(text: string, priority: CallPriority = 'call', cue?: RecordedCue, opts: SayOptions = {}): boolean {
   if (!enabled || !voiceAvailable() || !text.trim()) return false;
@@ -270,29 +316,25 @@ export function say(text: string, priority: CallPriority = 'call', cue?: Recorde
       afterCurrent = { text, cue };
       return true;
     }
-    if (speaking) {
-      stopCurrent();
-      const token = generation;
-      timer = setTimeout(() => {
-        timer = undefined;
-        if (token === generation && enabled) speak(text, 'finish', cue);
-      }, CLIP_FADE_MS);
+    if (speaking || timer) {
+      cutIn(text, 'finish', cue);
       return true;
     }
     return speak(text, priority, cue);
   }
   if (afterCurrent) return false;
-  if (speaking || timer) {
-    if (priority === 'big' && opts.preempt && speaking && current?.priority === 'call') {
-      stopCurrent();
-      const token = generation;
-      timer = setTimeout(() => {
-        timer = undefined;
-        if (token === generation && enabled) speak(text, priority, cue, opts);
-      }, CLIP_FADE_MS);
+  const rank = rankOf(priority, opts);
+  if (current) {
+    /* The race is over once the winner is being called: nothing else is said. */
+    if (current.priority === 'finish') return false;
+    const canCut = priority === 'big' && Boolean(opts.preempt) && (Boolean(opts.twist) || current.rank >= MINOR_RANK);
+    if (canCut) {
+      cutIn(text, priority, cue, opts);
       return true;
     }
-    if (priority === 'big') pending = { text, priority, cue, at: Date.now(), opts };
+    if (priority === 'big' && (!pending || rank <= pending.rank)) {
+      pending = { text, priority, cue, at: Date.now(), opts, rank };
+    }
     return false;
   }
   if (priority === 'call' && Date.now() - lastEndedAt < 1500) return false;

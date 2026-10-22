@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ClubBrand } from './brand/ClubBrand';
-import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { runnerLookAt, type RunnerLook } from '@/lib/presentation/runner-art';
 import { courseById, type CourseId } from '@/lib/courses';
 import { courseGeometry, kerbRuns, marksAlong, pointOnLane, type CoursePoint } from '@/lib/course-geometry';
 import { BroadcastHud } from './race-broadcast/BroadcastHud';
@@ -23,9 +23,11 @@ import {
   fitBox,
   frameClockMs,
   grow,
+  holdSpan,
   smoothDamp,
   packShot,
   spanFor,
+  toScreen,
   type Box,
   type Rect,
   type ShotKind,
@@ -39,7 +41,7 @@ import {
   type StagedTwist,
   type StoryWindow,
 } from './race-broadcast/twist-staging';
-import { lapsDown, lapsDownText, placeTag, snailNumber } from './race-broadcast/standings-format';
+import { fieldSpread, gateStagger, lapsDown, lapsDownText, placeTag, snailNumber } from './race-broadcast/standings-format';
 
 interface Props {
   names: string[];
@@ -80,34 +82,43 @@ export const LEAD_PACK = 4;
  * where the course pane is.
  */
 export const CIRCUIT_LAYOUT = {
-  /** Course pane top: under the title bar and the commentary strap. */
-  sceneTop: 11.4,
+  /** The band between the commentary strap and the course pane that the twist card owns. */
+  cardBand: 6.2,
+  /** Course pane top: under the title bar, the commentary strap and the card band. */
+  sceneTop: 17.6,
   gap: 0.8,
   /** The timing tower while racing, and the field board at the gate. */
   tower: 30,
   board: 46,
-  /** The band across the top of the pane that the twist card owns. */
-  cardBand: 7.6,
-  /** The whole-course mini-map, bottom left of the pane. */
-  mapW: 17,
-  mapH: 10.6,
+  /** The whole-course mini-map, in the standings column under the tower. */
+  mapW: 30,
+  mapH: 9.6,
   /** The result bar at the foot of the pane. */
   resultH: 15,
   /** A runner's number badge radius. */
   badge: 1.3,
 } as const;
 
+/**
+ * The lead pack widens to the whole course once the placegetters span this
+ * share of the course, and comes back to the pack once they are within the
+ * lower share again, so a group on the edge never pumps the zoom.
+ */
+const FIELD_WIDE_AT = 0.72;
+const FIELD_TIGHT_AT = 0.58;
+
+
 /** Half the side of each runner's own layer, in course units. */
 const CHIP = 70;
 const PROP_CHIP = 60;
 /** Snail length, nose to tail, in course units. */
 const SNAIL_LEN = 38;
+/** The gap, in course units, between the leader and the second that counts as the field having spread. */
+const SPREAD_GAP = SNAIL_LEN * 2;
 const SPRITE_W = SNAIL_LEN * 1.1;
 const SPRITE_H = SPRITE_W / 1.45;
 /** Raster levels for the painted course: the layer is drawn at this multiple of the pane. */
 const RASTERS = [1, 1.5, 2, 2.5, 3, 4];
-/** Design size of the badge artwork: radius 12 drawn at `badge` u on screen. */
-const BADGE_DESIGN_R = 12;
 
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
@@ -126,20 +137,28 @@ const setText = (el: Element | null | undefined, text: string) => {
   if (el && el.textContent !== text) el.textContent = text;
 };
 
+/**
+ * One runner's parts. The chip rides in the camera's painted world and only
+ * ever moves by a transform; the art inside it turns with the lane by a
+ * transform of its own; the label (number and place tag) lives in screen
+ * space over the course, so it is a constant size and never scales with the
+ * zoom. Nothing here is laid out from one frame to the next.
+ */
 interface RunnerNodes {
-  chip: SVGSVGElement;
-  node: SVGGElement;
-  art: SVGGElement | null;
-  badge: SVGGElement | null;
-  tag: SVGGElement | null;
-  tagBox: SVGRectElement | null;
-  tagText: SVGTextElement | null;
+  chip: HTMLDivElement;
+  node: HTMLDivElement;
+  art: HTMLDivElement;
+  label: HTMLDivElement | null;
+  tag: HTMLSpanElement | null;
 }
 
 interface Metrics {
   /** Course pane size in CSS pixels. */
   sw: number;
   sh: number;
+  /** The mini-map's own size in CSS pixels. */
+  mw: number;
+  mh: number;
   /** One projector unit in pixels. */
   u: number;
   /** Raster multiple of the camera layer. */
@@ -188,12 +207,13 @@ export function Telecast({
   const runnerLayerRef = useRef<HTMLDivElement>(null);
   const propChipRef = useRef<SVGSVGElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<SVGSVGElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
   const mapViewRef = useRef<SVGRectElement>(null);
-  const mapDotsRef = useRef(new Map<number, SVGCircleElement>());
+  const mapDotsRef = useRef(new Map<number, HTMLSpanElement>());
+  const labelsRef = useRef<HTMLDivElement>(null);
   const runnersRef = useRef(new Map<number, RunnerNodes>());
   const writtenRef = useRef(new Map<string, string>());
-  const metricsRef = useRef<Metrics>({ sw: 0, sh: 0, u: 0, r: 1, m: 0, ox: 0, oy: 0, m0: 0 });
+  const metricsRef = useRef<Metrics>({ sw: 0, sh: 0, mw: 0, mh: 0, u: 0, r: 1, m: 0, ox: 0, oy: 0, m0: 0 });
   const rigRef = useRef<CameraRig | null>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
   const lapRef = useRef<HTMLSpanElement>(null);
@@ -215,6 +235,12 @@ export function Telecast({
   const propAheadRef = useRef({ value: 90, at: 0 });
   /** How much the runner art is enlarged in a wide shot, so a snail is never a speck. */
   const artScaleRef = useRef(1);
+  /** Whether the lead-pack shot has widened to the whole course because the placegetters span most of it. */
+  const fieldWideRef = useRef(false);
+  /** Each runner's last written edge fade, so the style is only touched when it changes. */
+  const fadeRef = useRef(new Map<number, string>());
+  /** Whether the field has spread on race time, for the tower's gaps. */
+  const spreadRef = useRef(false);
   /* The frame the camera composes in, eased between the gate's and the race's. */
   const vpRef = useRef<{ rect: Rect | null; v: { x: { v: number }; y: { v: number }; w: { v: number }; h: { v: number } }; at: number }>({ rect: null, v: { x: { v: 0 }, y: { v: 0 }, w: { v: 0 }, h: { v: 0 } }, at: 0 });
   /* When the race loop last drew a frame, on the frame clock. */
@@ -322,12 +348,11 @@ export function Telecast({
 
     const viewports = () => {
       const { sw, sh, u } = metricsRef.current;
-      const band = L.cardBand * u;
-      const race: Rect = { x: 0, y: band, w: Math.max(50, sw - (L.tower + L.gap) * u), h: Math.max(50, sh - band) };
+      /* The twist card sits in its own band above the pane, so the whole pane is the race's. */
+      const race: Rect = { x: 0, y: 0, w: Math.max(50, sw - (L.tower + L.gap) * u), h: Math.max(50, sh) };
       const gate: Rect = { x: 0, y: u, w: Math.max(50, sw - (L.board + L.gap) * u), h: Math.max(50, sh - 2 * u) };
       const hold: Rect = { ...race, h: Math.max(50, race.h - L.resultH * u) };
-      const map: Rect = { x: 0, y: sh - L.mapH * u, w: L.mapW * u, h: L.mapH * u };
-      return { race, gate, hold, map };
+      return { race, gate, hold };
     };
 
     const render = (now: number) => {
@@ -344,12 +369,22 @@ export function Telecast({
       const progressOf: number[] = [];
       for (let lane = 0; lane < count; lane++) progressOf[lane] = 0;
       if (snap) for (const s of snap.snails) if (s.lane < count) progressOf[s.lane] = s.p;
-      for (let lane = 0; lane < count; lane++) pts[lane] = pointOnLane(geometry.lanes[lane], lapProgress(progressOf[lane], laps));
+      /* At the gate the field fans back across the lanes; the fan eases out over the first strides. */
+      const raceTimeMs = snap?.info.raceTimeMs ?? 0;
+      for (let lane = 0; lane < count; lane++) {
+        const laneGeo = geometry.lanes[lane];
+        pts[lane] = pointOnLane(laneGeo, lapProgress(progressOf[lane], laps) - gateStagger(lane, raceTimeMs) / laneGeo.length);
+      }
       const ranked = snap?.info.ranked.length ? snap.info.ranked.map((s) => s.lane).filter((l) => l < count) : Array.from({ length: count }, (_, i) => i);
       const leader = ranked[0] ?? 0;
       const leadP = snap?.info.leadP ?? 0;
       const racing = phase === 'running';
       const final = phase === 'confirming' || phase === 'done';
+      /* Place badges wait for the field to spread: about 3 s, or the leader a clear two lengths ahead. */
+      const second = ranked[1];
+      const leadGap = second === undefined ? Infinity : (progressOf[leader] - progressOf[second]) * laps * geometry.lanes[leader].length;
+      const spread = racing && fieldSpread(raceTimeMs, leadGap, SPREAD_GAP);
+      spreadRef.current = spread;
 
       /* Laps: the counter, the wipe on every new lap, and who has been lapped. */
       if (laps > 1 && snap && (racing || final)) {
@@ -368,6 +403,11 @@ export function Telecast({
             void wipe.offsetWidth;
             wipe.classList.add('run');
           }
+        }
+        /* Past the line the chip reads the finished state, never FINAL LAP. */
+        if (final) {
+          setText(lapLabelRef.current, 'FINISHED');
+          cls(lapBoxRef.current, 'is-final', true);
         }
       }
       const down = new Map<number, number>();
@@ -433,6 +473,7 @@ export function Telecast({
       if (!snap || phase === 'idle' || phase === 'countdown') {
         kind = 'gate';
         finishLatchRef.current = false;
+        fieldWideRef.current = false;
       } else if (final) kind = 'hold';
       else if (courseViewRef.current || phase === 'void') kind = 'full';
       else {
@@ -467,16 +508,24 @@ export function Telecast({
       const packSpan = Math.max(340, Math.min(courseSpan * 0.6, 640));
       /* A twist far from the leader gets the shot to itself while it plays. */
       const twistAlone = twistPts !== undefined && spanFor(grow(boxOf([...twistPts, pts[leader]]), 60), vp) > packSpan;
+      /* The placegetters: the leader and the next two, who are always in the shot. */
+      const placegetters = ranked.slice(0, 3).map((l) => pts[l]);
       if (kind === 'gate' || kind === 'full') target = fitBox(grow(furniture.box, 20), vp);
       else if (kind === 'pack') {
-        target = packShot({
-          vp,
-          leader: pts[leader],
-          chasers: ranked.slice(1, LEAD_PACK).map((l) => pts[l]),
-          twist: twistPts,
-          minSpan: 300,
-          maxSpan: packSpan,
-        });
+        /* Once the placegetters span most of the course, the whole course is the shot. */
+        const need = holdSpan(vp, placegetters) / courseSpan;
+        if (need > FIELD_WIDE_AT) fieldWideRef.current = true;
+        else if (need < FIELD_TIGHT_AT) fieldWideRef.current = false;
+        target = fieldWideRef.current
+          ? fitBox(grow(furniture.box, 20), vp)
+          : packShot({
+              vp,
+              leader: pts[leader],
+              chasers: ranked.slice(1, LEAD_PACK).map((l) => pts[l]),
+              twist: twistPts,
+              minSpan: 300,
+              maxSpan: packSpan,
+            });
       } else if (kind === 'finish') {
         target = finishShot(vp, line, ranked.slice(0, 3).map((l) => pts[l]), 320, courseSpan * 0.8);
       } else {
@@ -487,12 +536,12 @@ export function Telecast({
       const shot = rig.step(target, kind, now, {
         vp,
         reduce,
-        /* The twist's snail and prop, then the leader, who wins any tie. */
-        keepIn: kind === 'pack' ? (twistAlone ? twistPts : [...(twistPts ?? []), pts[leader]]) : undefined,
-        keepOut: kind === 'pack' ? [vps.map] : undefined,
+        /* The third and second, the twist's snail and prop, then the leader, who wins any tie. */
+        keepIn: kind === 'pack' ? (twistAlone ? twistPts : [...placegetters.slice(1).reverse(), ...(twistPts ?? []), pts[leader]]) : undefined,
       });
-      setText(shotRef.current, kind === 'pack' ? 'LEAD PACK' : kind === 'full' ? 'FULL FIELD' : kind === 'finish' || kind === 'hold' ? 'FINISH LINE' : '');
-      wrapRef.current?.setAttribute('data-shot', kind);
+      const wide = kind === 'full' || (kind === 'pack' && fieldWideRef.current);
+      setText(shotRef.current, wide ? 'FULL FIELD' : kind === 'pack' ? 'LEAD PACK' : kind === 'finish' || kind === 'hold' ? 'FINISH LINE' : '');
+      write(wrapRef.current, 'shot', 'data-shot', kind);
 
       /*
        * Paint the course at a raster that keeps the closest shot sharp.
@@ -506,7 +555,8 @@ export function Telecast({
       const fitR = RASTERS.find((r) => r >= want * 0.92) ?? RASTERS[RASTERS.length - 1];
       const maxR = Math.max(1, Math.sqrt(36e6 / Math.max(1, met.sw * met.sh)));
       const nextR = Math.min(fitR, RASTERS.filter((r) => r <= maxR).pop() ?? 1);
-      if (kind === 'gate' ? nextR !== met.r : nextR > met.r) setRaster(nextR);
+      /* Rastered once at the gate; never while the race is running. */
+      if (kind === 'gate' ? nextR !== met.r : !racing && nextR > met.r) setRaster(nextR);
 
       const s = shot.z / met.m;
       const tx = vp.x + vp.w / 2 - shot.z * shot.cx - s * met.ox;
@@ -515,7 +565,7 @@ export function Telecast({
 
       /* Runners: feet on the lane, art along the lane, number and tag upright and a constant size on screen. */
       const z = shot.z;
-      const wide = kind === 'full' || kind === 'gate';
+      const wholeShot = wide || kind === 'gate';
       /* A snail is at least 3.4u of art on screen, growing to 4.3u as the
          camera pulls out to the whole course, so the back of the room can
          still pick out a shell. It follows the zoom, so a cut never pops the
@@ -525,10 +575,13 @@ export function Telecast({
       const artScale = Math.round(Math.max(1, ((3.4 + 0.9 * pulledOut) * met.u) / (SPRITE_W * z)) * 1000) / 1000;
       artScaleRef.current = artScale;
       write(propScaleRef.current, 'prop-scale', 'transform', `scale(${artScale})`);
-      const badgeU = wide ? CIRCUIT_LAYOUT.badge * 0.78 : CIRCUIT_LAYOUT.badge;
-      const badgeScale = (badgeU * met.u) / BADGE_DESIGN_R / z;
-      const zKey = badgeScale.toFixed(3);
-      const badgeR = BADGE_DESIGN_R * badgeScale;
+      const badgeU = wholeShot ? CIRCUIT_LAYOUT.badge * 0.78 : CIRCUIT_LAYOUT.badge;
+      /* A runner crossing the frame edge fades over about a length rather than being sliced. */
+      const fadeW = Math.max(1, SPRITE_W * artScale * z);
+      const paneW = kind === 'gate' ? met.sw : vp.x + vp.w;
+      /* The badge radius on screen is fixed in projector units; in course units it shrinks as the camera tightens. */
+      const badgeR = (badgeU * met.u) / z;
+      cls(labelsRef.current, 'is-wide', wholeShot);
       /* Place tags, front runners first, skipping any that would sit on one already shown. */
       const shownTags: CoursePoint[] = [];
       const tagClear = (p: CoursePoint) => {
@@ -549,14 +602,21 @@ export function Telecast({
         const pt = pts[lane];
         style(nodes.chip, `c${lane}`, `translate3d(${(met.ox + met.m * (pt.x - CHIP)).toFixed(1)}px, ${(met.oy + met.m * (pt.y - CHIP)).toFixed(1)}px, 0)`);
         write(nodes.node, `d${lane}`, 'data-progress', String(progressOf[lane]));
-        const angle = Math.round(pt.angle * 10) / 10;
+        /* The heading is coarse enough that a straight writes nothing frame to frame. */
+        const angle = Math.round(pt.angle * 2) / 2;
         const cos = Math.cos((angle * Math.PI) / 180),
           sin = Math.sin((angle * Math.PI) / 180);
-        write(nodes.art, `a${lane}`, 'transform', `rotate(${angle + (cos < 0 ? 180 : 0)}) scale(${cos < 0 ? -artScale : artScale} ${artScale})`);
+        const flip = cos < 0;
+        style(nodes.art, `a${lane}`, `rotate(${angle + (flip ? 180 : 0)}deg) scale(${flip ? -artScale : artScale}, ${artScale})`);
         const back = SNAIL_LEN * artScale * 0.92 + badgeR;
         const bx = -cos * back,
           by = -sin * back;
-        write(nodes.badge, `b${lane}`, 'transform', `translate(${bx.toFixed(1)} ${by.toFixed(1)}) scale(${zKey})`);
+        /* The label sits behind the shell, in screen pixels over the pane. */
+        const at = toScreen({ x: pt.x + bx, y: pt.y + by }, shot, vp);
+        /* A runner on the top edge keeps its tag inside the pane. */
+        at.y = Math.max(at.y, met.u * 3.6);
+        const { label, tag: tagNode } = nodes;
+        style(label, `l${lane}`, `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0)`);
         const place = placeByLane.get(lane) ?? 0;
         const behind = down.get(lane) ?? 0;
         let tag = '';
@@ -569,29 +629,24 @@ export function Telecast({
         } else if (racing && behind > 0) {
           tag = lapsDownText(behind);
           tone = 'lapped';
-        } else if (racing && place >= 1 && place <= 3) {
+        } else if (racing && spread && place >= 1 && place <= 3) {
           tag = placeTag(place);
           tone = `p${place}`;
         }
-        const tagAt = { x: pt.x + bx, y: pt.y + by - (BADGE_DESIGN_R + 13) * badgeScale };
+        const tagAt = { x: pt.x + bx, y: pt.y + by - badgeR * 2.1 };
         if (tag && !tagClear(tagAt)) tag = '';
         /* Labels that would sit on the twist's prop step back so the prop reads. */
         const onProp = propPoint !== null && !targets.has(lane) && Math.hypot(pt.x + bx - propPoint.x, pt.y + by - propPoint.y) < 40 * artScale + badgeR * 1.5;
-        cls(nodes.node, 'is-quiet', onProp);
-        if (nodes.tag && nodes.tagText && nodes.tagBox) {
-          write(nodes.tag, `t${lane}`, 'transform', `translate(${bx.toFixed(1)} ${(by - (BADGE_DESIGN_R + 13) * badgeScale).toFixed(1)}) scale(${zKey})`);
-          if (nodes.tagText.textContent !== tag) {
-            nodes.tagText.textContent = tag;
-            const w = tag.length * 10.5 + 14;
-            nodes.tagBox.setAttribute('x', String(-w / 2));
-            nodes.tagBox.setAttribute('width', String(w));
-          }
-          write(nodes.tag, `g${lane}`, 'data-tone', tag ? tone : 'none');
-        }
+        cls(label, 'is-quiet', onProp);
+        if (tagNode && tagNode.textContent !== tag) tagNode.textContent = tag;
+        write(tagNode, `g${lane}`, 'data-tone', tag ? tone : 'none');
         /* The front of the race is drawn on top, so the leaders' tags are never under a backmarker. */
         const rank = ranked.indexOf(lane);
         const zIndex = String(count - (rank < 0 ? count : rank));
-        if (nodes.chip.style.zIndex !== zIndex) nodes.chip.style.zIndex = zIndex;
+        if (nodes.chip.style.zIndex !== zIndex) {
+          nodes.chip.style.zIndex = zIndex;
+          if (label) label.style.zIndex = zIndex;
+        }
         cls(nodes.node, 'is-leader', racing && lane === leader);
         cls(nodes.node, 'is-lapped', racing && behind > 0);
         cls(nodes.node, 'is-winner', final && place === 1);
@@ -599,25 +654,46 @@ export function Telecast({
         if (targets.has(lane)) write(nodes.node, `k${lane}`, 'data-tone', twist?.tone ?? 'wild');
         const retired = Boolean(snap?.snails.find((sn) => sn.lane === lane)?.retired);
         cls(nodes.node, 'retired', retired);
+        const sp = toScreen(pt, shot, vp);
+        const edge = Math.min(sp.x, paneW - sp.x, sp.y, met.sh - sp.y);
+        const fade = Math.min(1, Math.max(0, (edge + fadeW * 0.2) / fadeW));
+        const fadeKey = (Math.round(fade * 20) / 20).toFixed(2);
+        if (fadeRef.current.get(lane) !== fadeKey) {
+          fadeRef.current.set(lane, fadeKey);
+          const value = fadeKey === '1.00' ? '' : fadeKey;
+          nodes.chip.style.opacity = value;
+          if (label) label.style.opacity = value;
+        }
       }
 
       /* The mini-map: every runner as a dot, and the box the camera is showing. */
       const map = mapRef.current;
-      if (map) {
-        cls(map, 'is-on', kind === 'pack' || kind === 'finish');
+      if (map && met.mw && met.mh) {
+        const mapOn = kind === 'pack' || kind === 'finish';
+        cls(map, 'is-on', mapOn);
+        /* The tower gives the foot of the column to the map only while the map is up. */
+        cls(wrapRef.current, 'map-on', mapOn);
+        /* The map's view box, fitted inside the map the way the SVG fits it. */
+        const b = furniture.box;
+        const vbw = b.x1 - b.x0 + 60,
+          vbh = b.y1 - b.y0 + 60;
+        const k = Math.min(met.mw / vbw, met.mh / vbh);
+        const mx = (met.mw - vbw * k) / 2 - (b.x0 - 30) * k;
+        const my = (met.mh - vbh * k) / 2 - (b.y0 - 30) * k;
         for (let lane = 0; lane < count; lane++) {
           const dot = mapDotsRef.current.get(lane);
           if (!dot) continue;
-          write(dot, `mx${lane}`, 'cx', pts[lane].x.toFixed(0));
-          write(dot, `my${lane}`, 'cy', pts[lane].y.toFixed(0));
+          style(dot, `m${lane}`, `translate3d(${(mx + pts[lane].x * k).toFixed(1)}px, ${(my + pts[lane].y * k).toFixed(1)}px, 0)`);
           cls(dot, 'is-leader', lane === leader && snap !== null);
         }
         const view = mapViewRef.current;
         if (view) {
-          const w = vp.w / z,
-            h = vp.h / z;
-          write(view, 'vx', 'x', (shot.cx - w / 2).toFixed(0));
-          write(view, 'vy', 'y', (shot.cy - h / 2).toFixed(0));
+          /* The frame box moves in steps of a few map pixels: no relayout for a drift the eye cannot see. */
+          const step = Math.max(1, 3 / k);
+          const w = Math.round(vp.w / z / step) * step,
+            h = Math.round(vp.h / z / step) * step;
+          write(view, 'vx', 'x', (Math.round((shot.cx - w / 2) / step) * step).toFixed(0));
+          write(view, 'vy', 'y', (Math.round((shot.cy - h / 2) / step) * step).toFixed(0));
           write(view, 'vw', 'width', w.toFixed(0));
           write(view, 'vh', 'height', h.toFixed(0));
         }
@@ -636,6 +712,11 @@ export function Telecast({
       met.sw = scene.clientWidth;
       met.sh = scene.clientHeight;
       met.m0 = Math.min(met.sw / 1200, met.sh / 720);
+      const map = mapRef.current;
+      met.mw = map?.clientWidth ?? 0;
+      met.mh = map?.clientHeight ?? 0;
+      /* Every map dot moves with the map's size. */
+      for (const key of [...writtenRef.current.keys()]) if (key.startsWith('m')) writtenRef.current.delete(key);
       setRaster(met.r || 1);
     };
 
@@ -655,6 +736,8 @@ export function Telecast({
         lapNowRef.current = 1;
         runnerLayerRef.current?.classList.remove('racing');
         runnersRef.current.forEach((nodes) => nodes.node.classList.remove('finished', 'retired', 'is-winner', 'is-leader', 'is-lapped', 'is-target'));
+        fadeRef.current.clear();
+        fieldWideRef.current = false;
         setText(clockRef.current, '0:00.0');
         setText(lapRef.current, `1/${laps}`);
         setText(lapLabelRef.current, 'LAP');
@@ -685,6 +768,7 @@ export function Telecast({
     const observer = new ResizeObserver(() => painter.measure());
     if (wrapRef.current) observer.observe(wrapRef.current);
     if (sceneRef.current) observer.observe(sceneRef.current);
+    if (mapRef.current) observer.observe(mapRef.current);
     return () => observer.disconnect();
   }, [painter]);
   /* One loop moves the camera and the runners; the race loop only hands over positions. */
@@ -762,7 +846,7 @@ export function Telecast({
                 <g ref={propScaleRef}>
                 <g className="course-prop-motion">
                   {presentation.art ? (
-                    <image className="course-prop-image" href={`${ART_BASE}/surprises/${presentation.art}.png`} x="-28" y="-28" width="56" height="56" />
+                    <image className="course-prop-image" href={`${ART_BASE}/surprises/${presentation.art}.webp`} x="-28" y="-28" width="56" height="56" />
                   ) : presentation.glyph ? (
                     <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph} transform="scale(0.92) translate(0 32)">
                       <PropGlyph id={presentation.glyph} />
@@ -782,6 +866,7 @@ export function Telecast({
                 lane={lane}
                 name={name}
                 number={snailNumber(lane, numberOffset, numbers)}
+                look={runnerLookAt(lane, names.length, numberOffset, numbers)}
                 onNodes={(nodes) => {
                   if (nodes) runnersRef.current.set(lane, nodes);
                   else runnersRef.current.delete(lane);
@@ -790,30 +875,22 @@ export function Telecast({
             ))}
           </div>
         </div>
-        <TwistCard twist={staged} />
-        <svg
-          ref={mapRef}
-          className="circuit-minimap"
-          viewBox={`${furniture.box.x0 - 30} ${furniture.box.y0 - 30} ${furniture.box.x1 - furniture.box.x0 + 60} ${furniture.box.y1 - furniture.box.y0 + 60}`}
-          preserveAspectRatio="xMidYMid meet"
-          aria-hidden="true"
-        >
-          <path d={geometry.centre.path} className="circuit-minimap-track" strokeWidth={geometry.trackWidth * 0.62} />
-          <line x1={furniture.lineA.x} y1={furniture.lineA.y} x2={furniture.lineB.x} y2={furniture.lineB.y} className="circuit-minimap-line" />
-          <rect ref={mapViewRef} className="circuit-minimap-view" rx="12" />
+        <div className="tv-runner-labels" ref={labelsRef} aria-hidden="true">
           {names.map((_, lane) => (
-            <circle
+            <RunnerLabel
               key={lane}
-              r="26"
-              fill={laneColour(lane).shell}
-              className="circuit-minimap-dot"
-              ref={(dot) => {
-                if (dot) mapDotsRef.current.set(lane, dot);
-                else mapDotsRef.current.delete(lane);
+              lane={lane}
+              number={snailNumber(lane, numberOffset, numbers)}
+              onNodes={(label, tag) => {
+                const nodes = runnersRef.current.get(lane);
+                if (nodes) {
+                  nodes.label = label;
+                  nodes.tag = tag;
+                }
               }}
             />
           ))}
-        </svg>
+        </div>
         <div ref={flashRef} className="circuit-finish-flash" aria-hidden="true" />
         {race.countdown ? (
           <div className="countdown" aria-hidden="true">
@@ -836,6 +913,29 @@ export function Telecast({
         >
           {courseView ? 'Telecast' : 'Full field'}
         </button>
+      </div>
+      <TwistCard twist={staged} />
+      <div ref={mapRef} className="circuit-minimap" aria-hidden="true">
+        <svg
+          className="circuit-minimap-art"
+          viewBox={`${furniture.box.x0 - 30} ${furniture.box.y0 - 30} ${furniture.box.x1 - furniture.box.x0 + 60} ${furniture.box.y1 - furniture.box.y0 + 60}`}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <path d={geometry.centre.path} className="circuit-minimap-track" strokeWidth={geometry.trackWidth * 0.62} />
+          <line x1={furniture.lineA.x} y1={furniture.lineA.y} x2={furniture.lineB.x} y2={furniture.lineB.y} className="circuit-minimap-line" />
+          <rect ref={mapViewRef} className="circuit-minimap-view" rx="12" />
+        </svg>
+        {names.map((_, lane) => (
+          <span
+            key={lane}
+            className="circuit-minimap-dot"
+            style={{ background: laneColour(lane).shell }}
+            ref={(dot) => {
+              if (dot) mapDotsRef.current.set(lane, dot);
+              else mapDotsRef.current.delete(lane);
+            }}
+          />
+        ))}
       </div>
       {showResult ? (
         <OfficialResult
@@ -873,68 +973,76 @@ export function Telecast({
         lapBoxRef={lapBoxRef}
         shotRef={shotRef}
         lapWipeRef={lapWipeRef}
+        spreadRef={spreadRef}
       />
       <span className="sr-only">{clubName}</span>
     </div>
   );
 }
 
-/** One runner's own small layer: shadow, art, number badge and tag. */
-function RunnerChip({ lane, name, number, onNodes }: { lane: number; name: string; number: number; onNodes: (nodes: RunnerNodes | null) => void }) {
-  const colour = laneColour(lane);
-  const digits = String(number).length;
+/**
+ * The shares of a chip each part of the art takes, with the feet point at
+ * the chip's centre: the sprite's nose-to-tail box, its halo and its shadow,
+ * in course units of the chip's side (2 x CHIP).
+ */
+const pct = (units: number) => `${((units / (2 * CHIP)) * 100).toFixed(2)}%`;
+const SPRITE_BOX = { left: pct(CHIP - SPRITE_W * 0.94), top: pct(CHIP - SPRITE_H * 0.7), width: pct(SPRITE_W), height: pct(SPRITE_H) };
+const HALO_BOX = { left: pct(CHIP - SNAIL_LEN * 0.45 - SNAIL_LEN * 0.78), top: pct(CHIP - SNAIL_LEN * 0.5), width: pct(SNAIL_LEN * 1.56), height: pct(SNAIL_LEN) };
+const SHADOW_BOX = { left: pct(CHIP - SNAIL_LEN * 0.45 - SNAIL_LEN * 0.5), top: pct(CHIP + 2 - 6), width: pct(SNAIL_LEN), height: pct(12) };
+
+/**
+ * One runner's own small layer in the painted world: shadow, halo and art.
+ * The whole chip slides by a transform; the art inside turns by a transform;
+ * neither is ever laid out again once drawn.
+ */
+function RunnerChip({ lane, name, number, look, onNodes }: { lane: number; name: string; number: number; look: RunnerLook; onNodes: (nodes: RunnerNodes | null) => void }) {
   return (
-    <svg
+    <div
       className="tv-runner-chip"
-      viewBox={`${-CHIP} ${-CHIP} ${2 * CHIP} ${2 * CHIP}`}
       ref={(chip) => {
         if (!chip) {
           onNodes(null);
           return;
         }
-        const node = chip.querySelector<SVGGElement>('.tv-runner');
-        if (!node) return;
-        onNodes({
-          chip,
-          node,
-          art: chip.querySelector<SVGGElement>('.tv-art'),
-          badge: chip.querySelector<SVGGElement>('.course-runner-number'),
-          tag: chip.querySelector<SVGGElement>('.tv-runner-tag'),
-          tagBox: chip.querySelector<SVGRectElement>('.tv-runner-tag rect'),
-          tagText: chip.querySelector<SVGTextElement>('.tv-runner-tag text'),
-        });
+        const node = chip.querySelector<HTMLDivElement>('.tv-runner');
+        const art = chip.querySelector<HTMLDivElement>('.tv-art');
+        if (!node || !art) return;
+        /* The label is attached when its own node mounts. */
+        onNodes({ chip, node, art, label: null, tag: null });
       }}
     >
-      <g className="tv-runner" data-lane={lane}>
-        <title>
-          {number}. {name}
-        </title>
-        <g className="tv-art">
-          <ellipse className="tv-runner-halo" cx={-SNAIL_LEN * 0.45} cy="0" rx={SNAIL_LEN * 0.78} ry={SNAIL_LEN * 0.5} />
-          <ellipse cx={-SNAIL_LEN * 0.45} cy="2" rx={SNAIL_LEN * 0.5} ry="6" fill="#140a06" opacity=".35" />
-          <image
+      <div className="tv-runner" data-lane={lane} title={`${number}. ${name}`}>
+        <div className="tv-art">
+          <span className="tv-runner-halo" style={HALO_BOX} />
+          <span className="tv-runner-shadow" style={SHADOW_BOX} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             className="tv-snail-sprite"
-            href={runnerArtForLane(lane).src}
-            x={-SPRITE_W * 0.94}
-            y={-SPRITE_H * 0.7}
-            width={SPRITE_W}
-            height={SPRITE_H}
-            preserveAspectRatio="xMidYMax meet"
-            style={{ filter: `hue-rotate(${runnerHueRotation(lane)}deg)` }}
+            src={look.art.src}
+            alt=""
+            draggable={false}
+            style={{ ...SPRITE_BOX, filter: `hue-rotate(${look.hue}deg)` }}
           />
-        </g>
-        <g className="course-runner-number">
-          <circle r={BADGE_DESIGN_R} fill={colour.dark} stroke="#fff" strokeWidth="2.2" />
-          <text y={digits > 2 ? 4 : 5.4} textAnchor="middle" fill="#fff" fontSize={digits > 2 ? 11 : 15} fontWeight="900">
-            {number}
-          </text>
-        </g>
-        <g className="tv-runner-tag" data-tone="none">
-          <rect x="-20" y="-9" width="40" height="18" rx="9" />
-          <text y="5" textAnchor="middle" fontSize="13" fontWeight="900" />
-        </g>
-      </g>
-    </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A runner's number badge and place tag, in screen space over the course, a constant size whatever the zoom. */
+function RunnerLabel({ lane, number, onNodes }: { lane: number; number: number; onNodes: (label: HTMLDivElement | null, tag: HTMLSpanElement | null) => void }) {
+  const colour = laneColour(lane);
+  return (
+    <div
+      className="tv-runner-label"
+      data-lane={lane}
+      ref={(label) => onNodes(label, label?.querySelector<HTMLSpanElement>('.tv-runner-tag') ?? null)}
+    >
+      <span className="tv-runner-tag" data-tone="none" />
+      <span className="course-runner-number num" style={{ background: colour.dark }} data-digits={String(number).length}>
+        {number}
+      </span>
+    </div>
   );
 }
 
@@ -983,17 +1091,13 @@ function CourseArt({
         {id === 'boundary-oval' ? (
           <g className="course-plate" aria-hidden="true">
             <rect x="520" y="310" width="160" height="100" rx="12" fill="#bfae78" opacity=".32" />
-            <text className="course-club-mark" x="600" y="364" textAnchor="middle">
+            <text className="course-club-mark" x="600" y="374" textAnchor="middle">
               NDCC
-            </text>
-            <text className="course-production-mark" x="600" y="390" textAnchor="middle">
-              SNAIL RACE NIGHT
             </text>
           </g>
         ) : null}
         {id === 'pavilion-chicane' ? <Pavilion /> : null}
         {id === 'floodlight-eight' ? <Floodlights /> : null}
-        {id === 'practice-nets' ? <Nets /> : null}
         <path d={geometry.centre.path} fill="none" stroke={look.edge} strokeWidth={geometry.trackWidth + 20} strokeLinejoin="round" />
         <path d={geometry.centre.path} fill="none" stroke={look.track} strokeWidth={geometry.trackWidth + 6} strokeLinejoin="round" />
         {geometry.lanes.map((lane, i) => (
@@ -1082,20 +1186,6 @@ function Floodlights() {
           {[-9, 0, 9].flatMap((dx) =>
             [-5, 5].map((dy) => <rect key={`${dx}${dy}`} x={dx - 3.5} y={dy - 3.5} width="7" height="7" fill="#fff8d8" />),
           )}
-        </g>
-      ))}
-    </g>
-  );
-}
-
-/** The practice nets: a row of net lanes beside the bottom straight. */
-function Nets() {
-  return (
-    <g className="course-nets" aria-hidden="true" transform="translate(600 506)">
-      {[-170, -60, 50].map((x) => (
-        <g key={x} transform={`translate(${x} 0)`}>
-          <rect x="0" y="-14" width="110" height="28" fill="#7fae6a" stroke="#e9f2e2" strokeWidth="2" />
-          <path d="M0 -14 L110 14 M0 14 L110 -14 M27 -14 V14 M55 -14 V14 M82 -14 V14" stroke="#e9f2e2" strokeWidth="1.2" opacity=".7" />
         </g>
       ))}
     </g>

@@ -27,6 +27,14 @@ import {
   nextFreeSnail,
   normaliseCard,
   parseRosterPaste,
+  cutAtWord,
+  MAX_NAME,
+  describeRaces,
+  describeSnailsPerRace,
+  lockReasons,
+  racesFloor,
+  racesFloorReason,
+  splitCsvLine,
   raceForSnail,
   releaseRefunded,
   rosterCsv,
@@ -91,11 +99,52 @@ test('the roster paste accepts commas, semicolons and tabs and skips junk', () =
     '29, Escargot Faster, Priya\n30; Nan\'s Favourite; Lisa\n#31\tThe Undertaker\tBen\nhello world\n\n101, Too Far, X',
   );
   assert.deepEqual(rows, [
-    { snailNo: 29, name: 'Escargot Faster', owner: 'Priya' },
-    { snailNo: 30, name: "Nan's Favourite", owner: 'Lisa' },
-    { snailNo: 31, name: 'The Undertaker', owner: 'Ben' },
+    { snailNo: 29, name: 'Escargot Faster', owner: 'Priya', line: 1 },
+    { snailNo: 30, name: "Nan's Favourite", owner: 'Lisa', line: 2 },
+    { snailNo: 31, name: 'The Undertaker', owner: 'Ben', line: 3 },
   ]);
   assert.equal(skipped, 2);
+});
+
+test('the roster paste reads quoted CSV fields, names the skipped lines and warns about repeated numbers', () => {
+  const stripe = [
+    'Snail number,Snail name,Your name',
+    '4, "Quoted, Name", "Mel, Dave"',
+    '5,"Nan said ""go"" snail","O\'Brien"',
+    '6, Duplicate Six, First Owner',
+    '6, Duplicate Six, Second Owner',
+    '250, Too Far, X',
+    'hello world',
+  ].join('\n');
+  const parsed = parseRosterPaste(stripe);
+  assert.deepEqual(parsed.rows.map((r) => [r.snailNo, r.name, r.owner]), [
+    [4, 'Quoted, Name', 'Mel, Dave'],
+    [5, 'Nan said "go" snail', "O'Brien"],
+    [6, 'Duplicate Six', 'Second Owner'],
+  ]);
+  assert.equal(parsed.skipped, 3);
+  assert.deepEqual(parsed.skippedLines.map((x) => [x.line, x.reason]), [
+    [1, 'no snail number at the start of the line'],
+    [6, 'snail 250 is not on sale (100 on sale)'],
+    [7, 'no snail number at the start of the line'],
+  ]);
+  assert.deepEqual(parsed.duplicates, [6]);
+  assert.deepEqual(parsed.shortened, []);
+  assert.deepEqual(splitCsvLine('a;"b;c"\t d '), ['a', 'b;c', 'd']);
+});
+
+test('a name past forty-eight characters is cut at a word, and the paste says so', () => {
+  const long = 'Speedy Gonzales the Third of Geelong West and Surrounds';
+  assert.equal(cutAtWord(long, MAX_NAME), 'Speedy Gonzales the Third of Geelong West and');
+  assert.equal(cutAtWord('Short name', MAX_NAME), 'Short name');
+  /* A single long word has no boundary worth keeping. */
+  assert.equal(cutAtWord('x'.repeat(60), MAX_NAME).length, MAX_NAME);
+  /* Exactly forty-eight characters survive whole. */
+  assert.equal(cutAtWord('a'.repeat(40) + ' bcdefgh', MAX_NAME), 'a'.repeat(40) + ' bcdefgh');
+  const parsed = parseRosterPaste(`2, ${long}, Lisa`);
+  assert.equal(parsed.rows[0].name, 'Speedy Gonzales the Third of Geelong West and');
+  assert.deepEqual(parsed.shortened, [2]);
+  assert.equal(normaliseCard({ snailCount: 10, names: [long] }).names[0], 'Speedy Gonzales the Third of Geelong West and');
 });
 
 test('sold count, next free number and the CSV export', () => {
@@ -261,6 +310,7 @@ test('84 sold over ten races of eight: the desk is told, and spreading the extra
   /* 84 is seven races of twelve exactly. */
   const perRace = fixes.find((f) => f.id === 'per-race');
   assert.ok(perRace);
+  assert.equal(perRace.label, 'Set snails per race to 12: 7 races of 12');
   assert.equal(describeLayout(cardLayout(perRace.card)), '7 races of 12');
   assert.equal(perRace.card.snailsPerRace, 12);
   /* The extras are unsold, so they can simply come off sale. */
@@ -273,6 +323,29 @@ test('84 sold over ten races of eight: the desk is told, and spreading the extra
   sold.names[82] = 'Eighty Three';
   const soldFixes = fitFixes(sold, runSheetLocks(sold, noTies)).map((f) => f.id);
   assert.deepEqual(soldFixes, ['spread', 'add', 'per-race']);
+});
+
+test('fix labels read from the card they give: three races of ten before any race, one race left to take the extras', () => {
+  let card = freshCard();
+  const three = setRaceCount(card, 3, runSheetLocks(card, noTies));
+  assert.ok(!('error' in three));
+  if ('error' in three) return;
+  card = three;
+  const perRace = fitFixes(card, runSheetLocks(card, noTies)).find((f) => f.id === 'per-race');
+  assert.ok(perRace);
+  assert.equal(perRace.label, 'Set snails per race to 10: 10 races of 10');
+  /* 84 sold, 8 per race, races 1 to 9 tied: only race 10 can take the four extras. */
+  let tied = resizeCard(freshCard(), 84);
+  assert.ok(!('error' in tied));
+  if ('error' in tied) return;
+  tied = setSnailsPerRace(tied, 8, runSheetLocks(tied, noTies));
+  const locks = runSheetLocks(tied, { history: [], quaddieLegs: [3, 5, 7, 9], quaddieEntries: [{}] });
+  const spread = fitFixes(tied, locks).find((f) => f.id === 'spread');
+  assert.ok(spread);
+  assert.equal(spread.label, 'Put the 4 extras in race 10 (12 runners)');
+  assert.equal(spread.card.races[9].runners, 12);
+  /* Twelve in the one free race is the spread fix already, so no second fix says the same thing. */
+  assert.equal(fitFixes(tied, locks).find((f) => f.id === 'per-race'), undefined);
 });
 
 test('more places than snails: put the rest on sale or fit the races', () => {
@@ -297,10 +370,37 @@ test('each race takes its own runner count, eight to twelve, and the numbers fol
   /* Out of range clamps. */
   const tiny = setRaceRunners(card, 1, 3, locks);
   assert.ok(!('error' in tiny) && tiny.races[0].runners === 8);
-  /* The night default leaves a hand-set race alone. */
+  /* The night default applies to a hand-set race too, and clears the hand setting. */
   const nine = setSnailsPerRace(edited, 9, runSheetLocks(edited, noTies));
   assert.equal(nine.races[0].runners, 9);
-  assert.equal(nine.races[1].runners, 12);
+  assert.equal(nine.races[1].runners, 9);
+  assert.equal(nine.races[1].custom, undefined);
+  assert.equal(describeSnailsPerRace(edited, 9, runSheetLocks(edited, noTies)), 'Snails per race set to 9 for every race.');
+  /* A race that has run, or that a ticket ties, keeps its size and is named. */
+  const tied = runSheetLocks(edited, { history: [{ raceNo: 1 }], toteSales: [{ raceNo: 3 }] });
+  const partly = setSnailsPerRace(edited, 9, tied);
+  assert.deepEqual(partly.races.map((r) => r.runners), [10, 12, 10, 9, 9, 9, 9, 9, 9, 9]);
+  assert.equal(describeSnailsPerRace(edited, 9, tied), 'Snails per race set to 9 for races 4 to 10. Races 1 to 3 keep their sizes.');
+  /* Putting a hand-set race back to the night default clears the badge. */
+  const back = setRaceRunners(edited, 2, edited.snailsPerRace, locks);
+  assert.ok(!('error' in back) && back.races[1].custom === false);
+});
+
+test('the reasons under the run sheet read one line per cause', () => {
+  const card = freshCard();
+  const locks = runSheetLocks(card, { history: [], toteSales: [{ raceNo: 1 }], quaddieLegs: [3, 5, 7, 9], quaddieEntries: [{}] });
+  assert.deepEqual(lockReasons(card, locks), ['Races 1 to 9 keep their sizes: race 1 has tote sales; races 3, 5, 7 and 9 have quaddie tickets.']);
+  /* A race that has run is marked in its own row, so it is named only when it holds earlier races. */
+  const ran = runSheetLocks(card, { history: [{ raceNo: 2 }] });
+  assert.deepEqual(lockReasons(card, ran), ['Race 1 keeps its size: race 2 has run.']);
+  const armed = runSheetLocks(card, { history: [{ raceNo: 1 }], armedRaceNo: 3 });
+  assert.deepEqual(lockReasons(card, armed), ['Race 2 keeps its size: race 3 is at the gate.']);
+  assert.deepEqual(lockReasons(card, runSheetLocks(card, noTies)), []);
+  const runOff = addRunOff(card, [1, 11, 21, 31, 41, 51, 61, 71]);
+  assert.deepEqual(lockReasons(runOff, runSheetLocks(runOff, noTies)), ['Race 11 is a run-off and races the snails chosen for it.']);
+  assert.equal(describeRaces([1, 3, 4, 5, 6, 7, 8, 9]), 'races 1 and 3 to 9');
+  assert.equal(describeRaces([2, 3]), 'races 2 and 3');
+  assert.equal(describeRaces([4], true), 'Race 4');
 });
 
 test('races already run are locked; a tied race locks the sizes before it, not its settings', () => {
@@ -340,6 +440,24 @@ test('races tonight: add at the end, remove only an unrun, untied last race', ()
   assert.ok(!('error' in more) && more.races.length === 12);
   const fewer = setRaceCount(card, 8, runSheetLocks(card, noTies));
   assert.ok(!('error' in fewer) && fewer.races.length === 8);
+  /* The night never shrinks below the races already run: the sheet would end on a race in the history. */
+  const threeRun = runSheetLocks(card, { history: [{ raceNo: 1 }, { raceNo: 2 }, { raceNo: 3 }, { raceNo: 4, void: true }] });
+  assert.equal(racesFloor(threeRun), 3);
+  assert.equal(racesFloorReason(threeRun), '3 races have run.');
+  const refused = setRaceCount(card, 1, threeRun);
+  assert.ok('error' in refused && refused.error === '3 races have run. The night cannot have fewer than 3 races.');
+  const zero = setRaceCount(card, 0, threeRun);
+  assert.ok('error' in zero);
+  const three = setRaceCount(card, 3, threeRun);
+  assert.ok(!('error' in three) && three.races.length === 3);
+  /* Once the last race has run it cannot be removed. */
+  if ('error' in three) return;
+  const lastRun = removeLastRace(three, runSheetLocks(three, { history: [{ raceNo: 1 }, { raceNo: 2 }, { raceNo: 3 }] }));
+  assert.ok('error' in lastRun && /Race 3 has already run/.test(lastRun.error));
+  const oneRun = runSheetLocks(card, { history: [{ raceNo: 1 }] });
+  assert.equal(racesFloorReason(oneRun), '1 race has run.');
+  assert.equal(racesFloorReason(runSheetLocks(card, { history: [{ raceNo: 1 }], armedRaceNo: 2 })), 'Race 2 is at the gate.');
+  assert.equal(racesFloorReason(runSheetLocks(card, { history: [{ raceNo: 3 }] })), 'Race 3 has run.');
   const tied = removeLastRace(card, runSheetLocks(card, { history: [], auctionBids: [{ raceNo: 10 }] }));
   assert.ok('error' in tied && /auction bids/.test(tied.error));
   const added = addRace(card, 11);
@@ -393,7 +511,7 @@ test('a long snail name survives in full up to forty-eight characters', () => {
   assert.equal(long.length, 40);
   const card = normaliseCard({ snailCount: 10, names: [long, `${long} the Second`, 'Speedy Gonzales the Third of Geelong West'] });
   assert.equal(card.names[0], long);
-  assert.equal(card.names[1].length, 48);
+  assert.equal(card.names[1], `${long} the`);
   assert.equal(card.names[2], 'Speedy Gonzales the Third of Geelong West');
   const paste = parseRosterPaste(`1, ${long}, Priya`);
   assert.equal(paste.rows[0].name, long);

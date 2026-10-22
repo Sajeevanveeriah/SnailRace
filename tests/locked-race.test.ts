@@ -10,6 +10,8 @@ import {
   MAX_LOCKED_RACE_FIELD_SIZE,
   MIN_LOCKED_RACE_FIELD_SIZE,
   RETIREMENT_CHANCE_DENOMINATOR,
+  RETIREMENT_EARLIEST,
+  RETIREMENT_LEVELS,
   RETIREMENT_SPECS,
   runInProgress,
   stepRace,
@@ -150,11 +152,12 @@ test('retirements are rare, single-runner and explicitly family-safe', () => {
     assert.match(spec.commentary, /safe|safely/i);
     assert.match(spec.commentary, /race is over/i);
   }
+  assert.deepEqual(RETIREMENT_LEVELS, ['chaos', 'mayhem']);
 
   let retirementCount = 0;
   const families = new Set<string>();
   for (let seed = 1; seed <= 5_000; seed++) {
-    const plan = drawLockedRacePlan(seed, names, 12_000, true, 'standard');
+    const plan = drawLockedRacePlan(seed, names, 30_000, true, RETIREMENT_LEVELS[seed % 2]);
     const retired = plan.results.filter((result) => result.status === 'retired');
     assert.ok(retired.length <= 1);
     retirementCount += retired.length;
@@ -162,8 +165,42 @@ test('retirements are rare, single-runner and explicitly family-safe', () => {
   }
 
   const expected = 5_000 / RETIREMENT_CHANCE_DENOMINATOR;
-  assert.ok(retirementCount > expected * 0.6 && retirementCount < expected * 1.4);
+  assert.ok(retirementCount > expected * 0.6 && retirementCount < expected * 1.4, `${retirementCount} retirements in 5000 races`);
   assert.deepEqual(families, new Set(RETIREMENT_SPECS.map((spec) => spec.code)));
+});
+
+/* Defect class: a paid snail knocked out of a Standard race six seconds in
+   (audit 3.1). Only Chaos and Mayhem retire a runner, never in the first
+   half, and never the runner leading at the hit. */
+test('a retirement only happens under Chaos or Mayhem, after halfway, and never to the leader', () => {
+  const leaderAt = (plan: ReturnType<typeof drawLockedRacePlan>, at: number): number =>
+    plan.runners
+      .map((runner) => ({ lane: runner.lane, p: lockedProgressAt(plan, runner.lane, at - 1) }))
+      .sort((a, b) => b.p - a.p)[0].lane;
+  for (const level of ['calm', 'standard', 'big'] as const) {
+    for (let seed = 1; seed <= 1_500; seed++) {
+      const plan = drawLockedRacePlan(seed, names, [12_000, 30_000, 60_000][seed % 3], true, level, 1 + (seed % 3));
+      assert.ok(plan.events.every((event) => event.consequence !== 'retire'), `${level} seed ${seed} retired a runner`);
+      assert.ok(plan.results.every((result) => result.status !== 'retired'));
+    }
+  }
+  let seen = 0;
+  for (const level of RETIREMENT_LEVELS) {
+    for (let seed = 1; seed <= 2_500; seed++) {
+      const durationMs = [12_000, 30_000, 60_000][seed % 3];
+      const plan = drawLockedRacePlan(seed, names, durationMs, true, level, 1 + (seed % 3), seed % 2 ? 'circuit' : 'lanes');
+      for (const event of plan.events) {
+        if (event.consequence !== 'retire') continue;
+        seen += 1;
+        assert.ok(event.effectAtMs >= plan.stopAtMs * RETIREMENT_EARLIEST, `${level} seed ${seed}: retired at ${event.effectAtMs} of ${plan.stopAtMs}`);
+        assert.equal(event.targetLanes.length, 1);
+        assert.notEqual(event.targetLanes[0], leaderAt(plan, event.effectAtMs), `${level} seed ${seed}: retired the leader`);
+      }
+      /* Same seed, same plan: the retirement is part of the committed draw. */
+      assert.deepEqual(drawLockedRacePlan(seed, names, durationMs, true, level, 1 + (seed % 3), seed % 2 ? 'circuit' : 'lanes').events, plan.events);
+    }
+  }
+  assert.ok(seen > 60, `only ${seen} retirements seen`);
 });
 
 test('legacy all-finisher stepping remains unchanged', () => {

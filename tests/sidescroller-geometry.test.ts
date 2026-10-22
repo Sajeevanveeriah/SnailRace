@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  flagFont,
+  FLAG_FONT_MAX,
+  laneGeometry as laneGeo,
   ART_FOOT,
   ART_TOP,
   CARD_BAND,
@@ -139,4 +142,19 @@ test('after the winner, the field runs in at its own pace without ever contradic
   const order = [...crossedAt.entries()].sort((a, b) => a[1] - b[1] || a[0] - b[0]).map(([lane]) => lane);
   assert.deepEqual(order.slice(0, 4), [0, 2, 1, 3]);
   assert.equal(runners.find((r) => r.lane === 4)?.p, 0.5, 'a retired runner stays where it stopped');
+});
+
+test('lane flags never read under 1.6 projector units, and never outgrow their lane', () => {
+  for (const [w, h] of [[1280, 720], [1920, 1080], [3840, 2160]]) {
+    const unit = Math.min(w / 100, (h * 1.7778) / 100);
+    for (const field of [8, 10, 12]) {
+      const pitch = laneGeo(0, field).pitch;
+      /* About the widest following shot at 16:9: the scene is the screen width, the view about 2300 world units. */
+      const worldToPx = w / 2300;
+      const font = flagFont(pitch, worldToPx, unit);
+      assert.ok(font * worldToPx >= unit * 1.6 - 1e-6 || font >= pitch * FLAG_FONT_MAX - 1e-6, `${w}p, ${field} runners: ${(font * worldToPx).toFixed(1)}px`);
+      assert.ok(font <= pitch * FLAG_FONT_MAX + 1e-6);
+      assert.ok(font * worldToPx >= unit * 1.6 - 1e-6, `${w}p, ${field} runners reads under the floor`);
+    }
+  }
 });

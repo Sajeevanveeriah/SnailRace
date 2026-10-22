@@ -8,12 +8,14 @@ import {
   storyWindows,
   twistKicker,
 } from '../components/race-broadcast/twist-staging';
-import { finalGapText, lapsDown, lapsDownText, placeTag, snailNumber, towerName } from '../components/race-broadcast/standings-format';
+import { GATE_FAN_MS, SPREAD_MS, fieldSpread, finalGapText, gapSeconds, gateStagger, lapsDown, lapsDownText, placeTag, snailNumber, towerName } from '../components/race-broadcast/standings-format';
+import { PALETTE } from '../lib/palette';
 import {
   CameraRig,
   boxOf,
   finishShot,
   fitBox,
+  holdSpan,
   packShot,
   smoothDamp,
   spanFor,
@@ -284,4 +286,68 @@ test('a twist far from the leader is reached by a glide, and the camera glides b
   }
   /* A 450-unit reframe at this zoom is about 1350 px: as a glide over 0.9 s no frame moves more than a few dozen px. */
   assert.ok(biggestStep < 60, `largest single-frame move ${biggestStep.toFixed(0)} px`);
+});
+
+test('the lead-pack shot holds the second and third with a margin, widening past its usual span when it must', () => {
+  const leader = { x: 600, y: 560, angle: 0 };
+  /* Second and third strung out well beyond a 560-unit shot. */
+  const chasers = [
+    { x: 380, y: 540 },
+    { x: 250, y: 420 },
+    { x: 120, y: 300 },
+  ];
+  const shot = packShot({ vp, leader, chasers, minSpan: 300, maxSpan: 560 });
+  for (const p of [leader, chasers[0], chasers[1]]) assert.ok(inFrame(p, shot, 30), `placegetter at ${p.x},${p.y} not held with a margin`);
+  /* The fourth is only an extra: it never widens the shot further. */
+  assert.ok(vp.w / shot.z <= holdSpan(vp, [leader, chasers[0], chasers[1], { x: leader.x + 90, y: leader.y }]) + 1e-6);
+  assert.ok(!inFrame(chasers[2], shot));
+});
+
+test('the camera keeps the third placegetter in frame as it falls back', () => {
+  const rig = new CameraRig();
+  let t = 0;
+  let shot = rig.step({ cx: 600, cy: 400, z: 3 }, 'pack', t, { vp, reduce: false });
+  for (let i = 0; i < 200; i++) {
+    t += 16;
+    const leader = { x: 600 + i * 2, y: 400 };
+    const second = { x: 560 + i * 1.6, y: 410 };
+    const third = { x: 520 + i * 1.1, y: 420 };
+    const target = packShot({ vp, leader: { ...leader, angle: 0 }, chasers: [second, third], minSpan: 300, maxSpan: 560 });
+    shot = rig.step(target, 'pack', t, { vp, reduce: false, keepIn: [third, second, leader] });
+    if (i > 60) for (const p of [leader, second, third]) assert.ok(inFrame(p, shot, vp.h * 0.02), `frame ${i}: ${p.x},${p.y} out of shot`);
+  }
+});
+
+test('place badges and gaps wait for the field to spread', () => {
+  assert.equal(fieldSpread(0, 0, 76), false);
+  assert.equal(fieldSpread(1000, 200, 76), false, 'never while the gate fan is still easing out');
+  assert.equal(fieldSpread(GATE_FAN_MS + 100, 20, 76), false);
+  assert.equal(fieldSpread(GATE_FAN_MS + 100, 90, 76), true);
+  assert.equal(fieldSpread(SPREAD_MS, 0, 76), true);
+  assert.equal(gapSeconds('+0.4s'), 0.4);
+  assert.equal(gapSeconds('leader'), 0);
+  assert.equal(gapSeconds('RET'), 0);
+});
+
+test('the gate fans the field back across the lanes and the fan eases out without anyone going backwards', () => {
+  assert.equal(gateStagger(0, 0), 0);
+  assert.ok(gateStagger(11, 0) > gateStagger(5, 0));
+  assert.equal(gateStagger(11, GATE_FAN_MS), 0);
+  for (let t = 0; t < GATE_FAN_MS; t += 100) assert.ok(gateStagger(11, t + 100) <= gateStagger(11, t));
+});
+
+test('lane 12 is a dark saturated colour, legible under white numerals and unlike the other eleven', () => {
+  const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lum = (hex: string) => {
+    const [r, g, b] = rgb(hex).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const twelve = PALETTE[11];
+  assert.ok(1.05 / (lum(twelve.shell) + 0.05) >= 4.5, 'white on the lane 12 shell reads at 4.5:1 or better');
+  const [r, g, b] = rgb(twelve.shell);
+  assert.ok(Math.max(r, g, b) - Math.min(r, g, b) > 0.4, 'saturated, not grey');
+  for (const other of PALETTE.slice(0, 11)) {
+    const d = Math.hypot(...rgb(other.shell).map((c, i) => c - rgb(twelve.shell)[i]));
+    assert.ok(d > 0.25, `lane 12 too close to ${other.shell}`);
+  }
 });

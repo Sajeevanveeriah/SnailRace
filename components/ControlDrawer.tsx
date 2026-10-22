@@ -63,7 +63,7 @@ type AdminTab = 'setup' | 'money' | 'night' | 'advanced';
  */
 const ADMIN_TABS: { id: AdminTab; label: string; hint: string }[] = [
   { id: 'setup', label: 'Setup', hint: 'Event, race, card, sound' },
-  { id: 'money', label: 'Money', hint: 'Cash tin, tote, ledger' },
+  { id: 'money', label: 'Money', hint: 'Cash tin, tote, quaddie, ledger' },
   { id: 'night', label: 'Night', hint: 'Results, backups, exports' },
   { id: 'advanced', label: 'Advanced', hint: 'Phone Play, packs, preflight' },
 ];
@@ -126,6 +126,22 @@ export function ControlDrawer({
    * console is open rather than being captured once at mount.
    */
   const canSpeak = useCanSpeak();
+
+  /*
+   * On the moderator desk the sheet stops under the desk header. The header
+   * wraps at narrow widths, so its height is measured, not assumed, and
+   * written to the sheet as --desk-header-h for the stylesheet to read.
+   */
+  useEffect(() => {
+    const sheet = controlsRef.current;
+    const header = sheet?.ownerDocument.querySelector<HTMLElement>('.desk-header');
+    if (!sheet || !header) return;
+    const measure = () => sheet.style.setProperty('--desk-header-h', `${Math.ceil(header.getBoundingClientRect().height)}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -882,9 +898,12 @@ export function ControlDrawer({
                     onChange={(e) => setState({ raceType: e.target.value })}
                   >
                     {RACE_TYPES.map((t) => (
-                      <option key={t} value={t}>{t === 'League' ? 'League (no label)' : t}</option>
+                      <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
+                  <span className="text-[12px] font-normal leading-snug text-(--tx)/60">
+                    A league race is shown as its number alone, &ldquo;Race 3&rdquo;. A heat or a final is printed beside it.
+                  </span>
                 </label>
               </div>
               <p className="mt-3 text-[11px] leading-snug text-(--tx)/50">
@@ -1120,7 +1139,7 @@ export function ControlDrawer({
                 </button>
 
                 <div className="rounded-xl border border-(--tx)/10 p-3">
-                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-(--tx)/45">
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-(--tx)/60">
                     Your own audio
                   </p>
                   <p className="text-[11px] leading-snug text-(--tx)/50">
@@ -1139,7 +1158,7 @@ export function ControlDrawer({
                           aria-hidden="true"
                         />
                         <span className="num truncate text-(--tx)/60">{s.file}</span>
-                        <span className="ml-auto shrink-0 text-(--tx)/40">
+                        <span className="ml-auto shrink-0 text-(--tx)/60">
                           {s.loaded ? 'in use' : 'synthesised'}
                         </span>
                       </li>
@@ -1191,8 +1210,6 @@ export function ControlDrawer({
 
               </div>
             </section>
-
-            <QuaddieSettingsPanel event={event} locked={locked} />
 
             </div>
             <div id="admin-panel-money" className="contents" role="tabpanel" aria-labelledby="admin-tab-money" hidden={tab !== 'money'}>
@@ -1249,7 +1266,7 @@ export function ControlDrawer({
                 <button type="button" className="btn btn-primary" onClick={addCash}>
                   Record cash donation
                 </button>
-                <p className="text-[11px] text-(--tx)/45">
+                <p className="text-[11px] text-(--tx)/60">
                   Cash is recorded on this device. Card donations arrive from Stripe on their own.
                 </p>
               </div>
@@ -1258,20 +1275,23 @@ export function ControlDrawer({
             {/* ── Permit-gated cash tote ───────────────────────────── */}
             <CashTotePanel nextRaceNo={nextRaceNo} locked={locked} />
 
+            {/* ── Quaddie: a club product, so it sits with the money ─ */}
+            <QuaddieSettingsPanel event={event} locked={locked} />
+
             {/* ── Ledger ───────────────────────────────────────────── */}
             <section className="panel lg:col-span-2">
               <h3 className="mb-3 font-semibold">
                 Donation ledger{' '}
-                <span className="num text-xs font-normal text-(--tx)/45">
+                <span className="num text-xs font-normal text-(--tx)/60">
                   {donations.length} {donations.length === 1 ? 'entry' : 'entries'}
                 </span>
               </h3>
               <div className="max-h-64 overflow-y-auto rounded-xl border border-(--tx)/10">
                 {donations.length === 0 ? (
-                  <p className="p-4 text-sm text-(--tx)/45">Nothing recorded yet.</p>
+                  <p className="p-4 text-sm text-(--tx)/60">Nothing recorded yet.</p>
                 ) : (
                   <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-(--card) text-[11px] uppercase tracking-wider text-(--tx)/45">
+                    <thead className="sticky top-0 bg-(--card) text-[11px] uppercase tracking-wider text-(--tx)/60">
                       <tr>
                         <th className="p-2">Race</th>
                         <th className="p-2">Snail</th>
@@ -1332,7 +1352,7 @@ export function ControlDrawer({
                 race writes a compensating entry and reopens its bets; nothing is deleted.
               </p>
               {event.bets.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">No fun bets placed yet.</p>
+                <p className="text-sm text-(--tx)/60">No fun bets placed yet.</p>
               ) : (
                 <ul className="max-h-64 overflow-y-auto text-xs">
                   {event.bets
@@ -1344,7 +1364,7 @@ export function ControlDrawer({
                         key={b.id}
                         className="flex items-center gap-2 border-b border-(--tx)/8 py-1.5 last:border-0"
                       >
-                        <span className="num w-8 shrink-0 text-(--tx)/40">R{b.raceNo}</span>
+                        <span className="num w-8 shrink-0 text-(--tx)/60">R{b.raceNo}</span>
                         <span className="truncate font-medium">{b.punter}</span>
                         <span className="truncate text-(--tx)/50">on {b.snailName}</span>
                         <span className="num ml-auto shrink-0 text-(--gold)">
@@ -1353,7 +1373,7 @@ export function ControlDrawer({
                         <span
                           className={`w-14 shrink-0 text-right font-semibold ${
                             !b.settled
-                              ? 'text-(--tx)/40'
+                              ? 'text-(--tx)/60'
                               : b.won
                                 ? 'text-(--ok)'
                                 : 'text-(--tx)/50'
@@ -1380,7 +1400,7 @@ export function ControlDrawer({
                 Save this night to the archive
               </button>
               {nights.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">No nights saved on this device.</p>
+                <p className="text-sm text-(--tx)/60">No nights saved on this device.</p>
               ) : (
                 <ul className="max-h-48 overflow-y-auto text-xs">
                   {nights.map((n) => (
@@ -1394,7 +1414,7 @@ export function ControlDrawer({
                             </span>
                           ) : null}
                         </p>
-                        <p className="num text-[10px] text-(--tx)/40">
+                        <p className="num text-[10px] text-(--tx)/60">
                           {new Date(n.savedAt).toLocaleString('en-AU')}
                         </p>
                       </div>
@@ -1407,7 +1427,7 @@ export function ControlDrawer({
                       </button>
                       <button
                         type="button"
-                        className="shrink-0 text-(--tx)/40 underline hover:text-(--bad)"
+                        className="shrink-0 text-(--tx)/60 underline hover:text-(--bad)"
                         onClick={() => {
                           if (ownerWindow().confirm(`Delete the saved night "${n.name}" from this device?`)) {
                             removeNight(n.id);
@@ -1446,7 +1466,7 @@ export function ControlDrawer({
                 ) : null}
               </div>
               {event.history.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">No races run yet.</p>
+                <p className="text-sm text-(--tx)/60">No races run yet.</p>
               ) : (
                 <ol className="max-h-64 overflow-y-auto text-sm">
                   {event.history.map((h) => (
@@ -1458,7 +1478,7 @@ export function ControlDrawer({
                         <span className={`font-semibold ${h.void ? 'line-through' : ''}`}>
                           {raceTitle(h.raceType, h.raceNo)}: {h.results[0]?.name ?? 'no result'}
                         </span>
-                        <span className="num text-xs text-(--tx)/45">{moneyShort(h.potCents)}</span>
+                        <span className="num text-xs text-(--tx)/60">{moneyShort(h.potCents)}</span>
                       </div>
                       {h.void ? (
                         <p className="text-[11px] font-semibold text-(--bad)">
@@ -1468,7 +1488,7 @@ export function ControlDrawer({
                       {h.sponsor ? (
                         <p className="text-[11px] text-(--gold)">{h.sponsor}</p>
                       ) : null}
-                      <p className="num text-[11px] text-(--tx)/40">
+                      <p className="num text-[11px] text-(--tx)/60">
                         seed {h.seedHex}
                         {h.commitHash ? ` - commit ${shortHash(h.commitHash)}` : ''}
                         {h.planHash ? ` - plan ${shortHash(h.planHash)}` : ''}
@@ -1482,7 +1502,7 @@ export function ControlDrawer({
                   ))}
                 </ol>
               )}
-              <p className="mt-2 text-[11px] text-(--tx)/45">
+              <p className="mt-2 text-[11px] text-(--tx)/60">
                 Full results, replays and audit metadata live in the{' '}
                 <Link href="/archive" target="_blank" rel="noopener noreferrer" className="underline hover:text-(--tx)">
                   race archive
@@ -1513,12 +1533,12 @@ export function ControlDrawer({
                 </p>
               ) : null}
               {event.audit.length === 0 ? (
-                <p className="text-sm text-(--tx)/45">Nothing recorded yet.</p>
+                <p className="text-sm text-(--tx)/60">Nothing recorded yet.</p>
               ) : (
                 <ul className="max-h-64 overflow-y-auto text-xs">
                   {event.audit.map((a) => (
                     <li key={a.id} className="border-b border-(--tx)/8 py-1.5 last:border-0">
-                      <p className="num text-[10px] text-(--tx)/40">
+                      <p className="num text-[10px] text-(--tx)/60">
                         {new Date(a.at).toLocaleTimeString('en-AU')} · {a.kind.replace(/_/g, ' ')}
                       </p>
                       <p className="leading-snug text-(--tx)/75">{a.detail}</p>

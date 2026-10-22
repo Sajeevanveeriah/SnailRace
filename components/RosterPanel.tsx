@@ -54,6 +54,8 @@ export function RosterPanel({
   const [pasteOpen, setPasteOpen] = useState(false);
   const [paste, setPaste] = useState('');
   const [notice, setNotice] = useState('');
+  /* What the last import skipped or changed, line by line. */
+  const [importNotes, setImportNotes] = useState<string[]>([]);
 
   /* A hand edit makes the slot the desk's: the Stripe claim is released so a
      later refund of that payment cannot erase what the desk typed. */
@@ -70,9 +72,15 @@ export function RosterPanel({
   };
 
   const applyPaste = () => {
-    const { rows, skipped } = parseRosterPaste(paste, card);
+    const { rows, skipped, skippedLines, duplicates, shortened } = parseRosterPaste(paste, card);
+    const notes = [
+      ...skippedLines.map((s) => `Line ${s.line} skipped: ${s.reason} ("${s.text}").`),
+      ...duplicates.map((n) => `Snail ${n} is on more than one line: the last line was kept.`),
+      ...shortened.map((n) => `Snail ${n}: the name or owner was longer than ${MAX_NAME} characters and was shortened at a word.`),
+    ];
+    setImportNotes(notes);
     if (!rows.length) {
-      setNotice(`Nothing to import${skipped ? ` (${skipped} lines skipped)` : ''}. One snail per line: number, name, owner.`);
+      setNotice(`Nothing to import${skipped ? ` (${skipped} ${skipped === 1 ? 'line' : 'lines'} skipped)` : ''}. One snail per line: number, name, owner.`);
       return;
     }
     let blocked = 0;
@@ -92,8 +100,9 @@ export function RosterPanel({
       }
       return { card: { ...s.card, names, owners, claims } };
     });
-    addAudit({ kind: 'note', raceNo: 0, detail: `Roster import: ${rows.length - blocked} snails set from a pasted list${blocked ? `, ${blocked} skipped because their race is locked` : ''}${skipped ? `, ${skipped} lines unreadable` : ''}.` });
-    setNotice(`${rows.length - blocked} snails updated${blocked ? `, ${blocked} locked` : ''}${skipped ? `, ${skipped} lines skipped` : ''}.`);
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    addAudit({ kind: 'note', raceNo: 0, detail: `Roster import: ${plural(rows.length - blocked, 'snail', 'snails')} set from a pasted list${blocked ? `, ${blocked} skipped because their race is locked` : ''}${skipped ? `, ${plural(skipped, 'line', 'lines')} skipped (${skippedLines.map((x) => x.line).join(', ')})` : ''}${duplicates.length ? `, ${plural(duplicates.length, 'number', 'numbers')} on more than one line` : ''}.` });
+    setNotice(`${plural(rows.length - blocked, 'snail', 'snails')} updated${blocked ? `, ${blocked} locked` : ''}${skipped ? `, ${plural(skipped, 'line', 'lines')} skipped` : ''}${duplicates.length ? `, ${plural(duplicates.length, 'number', 'numbers')} repeated` : ''}${shortened.length ? `, ${plural(shortened.length, 'name', 'names')} shortened` : ''}.`);
     setPaste('');
     setPasteOpen(false);
   };
@@ -194,6 +203,11 @@ export function RosterPanel({
         <p className="desk-label" role="status">
           {notice}
         </p>
+      ) : null}
+      {importNotes.length ? (
+        <ul className="roster-import-notes" aria-label="Import notes">
+          {importNotes.map((n) => <li key={n}>{n}</li>)}
+        </ul>
       ) : null}
       {[...races, ...(spare.length ? [0] : [])].map((race) => {
         const numbers = race > 0 ? snailsForRace(race, card) : spare;

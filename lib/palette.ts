@@ -25,7 +25,8 @@ export const PALETTE: LaneColour[] = [
   { shell: '#e3b269', dark: '#7d5a24', body: '#f7e6c9', glow: '227 178 105' },
   { shell: '#7a7bff', dark: '#33349b', body: '#dcdcff', glow: '122 123 255' },
   { shell: '#e35ad8', dark: '#7d1f75', body: '#f8d3f4', glow: '227 90 216' },
-  { shell: '#dde3ec', dark: '#6f7889', body: '#f4f6fa', glow: '221 227 236' },
+  /* Lane 12 is a deep navy: dark and saturated, so white numerals read on it and it is nothing like the sky blue or the lavender. */
+  { shell: '#1f3d9b', dark: '#101f52', body: '#d4dcf5', glow: '31 61 155' },
 ];
 
 /** Quiet grey for entries that belong to no lane, e.g. direct QR donations. */

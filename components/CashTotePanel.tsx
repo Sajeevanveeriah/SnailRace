@@ -112,7 +112,7 @@ export function CashTotePanel({
             Enable cash tote
           </button>
           {settings.permitAcknowledgedAt ? (
-            <p className="text-[11px] text-(--tx)/45">
+            <p className="text-[11px] text-(--tx)/60">
               Previously attested {new Date(settings.permitAcknowledgedAt).toLocaleString('en-AU')}; re-tick to
               enable again.
             </p>
@@ -256,7 +256,7 @@ export function CashTotePanel({
           </button>
         </div>
       )}
-      <p className="mt-3 text-[11px] leading-snug text-(--tx)/40">
+      <p className="mt-3 text-[11px] leading-snug text-(--tx)/60">
         Defaults: {moneyShort(DEFAULT_CASH_TOTE.ticketCents)} tickets, {DEFAULT_CASH_TOTE.retainedPercent}% retained,
         dividends rounded down to 10c with breakage to the club. Nothing here is read by the race, the free
         chips or the donation totals.

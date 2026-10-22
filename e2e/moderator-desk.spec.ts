@@ -300,9 +300,11 @@ test('a quaddie switched on in Admin takes entries at the desk and shows the boa
   await desk.setViewportSize({ width: 1280, height: 900 });
   await expect(desk.getByRole('region', { name: 'Quaddie entries' })).toHaveCount(0);
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
+  await desk.getByRole('tab', { name: /Money/ }).click();
   const quaddie = desk.getByRole('region', { name: 'Quaddie', exact: true });
   await quaddie.getByRole('button', { name: /Enable quaddie/i }).click();
   await expect(quaddie).toContainText(/LIVE/);
+  await desk.getByRole('tab', { name: /Setup/ }).click();
   /* The night is a league: the quaddie board between races is a championship screen, off until switched on. */
   await desk.getByRole('checkbox', { name: 'Championship screens between races' }).check();
   await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
@@ -333,4 +335,52 @@ test('a quaddie switched on in Admin takes entries at the desk and shows the boa
   await expect(board).toContainText(/alive|Nobody is still alive/);
   await desk.getByRole('button', { name: 'Next race', exact: true }).click();
   await expect(page.getByRole('region', { name: 'RACECARD screen' })).toContainText('Race 4 of 10');
+});
+
+test('Enter advances like Space and V only switches the camera on the race screen', async ({ page }) => {
+  await page.mouse.click(5, 5);
+  await page.keyboard.press('v');
+  expect((await readNight(page)).cameraMode ?? 'telecast').toBe('telecast');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('region', { name: 'RACECARD screen' })).toBeVisible();
+  await page.keyboard.press('v');
+  expect((await readNight(page)).cameraMode ?? 'telecast').toBe('telecast');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-race-phase', 'idle');
+  await page.keyboard.press('v');
+  await expect.poll(async () => (await readNight(page)).cameraMode).toBe('full');
+});
+
+test('a reload on a result restores the result, and the thank you screen reads as complete', async ({ page }) => {
+  /* One race on a one-race card, saved on its result: the night as a reload finds it. */
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('ndcc-snailrace-v3') ?? '{}');
+    saved.showPhase = 'results';
+    saved.raceNumber = 1;
+    saved.card = { snailCount: 10, races: [{ runners: 10 }] };
+    saved.history = [{
+      raceNo: 1, raceType: 'League', seedHex: 'ABCDEF01', fieldSize: 10, durationMs: 7000, at: 1, potCents: 0, photoFinish: false,
+      results: Array.from({ length: 10 }, (_, lane) => ({ lane, name: `Snail ${lane + 1}`, place: ((lane + 3) % 10) + 1, finishMs: lane === 7 ? 7000 : null })),
+    }];
+    localStorage.setItem('ndcc-snailrace-v3', JSON.stringify(saved));
+  });
+  await page.reload();
+  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  /* The official result, not the gate: the stage is on the finished race with its result up. */
+  await expect(page.locator('.race-broadcast')).toHaveAttribute('data-race-phase', 'done');
+  await expect(page.getByRole('region', { name: 'Race 1 official result' })).toContainText('Snail 8');
+  await expect(page.getByRole('toolbar', { name: 'Show controls' })).toHaveCount(0);
+  const desk = await openDesk(page);
+  await expect(desk.getByRole('status').filter({ hasText: 'wins!' })).toBeVisible();
+  await expect(desk.locator('.desk-eyebrow')).toContainText(/Newcomb & District Cricket Club \/ Snail Racing/i);
+  await desk.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'THANK YOU screen' })).toBeVisible();
+  /* The end of the night is a done state, with adding a race the live action. */
+  await expect(desk.getByRole('status').filter({ hasText: 'Night complete' })).toBeVisible();
+  await expect(desk.getByRole('button', { name: /^End of night|^Night complete/ })).toHaveCount(0);
+  await expect(desk.getByRole('button', { name: /^Add a race: snails \d+ to \d+/ })).toBeEnabled();
+  /* Back from the thank you screen reads the restored result, not "Ready to race". */
+  await desk.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(desk.getByRole('status').filter({ hasText: 'wins!' })).toBeVisible();
+  await expect(desk.getByRole('status').filter({ hasText: 'Ready to race' })).toHaveCount(0);
 });

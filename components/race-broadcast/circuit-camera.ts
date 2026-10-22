@@ -81,17 +81,30 @@ export interface PackInput {
   /** Tightest and widest shots allowed, in course units across. */
   minSpan: number;
   maxSpan: number;
+  /**
+   * How many chasers are held in shot whatever the spacing (the placegetters,
+   * so the second and third are never sliced by the frame edge). Holding
+   * them may widen the shot past `maxSpan`.
+   */
+  mustHold?: number;
   /** How far ahead of the leader the shot leaves room, in course units. */
   lookAhead?: number;
   pad?: number;
 }
 
+/** The span, in course units across, a set of points needs with `pad` clear around them. */
+export function holdSpan(vp: Rect, points: readonly Pt[], pad = 60): number {
+  return spanFor(grow(boxOf(points), pad), vp);
+}
+
 /**
- * The lead-pack shot: the leader with room to run into, plus as many of
- * the next runners as fit a tight frame. Never wider than `maxSpan`, so on a
- * short lap the camera stays with the front of the race instead of pulling
- * out to the whole course. A twist on air is always framed: with the
- * leader when they fit together, on its own when they do not.
+ * The lead-pack shot: the leader with room to run into, the placegetters
+ * behind it with a margin, plus as many of the next runners as fit a tight
+ * frame. The extras never widen the shot past `maxSpan`, so on a short lap
+ * the camera stays with the front of the race instead of pulling out to
+ * the whole course; the placegetters widen it as far as they need. A twist
+ * on air is always framed: with the leader when they fit together, on its
+ * own when they do not.
  */
 export function packShot(input: PackInput): Shot {
   const { vp, leader, minSpan, maxSpan } = input;
@@ -99,15 +112,24 @@ export function packShot(input: PackInput): Shot {
   const look = input.lookAhead ?? 90;
   const rad = (leader.angle * Math.PI) / 180;
   const ahead = { x: leader.x + Math.cos(rad) * look, y: leader.y + Math.sin(rad) * look };
-  const fits = (pts: readonly Pt[]) => spanFor(grow(boxOf(pts), pad), vp) <= maxSpan;
+  const fits = (pts: readonly Pt[], limit: number) => holdSpan(vp, pts, pad) <= limit;
   let core: Pt[] = [leader, ahead];
+  let withLeader = true;
   if (input.twist?.length) {
     const together = [...core, ...input.twist];
-    core = fits(together) ? together : [...input.twist];
+    if (fits(together, maxSpan)) core = together;
+    else {
+      core = [...input.twist];
+      withLeader = false;
+    }
   }
-  for (const p of input.chasers) {
+  const held = withLeader ? input.chasers.slice(0, input.mustHold ?? 2) : [];
+  core = [...core, ...held];
+  /* The extras only ever fill the room the placegetters left. */
+  const limit = Math.max(maxSpan, holdSpan(vp, core, pad));
+  for (const p of input.chasers.slice(held.length)) {
     const next = [...core, p];
-    if (fits(next)) core = next;
+    if (fits(next, limit)) core = next;
   }
   return fitBox(grow(boxOf(core), pad), vp, minSpan);
 }

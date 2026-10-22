@@ -3,7 +3,7 @@
 import type { RecordedCue } from './audio/voice-cues';
 import { recordedCueFor } from './audio/voice-cues';
 import { voiceBusyMs, type SayOptions } from './audio/voice';
-import { winnerSting } from './audio/music';
+import { revealSting, winnerSting } from './audio/music';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -620,6 +620,8 @@ export function useRace(
           race.runningIn = false;
           stop();
           setPhase('done');
+          /* The winner card goes up now: its own sting, over the bed. */
+          revealSting();
           finishRef.current(race, ordered, race.highlights);
         }, FINISH_CONFIRM_MS),
       );
@@ -707,7 +709,7 @@ export function useRace(
         const toLine = race.stopAt - race.raceT;
         const lateFinishCall = (item.key === 'runhome' || item.key === 'together' || item.key === 'toline') && voiceBusyMs() + FINISH_CLIP_MS > toLine;
         if (lateFinishCall) setCommentary(item.text);
-        else call(item.text, item.priority, item.cue, item.opts, item.altCue);
+        else call(item.text, item.priority, item.cue, { ...item.opts, rank: item.rank }, item.altCue);
         item.sound?.();
         item.onSaid?.();
         race.air = { key: item.key, rank: item.rank, until: race.raceT + item.hold };

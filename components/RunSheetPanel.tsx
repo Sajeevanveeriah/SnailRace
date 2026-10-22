@@ -13,7 +13,11 @@ import {
   cardFit,
   cardLayout,
   describeLayout,
+  describeSnailsPerRace,
   fitFixes,
+  lockReasons,
+  racesFloor,
+  racesFloorReason,
   removeLastRace,
   resizeCard,
   runSheetLocks,
@@ -40,15 +44,20 @@ const INTENSITY_IDS: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos', 
 export const locksFor = (event: EventState, armedRaceNo: number | null): RaceLock[] =>
   runSheetLocks(event.card, tiesOf(event, armedRaceNo));
 
-/** Apply a card edit, or say why it could not be made. */
-function commit(result: CardState | { error: string }, say: (m: string) => void, detail: string): boolean {
+/**
+ * Apply a card edit, or say why it could not be made. The confirmation is
+ * built from the card as stored, never from what was typed: 8.5 snails on
+ * sale is confirmed as 9, the number the card holds.
+ */
+function commit(result: CardState | { error: string }, say: (m: string) => void, detail: string | ((card: CardState) => string)): boolean {
   if ('error' in result) {
     say(result.error);
     return false;
   }
+  const said = typeof detail === 'function' ? detail(result) : detail;
   setState({ card: result });
-  addAudit({ kind: 'note', raceNo: 0, detail });
-  say(detail);
+  addAudit({ kind: 'note', raceNo: 0, detail: said });
+  say(said);
   return true;
 }
 
@@ -115,12 +124,14 @@ export function RunSheetPanel({ event, armedRaceNo }: { event: EventState; armed
             return 'error' in r ? r.error : '';
           })()
         : '';
-  const reasons = [...new Set(locks.map((l) => (l.run || l.armed ? '' : l.countLock)).filter(Boolean))];
+  const reasons = lockReasons(card, locks);
+  const floor = racesFloor(locks);
+  const floorReason = racesFloorReason(locks);
 
   return (
     <section className="panel run-sheet lg:col-span-2 xl:col-span-3" aria-label="Run sheet">
       <h3 className="mb-1 font-semibold">Run sheet</h3>
-      <p className="mb-3 text-[11px] leading-snug text-(--tx)/50">
+      <p className="mb-3 text-[12px] leading-snug text-(--tx)/60">
         The races take the snail numbers in order, each as many as its runners. Every race still to come can change;
         a race that has run is locked. {describeLayout(cardLayout(card))}.
       </p>
@@ -143,7 +154,7 @@ export function RunSheetPanel({ event, armedRaceNo }: { event: EventState; armed
               className="btn btn-ghost"
               disabled={saleDraft === null || Number(saleDraft) === card.snailCount}
               onClick={() => {
-                if (commit(resizeCard(card, Number(saleDraft)), say, `${Number(saleDraft)} snails on sale.`)) setSaleDraft(null);
+                if (commit(resizeCard(card, Number(saleDraft)), say, (c) => `${c.snailCount} snails on sale.`)) setSaleDraft(null);
               }}
             >
               Set
@@ -157,8 +168,9 @@ export function RunSheetPanel({ event, armedRaceNo }: { event: EventState; armed
               id="run-sheet-races"
               type="number"
               inputMode="numeric"
-              min={1}
+              min={Math.max(1, floor)}
               max={MAX_RACES}
+              aria-describedby={floorReason ? 'run-sheet-races-floor' : undefined}
               value={racesDraft ?? String(card.races.length)}
               onChange={(e) => setRacesDraft(e.target.value)}
               onBlur={() => { if (racesDraft === String(card.races.length)) setRacesDraft(null); }}
@@ -168,18 +180,19 @@ export function RunSheetPanel({ event, armedRaceNo }: { event: EventState; armed
               className="btn btn-ghost"
               disabled={racesDraft === null || Number(racesDraft) === card.races.length}
               onClick={() => {
-                if (commit(setRaceCount(card, Number(racesDraft), locks), say, `${Number(racesDraft)} races tonight.`)) setRacesDraft(null);
+                if (commit(setRaceCount(card, Number(racesDraft), locks), say, (c) => `${c.races.length} ${c.races.length === 1 ? 'race' : 'races'} tonight.`)) setRacesDraft(null);
               }}
             >
               Set
             </button>
           </div>
+          {floorReason ? <span id="run-sheet-races-floor" className="run-sheet-floor">{floorReason} The night keeps at least {floor}.</span> : null}
         </div>
         <label className="fld">
           <span>Snails per race</span>
           <select
             value={card.snailsPerRace}
-            onChange={(e) => commit(setSnailsPerRace(card, Number(e.target.value), locks), say, `Snails per race set to ${e.target.value} for every race still free to change.`)}
+            onChange={(e) => commit(setSnailsPerRace(card, Number(e.target.value), locks), say, (c) => describeSnailsPerRace(card, c.snailsPerRace, locks))}
           >
             {RUNNER_CHOICES.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -224,17 +237,34 @@ export function RunSheetPanel({ event, armedRaceNo }: { event: EventState; armed
           return (
             <div key={raceNo} className="run-sheet-row" role="group" aria-label={`Race ${raceNo}`}>
               <span><b>{s.title}</b> <small>{snails}</small></span>
-              <label>
-                <span className="sr-only">Race {raceNo} runners</span>
-                <select
-                  value={row.runners}
-                  disabled={Boolean(lock?.countLock)}
-                  title={lock?.countLock || undefined}
-                  onChange={(e) => commit(setRaceRunners(card, raceNo, Number(e.target.value), locks), say, `Race ${raceNo}: ${e.target.value} runners.`)}
-                >
-                  {RUNNER_CHOICES.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </label>
+              <span className="run-sheet-runners">
+                <label>
+                  <span className="sr-only">Race {raceNo} runners</span>
+                  <select
+                    value={row.runners}
+                    disabled={Boolean(lock?.countLock)}
+                    title={lock?.countLock || undefined}
+                    onChange={(e) => commit(setRaceRunners(card, raceNo, Number(e.target.value), locks), say, (c) => `Race ${raceNo}: ${c.races[i].runners} runners.`)}
+                  >
+                    {RUNNER_CHOICES.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                {row.custom && row.runners !== card.snailsPerRace ? (
+                  lock?.countLock ? (
+                    <span className="run-sheet-hand" title="Set by hand for this race">Hand-set</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="run-sheet-hand run-sheet-hand-reset"
+                      title={`Set by hand for this race. Back to the night default of ${card.snailsPerRace}.`}
+                      aria-label={`Race ${raceNo} runners set by hand: back to the night default of ${card.snailsPerRace}`}
+                      onClick={() => commit(setRaceRunners(card, raceNo, card.snailsPerRace, locks), say, (c) => `Race ${raceNo}: back to the night default of ${c.races[i].runners} runners.`)}
+                    >
+                      Hand-set <span aria-hidden="true">&times;</span>
+                    </button>
+                  )
+                ) : null}
+              </span>
               <label>
                 <span className="sr-only">Race {raceNo} track</span>
                 <select
