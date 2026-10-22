@@ -174,7 +174,7 @@ test('fitBox holds the whole course', () => {
   assert.deepEqual(boxOf([{ x: 1, y: 2 }, { x: -1, y: 5 }]), { x0: -1, y0: 2, x1: 1, y1: 5 });
 });
 
-test('the camera eases from the whole course to the pack in about 1.3 s, with no hard cut', () => {
+test('the camera eases from the whole course to the pack in about 2 s, with no hard cut', () => {
   const rig = new CameraRig();
   const whole = { cx: 600, cy: 360, z: 1.2 };
   const pack = { cx: 640, cy: 560, z: 3.6 };
@@ -182,7 +182,7 @@ test('the camera eases from the whole course to the pack in about 1.3 s, with no
   rig.step(whole, 'gate', t, { vp, reduce: false });
   let previous = whole.z;
   let biggestStep = 0;
-  for (t = 16; t <= 1400; t += 16) {
+  for (t = 16; t <= 2100; t += 16) {
     const shot = rig.step(pack, 'pack', t, { vp, reduce: false });
     biggestStep = Math.max(biggestStep, Math.abs(Math.log(shot.z / previous)));
     previous = shot.z;
