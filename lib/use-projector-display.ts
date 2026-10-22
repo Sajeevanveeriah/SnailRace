@@ -64,15 +64,17 @@ export function useProjectorDisplay(active: boolean) {
  * open on the laptop could start a race that is already running on the
  * projector. The first tab to load takes the lease and heartbeats it; any
  * other tab is a mirror until the holder goes away. A holder releases the
- * lease as its page unloads, so a reload takes it straight back, and a
- * mirror only steps in once a lease has gone quiet.
+ * lease as its page unloads, and a mirror waits 8 s after a release before
+ * stepping in, so a reloading main screen takes the lease straight back. A
+ * lease silent for 15 s belongs to a tab that is gone or frozen; a merely
+ * busy main screen never loses the show.
  */
 const LEASE_KEY = 'ndcc-snailrace-show-lease';
 const HEARTBEAT_MS = 1000;
-/** A lease older than this belongs to a tab that is gone (or frozen). */
-const STALE_MS = 3500;
+/** A lease older than this belongs to a tab that is gone (or frozen), not merely busy. */
+const STALE_MS = 15_000;
 /** A mirror waits this long after a release before it takes over, so a reloading holder gets there first. */
-const TAKEOVER_GRACE_MS = 4000;
+const TAKEOVER_GRACE_MS = 8000;
 
 interface Lease { id: string; at: number }
 
@@ -123,7 +125,12 @@ export function useShowLease(): ShowLease {
         else write();
         return;
       }
-      if (!taken(current, now) && !takeover) claim();
+      if (!taken(current, now)) {
+        if (!takeover) claim();
+      } else {
+        /* Another tab holds the show: this one is a mirror, and says so at once. */
+        become(false);
+      }
     };
     check();
     const beat = window.setInterval(check, HEARTBEAT_MS);
