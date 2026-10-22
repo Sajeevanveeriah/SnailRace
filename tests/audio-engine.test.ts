@@ -89,18 +89,20 @@ async function withFakeAudio(run: (context: FakeContext) => Promise<void>) {
 
 const dB = (ratio: number) => 20 * Math.log10(ratio);
 
-test('the caller ducks the music about 10 dB: in over 150 ms, held, out over 600 ms', async () => {
+test('the caller ducks the music to the 40 percent floor: in over 150 ms, held, out over 600 ms', async () => {
   await withFakeAudio(async (context) => {
     const engine = await import('../lib/audio/engine');
     const music = await import('../lib/audio/music');
     assert.ok(engine.primeAudio());
     engine.setLevels({ music: 0.72 });
     const bus = engine.busNode('music') as unknown as FakeGain;
-    const level = 0.72 * engine.MUSIC_BED_GAIN;
+    const level = 0.72;
     assert.equal(engine.musicBusTarget(), level);
+    assert.ok(engine.musicLimited(), 'the music is limited ahead of its duck stage, so a duck is heard');
 
     const voice = { attack: music.VOICE_DUCK_ATTACK, release: music.VOICE_DUCK_RELEASE };
-    assert.ok(dB(music.VOICE_DUCK) <= -9.5 && dB(music.VOICE_DUCK) >= -10.5, `voice duck is ${dB(music.VOICE_DUCK).toFixed(1)} dB`);
+    assert.ok(Math.abs(music.VOICE_DUCK - 0.4) < 0.01, `voice duck is ${dB(music.VOICE_DUCK).toFixed(1)} dB`);
+    assert.equal(music.DUCK_FLOOR, 0.4);
     assert.equal(music.VOICE_DUCK_ATTACK, 0.15);
     assert.equal(music.VOICE_DUCK_RELEASE, 0.6);
 
@@ -135,7 +137,7 @@ test('the caller ducks the music about 10 dB: in over 150 ms, held, out over 600
     music.duck(1, 0.01);
     const floor = bus.gain.events.filter((e) => e.op === 'linear').at(-2)!;
     assert.ok(Math.abs(floor.value! - level * music.DUCK_FLOOR) < 1e-9);
-    assert.ok(dB(music.DUCK_FLOOR) > -11);
+    assert.ok(dB(music.DUCK_FLOOR) > -8.5 && dB(music.DUCK_FLOOR) < -7.5);
 
     /* Music switched off: nothing to duck, and nothing to restore to. */
     engine.setMusicEnabled(false);
@@ -149,7 +151,7 @@ test('the caller ducks the music about 10 dB: in over 150 ms, held, out over 600
     engine.setLevels({ music: 0.4 });
     const tail = bus.gain.events.slice(-3).map((e) => e.op);
     assert.deepEqual(tail, ['cancel', 'set', 'target']);
-    assert.equal(bus.gain.events.at(-1)?.value, 0.4 * engine.MUSIC_BED_GAIN);
+    assert.equal(bus.gain.events.at(-1)?.value, 0.4);
     engine.setLevels({ music: 0.72 });
   });
 });
@@ -267,5 +269,55 @@ test('no step of any bar starts more voices than the budget allows', async () =>
     check('race', 1, music.RACE_BPM);
     check('lobby', 0, music.LOBBY_BPM);
     check('winner', 0, music.WINNER_BPM);
+  });
+});
+
+test('a call ducks the effects bus with the music, and the winner stings ride over it', async () => {
+  await withFakeAudio(async (context) => {
+    const engine = await import('../lib/audio/engine');
+    const music = await import('../lib/audio/music');
+    assert.ok(engine.primeAudio());
+    const sfx = engine.busNode('sfx') as unknown as FakeGain;
+    context.currentTime = 50;
+    const before = sfx.gain.events.length;
+    music.duck(2.5, music.VOICE_DUCK, 'voice', { attack: music.VOICE_DUCK_ATTACK, release: music.VOICE_DUCK_RELEASE });
+    const after = sfx.gain.events.slice(before);
+    const linear = after.filter((e) => e.op === 'linear');
+    assert.ok(Math.abs(linear[0].value! - engine.sfxBusTarget() * music.VOICE_DUCK) < 1e-9, 'a sting under a call is ducked with the music');
+    assert.equal(linear.at(-1)!.value, engine.sfxBusTarget());
+    assert.ok(Math.abs(linear.at(-1)!.at - 53.1) < 1e-9, 'and comes back when the line is done');
+    /* An effect duck leaves the effects bus alone. */
+    const mid = sfx.gain.events.length;
+    music.duck(1, 0.6);
+    assert.equal(sfx.gain.events.length, mid);
+    /* The winner stings take the clear path, so the winner call cannot swallow them. */
+    context.sources.length = 0;
+    music.revealSting();
+    const started = context.sources.filter((s) => s.startedAt >= 0);
+    assert.ok(started.length >= 8, `only ${started.length} voices in the reveal sting`);
+    assert.ok(Math.max(...started.map((s) => s.startedAt - context.currentTime)) < 0.6);
+  });
+});
+
+test('the winner fanfare hands over to a quiet lobby bed, not to silence', async () => {
+  await withFakeAudio(async (context) => {
+    const engine = await import('../lib/audio/engine');
+    const music = await import('../lib/audio/music');
+    assert.ok(engine.primeAudio());
+    music.stopTrack(0);
+    music.startTrack('winner');
+    assert.equal(music.currentTrack(), 'winner');
+    /* The test window never fires the sequencer's timer: drive the bars by hand. */
+    for (let bar = 0; bar < 3; bar++) {
+      context.currentTime += 2;
+      music.advanceBar();
+    }
+    assert.equal(music.currentTrack(), 'lobby', 'the bed follows the fanfare');
+    assert.equal(music.currentLevel(), music.BED_LEVEL);
+    assert.ok(music.BED_LEVEL >= 0.5 && music.BED_LEVEL < 1);
+    /* The racecard brings the lobby back to full. */
+    music.startTrack('lobby');
+    assert.equal(music.currentLevel(), 1);
+    music.stopTrack(0);
   });
 });

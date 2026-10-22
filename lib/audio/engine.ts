@@ -20,9 +20,15 @@
  * Signal path, one bus per job so the moderator can ride music under
  * commentary without touching the effects:
  *
- *   sources ─┬─> musicBus ─┐
- *            ├─> sfxBus   ─┼─> masterBus ─> limiter ─> ceiling ─> speakers
- *            └─> crowdBus ─┘
+ *   music voices ─> drive (+6 dB) ─> music limiter ─> trim (-3 dB) ─> musicOut (level, ducks) ─┐
+ *   sfx voices   ─> sfxBus (level, ducks under the caller)                     ├─> master ─> limiter ─> ceiling ─> speakers
+ *   crowd        ─> crowdBus                                                   ┘
+ *
+ * The music is limited BEFORE its level and duck stage. With the lift and
+ * the master limiter alone the soundtrack sat 10 dB into a 20:1 limiter,
+ * and a 10 dB duck of the bus came out of the speakers as half a decibel:
+ * the limiter gave back what the duck took. Limiting the music on its own
+ * bus first means a duck of the level stage is heard as the duck it is.
  *
  * Music voices can also tap a shared effects send - one convolver (a 1.6 s
  * generated room) and one tempo-synced feedback delay, built once and
@@ -89,7 +95,13 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
 let ceiling: GainNode | null = null;
+/** Where each bus's voices connect. */
 const buses = new Map<Bus, GainNode>();
+/** The music's level and duck stage, after its own limiter. */
+let musicOut: GainNode | null = null;
+let musicLimiter: DynamicsCompressorNode | null = null;
+/** An effects path the caller's duck does not touch: the winner stings. */
+let sfxClear: GainNode | null = null;
 
 /*
  * The shared effects return. Everything a voice sends here comes back into
@@ -150,14 +162,29 @@ export const getLevels = (): AudioLevels => ({ ...levels });
  * began, so overlapping ducks cannot ratchet the music down a step at a
  * time until the race ends in near silence.
  */
-export const musicBusTarget = (): number => (enabled && musicEnabled ? levels.music * MUSIC_BED_GAIN : 0);
+export const musicBusTarget = (): number => (enabled && musicEnabled ? levels.music : 0);
+
+/** The level the effects bus is meant to sit at; it ducks under the caller too. */
+export const sfxBusTarget = (): number => (enabled ? levels.sfx : 0);
 
 /**
- * Make-up gain on the music bus, about +6 dB. The synthesised bed measured
- * about 30 dB below full scale between calls, which a function room hears as
- * no music at all; the limiter below keeps the lift from ever clipping.
+ * Make-up gain into the music limiter, about +6 dB. The synthesised bed
+ * measured about 30 dB below full scale between calls, which a function
+ * room hears as no music at all; the music limiter keeps the lift from ever
+ * clipping, and the level stage after it is where the ducks act.
  */
 export const MUSIC_BED_GAIN = 2;
+
+/**
+ * The trim after the music limiter, about -3 dB. A browser's compressor
+ * adds its own make-up gain, so the music limiter hands on a signal that
+ * peaks near full scale. Fed straight to the master that sat the soundtrack
+ * deep in the master limiter, which gave back most of every duck (measured
+ * 1 to 3 dB for a 10 dB duck). Trimmed here, the music at the default
+ * slider peaks at the master threshold, the master limiter only catches a sting landing
+ * on a loud beat, and a duck of the level stage is heard in full.
+ */
+export const MUSIC_LIMITER_TRIM = 0.7;
 
 /** The brick wall in front of the speakers, and the headroom it leaves. */
 export const LIMITER = { threshold: -6, knee: 0, ratio: 20, attack: 0.002, release: 0.15 } as const;
@@ -190,16 +217,31 @@ function applyLevels() {
    * and the moderator drags these sliders while the race is on.
    */
   master.gain.setTargetAtTime(enabled ? levels.master : 0, t, 0.02);
-  const music = buses.get('music');
-  if (music) {
-    /* A slider move during a duck must win over the duck's pending ramp,
-       otherwise the ramp restores the old level a second later. */
-    music.gain.cancelScheduledValues(t);
-    music.gain.setValueAtTime(Math.max(0.0001, music.gain.value), t);
-    music.gain.setTargetAtTime(musicBusTarget(), t, 0.05);
+  /* A slider move during a duck must win over the duck's pending ramp,
+     otherwise the ramp restores the old level a second later. */
+  if (musicOut) {
+    musicOut.gain.cancelScheduledValues(t);
+    musicOut.gain.setValueAtTime(Math.max(0.0001, musicOut.gain.value), t);
+    musicOut.gain.setTargetAtTime(musicBusTarget(), t, 0.05);
   }
-  buses.get('sfx')?.gain.setTargetAtTime(levels.sfx, t, 0.02);
+  const sfx = buses.get('sfx');
+  if (sfx) {
+    sfx.gain.cancelScheduledValues(t);
+    sfx.gain.setValueAtTime(Math.max(0.0001, sfx.gain.value), t);
+    sfx.gain.setTargetAtTime(sfxBusTarget(), t, 0.02);
+  }
+  sfxClear?.gain.setTargetAtTime(sfxBusTarget(), t, 0.02);
   buses.get('crowd')?.gain.setTargetAtTime(levels.crowd, t, 0.05);
+}
+
+function brickWall(context: AudioContext): DynamicsCompressorNode {
+  const node = context.createDynamicsCompressor();
+  node.threshold.value = LIMITER.threshold;
+  node.knee.value = LIMITER.knee;
+  node.ratio.value = LIMITER.ratio;
+  node.attack.value = LIMITER.attack;
+  node.release.value = LIMITER.release;
+  return node;
 }
 
 /**
@@ -225,12 +267,7 @@ export function primeAudio(): AudioContext | null {
     return null;
   }
 
-  limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = LIMITER.threshold;
-  limiter.knee.value = LIMITER.knee;
-  limiter.ratio.value = LIMITER.ratio;
-  limiter.attack.value = LIMITER.attack;
-  limiter.release.value = LIMITER.release;
+  limiter = brickWall(ctx);
   ceiling = ctx.createGain();
   ceiling.gain.value = OUTPUT_CEILING;
   limiter.connect(ceiling);
@@ -239,13 +276,29 @@ export function primeAudio(): AudioContext | null {
   master = ctx.createGain();
   master.connect(limiter);
 
-  for (const name of ['music', 'sfx', 'crowd'] as Bus[]) {
+  /* Music: the voices sum into a lifted drive, through the music's own
+     limiter, then the level stage the ducks act on. */
+  const drive = ctx.createGain();
+  drive.gain.value = MUSIC_BED_GAIN;
+  musicLimiter = brickWall(ctx);
+  const trim = ctx.createGain();
+  trim.gain.value = MUSIC_LIMITER_TRIM;
+  musicOut = ctx.createGain();
+  drive.connect(musicLimiter);
+  musicLimiter.connect(trim);
+  trim.connect(musicOut);
+  musicOut.connect(master);
+  buses.set('music', drive);
+
+  for (const name of ['sfx', 'crowd'] as Bus[]) {
     const g = ctx.createGain();
     g.connect(master);
     buses.set(name, g);
   }
+  sfxClear = ctx.createGain();
+  sfxClear.connect(master);
 
-  buildFx(ctx, buses.get('music')!);
+  buildFx(ctx, drive);
 
   applyLevels();
   void probeSamples();
@@ -334,9 +387,14 @@ export const fxLevels = (): { reverb: number; delay: number } => ({
   delay: fxDelayWet?.gain.value ?? 0,
 });
 
+/** The level stage of a bus: where a duck or a slider acts. */
 export function busNode(bus: Bus): GainNode | null {
+  if (bus === 'music') return musicOut;
   return buses.get(bus) ?? null;
 }
+
+/** True when the music has its own limiter ahead of its level stage. */
+export const musicLimited = (): boolean => musicLimiter !== null;
 
 /* ── Drop-in files ─────────────────────────────────────────────────────── */
 
@@ -451,12 +509,18 @@ export interface ToneOpts {
   send?: number;
   /** Slow amplitude wobble, for electric-piano shimmer. */
   tremolo?: { rate: number; depth: number };
+  /**
+   * False keeps the cue clear of the caller's duck: the winner stings land
+   * under the winner call on purpose and must not be swallowed by it. Only
+   * the effects bus has a clear path.
+   */
+  ducked?: boolean;
 }
 
 /** One synth voice. The unit every synthesised cue is built from. */
 export function tone(o: ToneOpts): void {
   if (!enabled || !ctx) return;
-  const out = buses.get(o.bus ?? 'sfx');
+  const out = outputFor(o.bus, o.ducked);
   if (!out) return;
   if (ctx.state === 'suspended') void ctx.resume();
 
@@ -561,11 +625,19 @@ export interface NoiseOpts {
   pan?: number;
   /** 0 to 1 of the burst sent to the shared reverb and delay. */
   send?: number;
+  /** False keeps the burst clear of the caller's duck; see `ToneOpts.ducked`. */
+  ducked?: boolean;
+}
+
+/** The node a voice connects to: its bus, or the clear effects path. */
+function outputFor(bus: Bus = 'sfx', ducked = true): GainNode | null {
+  if (bus === 'sfx' && !ducked && sfxClear) return sfxClear;
+  return buses.get(bus) ?? null;
 }
 
 export function noise(o: NoiseOpts = {}): void {
   if (!enabled || !ctx) return;
-  const out = buses.get(o.bus ?? 'sfx');
+  const out = outputFor(o.bus, o.ducked);
   if (!out) return;
   if (ctx.state === 'suspended') void ctx.resume();
 

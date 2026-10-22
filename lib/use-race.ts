@@ -3,7 +3,7 @@
 import type { RecordedCue } from './audio/voice-cues';
 import { recordedCueFor } from './audio/voice-cues';
 import { voiceBusyMs, type SayOptions } from './audio/voice';
-import { winnerSting } from './audio/music';
+import { revealSting, winnerSting } from './audio/music';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -620,6 +620,8 @@ export function useRace(
           race.runningIn = false;
           stop();
           setPhase('done');
+          /* The winner card goes up now: its own sting, over the bed. */
+          revealSting();
           finishRef.current(race, ordered, race.highlights);
         }, FINISH_CONFIRM_MS),
       );
