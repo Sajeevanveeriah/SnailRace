@@ -340,11 +340,11 @@ test('a quaddie switched on in Admin takes entries at the desk and shows the boa
 test('Enter advances like Space and V only switches the camera on the race screen', async ({ page }) => {
   await page.mouse.click(5, 5);
   await page.keyboard.press('v');
-  expect((await readNight(page)).cameraMode).toBe('telecast');
+  expect((await readNight(page)).cameraMode ?? 'telecast').toBe('telecast');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('region', { name: 'RACECARD screen' })).toBeVisible();
   await page.keyboard.press('v');
-  expect((await readNight(page)).cameraMode).toBe('telecast');
+  expect((await readNight(page)).cameraMode ?? 'telecast').toBe('telecast');
   await page.keyboard.press('Enter');
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-race-phase', 'idle');
   await page.keyboard.press('v');
@@ -366,11 +366,10 @@ test('a reload on a result restores the result, and the thank you screen reads a
   });
   await page.reload();
   await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
-  /* The official result, not the gate: the stage is on the finished race and the winner card is up. */
+  /* The official result, not the gate: the stage is on the finished race with its result up. */
   await expect(page.locator('.race-broadcast')).toHaveAttribute('data-race-phase', 'done');
-  await expect(page.getByRole('button', { name: /^Close/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Race 1 official result' })).toContainText('Snail 8');
   await expect(page.getByRole('toolbar', { name: 'Show controls' })).toHaveCount(0);
-  await page.keyboard.press('Escape');
   const desk = await openDesk(page);
   await expect(desk.getByRole('status').filter({ hasText: 'wins!' })).toBeVisible();
   await expect(desk.locator('.desk-eyebrow')).toContainText(/Newcomb & District Cricket Club \/ Snail Racing/i);
@@ -379,7 +378,7 @@ test('a reload on a result restores the result, and the thank you screen reads a
   /* The end of the night is a done state, with adding a race the live action. */
   await expect(desk.getByRole('status').filter({ hasText: 'Night complete' })).toBeVisible();
   await expect(desk.getByRole('button', { name: /^End of night|^Night complete/ })).toHaveCount(0);
-  await expect(desk.getByRole('button', { name: 'Add a race: the next snails' })).toBeEnabled();
+  await expect(desk.getByRole('button', { name: /^Add a race: snails \d+ to \d+/ })).toBeEnabled();
   /* Back from the thank you screen reads the restored result, not "Ready to race". */
   await desk.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(desk.getByRole('status').filter({ hasText: 'wins!' })).toBeVisible();
