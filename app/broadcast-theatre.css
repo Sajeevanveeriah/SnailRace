@@ -349,51 +349,61 @@
    room for the volunteer's bar. The frame is sized to the height left above
    the band, so the picture keeps its 16:9 units. With the desk open the bar
    is gone and the frame takes the whole screen, as before. */
-.cinema:not(.projector-audience) { --bar-h: 84px; }
-/* The outer frame only: the course's own layers keep their 100% boxes inside it. */
-.cinema:not(.projector-audience) .stage-track > .track-wrap { height: calc(100dvh - var(--bar-h)); }
-.cinema:not(.projector-audience) .stage-track > .track-wrap > svg.tv { height: 100%; }
-.cinema:not(.projector-audience) .race-broadcast,
-.cinema:not(.projector-audience) .race-broadcast .side-broadcast,
-.cinema:not(.projector-audience) .race-broadcast.side-broadcast,
-.cinema:not(.projector-audience) .race-broadcast .side-splash { --u: min(1vw, calc((100dvh - var(--bar-h)) / 56.25)); }
-.cinema:not(.projector-audience) .stage-bar {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: auto;
-  height: var(--bar-h);
-  translate: none;
-  flex-wrap: nowrap;
-  gap: 1rem;
-  padding: 0 1.5rem;
-  background: var(--broadcast-ink);
-  border-top: 1px solid rgb(255 255 255 / 0.16);
-  opacity: 1;
-  pointer-events: auto;
-  overflow: hidden;
-  transition: none;
+/* On a phone the controls sit at the foot of the page, in the flow, so they never cover the race. */
+@media (max-width: 899px) {
+  .cinema .stage-bar { position: static; width: auto; translate: none; opacity: 1; padding: 1rem; background: transparent; }
 }
-.cinema:not(.projector-audience) .stage-bar > .min-w-0 { flex: 1 1 auto; min-width: 0; }
-.cinema:not(.projector-audience) .stage-bar > .min-w-0 > div { flex-wrap: nowrap; min-width: 0; }
-.cinema:not(.projector-audience) .stage-bar .text-lg {
-  font-size: 1rem;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-shadow: none;
+.stage-void { color: var(--bad); }
+
+/* A projector screen, not a phone held in portrait. */
+@media (min-width: 900px) {
+  .cinema:not(.projector-audience) { --bar-h: 84px; }
+  /* The outer frame only: the course's own layers keep their 100% boxes inside it. */
+  .cinema:not(.projector-audience) .stage-track > .track-wrap { height: calc(100dvh - var(--bar-h)); }
+  .cinema:not(.projector-audience) .stage-track > .track-wrap > svg.tv { height: 100%; }
+  .cinema:not(.projector-audience) .race-broadcast,
+  .cinema:not(.projector-audience) .race-broadcast .side-broadcast,
+  .cinema:not(.projector-audience) .race-broadcast.side-broadcast,
+  .cinema:not(.projector-audience) .race-broadcast .side-splash { --u: min(1vw, calc((100dvh - var(--bar-h)) / 56.25)); }
+  .cinema:not(.projector-audience) .stage-bar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: var(--bar-h);
+    translate: none;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    padding: 0 1.5rem;
+    background: var(--broadcast-ink);
+    border-top: 1px solid rgb(255 255 255 / 0.16);
+    opacity: 1;
+    pointer-events: auto;
+    overflow: hidden;
+    transition: none;
+  }
+  .cinema:not(.projector-audience) .stage-bar > .min-w-0 { flex: 1 1 auto; min-width: 0; }
+  .cinema:not(.projector-audience) .stage-bar > .min-w-0 > div { flex-wrap: nowrap; min-width: 0; }
+  .cinema:not(.projector-audience) .stage-bar .text-lg {
+    font-size: 1rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-shadow: none;
+  }
+  .cinema:not(.projector-audience) .stage-bar .state-banner { flex: none; }
+  .cinema:not(.projector-audience) .stage-bar > .flex { flex: none; flex-wrap: nowrap; }
+  .cinema:not(.projector-audience) .stage-bar .btn { white-space: nowrap; }
+  .cinema:not(.projector-audience) .stage-bar .btn-ghost {
+    color: var(--broadcast-type);
+    border: 1px solid rgb(255 255 255 / 0.3);
+    background: rgb(255 255 255 / 0.06);
+  }
+  .cinema:not(.projector-audience) .stage-bar .btn-ghost:disabled { opacity: 0.45; }
+  .cinema:not(.projector-audience) .stage-bar kbd { color: var(--broadcast-type); }
+  .cinema:not(.projector-audience) .stage-bar .text-\(--tx\)\/35 { color: rgb(247 243 232 / 0.55); }
+    .cinema:not(.projector-audience) .stage-bar .stage-void { color: #ff9d94; border-color: rgb(255 157 148 / 0.5); }
 }
-.cinema:not(.projector-audience) .stage-bar .state-banner { flex: none; }
-.cinema:not(.projector-audience) .stage-bar > .flex { flex: none; flex-wrap: nowrap; }
-.cinema:not(.projector-audience) .stage-bar .btn { white-space: nowrap; }
-.cinema:not(.projector-audience) .stage-bar .btn-ghost {
-  color: var(--broadcast-type);
-  border: 1px solid rgb(255 255 255 / 0.3);
-  background: rgb(255 255 255 / 0.06);
-}
-.cinema:not(.projector-audience) .stage-bar .btn-ghost:disabled { opacity: 0.45; }
-.cinema:not(.projector-audience) .stage-bar kbd { color: var(--broadcast-type); }
-.cinema:not(.projector-audience) .stage-bar .text-\(--tx\)\/35 { color: rgb(247 243 232 / 0.55); }
 
 /* A one-line notice (the desk closed, fullscreen refused) rides in the control band, under the strap. */
 .projector-note {

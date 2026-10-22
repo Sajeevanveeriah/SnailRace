@@ -1573,7 +1573,7 @@ export function Stage() {
                 {voidable && event.eventMode === 'live' ? (
                   <button
                     type="button"
-                    className="btn btn-ghost !text-(--bad)"
+                    className="btn btn-ghost stage-void"
                     onClick={() => {
                       if (
                         window.confirm(
