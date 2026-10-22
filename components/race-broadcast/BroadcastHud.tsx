@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { laneColour } from '@/lib/palette';
-import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { runnerLookAt } from '@/lib/presentation/runner-art';
 import type { BoardRow, RaceController } from '@/lib/use-race';
 import { SPREAD_MS, finalGapText, gapSeconds, lapsDownText, snailNumber, towerName } from './standings-format';
 
@@ -301,7 +301,7 @@ function RunnerTower({
               {gate ? (
                 <span
                   className="tv-order-art"
-                  style={{ backgroundImage: `url(${runnerArtForLane(row.lane).src})`, filter: `hue-rotate(${runnerHueRotation(row.lane)}deg)` }}
+                  style={(() => { const look = runnerLookAt(row.lane, names.length, numberOffset, numbers); return { backgroundImage: `url(${look.art.src})`, filter: `hue-rotate(${look.hue}deg)` }; })()}
                   aria-hidden="true"
                 />
               ) : null}

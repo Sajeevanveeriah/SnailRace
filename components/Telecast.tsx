@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { laneColour, type StageThemeId } from '@/lib/palette';
 import { ClubBrand } from './brand/ClubBrand';
-import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { runnerLookAt, type RunnerLook } from '@/lib/presentation/runner-art';
 import { courseById, type CourseId } from '@/lib/courses';
 import { courseGeometry, kerbRuns, marksAlong, pointOnLane, type CoursePoint } from '@/lib/course-geometry';
 import { BroadcastHud } from './race-broadcast/BroadcastHud';
@@ -866,6 +866,7 @@ export function Telecast({
                 lane={lane}
                 name={name}
                 number={snailNumber(lane, numberOffset, numbers)}
+                look={runnerLookAt(lane, names.length, numberOffset, numbers)}
                 onNodes={(nodes) => {
                   if (nodes) runnersRef.current.set(lane, nodes);
                   else runnersRef.current.delete(lane);
@@ -994,7 +995,7 @@ const SHADOW_BOX = { left: pct(CHIP - SNAIL_LEN * 0.45 - SNAIL_LEN * 0.5), top: 
  * The whole chip slides by a transform; the art inside turns by a transform;
  * neither is ever laid out again once drawn.
  */
-function RunnerChip({ lane, name, number, onNodes }: { lane: number; name: string; number: number; onNodes: (nodes: RunnerNodes | null) => void }) {
+function RunnerChip({ lane, name, number, look, onNodes }: { lane: number; name: string; number: number; look: RunnerLook; onNodes: (nodes: RunnerNodes | null) => void }) {
   return (
     <div
       className="tv-runner-chip"
@@ -1017,10 +1018,10 @@ function RunnerChip({ lane, name, number, onNodes }: { lane: number; name: strin
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="tv-snail-sprite"
-            src={runnerArtForLane(lane).src}
+            src={look.art.src}
             alt=""
             draggable={false}
-            style={{ ...SPRITE_BOX, filter: `hue-rotate(${runnerHueRotation(lane)}deg)` }}
+            style={{ ...SPRITE_BOX, filter: `hue-rotate(${look.hue}deg)` }}
           />
         </div>
       </div>
