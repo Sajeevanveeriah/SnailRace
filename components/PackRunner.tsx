@@ -23,8 +23,11 @@ export function PackRunner({
   onResult,
   onVoid,
   controlsTarget,
+  raceNo,
 }: {
   controlsTarget?: HTMLElement | null;
+  /** The race this draw runs as: the stage's next race, counted from the history. */
+  raceNo: number;
   /** Hand the committed result to the shared settlement path. */
   onResult: (race: PackRace, results: RaceResult[]) => void;
   onVoid: (race: PackRace, reason: string) => void;
@@ -60,10 +63,10 @@ export function PackRunner({
     setState({ packCurrent: chosen });
     addAudit({
       kind: 'pack_race_drawn',
-      raceNo: event.raceNumber + 1,
-      detail: `Race ${event.raceNumber + 1} drawn from locked pack ${pack.packId}: seed ${seed.toString(16).toUpperCase().padStart(8, '0')} over ${eligible.length} eligible selected ${chosen} ("${race?.title ?? ''}"), media SHA-256 ${shortHash(race?.mediaSha256)}…`,
+      raceNo,
+      detail: `Race ${raceNo} drawn from locked pack ${pack.packId}: seed ${seed.toString(16).toUpperCase().padStart(8, '0')} over ${eligible.length} eligible selected ${chosen} ("${race?.title ?? ''}"), media SHA-256 ${shortHash(race?.mediaSha256)}…`,
     });
-  }, [pack, event.packLockedAt, event.raceNumber, eligible]);
+  }, [pack, event.packLockedAt, raceNo, eligible]);
 
   const play = useCallback(() => {
     if (!current || !hasPackFile(current.mediaSha256)) return;
@@ -157,7 +160,7 @@ export function PackRunner({
               setMode('idle');
               addAudit({
                 kind: 'note',
-                raceNo: event.raceNumber + 1,
+                raceNo,
                 detail: `Playback of ${current.mediaFileName} failed to decode. The race was not revealed; re-attach or re-check the media.`,
               });
             }}

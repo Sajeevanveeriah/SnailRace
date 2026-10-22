@@ -1462,7 +1462,7 @@ export function Stage() {
         <main className="stage-main grid flex-1 gap-5">
           <div className="stage-track flex min-w-0 flex-col gap-4">
             {event.eventMode === 'recorded' ? (
-              <PackRunner onResult={onPackResult} onVoid={onPackVoid} controlsTarget={packControlsRoot} />
+              <PackRunner onResult={onPackResult} onVoid={onPackVoid} controlsTarget={packControlsRoot} raceNo={nextRaceNo} />
             ) : shownTrackShape === 'circuit' ? (
               // The imperative SVG painter starts after saved state is restored.
               clientReady ? (
