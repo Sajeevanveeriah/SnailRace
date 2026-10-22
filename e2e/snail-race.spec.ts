@@ -545,17 +545,19 @@ for (const [raceNumber, courseId] of [
         const lane = document.querySelector<SVGPathElement>(
           `.course-lane[data-lane="${runner.getAttribute('data-lane')}"]`,
         )!;
-        // Where the runner's foot is painted on screen, read back in course units:
-        // compared against the actual SVG paint, independently of renderer calculations.
+        // Where the runner's foot is painted on screen (the centre of its chip),
+        // read back in course units: compared against the actual SVG paint,
+        // independently of renderer calculations.
         const toCourse = lane.ownerSVGElement!.getScreenCTM()!.inverse();
-        const matrix = toCourse.multiply((runner as SVGGElement).getScreenCTM()!);
+        const box = runner.getBoundingClientRect();
+        const foot = new DOMPoint(box.x + box.width / 2, box.y + box.height / 2).matrixTransform(toCourse);
         const length = lane.getTotalLength();
         let nearest = Infinity;
         for (let i = 0; i <= 3000; i++) {
           const point = lane.getPointAtLength((length * i) / 3000);
           nearest = Math.min(
             nearest,
-            Math.hypot(point.x - matrix.e, point.y - matrix.f),
+            Math.hypot(point.x - foot.x, point.y - foot.y),
           );
         }
         return nearest;

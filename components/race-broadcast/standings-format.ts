@@ -71,3 +71,40 @@ export function towerName(name: string, max = 18): string {
   while (TRAILING_LINK.test(out)) out = out.replace(TRAILING_LINK, '');
   return out.length > max ? `${out.slice(0, max - 1)}…` : out;
 }
+
+/** How long the field has to spread before place badges and gaps go up, in ms. */
+export const SPREAD_MS = 3000;
+
+/**
+ * Whether the field has spread enough for place badges and gaps to mean
+ * anything: about three seconds into the race, or sooner once the leader is
+ * clear of the second runner by `minGap` (in whatever unit `gap` is quoted
+ * in). At the off every runner is on the line and a 1ST badge on a pile
+ * tells the room nothing.
+ */
+export function fieldSpread(raceTimeMs: number, gap: number, minGap: number): boolean {
+  if (raceTimeMs >= SPREAD_MS) return true;
+  /* Never while the gate's fan is still easing out, or the badges could disagree with the picture. */
+  return raceTimeMs >= GATE_FAN_MS && gap >= minGap;
+}
+
+/** How long the gate's fan takes to ease out once they are off, in ms. */
+export const GATE_FAN_MS = 2000;
+
+/** The seconds in a tower gap such as "+0.4s"; 0 for a leader, a time or RET. */
+export function gapSeconds(gapText: string): number {
+  const m = /^\+(\d+(?:\.\d+)?)s$/.exec(gapText);
+  return m ? Number(m[1]) : 0;
+}
+
+/**
+ * How far behind the line a lane is drawn at the gate, in course units: the
+ * field fans back across the lanes in a shallow diagonal instead of standing
+ * in one vertical pile. The stagger eases out over the first `fadeMs` of
+ * running, slower than the runners move, so nobody is ever drawn going
+ * backwards.
+ */
+export function gateStagger(lane: number, raceTimeMs: number, perLane = 14, fadeMs = GATE_FAN_MS): number {
+  const left = raceTimeMs <= 0 ? 1 : Math.max(0, 1 - raceTimeMs / fadeMs);
+  return lane * perLane * left;
+}

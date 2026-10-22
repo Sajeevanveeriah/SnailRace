@@ -29,6 +29,9 @@ import {
   VIEW_H,
   featuredLane,
   fenceSlots,
+  flagFont,
+  FLAG_FONT,
+  FLAG_H_MAX,
   isFieldTwist,
   laneGeometry,
   propLanes,
@@ -403,8 +406,8 @@ function SnailSprite({ lane, number, name, scale, nodeRef }: {
 
 /** Flag sizes as shares of the lane, so a flag never reaches the next lane. */
 const FLAG_H = 0.66;
-const FLAG_FONT = 0.48;
-const FLAG_MAX_W = 6.4;
+/** How long a flag may run, in multiples of its font size. */
+const FLAG_MAX_EMS = 24;
 
 /**
  * The snail's name on a flag trailing behind it, inside its own lane, so a
@@ -428,9 +431,7 @@ function SnailFlag({ lane, pitch, scale, name, nodeRef }: {
         className="side-name-flag"
         data-lane={lane}
         data-tone="none"
-        data-max={(pitch * FLAG_MAX_W).toFixed(1)}
-        data-font={(pitch * FLAG_FONT).toFixed(1)}
-        data-pad={(pitch * 0.2).toFixed(1)}
+        data-pitch={pitch.toFixed(2)}
         style={{ '--shell': c.shell } as CSSProperties}
         aria-hidden="true"
       >
@@ -593,6 +594,7 @@ export function Sidescroller({
   const splashRef = useRef<HTMLDivElement>(null);
   const strapRef = useRef<HTMLParagraphElement>(null);
   const plateNameRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLSpanElement>(null);
   const snapshotRef = useRef<{ snails: SnailRun[]; info: PaintInfo } | null>(null);
   const momentRef = useRef(race.moment);
   const aspectRef = useRef(16 / 9);
@@ -656,8 +658,15 @@ export function Sidescroller({
       /* A portrait phone gets a close shot of the track rather than a frame of sky. */
       return aspect < 1.2 ? required * aspect * 1.15 : Math.max(PACK_VIEW_W, required * aspect);
     };
+    /** Screen pixels per world unit at the widest following shot: the flags are sized for it, so they never read under the floor. */
+    const followScale = () => {
+      const narrowest = minW();
+      const widest = Math.max(narrowest, Math.min(FOLLOW_MAX_W, narrowest * 1.12));
+      return (sceneWidthRef.current || 1) / widest;
+    };
     /** Fit a leader's name into its slot in the positions strip. */
-    const fitOrderName = (el: HTMLLIElement) => fitText(el.querySelector('.side-order-name') as HTMLElement | null, 0.62);
+    /* Never under the 1.6u floor: the leader's 2.7u steps down to 0.6 of itself, the next two's 2.1u to 0.77, then a name wraps to two lines. */
+    const fitOrderName = (el: HTMLLIElement) => fitText(el.querySelector('.side-order-name') as HTMLElement | null, el.dataset.rank === '1' ? 0.6 : 0.77);
     const setOrder = (ranked: SnailRun[]) => {
       ranked.forEach((s, i) => {
         const el = orderRefs.current.get(s.lane);
@@ -687,9 +696,16 @@ export function Sidescroller({
       if (!flag || !label || !box) return;
       flag.setAttribute('data-tone', tone);
       if (label.textContent !== text) label.textContent = text;
-      const font = Number(flag.dataset.font);
-      const max = Number(flag.dataset.max);
-      const pad = Number(flag.dataset.pad);
+      const pitch = Number(flag.dataset.pitch);
+      const font = flagFont(pitch, followScale(), unitPx());
+      const max = font * FLAG_MAX_EMS;
+      const pad = pitch * 0.2;
+      /* The box grows with the font, up to most of the lane. */
+      const h = Math.min(pitch * FLAG_H_MAX, Math.max(pitch * FLAG_H, font * 1.3));
+      box.setAttribute('y', String(-h / 2));
+      box.setAttribute('height', String(h));
+      box.setAttribute('rx', String(h * 0.22));
+      label.setAttribute('y', String(font * 0.36));
       label.setAttribute('font-size', String(font));
       label.removeAttribute('textLength');
       label.removeAttribute('lengthAdjust');
@@ -701,8 +717,8 @@ export function Sidescroller({
       }
       if (!width) width = text.length * font * 0.7;
       if (width > max) {
-        /* Smaller first, then squeezed: a long name is never cut short. */
-        const smaller = Math.max(0.72, max / width);
+        /* A little smaller first (never under the floor), then squeezed: a long name is never cut short. */
+        const smaller = Math.max(0.92, max / width);
         label.setAttribute('font-size', String(font * smaller));
         width *= smaller;
         if (width > max) {
@@ -747,6 +763,9 @@ export function Sidescroller({
         const half = card.offsetWidth / 2;
         const margin = unitPx() * 1.5;
         let centre = sceneW / 2;
+        /* The START board, while it is in shot, keeps the card to its right. */
+        const startPx = (START_X + 160 - camX) * s;
+        if (startPx > 0 && startPx < sceneW && centre - half - margin < startPx) centre = Math.min(sceneW - half - margin, startPx + half + margin);
         if (finishPx > 0 && finishPx < sceneW && centre + half + margin > finishPx) centre = Math.max(half + margin, finishPx - half - margin);
         const value = `${Math.round(centre - sceneW / 2)}px`;
         if (card.style.getPropertyValue('--splash-shift') !== value) card.style.setProperty('--splash-shift', value);
@@ -1037,9 +1056,15 @@ export function Sidescroller({
       measure: () => {
         const scene = sceneRef.current;
         if (scene?.clientHeight) {
+          const resized = sceneWidthRef.current !== scene.clientWidth || aspectRef.current !== scene.clientWidth / scene.clientHeight;
           aspectRef.current = scene.clientWidth / scene.clientHeight;
           sceneWidthRef.current = scene.clientWidth;
           sizeLayers();
+          /* The flags are sized for the screen: a new size re-sizes them. */
+          if (resized) flagRef.current.forEach((value, lane) => {
+            const [tone, ...rest] = value.split('|');
+            setFlag(lane, rest.join('|'), tone, true);
+          });
         }
         const snapshot = snapshotRef.current;
         if (finishRef.current) {
@@ -1168,8 +1193,15 @@ export function Sidescroller({
   useLayoutEffect(() => {
     fitText(strapRef.current, 0.58);
   }, [announcement]);
+  /* The title shrinks before it is ever clipped, whatever room the club name leaves it. */
+  useLayoutEffect(() => {
+    fitText(titleRef.current, 0.67);
+  }, [phase]);
   useEffect(() => {
-    const onResize = () => fitText(strapRef.current, 0.58);
+    const onResize = () => {
+      fitText(strapRef.current, 0.58);
+      fitText(titleRef.current, 0.67);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -1183,7 +1215,7 @@ export function Sidescroller({
 
   return (
     <div
-      className={`track-wrap tv-wrap race-broadcast course-broadcast side-broadcast ${reduceMotion ? 'calm race-motion-reduced' : ''}`}
+      className={`track-wrap tv-wrap race-broadcast course-broadcast side-broadcast ${reduceMotion ? 'calm race-motion-reduced' : ''} ${showResult ? 'has-result' : ''} ${names.length >= 10 ? 'side-field-big' : ''}`}
       style={{ '--field': names.length } as CSSProperties}
       data-race-phase={phase}
       data-reduced-motion={String(reduceMotion)}
@@ -1441,7 +1473,7 @@ export function Sidescroller({
             <i aria-hidden="true" /> {label}
           </span>
           <span className="tv-race-chip num">RACE {raceNo}</span>
-          <span className="tv-title">SNAIL RACING</span>
+          <span ref={titleRef} className="tv-title">SNAIL RACING</span>
           {race.photoFinish && phase !== 'done' ? <span className="tv-photo num" role="status">PHOTO FINISH</span> : null}
           <span ref={toGoRef} className="side-togo num" aria-hidden="true">{RACE_METRES.toFixed(1)} m to go</span>
           {replay ? null : (

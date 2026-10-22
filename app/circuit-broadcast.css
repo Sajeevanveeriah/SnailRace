@@ -38,11 +38,11 @@
   background: linear-gradient(100deg, var(--race-maroon-deep), var(--race-maroon) 62%, var(--race-maroon-deep));
   box-shadow: 0 calc(var(--u) * 0.4) calc(var(--u) * 1.4) rgb(20 4 9 / 0.4);
 }
-.race-broadcast.circuit-broadcast .tv-club-brand { flex: none; gap: calc(var(--u) * 0.7); min-width: 0; max-width: calc(var(--u) * 22); }
+.race-broadcast.circuit-broadcast .tv-club-brand { flex: none; gap: calc(var(--u) * 0.7); min-width: 0; max-width: calc(var(--u) * 31); }
 /* Once the race is on, the crest alone carries the club: the bar's room goes to the race. */
 .race-broadcast.circuit-broadcast:is([data-race-phase="running"], [data-race-phase="confirming"]) .tv-club-name { display: none; }
 .race-broadcast.circuit-broadcast .tv-club-logo { height: calc(var(--u) * 4.6); width: auto; max-width: calc(var(--u) * 6); }
-.race-broadcast.circuit-broadcast .tv-club-name { font-size: calc(var(--u) * 1.6); line-height: 1.02; letter-spacing: 0.04em; }
+.race-broadcast.circuit-broadcast .tv-club-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: calc(var(--u) * 1.6); line-height: 1.02; letter-spacing: 0.04em; }
 .race-broadcast.circuit-broadcast .tv-live,
 .race-broadcast.circuit-broadcast .tv-race-chip,
 .race-broadcast.circuit-broadcast .tv-clock,
@@ -65,7 +65,7 @@
 .race-broadcast.circuit-broadcast .tv-live { border-color: var(--race-gold); background: var(--race-maroon-deep); }
 .race-broadcast.circuit-broadcast .tv-live i { width: calc(var(--u) * 0.8); height: calc(var(--u) * 0.8); border-radius: 50%; background: #ff4b4b; box-shadow: 0 0 calc(var(--u) * 0.6) #ff4b4b; }
 .race-broadcast.circuit-broadcast .tv-race-chip { border-color: var(--race-gold); color: var(--ink); background: var(--race-gold); }
-.race-broadcast.circuit-broadcast .tv-clock { font-size: calc(var(--u) * 2.3); min-width: calc(var(--u) * 9); justify-content: center; }
+.race-broadcast.circuit-broadcast .tv-clock { font-size: calc(var(--u) * 2.3); width: calc(var(--u) * 11.5); justify-content: center; font-variant-numeric: tabular-nums; contain: strict; }
 .race-broadcast.circuit-broadcast .tv-shot { color: var(--race-gold); font-size: calc(var(--u) * 1.6); padding: 0 calc(var(--u) * 0.8); }
 .race-broadcast.circuit-broadcast .tv-shot:empty { display: none; }
 /* The final lap and a photo finish take the camera pill's place, so the course name keeps its size and the bar never runs off the edge. */
@@ -111,6 +111,8 @@
 .race-broadcast.circuit-broadcast .tv-lap.is-final { background: var(--race-gold); color: var(--ink); }
 .race-broadcast.circuit-broadcast .tv-lap.is-final .tv-lap-value { display: none; }
 .race-broadcast.circuit-broadcast .tv-lap.is-final .tv-lap-label { font-size: calc(var(--u) * 2.4); letter-spacing: 0.08em; }
+/* Past the line the chip reads FINISHED on the cream of the result. */
+.race-broadcast.circuit-broadcast:is([data-race-phase="confirming"], [data-race-phase="done"]) .tv-lap.is-final { background: var(--race-cream); border-color: var(--race-cream); }
 
 /* The lap wipe: a band that sweeps across the bar on every new lap. */
 .race-broadcast.circuit-broadcast .circuit-lap-wipe {
@@ -197,13 +199,52 @@
 }
 .race-broadcast.circuit-broadcast .course-scene .tv { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; max-height: none; aspect-ratio: auto; overflow: visible; }
 .race-broadcast.circuit-broadcast .tv-runner-layer { position: absolute; inset: 0; pointer-events: none; }
+/* A runner: a chip the camera's world carries (moved by transform only), the art turned inside it by a transform of its own. */
 .race-broadcast.circuit-broadcast .tv-runner-chip { position: absolute; left: 0; top: 0; width: var(--chip, 140px); height: var(--chip, 140px); overflow: visible; will-change: transform; }
+.race-broadcast.circuit-broadcast .tv-runner { position: absolute; inset: 0; }
+.race-broadcast.circuit-broadcast .tv-art { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; transition: opacity .3s ease; }
+.race-broadcast.circuit-broadcast .tv-snail-sprite { position: absolute; display: block; object-fit: contain; object-position: center bottom; pointer-events: none; user-select: none; }
+.race-broadcast.circuit-broadcast .tv-runner-shadow { position: absolute; border-radius: 50%; background: rgb(20 10 6 / 0.35); }
+/* The labels: number badge and place tag in screen space over the pane, a constant size whatever the zoom. */
+.race-broadcast.circuit-broadcast .tv-runner-labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.race-broadcast.circuit-broadcast .tv-runner-label { position: absolute; left: 0; top: 0; width: 0; height: 0; display: grid; place-items: center; will-change: transform; --badge: calc(var(--u) * 1.3); }
+.race-broadcast.circuit-broadcast .tv-runner-labels.is-wide .tv-runner-label { --badge: calc(var(--u) * 1.3 * 0.78); }
+.race-broadcast.circuit-broadcast .course-runner-number {
+  position: absolute;
+  width: calc(var(--badge) * 2);
+  height: calc(var(--badge) * 2);
+  margin: calc(var(--badge) * -1) 0 0 calc(var(--badge) * -1);
+  display: grid;
+  place-items: center;
+  border: calc(var(--badge) * 0.18) solid #fff;
+  border-radius: 50%;
+  box-sizing: border-box;
+  color: #fff;
+  font: 900 calc(var(--badge) * 1.25) / 1 'Arial Black', Arial, sans-serif;
+  box-shadow: 0 calc(var(--u) * 0.08) calc(var(--u) * 0.12) rgb(0 0 0 / 0.5);
+}
+.race-broadcast.circuit-broadcast .course-runner-number[data-digits="3"] { font-size: calc(var(--badge) * 0.92); }
+.race-broadcast.circuit-broadcast .tv-runner-tag {
+  position: absolute;
+  bottom: calc(var(--badge) * 1.15);
+  left: 0;
+  transform: translateX(-50%);
+  display: block;
+  padding: calc(var(--badge) * 0.18) calc(var(--badge) * 0.55);
+  border: calc(var(--badge) * 0.14) solid #2a1418;
+  border-radius: 999px;
+  color: #2a1418;
+  background: #fff9ed;
+  font: 900 calc(var(--badge) * 1.1) / 1.1 'Arial Black', Arial, sans-serif;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
 .race-broadcast.circuit-broadcast .course-prop-chip { position: absolute; left: 0; top: 0; width: var(--prop-chip, 120px); height: var(--prop-chip, 120px); overflow: visible; will-change: transform; filter: drop-shadow(0 0 2px #fff9ed) drop-shadow(0 3px 4px rgb(0 0 0 / 0.45)); }
 
 /* Course scenery, in course units (the camera scales it). */
-.circuit-broadcast .course-club-mark { font: 900 40px/1 Arial, sans-serif; fill: #fff9ed; opacity: .6; letter-spacing: .06em; }
-.circuit-broadcast .course-production-mark { font: 700 12px/1 Arial, sans-serif; fill: #fff9ed; opacity: .7; letter-spacing: .12em; }
+.circuit-broadcast .course-club-mark { font: 900 48px/1 Arial, sans-serif; fill: #fff9ed; opacity: .6; letter-spacing: .06em; text-rendering: geometricPrecision; }
 .circuit-broadcast .course-start-label {
+  text-rendering: geometricPrecision;
   font: 900 26px/1 'Arial Black', Arial, sans-serif;
   letter-spacing: 0.06em;
   fill: #fff9ed;
@@ -220,32 +261,26 @@
 
 /* Runners: the art turns with the lane; the badge and tag stay upright.
    At the gate the field board names everyone, so the shells go unlabelled. */
-.circuit-broadcast[data-race-phase="idle"] .course-runner-number,
-.circuit-broadcast[data-race-phase="countdown"] .course-runner-number { display: none; }
+.circuit-broadcast[data-race-phase="idle"] .tv-runner-label,
+.circuit-broadcast[data-race-phase="countdown"] .tv-runner-label { display: none; }
 .circuit-broadcast .tv-snail-sprite { animation: none; transform: none; }
-.circuit-broadcast .course-runner-number text,
-.circuit-broadcast .tv-runner-tag text { font-family: 'Arial Black', Arial, sans-serif; }
-.circuit-broadcast .course-runner-number circle { filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.5)); }
-.circuit-broadcast .tv-runner-halo { fill: none; stroke: none; opacity: 0; transition: opacity .3s ease; }
-.circuit-broadcast .tv-runner.is-leader .tv-runner-halo { opacity: 1; fill: rgb(232 181 94 / 0.32); stroke: #ffd36a; stroke-width: 3px; }
-.circuit-broadcast .tv-runner.is-target .tv-runner-halo { opacity: 1; fill: rgb(255 138 31 / 0.3); stroke: #ff8a1f; stroke-width: 5px; stroke-dasharray: 9 6; animation: circuit-halo-pulse .7s ease-in-out infinite alternate; }
-.circuit-broadcast .tv-runner.is-target[data-tone="bad"] .tv-runner-halo { fill: rgb(232 38 43 / 0.3); stroke: #ff4a50; }
-.circuit-broadcast .tv-runner.is-target[data-tone="good"] .tv-runner-halo { fill: rgb(47 178 74 / 0.32); stroke: #4fe070; }
-.circuit-broadcast .tv-runner.is-winner .tv-runner-halo { opacity: 1; fill: rgb(255 211 106 / 0.45); stroke: #ffd36a; stroke-width: 5px; animation: none; }
+/* The halo: a ring under the leader, the twist's target and the winner. */
+.circuit-broadcast .tv-runner-halo { position: absolute; box-sizing: border-box; border-radius: 50%; border: 0 solid transparent; opacity: 0; transition: opacity .3s ease; }
+.circuit-broadcast .tv-runner.is-leader .tv-runner-halo { opacity: 1; background: rgb(232 181 94 / 0.32); border: 1.5px solid #ffd36a; }
+.circuit-broadcast .tv-runner.is-target .tv-runner-halo { opacity: 1; background: rgb(255 138 31 / 0.3); border: 2.5px dashed #ff8a1f; animation: circuit-halo-pulse .7s ease-in-out infinite alternate; }
+.circuit-broadcast .tv-runner.is-target[data-tone="bad"] .tv-runner-halo { background: rgb(232 38 43 / 0.3); border-color: #ff4a50; }
+.circuit-broadcast .tv-runner.is-target[data-tone="good"] .tv-runner-halo { background: rgb(47 178 74 / 0.32); border-color: #4fe070; }
+.circuit-broadcast .tv-runner.is-winner .tv-runner-halo { opacity: 1; background: rgb(255 211 106 / 0.45); border: 2.5px solid #ffd36a; animation: none; }
 .circuit-broadcast .tv-runner.is-lapped .tv-art { opacity: .5; }
-.circuit-broadcast .tv-runner.is-quiet .course-runner-number,
-.circuit-broadcast .tv-runner.is-quiet .tv-runner-tag { opacity: .25; }
+.circuit-broadcast .tv-runner-label.is-quiet { opacity: .25; }
 .circuit-broadcast .tv-runner.retired .tv-art { opacity: .35; filter: grayscale(1); }
 @keyframes circuit-halo-pulse { from { opacity: .55; } to { opacity: 1; } }
 .circuit-broadcast .tv-runner-tag[data-tone="none"] { display: none; }
-.circuit-broadcast .tv-runner-tag rect { fill: #fff9ed; stroke: #2a1418; stroke-width: 2px; }
-.circuit-broadcast .tv-runner-tag text { fill: #2a1418; }
-.circuit-broadcast .tv-runner-tag[data-tone="p1"] rect,
-.circuit-broadcast .tv-runner-tag[data-tone="win"] rect { fill: #ffd36a; }
-.circuit-broadcast .tv-runner-tag[data-tone="p2"] rect { fill: #dfe5ec; }
-.circuit-broadcast .tv-runner-tag[data-tone="p3"] rect { fill: #e7a868; }
-.circuit-broadcast .tv-runner-tag[data-tone="lapped"] rect { fill: #3a3f47; stroke: #fff9ed; }
-.circuit-broadcast .tv-runner-tag[data-tone="lapped"] text { fill: #fff9ed; }
+.circuit-broadcast .tv-runner-tag[data-tone="p1"],
+.circuit-broadcast .tv-runner-tag[data-tone="win"] { background: #ffd36a; }
+.circuit-broadcast .tv-runner-tag[data-tone="p2"] { background: #dfe5ec; }
+.circuit-broadcast .tv-runner-tag[data-tone="p3"] { background: #e7a868; }
+.circuit-broadcast .tv-runner-tag[data-tone="lapped"] { background: #3a3f47; border-color: #fff9ed; color: #fff9ed; }
 
 /* The prop: drawn under the snails, on the target's lane, just ahead of it. */
 .circuit-broadcast .course-prop-chip .course-impact { fill: none; stroke: #ffe6a5; stroke-width: 3px; opacity: 0; }
@@ -253,12 +288,14 @@
 .circuit-broadcast .course-prop-chip[data-phase="warning"] { opacity: .6; }
 .circuit-broadcast .course-prop-chip[data-phase="warning"] .course-prop-motion { animation: course-prop-arrive .6s ease-out both; }
 
-/* ── The twist card: the straight's card, top centre over the course ───── */
+/* ── The twist card: the straight's card, in its own band above the course ── */
 .race-broadcast.circuit-broadcast .side-splash {
-  /* Centred over the course pane, clear of the standings tower. */
-  left: 0;
-  right: calc(var(--tower-w) + var(--gap));
-  top: calc(var(--u) * 0.9);
+  /* Centred in the band between the strap and the pane, clear of the standings tower, never over the course. */
+  position: absolute;
+  left: var(--gap);
+  right: calc(var(--tower-w) + var(--gap) * 2);
+  top: calc(var(--scene-top) - var(--card-band) + var(--u) * 0.35);
+  min-height: calc(var(--card-band) - var(--u) * 1.3);
   z-index: 8;
   max-width: calc(100% - var(--tower-w) - var(--u) * 6);
   gap: calc(var(--u) * 0.4) calc(var(--u) * 1);
@@ -271,29 +308,31 @@
 .race-broadcast.circuit-broadcast .side-splash-title { font-size: calc(var(--u) * 3.1); }
 .race-broadcast.circuit-broadcast .side-splash-warning .side-splash-title { font-size: calc(var(--u) * 2.6); }
 
-/* ── The mini-map, bottom left, while the camera is in tight ───────────── */
+/* ── The mini-map, under the timing tower in the standings column, while the camera is in tight ── */
 .race-broadcast.circuit-broadcast .circuit-minimap {
   position: absolute;
-  left: 0;
-  bottom: 0;
-  z-index: 5;
+  right: var(--gap);
+  bottom: var(--gap);
+  z-index: 7;
   width: var(--map-w);
   height: var(--map-h);
-  padding: calc(var(--u) * 0.5);
-  border-radius: 0 calc(var(--u) * 0.8) 0 calc(var(--u) * 0.8);
-  background: rgb(6 16 12 / 0.8);
-  border-top: calc(var(--u) * 0.12) solid rgb(255 249 237 / 0.35);
-  border-right: calc(var(--u) * 0.12) solid rgb(255 249 237 / 0.35);
+  box-sizing: border-box;
+  overflow: hidden;
+  border: calc(var(--u) * 0.14) solid rgb(255 249 237 / 0.5);
+  border-radius: calc(var(--u) * 0.8);
+  background: rgb(6 16 12 / 0.92);
   opacity: 0;
   transition: opacity .5s ease;
   pointer-events: none;
 }
 .race-broadcast.circuit-broadcast .circuit-minimap.is-on { opacity: 1; }
+.race-broadcast.circuit-broadcast .circuit-minimap-art { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; max-height: none; }
 .circuit-broadcast .circuit-minimap-track { fill: none; stroke: #e7d3a8; stroke-linejoin: round; opacity: .5; }
 .circuit-broadcast .circuit-minimap-line { stroke: #fff; stroke-width: 12px; }
 .circuit-broadcast .circuit-minimap-view { fill: rgb(255 211 106 / 0.08); stroke: #ffd36a; stroke-width: 7px; }
-.circuit-broadcast .circuit-minimap-dot { stroke: #0b0b0b; stroke-width: 6px; }
-.circuit-broadcast .circuit-minimap-dot.is-leader { stroke: #ffd36a; stroke-width: 12px; r: 34px; }
+/* The dots ride on the compositor: a transform each, never a relayout. */
+.circuit-broadcast .circuit-minimap-dot { position: absolute; left: 0; top: 0; width: calc(var(--u) * 0.9); height: calc(var(--u) * 0.9); margin: calc(var(--u) * -0.45) 0 0 calc(var(--u) * -0.45); border-radius: 50%; border: calc(var(--u) * 0.1) solid #0b0b0b; box-sizing: border-box; will-change: transform; }
+.circuit-broadcast .circuit-minimap-dot.is-leader { width: calc(var(--u) * 1.2); height: calc(var(--u) * 1.2); margin: calc(var(--u) * -0.6) 0 0 calc(var(--u) * -0.6); border: calc(var(--u) * 0.16) solid #ffd36a; z-index: 1; }
 
 /* ── The field board at the gate, then the timing tower ────────────────── */
 .race-broadcast.circuit-broadcast .circuit-tower {
@@ -313,9 +352,13 @@
   border-radius: calc(var(--u) * 0.8);
   background: linear-gradient(180deg, #4a1520, #2d0c14);
   box-shadow: 0 calc(var(--u) * 0.6) calc(var(--u) * 1.6) rgb(10 2 4 / 0.45);
-  transition: width .7s cubic-bezier(.65, 0, .35, 1);
 }
+/* The board folding into the tower eases its content in rather than animating its width, which relaid the whole list every frame at the off. */
+.race-broadcast.circuit-broadcast .circuit-tower .tv-order { animation: circuit-tower-in .45s ease-out both; }
+@keyframes circuit-tower-in { from { opacity: 0; } to { opacity: 1; } }
 .race-broadcast.circuit-broadcast .circuit-tower.is-gate { width: var(--board-w); }
+/* While the mini-map is up, the foot of the column is its. */
+.race-broadcast.circuit-broadcast.map-on .circuit-tower:not(.is-gate) { bottom: calc(var(--gap) * 2 + var(--map-h)); }
 .race-broadcast.circuit-broadcast .circuit-tower h3 {
   flex: none;
   margin: 0;
@@ -403,6 +446,8 @@
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-compact .tv-order-pos { font-size: calc(var(--u) * 1.6 * var(--fit, 1)); }
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-compact .tv-order-dot { width: calc(var(--u) * 2.6 * var(--fit, 1)); height: calc(var(--u) * 2.6 * var(--fit, 1)); }
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-gap { color: inherit; opacity: .92; font: 800 calc(var(--u) * 1.6) / 1 Inter, Arial, sans-serif; white-space: nowrap; }
+/* While racing the gap cell is a fixed box: its text changes several times a second and must never relay out the row or the list. */
+.race-broadcast.circuit-broadcast .circuit-tower.is-racing .tv-order-gap { display: flex; justify-content: flex-end; align-items: center; width: calc(var(--u) * 6); height: calc(var(--u) * 2); contain: size layout style; font-variant-numeric: tabular-nums; }
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-lapped { opacity: .55; }
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order-row.is-lapped .tv-order-gap { color: #ffd36a; opacity: 1; }
 
