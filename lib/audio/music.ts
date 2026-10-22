@@ -11,6 +11,7 @@ import {
   primeAudio,
   sampleFor,
   setFxDelayTime,
+  sfxBusTarget,
   tone,
   type NoiseOpts,
   type ToneOpts,
@@ -189,6 +190,8 @@ interface TrackState {
   timer: number;
   /** 0 to 1. Drives how much of the arrangement is playing. */
   intensity: number;
+  /** 0 to 1. Every voice of the track is scaled by this: a bed plays at less than full. */
+  level: number;
   /** Set when a drop-in file is covering this track instead. */
   voice: Voice | null;
 }
@@ -196,21 +199,35 @@ interface TrackState {
 let track: TrackState | null = null;
 
 export const currentTrack = (): TrackId | null => track?.id ?? null;
+/** The playing track's level, for the tests. */
+export const currentLevel = (): number => track?.level ?? 0;
+
+/**
+ * The lobby groove under the winner moment, the result card and the sponsor
+ * reel: present, a touch under the betting level. The next call to
+ * `startTrack('lobby')` with no level, which the stage makes at the
+ * racecard, brings it back to full.
+ */
+export const BED_LEVEL = 0.7;
 
 /**
  * Start a track, or do nothing if it is already the one playing.
  *
  * Restarting on every call would retrigger the lobby groove from bar one
- * each time a donation lands and re-rendered the stage.
+ * each time a donation lands and re-rendered the stage. A level given for a
+ * playing track takes effect from its next bar.
  */
-export function startTrack(id: TrackId, opts: { intensity?: number } = {}): void {
+export function startTrack(id: TrackId, opts: { intensity?: number; level?: number } = {}): void {
   if (track?.id === id) {
     if (opts.intensity !== undefined) setIntensity(opts.intensity);
+    track.level = Math.min(1, Math.max(0, opts.level ?? 1));
+    if (track.voice) track.voice.gain.gain.setTargetAtTime(track.level, now(), 0.3);
     return;
   }
   primeAudio();
   stopTrack(id === 'winner' ? 0.15 : 0.5);
   if (!isMusicEnabled()) return;
+  const level = Math.min(1, Math.max(0, opts.level ?? 1));
 
   /* A supplied recording wins. The sequencer stays out of its way entirely. */
   const slot = id === 'lobby' ? 'music-lobby' : id === 'race' ? 'music-race' : 'music-winner';
@@ -218,7 +235,8 @@ export function startTrack(id: TrackId, opts: { intensity?: number } = {}): void
     track = {
       id, bpm: 0, bar: 0, nextBarAt: 0, timer: 0,
       intensity: opts.intensity ?? 0,
-      voice: playSample(slot, { bus: 'music', loop: id !== 'winner', fadeIn: 0.4 }),
+      level,
+      voice: playSample(slot, { bus: 'music', loop: id !== 'winner', fadeIn: 0.4, gain: level }),
     };
     return;
   }
@@ -234,6 +252,7 @@ export function startTrack(id: TrackId, opts: { intensity?: number } = {}): void
     nextBarAt: now() + 0.08,
     timer: 0,
     intensity: opts.intensity ?? 0,
+    level,
     voice: null,
   };
   tick();
@@ -292,6 +311,12 @@ function tick(): void {
   active.timer = window.setTimeout(tick, wait);
 }
 
+/** Queue the next bar now rather than on the timer. The tests drive the sequencer with this. */
+export function advanceBar(): void {
+  if (track) window.clearTimeout(track.timer);
+  tick();
+}
+
 /* ── The sequencer ─────────────────────────────────────────────────────── */
 
 /** ±15%, so a programmed part does not sound programmed. */
@@ -324,12 +349,14 @@ class Bar {
 
   tone(step: number, o: Omit<ToneOpts, 'at' | 'bus'> & { swing?: boolean }): void {
     const { swing, ...rest } = o;
-    this.push(step, () => tone({ ...rest, at: this.at(step, swing), bus: 'music' }));
+    const peak = (rest.peak ?? 0.1) * this.t.level;
+    this.push(step, () => tone({ ...rest, peak, at: this.at(step, swing), bus: 'music' }));
   }
 
   noise(step: number, o: Omit<NoiseOpts, 'at' | 'bus'> & { swing?: boolean }): void {
     const { swing, ...rest } = o;
-    this.push(step, () => noise({ ...rest, at: this.at(step, swing), bus: 'music' }));
+    const peak = (rest.peak ?? 0.1) * this.t.level;
+    this.push(step, () => noise({ ...rest, peak, at: this.at(step, swing), bus: 'music' }));
   }
 
   private push(step: number, play: () => void): void {
@@ -518,13 +545,16 @@ function lobbyBar(bar: Bar): void {
 }
 
 /**
- * Winner: a short, bright major fanfare over a held root, then it gets out
- * of the way. Three bars at a quicker clip than before, with the room on it.
+ * Winner: a short, bright major fanfare over a held root, then it hands over
+ * to the lobby groove as a bed. Three bars at a quicker clip than before,
+ * with the room on it. The bed matters: with the fanfare simply stopping,
+ * the winner moment, the result card and the sponsor reel played in digital
+ * silence for the best part of half a minute (audit 6.1).
  */
 function winnerBar(bar: Bar): void {
   const t = bar.t;
   if (t.bar > 2) {
-    stopTrack(1.2);
+    startTrack('lobby', { level: BED_LEVEL });
     return;
   }
 
@@ -569,20 +599,22 @@ export const DUCK_RAMP_DOWN = 0.08;
 export const DUCK_RELEASE = 0.4;
 
 /**
- * Under the caller: about 10 dB down, in over 150 ms and back over 600 ms.
- * Enough that every word is clear over a lifted bed, short enough that the
- * music is plainly still there underneath.
+ * Under the caller: the 40 percent floor, about 8 dB down, in over 150 ms
+ * and back over 600 ms. Enough that every word is clear over a lifted bed,
+ * short enough that the music is plainly still there underneath. The
+ * effects bus ducks with it, so a twist sting landing under a line does not
+ * lift the mix over the caller.
  */
-export const VOICE_DUCK_DB = -10;
-export const VOICE_DUCK = Math.pow(10, VOICE_DUCK_DB / 20);
+export const VOICE_DUCK = 0.4;
+export const VOICE_DUCK_DB = 20 * Math.log10(VOICE_DUCK);
 export const VOICE_DUCK_ATTACK = 0.15;
 export const VOICE_DUCK_RELEASE = 0.6;
 
 /**
- * The deepest any duck can go, about 10.5 dB. Below that the track vanishes
- * under the commentary and comes back as a surprise.
+ * The deepest any duck can go: 40 percent, about 8 dB. Below that the track
+ * vanishes under the commentary and comes back as a surprise.
  */
-export const DUCK_FLOOR = 0.3;
+export const DUCK_FLOOR = 0.4;
 
 interface Duck {
   until: number;
@@ -627,6 +659,7 @@ export function duck(
   });
 
   const attack = Math.max(0.01, shape.attack ?? DUCK_RAMP_DOWN);
+  if (owner === 'voice') duckEffects(t, Math.max(0.3, seconds), Math.max(DUCK_FLOOR, Math.min(1, amount)), Math.max(0.05, shape.release ?? DUCK_RELEASE));
   const sorted = [...ducks].sort((a, b) => a.until - b.until);
   let depth = Math.min(...sorted.map((d) => d.amount));
 
@@ -650,13 +683,38 @@ export function duck(
 /** The ducks still in flight, for the tests. */
 export const activeDucks = (): readonly Duck[] => ducks.filter((d) => d.until > now());
 
+/**
+ * How fast the effects get out of the caller's way. Faster than the music:
+ * the sting that goes with a call (a lead change, the lap bell) starts in
+ * the same frame as the line, and a 150 ms ramp let its attack through at
+ * nearly full level over the first word.
+ */
+export const SFX_DUCK_ATTACK = 0.02;
+
+/**
+ * The caller's duck on the effects bus: down, held for the line, back. One
+ * owner, so each call simply replaces the last; the stings that must ride
+ * over the caller (the winner's) take the clear path instead.
+ */
+function duckEffects(t: number, seconds: number, amount: number, release: number): void {
+  const attack = SFX_DUCK_ATTACK;
+  const bus = busNode('sfx');
+  const level = sfxBusTarget();
+  if (!bus || level <= 0) return;
+  bus.gain.cancelScheduledValues(t);
+  bus.gain.setValueAtTime(Math.min(level, Math.max(0.0001, bus.gain.value)), t);
+  bus.gain.linearRampToValueAtTime(level * amount, t + attack);
+  bus.gain.setValueAtTime(level * amount, t + seconds);
+  bus.gain.linearRampToValueAtTime(level, t + seconds + release);
+}
+
 /* ── The winner sting ──────────────────────────────────────────────────── */
 
 /**
  * A short celebration, played with the winner call: a bright brass-like
  * stab on the major chord, a run up the arpeggio, a low hit and a shimmer.
- * About a second and a half, on the effects bus so the caller's duck does
- * not swallow it. A club that supplies `fanfare.mp3` hears that instead.
+ * About a second and a half, on the clear effects path so the caller's duck
+ * does not swallow it. A club that supplies `fanfare.mp3` hears that instead.
  */
 export function winnerSting(): void {
   primeAudio();
@@ -664,14 +722,36 @@ export function winnerSting(): void {
   const C5 = 523.25;
   /* The stab: the chord on detuned saws and a square an octave down, filtered bright to warm. */
   [0, 4, 7, 12].forEach((semi, k) => {
-    tone({ freq: hz(semi, C5), dur: 0.55, type: 'sawtooth', peak: 0.11, attack: 0.02, unison: 12, lowpass: 5200, lowpassTo: 1600, q: 0.8, pan: (k - 1.5) * 0.3, bus: 'sfx' });
+    tone({ freq: hz(semi, C5), dur: 0.55, type: 'sawtooth', peak: 0.11, attack: 0.02, unison: 12, lowpass: 5200, lowpassTo: 1600, q: 0.8, pan: (k - 1.5) * 0.3, bus: 'sfx', ducked: false });
   });
-  tone({ freq: C5 / 2, dur: 0.6, type: 'square', peak: 0.07, attack: 0.02, lowpass: 2400, lowpassTo: 900, bus: 'sfx' });
+  tone({ freq: C5 / 2, dur: 0.6, type: 'square', peak: 0.07, attack: 0.02, lowpass: 2400, lowpassTo: 900, bus: 'sfx', ducked: false });
   /* The run up, then the top note held. */
   [0, 4, 7, 12, 16].forEach((semi, k) => {
-    tone({ freq: hz(semi, C5), at: 0.18 + k * 0.075, dur: k === 4 ? 0.9 : 0.16, type: 'triangle', peak: k === 4 ? 0.16 : 0.12, attack: 0.04, bus: 'sfx' });
+    tone({ freq: hz(semi, C5), at: 0.18 + k * 0.075, dur: k === 4 ? 0.9 : 0.16, type: 'triangle', peak: k === 4 ? 0.16 : 0.12, attack: 0.04, bus: 'sfx', ducked: false });
   });
   /* A low hit under the stab, and a cymbal-like shimmer on top. */
-  tone({ freq: 110, slideTo: 55, dur: 0.45, type: 'sine', peak: 0.35, attack: 0.01, bus: 'sfx' });
-  noise({ dur: 1.3, peak: 0.06, type: 'highpass', freq: 6500, attack: 0.03, bus: 'sfx' });
+  tone({ freq: 110, slideTo: 55, dur: 0.45, type: 'sine', peak: 0.35, attack: 0.01, bus: 'sfx', ducked: false });
+  noise({ dur: 1.3, peak: 0.06, type: 'highpass', freq: 6500, attack: 0.03, bus: 'sfx', ducked: false });
+}
+
+/**
+ * The winner reveal: the sting for the moment the winner card comes up,
+ * about two and a half seconds after the line. A rising glissando into a
+ * bright major chord with a shimmer over it, a little over a second, on the
+ * clear effects path because the winner call is usually still finishing.
+ */
+export function revealSting(): void {
+  primeAudio();
+  const C5 = 523.25;
+  /* The rise: a sweep up two octaves into the chord. */
+  tone({ freq: C5 / 4, slideTo: C5, dur: 0.42, type: 'sawtooth', peak: 0.09, attack: 0.1, unison: 10, lowpass: 3600, bus: 'sfx', ducked: false });
+  noise({ dur: 0.45, peak: 0.05, type: 'bandpass', freq: 900, sweepTo: 6000, q: 1.4, attack: 0.2, bus: 'sfx', ducked: false });
+  /* The chord, spread across the field, and its octave on top. */
+  [0, 4, 7, 12].forEach((semi, k) => {
+    tone({ freq: hz(semi, C5), at: 0.4, dur: 0.9, type: 'sawtooth', peak: 0.1, attack: 0.03, unison: 12, lowpass: 5000, lowpassTo: 1800, q: 0.8, pan: (k - 1.5) * 0.3, bus: 'sfx', ducked: false });
+    tone({ freq: hz(semi + 12, C5), at: 0.4, dur: 0.6, type: 'triangle', peak: 0.05, attack: 0.03, bus: 'sfx', ducked: false });
+  });
+  /* A low hit under the chord and a shimmer on top. */
+  tone({ freq: 130, slideTo: 65, dur: 0.5, type: 'sine', peak: 0.3, attack: 0.01, at: 0.4, bus: 'sfx', ducked: false });
+  noise({ at: 0.4, dur: 1, peak: 0.05, type: 'highpass', freq: 7000, attack: 0.03, bus: 'sfx', ducked: false });
 }

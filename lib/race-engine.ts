@@ -1094,6 +1094,16 @@ export const MIN_LOCKED_RACE_FIELD_SIZE = MIN_LIVE_FIELD;
 export const MAX_LOCKED_RACE_FIELD_SIZE = MAX_FIELD;
 export const RETIREMENT_CHANCE_DENOMINATOR = 32;
 
+/**
+ * Retirements are a Chaos and Mayhem thing. A paid snail knocked out of a
+ * Standard race six seconds in was the single most complained-about moment
+ * of the last night: at the lower levels every runner finishes.
+ */
+export const RETIREMENT_LEVELS: readonly IntensityId[] = ['chaos', 'mayhem'];
+
+/** A retirement never lands before this share of the race has been run. */
+export const RETIREMENT_EARLIEST = 0.5;
+
 export const validLockedRaceFieldSize = (size: number): boolean =>
   Number.isSafeInteger(size) &&
   size >= MIN_LOCKED_RACE_FIELD_SIZE &&
@@ -2266,10 +2276,12 @@ function planTwists(ctx: TwistContext): TwistBuild {
   const count = range.min + Math.floor(countRnd() * (range.max - range.min + 1));
   if (count <= 0) return { events, captions, complete: true };
 
-  const retiring = retirementRnd() < 1 / RETIREMENT_CHANCE_DENOMINATOR;
+  /* The same four draws at every level, so the stream is one stream. */
+  const retireChance = retirementRnd();
   const retireSpec = RETIREMENT_SPECS[Math.floor(retirementRnd() * RETIREMENT_SPECS.length)];
   const retireLane = Math.floor(retirementRnd() * names.length);
   const retireRoll = retirementRnd();
+  const retiring = RETIREMENT_LEVELS.includes(intensity) && retireChance < 1 / RETIREMENT_CHANCE_DENOMINATOR;
 
   const postCards = TWIST_POOL.filter((def) => def.post && !(def.once && ctx.dealtCards.includes(def.id.slice('deck-'.length))));
   const postWanted =
@@ -2285,7 +2297,11 @@ function planTwists(ctx: TwistContext): TwistBuild {
   const slack = Math.max(0, window.to - window.from - (ordinary - 1) * TWIST_SPACING_MS);
   const offsets = Array.from({ length: ordinary }, () => Math.round(timeRnd() * slack)).sort((a, b) => a - b);
   const times = offsets.map((offset, index) => window.from + offset + index * TWIST_SPACING_MS);
-  const retireSlot = retiring && ordinary > 0 ? Math.floor(retireRoll * ordinary) : -1;
+  /* Never in the first half of the race as it will actually run: the
+     retirement takes one of the later slots, or none. The final length fit
+     can stretch the race by up to FIT_RATIO.to, so the slot clears that too. */
+  const retireSlots = Array.from(times.keys()).filter((slot) => times[slot] >= durationMs * RETIREMENT_EARLIEST * FIT_RATIO.to);
+  const retireSlot = retiring && retireSlots.length ? retireSlots[Math.floor(retireRoll * retireSlots.length)] : -1;
 
   /* A retirement is a gag too: no magpie swoop in the race a magpie scare retires a runner. */
   const usedFamilies = new Set<string>(retireSlot >= 0 ? [twistFamily(retireSpec.label)] : []);
@@ -2365,7 +2381,8 @@ function planTwists(ctx: TwistContext): TwistBuild {
     const mustFinishAfter = nextHit + TWIST_REVEAL_MS + ctx.commentaryDelayMs + 400;
 
     if (slot === retireSlot) {
-      const active = rankedAt(runners, events, at, motion);
+      /* Never the leader: the runner in front at the hit is left out of the draw. */
+      const active = rankedAt(runners, events, at, motion).slice(1);
       const lane = active.includes(retireLane) ? retireLane : active[Math.floor(retireRoll * active.length)];
       const id = 'ret-0';
       events.push({
