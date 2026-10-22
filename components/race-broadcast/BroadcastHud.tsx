@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { laneColour } from '@/lib/palette';
 import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
 import type { BoardRow, RaceController } from '@/lib/use-race';
-import { finalGapText, lapsDownText, snailNumber, towerName } from './standings-format';
+import { SPREAD_MS, finalGapText, gapSeconds, lapsDownText, snailNumber, towerName } from './standings-format';
 
 interface BroadcastHudProps {
   brand: ReactNode;
@@ -25,6 +25,8 @@ interface BroadcastHudProps {
   lapBoxRef: RefObject<HTMLSpanElement | null>;
   shotRef: RefObject<HTMLSpanElement | null>;
   lapWipeRef: RefObject<HTMLDivElement | null>;
+  /** Whether the field has spread, judged on race time by the renderer: gaps wait for it. */
+  spreadRef?: RefObject<boolean>;
 }
 
 /** No badge before the off: the room is told it is live when it is. */
@@ -85,6 +87,7 @@ export function BroadcastHud({
   lapBoxRef,
   shotRef,
   lapWipeRef,
+  spreadRef,
 }: BroadcastHudProps) {
   const phase = race.phase as string;
   const confirming = phase === 'confirming';
@@ -142,7 +145,7 @@ export function BroadcastHud({
         </p>
       </div>
 
-      <RunnerTower race={race} names={names} numberOffset={numberOffset} numbers={numbers} laps={laps} lapped={lapped} raceNo={raceNo} />
+      <RunnerTower race={race} names={names} numberOffset={numberOffset} numbers={numbers} laps={laps} lapped={lapped} raceNo={raceNo} spreadRef={spreadRef} />
     </section>
   );
 }
@@ -168,6 +171,7 @@ function RunnerTower({
   laps,
   lapped,
   raceNo,
+  spreadRef,
 }: {
   race: RaceController;
   names: string[];
@@ -176,38 +180,84 @@ function RunnerTower({
   laps: number;
   lapped: ReadonlyMap<number, number>;
   raceNo: number;
+  spreadRef?: RefObject<boolean>;
 }) {
+  /*
+   * The running order re-renders only when the order itself changes (or a
+   * runner is lapped). The gaps change several times a second, so they are
+   * written straight into their own fixed-width cells: no re-render, no
+   * re-measure of the list, nothing else moves.
+   */
   const [rows, setRows] = useState<BoardRow[]>([]);
+  const gapCellsRef = useRef(new Map<number, HTMLSpanElement>());
+  const gapsRef = useRef(new Map<number, string>());
+  const orderKeyRef = useRef('');
+  const startedAtRef = useRef<number | null>(null);
+  const lappedRef = useRef(lapped);
   const { onBoard } = race;
-  useEffect(() => onBoard(setRows), [onBoard]);
-  const listRef = useRef<HTMLOListElement>(null);
-
   const phase = race.phase as string;
   const gate = phase === 'idle' || phase === 'countdown';
   const final = phase === 'done' || phase === 'confirming';
+  const running = phase === 'running';
+  useEffect(() => {
+    lappedRef.current = lapped;
+  }, [lapped]);
+  useEffect(() => {
+    if (!running) startedAtRef.current = null;
+  }, [running]);
+  useEffect(
+    () =>
+      onBoard((next) => {
+        const now = performance.now();
+        startedAtRef.current ??= now;
+        /* Gaps wait for the field to spread: about 3 s, or a clear gap behind the leader. */
+        const spread = spreadRef ? spreadRef.current : now - startedAtRef.current >= SPREAD_MS || gapSeconds(next[1]?.gapText ?? '') >= 0.3;
+        const down = lappedRef.current;
+        for (const row of next) {
+          const behind = down.get(row.lane) ?? 0;
+          const text = !spread && row.gapText !== 'RET' ? '' : behind > 0 && row.gapText !== 'RET' ? lapsDownText(behind) : row.gapText === 'leader' ? '' : row.gapText;
+          gapsRef.current.set(row.lane, text);
+          const cell = gapCellsRef.current.get(row.lane);
+          if (cell && cell.textContent !== text) cell.textContent = text;
+        }
+        const key = next.map((row) => row.lane).join(',');
+        if (key !== orderKeyRef.current) {
+          orderKeyRef.current = key;
+          setRows(next);
+        }
+      }),
+    [onBoard, spreadRef],
+  );
+  const listRef = useRef<HTMLOListElement>(null);
+
   let shown: TowerRow[];
   if (gate) shown = names.map((_, lane) => ({ lane, place: lane + 1, gap: '' }));
   else if (final && race.results.length) {
     const winner = race.results[0];
     shown = race.results.map((result) => ({ lane: result.lane, place: result.place, gap: finalGapText(result, winner, laps) }));
   } else if (rows.length) {
-    shown = rows.map((row) => {
-      const down = lapped.get(row.lane) ?? 0;
-      return { lane: row.lane, place: row.place, gap: down > 0 && row.gapText !== 'RET' ? lapsDownText(down) : row.gapText === 'leader' ? '' : row.gapText };
-    });
+    shown = rows.map((row) => ({ lane: row.lane, place: row.place, gap: '' }));
   } else shown = names.map((_, lane) => ({ lane, place: lane + 1, gap: '' }));
+  const live = !gate && !final;
 
-  const signature = shown.map((r) => `${r.lane}:${r.gap.length}`).join(',');
+  const signature = shown.map((r) => r.lane).join(',');
   useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
+    /* Live gap cells are filled by the board, not by React: put back what the board last said. */
+    if (live) {
+      gapCellsRef.current.forEach((cell, lane) => {
+        const text = gapsRef.current.get(lane) ?? '';
+        if (cell.textContent !== text) cell.textContent = text;
+      });
+    }
     let fit = 1;
     el.style.setProperty('--fit', '1');
     while (el.scrollHeight > el.clientHeight + 1 && fit > 0.7) {
       fit -= 0.05;
       el.style.setProperty('--fit', fit.toFixed(2));
     }
-  }, [signature, gate]);
+  }, [signature, gate, final, live]);
 
   return (
     <aside
@@ -230,7 +280,7 @@ function RunnerTower({
           </>
         )}
       </h3>
-      <ol ref={listRef} className="tv-order" aria-live="off" aria-label={gate ? 'Runners' : 'Runner positions'}>
+      <ol ref={listRef} key={gate ? 'gate' : final ? 'final' : 'race'} className="tv-order" aria-live="off" aria-label={gate ? 'Runners' : 'Runner positions'}>
         {shown.map((row) => {
           const colour = laneColour(row.lane);
           const no = snailNumber(row.lane, numberOffset, numbers);
@@ -258,7 +308,17 @@ function RunnerTower({
               <span className="tv-order-name" title={name}>
                 {top ? name : towerName(name)}
               </span>
-              {gate ? null : <span className="tv-order-gap num">{row.gap}</span>}
+              {gate ? null : live ? (
+                <span
+                  className="tv-order-gap num"
+                  ref={(cell) => {
+                    if (cell) gapCellsRef.current.set(row.lane, cell);
+                    else gapCellsRef.current.delete(row.lane);
+                  }}
+                />
+              ) : (
+                <span className="tv-order-gap num">{row.gap}</span>
+              )}
             </li>
           );
         })}
