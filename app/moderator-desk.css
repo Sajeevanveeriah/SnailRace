@@ -55,7 +55,10 @@
 .desk-gap { color: #b8c8da; font-size: 12px; font-variant-numeric: tabular-nums; }
 .desk-commentary { margin: 20px 0 0; font-size: 14px; color: #d6e0ec; }
 .desk-footer { max-width: 1500px; margin: 0 auto; padding: 0 24px 24px; color: #b8c8da; font-size: 13px; }
-.moderator-desk .drawer { z-index: 120; max-height: 94dvh; background: #131318; }
+/* The sheet stops under the desk header, so "Moderator desk" and the
+   projector status stay readable above it. The drawer measures the header
+   into --desk-header-h; the fallback is the header's height on a desktop. */
+.moderator-desk .drawer { z-index: 120; max-height: calc(100dvh - var(--desk-header-h, 96px)); background: #131318; }
 .moderator-desk .drawer.open { visibility: visible; }
 .moderator-desk :focus-visible { outline: 3px solid var(--ndcc-gold); outline-offset: 4px; }
 .moderator-desk button:disabled { opacity: .5; cursor: not-allowed; }

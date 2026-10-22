@@ -300,9 +300,11 @@ test('a quaddie switched on in Admin takes entries at the desk and shows the boa
   await desk.setViewportSize({ width: 1280, height: 900 });
   await expect(desk.getByRole('region', { name: 'Quaddie entries' })).toHaveCount(0);
   await desk.getByRole('button', { name: 'Admin', exact: true }).click();
+  await desk.getByRole('tab', { name: /Money/ }).click();
   const quaddie = desk.getByRole('region', { name: 'Quaddie', exact: true });
   await quaddie.getByRole('button', { name: /Enable quaddie/i }).click();
   await expect(quaddie).toContainText(/LIVE/);
+  await desk.getByRole('tab', { name: /Setup/ }).click();
   /* The night is a league: the quaddie board between races is a championship screen, off until switched on. */
   await desk.getByRole('checkbox', { name: 'Championship screens between races' }).check();
   await desk.getByLabel(/Lap length|Race length/).selectOption('7000');
