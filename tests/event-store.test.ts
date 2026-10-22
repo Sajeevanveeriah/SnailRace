@@ -46,11 +46,19 @@ test('a held start restores the exact locked plan and rejects a partial hash', a
   };
 
   assert.equal(
-    restore(JSON.stringify({ ...state, bettingOpen: false, heldRaceStart: held })),
+    restore(JSON.stringify({ ...state, showPhase: 'race', bettingOpen: false, heldRaceStart: held })),
     true,
   );
   assert.deepEqual(currentState().heldRaceStart, held);
   assert.equal(currentState().bettingOpen, false);
+
+  /* An armed race belongs to the race screen: one saved with the show on
+     the welcome (a cleared rehearsal, an old build) is dropped, or it would
+     hold "Show the racecard" and every other show control with nothing on
+     screen and no way out. */
+  assert.equal(restore(JSON.stringify({ ...state, showPhase: 'lobby', heldRaceStart: held })), true);
+  assert.equal(currentState().heldRaceStart, null);
+  assert.equal(currentState().showPhase, 'lobby');
 
   assert.equal(
     restore(

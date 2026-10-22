@@ -944,7 +944,10 @@ export function Stage() {
   );
 
   const advanceShow = useCallback(() => {
-    if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.showPhase === 'race') return;
+    if (holding || preparingRace || heldRaceStart || voidingRace || voidRecovery || event.showPhase === 'race') return;
+    /* An armed race only has meaning on the race screen; one left behind
+       anywhere else is cleared rather than left to hold the show. */
+    if (event.heldRaceStart) setState({ heldRaceStart: null });
     const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces, quaddieLive });
     if (next === event.showPhase) return;
     if (event.showPhase === 'results') {
@@ -957,7 +960,9 @@ export function Stage() {
   }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive, overlayOpen]);
 
   const backShow = useCallback(() => {
-    if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.eventMode === 'recorded' && event.packCurrent) return;
+    if (holding || preparingRace || heldRaceStart || voidingRace || voidRecovery || (event.eventMode === 'recorded' && event.packCurrent)) return;
+    if (event.heldRaceStart && event.showPhase === 'race') return;
+    if (event.heldRaceStart) setState({ heldRaceStart: null });
     const back: Partial<Record<ShowPhase, ShowPhase>> = {
       racecard: 'lobby',
       race: 'racecard',

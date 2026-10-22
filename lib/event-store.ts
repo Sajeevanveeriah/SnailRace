@@ -316,7 +316,15 @@ function merge(raw: string | null): EventState {
             ? 'both'
             : 'music';
     const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos', 'mayhem'];
-    const heldRaceStart = validHeldRaceStart(parsed.heldRaceStart);
+    const showPhase: ShowPhase = phases.includes(parsed.showPhase as ShowPhase)
+      ? (parsed.showPhase as ShowPhase)
+      : parsed.showPhase === 'market'
+        ? 'racecard'
+        : 'lobby';
+    /* An armed race belongs to the race screen. One saved with the show on
+       any other screen was left behind by a reset or an old build, and
+       would hold every show control with nothing on screen: it is dropped. */
+    const heldRaceStart = showPhase === 'race' ? validHeldRaceStart(parsed.heldRaceStart) : null;
     const recoveryValue = parsed.voidRecovery as VoidRecoveryState | null | undefined;
     const recoveryShow = recoveryValue?.openShow;
     const voidRecovery =
@@ -361,11 +369,7 @@ function merge(raw: string | null): EventState {
           ? parsed.raceType.slice(0, 40)
           : DEFAULT_RACE_TYPE,
       rehearsal: parsed.rehearsal === true,
-      showPhase: phases.includes(parsed.showPhase as ShowPhase)
-        ? (parsed.showPhase as ShowPhase)
-        : parsed.showPhase === 'market'
-          ? 'racecard'
-          : 'lobby',
+      showPhase,
       intensity: intensities.includes(parsed.intensity as SurpriseIntensity)
         ? (parsed.intensity as SurpriseIntensity)
         : parsed.surprises === false
