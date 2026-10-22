@@ -3,6 +3,7 @@
 .moderator-desk { min-height: 100dvh; font-size: 15px; line-height: 1.5; }
 .desk-header { display: flex; align-items: center; gap: 16px; padding: 20px 28px; border-bottom: 1px solid #ffffff24; }
 .desk-header p { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.desk-header .desk-eyebrow { text-transform: uppercase; }
 .desk-header h1 { margin: 1px 0 0; font-size: 25px; font-weight: 600; letter-spacing: -.025em; }
 .desk-header .desk-crest { width: 62px; height: 55px; }
 .desk-connection { margin-left: auto; display: flex; align-items: center; gap: 20px; font-size: 13px; }
