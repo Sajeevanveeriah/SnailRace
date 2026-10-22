@@ -20,6 +20,7 @@ const live: CashToteSettings = {
   enabled: true,
   permitAcknowledgedAt: 1_700_000_000_000,
   permitReference: 'VGCCC minor gaming permit 12345',
+  auctionLastRace: true,
 };
 
 let n = 0;
@@ -128,6 +129,13 @@ test('the runner auction pays the highest standing bid on the winner', () => {
   assert.equal(isAuctionRace(live, 5, 6), false);
   assert.equal(isAuctionRace({ ...live, auctionLastRace: false }, 6, 6), false);
   assert.equal(isAuctionRace(DEFAULT_CASH_TOTE, 6, 6), false);
+  /* Enabling the tote never switches the auction on by itself: it is off until ticked. */
+  assert.equal(DEFAULT_CASH_TOTE.auctionLastRace, false);
+  const enabled = normaliseCashTote({ ...DEFAULT_CASH_TOTE, enabled: true, permitAcknowledgedAt: 1, permitReference: 'VGCCC test 123' });
+  assert.equal(enabled.enabled, true);
+  assert.equal(enabled.auctionLastRace, false);
+  assert.equal(isAuctionRace(enabled, 10, 10), false);
+  assert.equal(normaliseCashTote({ auctionLastRace: true }).auctionLastRace, true);
 });
 
 test('night proceeds sum only standing races', () => {

@@ -30,7 +30,7 @@ export const DEFAULT_CASH_TOTE: CashToteSettings = {
   permitReference: '',
   ticketCents: 200,
   retainedPercent: 50,
-  auctionLastRace: true,
+  auctionLastRace: false,
   auctionRetainedPercent: 50,
 };
 
@@ -62,7 +62,7 @@ export function normaliseCashTote(value: unknown): CashToteSettings {
     permitReference: reference,
     ticketCents,
     retainedPercent: clampPercent(v.retainedPercent, base.retainedPercent),
-    auctionLastRace: v.auctionLastRace !== false,
+    auctionLastRace: v.auctionLastRace === true,
     auctionRetainedPercent: clampPercent(v.auctionRetainedPercent, base.auctionRetainedPercent),
   };
 }
