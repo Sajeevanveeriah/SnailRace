@@ -357,8 +357,8 @@
 .race-broadcast.circuit-broadcast .circuit-tower .tv-order { animation: circuit-tower-in .45s ease-out both; }
 @keyframes circuit-tower-in { from { opacity: 0; } to { opacity: 1; } }
 .race-broadcast.circuit-broadcast .circuit-tower.is-gate { width: var(--board-w); }
-/* Once racing, the foot of the column is the mini-map's. */
-.race-broadcast.circuit-broadcast .circuit-tower:not(.is-gate) { bottom: calc(var(--gap) * 2 + var(--map-h)); }
+/* While the mini-map is up, the foot of the column is its. */
+.race-broadcast.circuit-broadcast.map-on .circuit-tower:not(.is-gate) { bottom: calc(var(--gap) * 2 + var(--map-h)); }
 .race-broadcast.circuit-broadcast .circuit-tower h3 {
   flex: none;
   margin: 0;

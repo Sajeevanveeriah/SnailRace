@@ -613,6 +613,8 @@ export function Telecast({
           by = -sin * back;
         /* The label sits behind the shell, in screen pixels over the pane. */
         const at = toScreen({ x: pt.x + bx, y: pt.y + by }, shot, vp);
+        /* A runner on the top edge keeps its tag inside the pane. */
+        at.y = Math.max(at.y, met.u * 3.6);
         const { label, tag: tagNode } = nodes;
         style(label, `l${lane}`, `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0)`);
         const place = placeByLane.get(lane) ?? 0;
@@ -667,7 +669,10 @@ export function Telecast({
       /* The mini-map: every runner as a dot, and the box the camera is showing. */
       const map = mapRef.current;
       if (map && met.mw && met.mh) {
-        cls(map, 'is-on', kind === 'pack' || kind === 'finish');
+        const mapOn = kind === 'pack' || kind === 'finish';
+        cls(map, 'is-on', mapOn);
+        /* The tower gives the foot of the column to the map only while the map is up. */
+        cls(wrapRef.current, 'map-on', mapOn);
         /* The map's view box, fitted inside the map the way the SVG fits it. */
         const b = furniture.box;
         const vbw = b.x1 - b.x0 + 60,
