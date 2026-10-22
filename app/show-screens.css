@@ -460,7 +460,8 @@
 .wm-tote-label { font-size: calc(var(--u) * 1.6); font-weight: 850; letter-spacing: 0.16em; text-transform: uppercase; color: #e8b55e; }
 .wm-tote-detail { font-size: calc(var(--u) * 1.6); opacity: 0.85; }
 
-.wm-result { grid-template-rows: auto auto minmax(0, 1fr) auto; align-content: start; gap: calc(var(--u) * 2); }
+/* The full order never runs under the next-race line: its row is at least its content, and the frame gives the room back from the padding and podium art. */
+.wm-result { grid-template-rows: auto auto minmax(min-content, 1fr) auto; align-content: start; gap: calc(var(--u) * 1.6); padding-top: calc(var(--u) * 3); padding-bottom: calc(var(--u) * 2.6); }
 .wm-result-title { margin: 0; font-size: calc(var(--u) * 3.8); font-weight: 900; color: #fff; }
 .wm-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 2); margin: 0; padding: 0; list-style: none; }
 .wm-podium li {
@@ -475,7 +476,7 @@
   text-align: center;
 }
 .wm-podium-1 { outline: calc(var(--u) * 0.3) solid #e8b55e; }
-.wm-podium img { width: 100%; height: calc(var(--u) * 11); object-fit: contain; }
+.wm-podium img { width: 100%; height: calc(var(--u) * 9.5); object-fit: contain; }
 .wm-place { font-size: calc(var(--u) * 3); font-weight: 900; color: #8c0f17; line-height: 1; }
 .wm-podium-name { font-size: calc(var(--u) * 2.6); font-weight: 900; line-height: 1.08; overflow-wrap: normal; hyphens: manual; text-wrap: balance; }
 .wm-podium-owner { font-size: calc(var(--u) * 1.7); font-weight: 600; color: #5b3a3c; }
