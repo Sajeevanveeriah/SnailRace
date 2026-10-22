@@ -895,7 +895,7 @@ export function Stage() {
   );
 
   /* The night is a league: the quaddie board shows between races only when Admin switches the championship screens on. */
-  const quaddieLive = quaddieIsLive(event.quaddie) && event.championshipScreens;
+  const quaddieLive = quaddieIsLive(event.quaddie) && event.championshipScreens && event.quaddieEntries.length > 0;
 
   /** The host speaks between races; the race keeps its own richer caller. */
   const sayHost = useCallback((text: string) => {

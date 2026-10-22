@@ -1,5 +1,5 @@
 import { laneColour } from '@/lib/palette';
-import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { runnerLookAt } from '@/lib/presentation/runner-art';
 import { snailNumber } from './standings-format';
 
 /** Projector-sized field card. The racecard below remains the factual layer. */
@@ -25,8 +25,8 @@ export function RunnerLineup({ names, numberOffset = 0, numbers, dense = false }
             <span
               className="show-runner-art"
               style={{
-                backgroundImage: `url(${runnerArtForLane(lane).src})`,
-                filter: `hue-rotate(${runnerHueRotation(lane)}deg)`,
+                backgroundImage: `url(${runnerLookAt(lane, field.length, numberOffset, numbers).art.src})`,
+                filter: `hue-rotate(${runnerLookAt(lane, field.length, numberOffset, numbers).hue}deg)`,
               }}
               aria-hidden="true"
             />

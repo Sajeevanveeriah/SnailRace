@@ -112,7 +112,7 @@ export function ModeratorDesk(p: Props) {
         ? settled.map((r) => ({ lane: r.lane, place: r.place, gapText: r.place === 1 ? 'Winner' : r.status === 'retired' ? 'Retired' : ordinalPlace(r.place) }))
         : lineup.map((_, lane) => ({ lane, place: lane + 1, gapText: recorded ? 'Recorded runner' : 'At the gate' }));
   const title = p.holding ? 'Holding screen' : (sequence.find((s) => s.id === event.showPhase)?.name ?? showPhaseSpec(event.showPhase).label);
-  const championshipOn = quaddieIsLive(event.quaddie) && event.championshipScreens;
+  const championshipOn = quaddieIsLive(event.quaddie) && event.championshipScreens && event.quaddieEntries.length > 0;
   const visibleSequence = sequence.filter((s) => s.id !== 'championship' || championshipOn);
   const racing = race.phase === 'running' || race.phase === 'countdown' || race.phase === 'confirming';
   const lockedRaceNo = p.locked ? p.nextRaceNo : null;
