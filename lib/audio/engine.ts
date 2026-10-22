@@ -688,11 +688,11 @@ export interface Voice {
 /** Play a drop-in file. Returns null when the slot has no file behind it. */
 export function playSample(
   slot: SampleSlot,
-  o: { bus?: Bus; gain?: number; loop?: boolean; at?: number; fadeIn?: number } = {},
+  o: { bus?: Bus; gain?: number; loop?: boolean; at?: number; fadeIn?: number; ducked?: boolean } = {},
 ): Voice | null {
   if (!enabled || !ctx) return null;
   const buffer = samples.get(slot);
-  const out = buses.get(o.bus ?? 'sfx');
+  const out = outputFor(o.bus ?? 'sfx', o.ducked ?? true);
   if (!buffer || !out) return null;
   if (ctx.state === 'suspended') void ctx.resume();
 

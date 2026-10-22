@@ -725,7 +725,7 @@ function duckEffects(t: number, seconds: number, amount: number, release: number
  */
 export function winnerSting(): void {
   primeAudio();
-  if (playSample('sfx-fanfare', { gain: 0.8 })) return;
+  if (playSample('sfx-fanfare', { gain: 0.8, ducked: false })) return;
   const C5 = 523.25;
   /* The stab: the chord on detuned saws and a square an octave down, filtered bright to warm. */
   [0, 4, 7, 12].forEach((semi, k) => {

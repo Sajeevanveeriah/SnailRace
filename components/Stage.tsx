@@ -1141,6 +1141,7 @@ export function Stage() {
 
   const onPackResult = useCallback(
     (packRace: PackRace, results: RaceResult[]) => {
+      if (mirrorRef.current) return;
       const raceNo = nextRaceNo;
       const finishedAt = nowMs();
       const { recorded } = recordRaceResult({
@@ -1172,6 +1173,7 @@ export function Stage() {
 
   const onPackVoid = useCallback(
     (packRace: PackRace, reason: string) => {
+      if (mirrorRef.current) return;
       const raceNo = nextRaceNo;
       setState((s) => ({
         bettingOpen: true,
@@ -1461,7 +1463,7 @@ export function Stage() {
         {/* ── Stage body ─────────────────────────────────────────────── */}
         <main className="stage-main grid flex-1 gap-5">
           <div className="stage-track flex min-w-0 flex-col gap-4">
-            {event.eventMode === 'recorded' ? (
+            {event.eventMode === 'recorded' && mirror ? null : event.eventMode === 'recorded' ? (
               <PackRunner onResult={onPackResult} onVoid={onPackVoid} controlsTarget={packControlsRoot} raceNo={nextRaceNo} />
             ) : shownTrackShape === 'circuit' ? (
               // The imperative SVG painter starts after saved state is restored.
