@@ -316,8 +316,38 @@ export const isRunOff = (card: Pick<CardState, 'races'>, raceNo: number): boolea
 export const MAX_NAME = 48;
 export const MAX_OWNER = 32;
 
+/**
+ * Shorten to `max` characters at a word boundary, so a long name loses its
+ * last word rather than half of it. A single word longer than half the limit
+ * is cut mid-word, since there is no boundary worth keeping.
+ */
+export function cutAtWord(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const head = text.slice(0, max + 1);
+  const space = head.lastIndexOf(' ');
+  const cut = space >= Math.ceil(max / 2) ? head.slice(0, space) : text.slice(0, max);
+  return cut.trimEnd();
+}
+
 const clean = (value: unknown, max: number): string =>
-  typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
+  typeof value === 'string' ? cutAtWord(value.replace(/\s+/g, ' ').trim(), max) : '';
+
+/** "race 3", "races 2 to 10", "races 3, 5, 7 and 9", "races 1 and 3 to 9". Empty for no races. */
+export function describeRaces(numbers: readonly number[], capital = false): string {
+  const list = [...new Set(numbers)].sort((a, b) => a - b);
+  if (!list.length) return '';
+  const groups: string[] = [];
+  for (let i = 0; i < list.length; ) {
+    let j = i;
+    while (j + 1 < list.length && list[j + 1] === list[j] + 1) j += 1;
+    if (j - i >= 2) groups.push(`${list[i]} to ${list[j]}`);
+    else for (let k = i; k <= j; k++) groups.push(String(list[k]));
+    i = j + 1;
+  }
+  const joined = groups.length === 1 ? groups[0] : `${groups.slice(0, -1).join(', ')} and ${groups[groups.length - 1]}`;
+  const word = list.length === 1 ? 'race' : 'races';
+  return `${capital ? word[0].toUpperCase() + word.slice(1) : word} ${joined}`;
+}
 
 /** The name a snail races under: what its owner called it, or its number. */
 export const snailDisplayName = (card: CardState, snailNo: number): string =>
@@ -431,6 +461,39 @@ export function runSheetLocks(card: Pick<CardState, 'races'>, ties: RunSheetTies
   });
 }
 
+/**
+ * Why the run sheet's sizes are held, one line per cause, for printing under
+ * the table: "Races 1 to 9 keep their sizes: race 1 has tote sales; races 3,
+ * 5, 7 and 9 have quaddie tickets." A race that has run or is at the gate
+ * is shown as such in its own row, so it is named here only when it holds
+ * the races before it.
+ */
+export function lockReasons(card: Pick<CardState, 'races'>, locks: RaceLock[]): string[] {
+  const runOff = (i: number) => Boolean(card.races[i]?.field?.length);
+  const kept = locks.filter((l, i) => !l.run && !l.armed && l.countLock && !runOff(i)).map((l) => l.raceNo);
+  const lines: string[] = [];
+  if (kept.length) {
+    const causes = new Map<string, number[]>();
+    const add = (key: string, raceNo: number) => causes.set(key, [...(causes.get(key) ?? []), raceNo]);
+    for (const l of locks) {
+      if (runOff(l.raceNo - 1)) continue;
+      if (l.tie) add(l.tie, l.raceNo);
+      else if ((l.run || l.armed) && kept.some((k) => k < l.raceNo)) add(l.run ? 'run' : 'armed', l.raceNo);
+    }
+    const phrase = ([key, races]: [string, number[]]) => {
+      const many = races.length > 1;
+      const who = describeRaces(races);
+      if (key === 'run') return `${who} ${many ? 'have' : 'has'} run`;
+      if (key === 'armed') return `${who} ${many ? 'are' : 'is'} at the gate`;
+      return `${who} ${many ? 'have' : 'has'} ${key}`;
+    };
+    lines.push(`${describeRaces(kept, true)} ${kept.length > 1 ? 'keep their sizes' : 'keeps its size'}: ${[...causes.entries()].map(phrase).join('; ')}.`);
+  }
+  const runOffs = locks.filter((l, i) => runOff(i) && !l.run && !l.armed).map((l) => l.raceNo);
+  if (runOffs.length) lines.push(`${describeRaces(runOffs, true)} ${runOffs.length > 1 ? 'are run-offs and race' : 'is a run-off and races'} the snails chosen for ${runOffs.length > 1 ? 'them' : 'it'}.`);
+  return lines;
+}
+
 /** The ties a whole night holds, read from the event state. */
 export function tiesOf(event: {
   history: { raceNo: number; void?: boolean }[];
@@ -468,13 +531,34 @@ export function setRaceRunners(card: CardState, raceNo: number, runners: number,
   return withRaces(card, races);
 }
 
-/** Change the night's runners per race: every race still free to change takes it, unless set by hand. */
+/** The numbered races whose runner count can still change. */
+export const freeRaces = (card: Pick<CardState, 'races'>, locks: RaceLock[]): number[] =>
+  card.races.map((row, i) => (row.field?.length || locks[i]?.countLock ? 0 : i + 1)).filter(Boolean);
+
+/**
+ * Change the night's runners per race. Every race still free to change takes
+ * it, including a race set by hand: the hand setting is a one-off, and the
+ * night default is the later, broader instruction.
+ */
 export function setSnailsPerRace(card: CardState, runners: number, locks: RaceLock[]): CardState {
   const n = clampRunners(runners, card.snailsPerRace);
-  const races = card.races.map((row, i) =>
-    row.field?.length || row.custom || locks[i]?.countLock ? row : { ...row, runners: n },
-  );
+  const free = new Set(freeRaces(card, locks));
+  const races = card.races.map((row, i) => {
+    if (!free.has(i + 1)) return row;
+    const next: RunSheetRace = { ...row, runners: n };
+    delete next.custom;
+    return next;
+  });
   return { ...card, snailsPerRace: n, races };
+}
+
+/** What `setSnailsPerRace` did, in words: which races changed and which kept their sizes. */
+export function describeSnailsPerRace(card: Pick<CardState, 'races'>, runners: number, locks: RaceLock[]): string {
+  const free = freeRaces(card, locks);
+  const kept = card.races.map((_, i) => i + 1).filter((n) => !free.includes(n));
+  if (!free.length) return `Snails per race set to ${runners} for the races still to be added. ${describeRaces(kept, true)} ${kept.length > 1 ? 'keep their sizes' : 'keeps its size'}.`;
+  if (!kept.length) return `Snails per race set to ${runners} for every race.`;
+  return `Snails per race set to ${runners} for ${describeRaces(free)}. ${describeRaces(kept, true)} ${kept.length > 1 ? 'keep their sizes' : 'keeps its size'}.`;
 }
 
 /** Add a numbered race at the end of the card. Adding never moves a snail already in a race. */
@@ -501,9 +585,29 @@ export function removeLastRace(card: CardState, locks: RaceLock[]): Edit {
   return withRaces(card, card.races.slice(0, -1));
 }
 
+/**
+ * The fewest races the night can have: every race that has run or is at the
+ * gate stays on the sheet, so the sheet can never end on a race already in
+ * the history and send the show back to it.
+ */
+export const racesFloor = (locks: RaceLock[]): number =>
+  locks.reduce((floor, l) => (l.run || l.armed ? Math.max(floor, l.raceNo) : floor), 0);
+
+/** Why the night cannot go below `racesFloor`: "3 races have run." */
+export function racesFloorReason(locks: RaceLock[]): string {
+  const floor = racesFloor(locks);
+  if (!floor) return '';
+  const run = locks.filter((l) => l.run).length;
+  const armed = locks.find((l) => l.armed && l.raceNo === floor);
+  if (armed) return `Race ${floor} is at the gate.`;
+  return run === floor ? `${run} ${run === 1 ? 'race has' : 'races have'} run.` : `Race ${floor} has run.`;
+}
+
 /** Set "races tonight": add races at the end, or remove the last ones while nothing ties them. */
 export function setRaceCount(card: CardState, count: number, locks: RaceLock[]): Edit {
   const target = Math.min(MAX_RACES, Math.max(1, Math.round(Number(count)) || 1));
+  const floor = racesFloor(locks);
+  if (target < floor) return { error: `${racesFloorReason(locks)} The night cannot have fewer than ${floor} ${floor === 1 ? 'race' : 'races'}.` };
   let next = card;
   while (next.races.length < target) next = addRace(next);
   while (next.races.length > target) {
@@ -634,7 +738,11 @@ export function fitFixes(card: CardState, locks: RaceLock[]): FitFix[] {
     const spread = evenSizes(remaining, free.length);
     if (spread && free.length) {
       const next = applySizes(spread);
-      fixes.push({ id: 'spread', label: `Spread the extras: ${sizesPhrase(spread)}${free.length < card.races.length ? ' still to run' : ''}`, card: next });
+      /* One race left to take them: say which race and how big it becomes. */
+      const label = free.length === 1
+        ? `Put the ${fit.diff === 1 ? 'extra' : `${fit.diff} extras`} in race ${free[0] + 1} (${spread[0]} runners)`
+        : `Spread the extras: ${sizesPhrase(spread)}${free.length < card.races.length ? ' still to run' : ''}`;
+      fixes.push({ id: 'spread', label, card: next });
     }
     /* Add a race for the snails with no race, putting more on sale if it needs eight. */
     const runners = clampRunners(Math.max(fit.diff, MIN_SNAILS_PER_RACE), card.snailsPerRace);
@@ -660,7 +768,10 @@ export function fitFixes(card: CardState, locks: RaceLock[]): FitFix[] {
       if (card.races.length - free.length + count > MAX_RACES) continue;
       const sizes = Array.from({ length: count }, () => s);
       const next = { ...applySizes(sizes), snailsPerRace: s };
-      fixes.push({ id: 'per-race', label: `Set snails per race to ${s}: ${count} ${count === 1 ? 'race' : 'races'} of ${s}${free.length < card.races.length ? ' still to run' : ''}`, card: next });
+      /* The label reads from the card the fix gives, not from the race count asked for. */
+      const whole = free.length === card.races.length;
+      const after = whole ? describeLayout(cardLayout(next)) : `${count} ${count === 1 ? 'race' : 'races'} of ${s} still to run`;
+      fixes.push({ id: 'per-race', label: `Set snails per race to ${s}: ${after}`, card: next });
       break;
     }
     /* Take the snails with no race off sale, when none of them is sold. */
@@ -872,24 +983,84 @@ export function applyPurchases(
  *   29, Escargot Faster, Priya
  *   30; Nan's Favourite; Lisa
  *
- * A Stripe CSV export pasted whole works when its columns are in that order.
- * Lines without a valid number are skipped and counted.
+ * A Stripe CSV export pasted whole works when its columns are in that order:
+ * a field in double quotes keeps the commas inside it, and a doubled quote
+ * inside such a field is one quote, as Stripe and every spreadsheet write
+ * them. Lines without a valid number are skipped and listed with the reason.
+ * A number on more than one line keeps the last line.
  */
-export function parseRosterPaste(text: string, source: CardSource = SNAILS_ON_CARD): { rows: { snailNo: number; name: string; owner: string }[]; skipped: number } {
-  const rows: { snailNo: number; name: string; owner: string }[] = [];
-  let skipped = 0;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    const parts = line.split(/\s*[,;\t]\s*/);
-    const n = Number(parts[0]?.replace(/[^\d]/g, ''));
-    if (!validSnailNo(n, source)) {
-      skipped += 1;
-      continue;
-    }
-    rows.push({ snailNo: n, name: clean(parts[1] ?? '', MAX_NAME), owner: clean(parts[2] ?? '', MAX_OWNER) });
+export interface RosterPaste {
+  rows: { snailNo: number; name: string; owner: string; line: number }[];
+  /** How many lines were skipped. */
+  skipped: number;
+  /** Each skipped line, 1-based, with why. */
+  skippedLines: { line: number; text: string; reason: string }[];
+  /** Snail numbers that appear on more than one line. */
+  duplicates: number[];
+  /** Snail numbers whose name or owner was shortened to fit. */
+  shortened: number[];
+}
+
+/** Split one line on commas, tabs or semicolons, honouring double-quoted fields. */
+export function splitCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { field += '"'; i += 1; }
+        else quoted = false;
+      } else field += c;
+    } else if (c === '"' && !field.trim()) {
+      quoted = true;
+      field = '';
+    } else if (c === ',' || c === ';' || c === '\t') {
+      fields.push(field.trim());
+      field = '';
+    } else field += c;
   }
-  return { rows, skipped };
+  fields.push(field.trim());
+  return fields;
+}
+
+export function parseRosterPaste(text: string, source: CardSource = SNAILS_ON_CARD): RosterPaste {
+  const rows: RosterPaste['rows'] = [];
+  const skippedLines: RosterPaste['skippedLines'] = [];
+  const seen = new Map<number, number>();
+  const duplicates: number[] = [];
+  const shortened: number[] = [];
+  const onSale = typeof source === 'number' ? clampSnailCount(source) : clampOnSale(source.snailCount);
+  text.split(/\r?\n/).forEach((raw, index) => {
+    const line = raw.trim();
+    if (!line) return;
+    const parts = splitCsvLine(line);
+    const digits = parts[0]?.replace(/[^\d]/g, '') ?? '';
+    const n = Number(digits);
+    if (!validSnailNo(n, source)) {
+      skippedLines.push({
+        line: index + 1,
+        text: line.slice(0, 60),
+        reason: digits ? `snail ${n} is not on sale (${onSale} on sale)` : 'no snail number at the start of the line',
+      });
+      return;
+    }
+    const rawName = (parts[1] ?? '').replace(/\s+/g, ' ').trim();
+    const rawOwner = (parts[2] ?? '').replace(/\s+/g, ' ').trim();
+    const name = clean(rawName, MAX_NAME);
+    const owner = clean(rawOwner, MAX_OWNER);
+    if ((name.length < rawName.length || owner.length < rawOwner.length) && !shortened.includes(n)) shortened.push(n);
+    const earlier = seen.get(n);
+    if (earlier !== undefined) {
+      rows.splice(earlier, 1);
+      if (!duplicates.includes(n)) duplicates.push(n);
+      for (const [key, at] of seen) if (at > earlier) seen.set(key, at - 1);
+    }
+    seen.set(n, rows.length);
+    rows.push({ snailNo: n, name, owner, line: index + 1 });
+  });
+  return { rows, skipped: skippedLines.length, skippedLines, duplicates, shortened };
 }
 
 /** The roster as CSV, for a printed sheet or a spreadsheet. A snail with no race has empty race and lane cells. */
