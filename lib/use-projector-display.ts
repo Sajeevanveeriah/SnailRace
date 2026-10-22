@@ -52,3 +52,107 @@ export function useProjectorDisplay(active: boolean) {
 
   return { fullscreen, toggleFullscreen, error, wakeLock: (active || fullscreen) && wakeLock };
 }
+
+/* ── One tab holds the show ─────────────────────────────────────────────── */
+
+/**
+ * The show lease: which tab of this browser is running the night.
+ *
+ * The night's state is shared through localStorage, so every tab that opens
+ * the site sees the same screens. Only one of them may run the race engine,
+ * settle results and carry the operator's controls, or a second tab left
+ * open on the laptop could start a race that is already running on the
+ * projector. The first tab to load takes the lease and heartbeats it; any
+ * other tab is a mirror until the holder goes away. A holder releases the
+ * lease as its page unloads, so a reload takes it straight back, and a
+ * mirror only steps in once a lease has gone quiet.
+ */
+const LEASE_KEY = 'ndcc-snailrace-show-lease';
+const HEARTBEAT_MS = 1000;
+/** A lease older than this belongs to a tab that is gone (or frozen). */
+const STALE_MS = 3500;
+/** A mirror waits this long after a release before it takes over, so a reloading holder gets there first. */
+const TAKEOVER_GRACE_MS = 4000;
+
+interface Lease { id: string; at: number }
+
+const readLease = (): Lease | null => {
+  try {
+    const raw = localStorage.getItem(LEASE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Lease>;
+    return typeof parsed.id === 'string' && typeof parsed.at === 'number' ? { id: parsed.id, at: parsed.at } : null;
+  } catch {
+    return null;
+  }
+};
+
+export interface ShowLease {
+  /** This tab runs the show. False while another tab holds the lease. */
+  holder: boolean;
+  /** The first check has run; until then nothing should be drawn as either. */
+  settled: boolean;
+}
+
+export function useShowLease(): ShowLease {
+  const [lease, setLease] = useState<ShowLease>({ holder: false, settled: false });
+
+  useEffect(() => {
+    const id = `tab-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+    let holder = false;
+    let takeover = 0;
+    const write = () => {
+      try { localStorage.setItem(LEASE_KEY, JSON.stringify({ id, at: Date.now() })); } catch { /* the show still runs in memory */ }
+    };
+    const become = (next: boolean) => {
+      holder = next;
+      setLease((prev) => (prev.holder === next && prev.settled ? prev : { holder: next, settled: true }));
+    };
+    const claim = () => {
+      write();
+      become(true);
+    };
+    /* Another tab holds a live lease. */
+    const taken = (current: Lease | null, now: number) => Boolean(current && current.id !== id && now - current.at < STALE_MS);
+    const check = () => {
+      const now = Date.now();
+      const current = readLease();
+      if (holder) {
+        /* Two tabs claiming at once: the one that reads the other's fresh heartbeat yields. */
+        if (taken(current, now)) become(false);
+        else write();
+        return;
+      }
+      if (!taken(current, now) && !takeover) claim();
+    };
+    check();
+    const beat = window.setInterval(check, HEARTBEAT_MS);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== LEASE_KEY) return;
+      if (holder) { check(); return; }
+      if (e.newValue === null) {
+        /* The holder released: give a reload a moment to take the lease back. */
+        window.clearTimeout(takeover);
+        takeover = window.setTimeout(() => { takeover = 0; check(); }, TAKEOVER_GRACE_MS);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    const release = () => {
+      if (!holder) return;
+      const current = readLease();
+      if (current?.id === id) {
+        try { localStorage.removeItem(LEASE_KEY); } catch { /* nothing to release */ }
+      }
+    };
+    window.addEventListener('pagehide', release);
+    return () => {
+      window.clearInterval(beat);
+      window.clearTimeout(takeover);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('pagehide', release);
+      release();
+    };
+  }, []);
+
+  return lease;
+}
