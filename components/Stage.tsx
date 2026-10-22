@@ -1689,7 +1689,7 @@ export function Stage() {
         }
         owners={owners}
         highlights={highlights}
-        nextRaceNo={event.raceNumber + 1}
+        nextRaceNo={nextRaceNo}
         card={event.card}
         entry={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)}
         sponsor={event.history[0]?.sponsor ?? ''}
