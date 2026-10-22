@@ -130,8 +130,8 @@ export function Stage() {
   }, [event.music]);
 
   useEffect(() => {
-    setCallerOn(event.sound && event.caller);
-  }, [event.sound, event.caller]);
+    setCallerOn(event.sound && event.caller && !mirror);
+  }, [event.sound, event.caller, mirror]);
 
   useEffect(() => {
     setLevels({ master: event.volume, music: event.musicVolume });
@@ -424,10 +424,12 @@ export function Stage() {
     }
   }, [event.heldRaceStart, event.bettingOpen, event.phonePlay, race.phase, lease.settled, mirror, onFinish]);
 
-  /* A race left on a mirror's screen clears with the main screen's next step. */
+  /* A race left on a mirror's screen clears with the main screen's next step,
+     and a tab that loses the show mid-race stops its own engine at once. */
   useEffect(() => {
-    if (!mirror || event.showPhase === 'race' || event.showPhase === 'results') return;
-    if (race.phase === 'idle') return;
+    if (!mirror || race.phase === 'idle') return;
+    const live = race.phase === 'countdown' || race.phase === 'running' || race.phase === 'confirming';
+    if (!live && (event.showPhase === 'race' || event.showPhase === 'results')) return;
     race.reset();
   }, [mirror, event.showPhase, race]);
 
