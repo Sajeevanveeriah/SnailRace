@@ -69,7 +69,7 @@ const sequence: { id: EventState['showPhase']; name: string }[] = [
 ];
 
 const notes: Record<string, string> = {
-  lobby: 'Welcome the room. Point at the QR: buy a snail, name it. Open the racecard when ready.',
+  lobby: 'Welcome the room. Open the racecard when ready.',
   racecard: 'Read out the snails and their owners. Then send them to the gate.',
   race: 'Press Start. The projector runs the race. Let the finish play out.',
   results: 'Name the winner and the owner. Then move on to the next racecard.',
@@ -127,6 +127,12 @@ export function ModeratorDesk(p: Props) {
   const fieldLabel = settings.runOff || ranEntry?.snails
     ? `${deskSnails.length} runners`
     : `snails ${deskSnails[0]} to ${deskSnails[deskSnails.length - 1]}`;
+  /* The welcome note points at the QR only when there is a QR to point at. */
+  const note = event.showPhase === 'lobby'
+    ? event.card.paymentLinkUrl
+      ? 'Welcome the room. Point at the QR: buy a snail, name it. Open the racecard when ready.'
+      : 'Welcome the room. Send people to the table to buy and name a snail. Open the racecard when ready.'
+    : notes[event.showPhase];
   const setAudio = (mode: AudioMode) => {
     primeAudio();
     if (mode === 'commentary' || mode === 'both') initVoice();
@@ -137,7 +143,7 @@ export function ModeratorDesk(p: Props) {
     <div className="moderator-desk" data-moderator-desk="true">
       <header className="desk-header">
         <ClubBrand className="desk-brand" imageClassName="desk-crest" showName={false} />
-        <div><p>NDCC / SAJ RACE NIGHT</p><h1>Moderator desk</h1></div>
+        <div><p className="desk-eyebrow">{event.clubName} / {event.eventName}</p><h1>Moderator desk</h1></div>
         <div className="desk-connection" role="status">
           <span>Projector connected</span>
           <span>{p.fullscreen ? 'Fullscreen' : 'Windowed - press F on projector'}</span>
@@ -163,7 +169,9 @@ export function ModeratorDesk(p: Props) {
             {p.startError ? <p className="desk-error" role="alert">{p.startError}</p> : null}
             {event.card.conflictNotice ? <p className="desk-error" role="alert">Card payment conflict: {event.card.conflictNotice}. See the audit trail in Admin.</p> : null}
             <div className="desk-actions">
-              {!(recorded && event.showPhase === 'race') ? <button className="btn btn-go" type="button" disabled={p.primaryDisabled || p.holding} onClick={(e) => { if (e.detail < 2) p.onPrimary(); }}>{p.primaryLabel}</button> : null}
+              {event.showPhase === 'finale' ? (
+                <p className="desk-done" role="status">Night complete</p>
+              ) : !(recorded && event.showPhase === 'race') ? <button className="btn btn-go" type="button" disabled={p.primaryDisabled || p.holding} onClick={(e) => { if (e.detail < 2) p.onPrimary(); }}>{p.primaryLabel}</button> : null}
               <button className="btn btn-ghost" type="button" disabled={!p.canBack || p.holding} onClick={p.onBack}>Back</button>
               {racing ? <button className="btn btn-ghost desk-void" type="button" onClick={p.onVoid}>Void race</button> : null}
               {p.winnerOpen ? <button className="btn btn-ghost" type="button" onClick={p.onDismissWinner}>Dismiss winner card</button> : null}
@@ -205,7 +213,7 @@ export function ModeratorDesk(p: Props) {
               <button className="btn btn-ghost" type="button" onClick={p.onSettings}>Admin</button>
               <button className="btn btn-ghost" type="button" onClick={p.onReturn}>Return controls to projector</button>
             </div>
-            <div className="desk-notes"><p className="desk-label">Speaker notes</p><p>{notes[event.showPhase]}</p></div>
+            <div className="desk-notes"><p className="desk-label">Speaker notes</p><p>{note}</p></div>
           </section>
 
           <div ref={packControlsRef} className="desk-pack-tools" hidden={event.eventMode !== 'recorded' || event.showPhase !== 'race'} />
@@ -258,7 +266,7 @@ export function ModeratorDesk(p: Props) {
           {race.commentary ? <p className="desk-commentary">{race.commentary}</p> : null}
         </section>
       </main>
-      <footer className="desk-footer">Controls stay on this screen. The race and sound play on the projector. Space or PgDn advances, PgUp goes back, A cycles the sound, S silences it, V switches the camera, F is fullscreen on the projector. Shortcuts pause while Admin is open.</footer>
+      <footer className="desk-footer">Controls stay on this screen. The race and sound play on the projector. Space, Enter or PgDn advances, PgUp goes back, A cycles the sound, S silences it, V switches the camera during a race, F is fullscreen on the projector. Shortcuts pause while Admin is open.</footer>
       {p.children}
     </div>
   );
