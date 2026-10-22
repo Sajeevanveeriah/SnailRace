@@ -7,7 +7,9 @@ import { SponsorReel } from './SponsorReel';
 import { laneColour } from '@/lib/palette';
 import { money } from '@/lib/money';
 import { ordinal } from '@/lib/race-engine';
-import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { runnerLooks } from '@/lib/presentation/runner-art';
+import { longestWord, numberLine } from '@/lib/presentation/names';
+import { NameText } from '@/lib/presentation/name-text';
 import { snailOfLane } from '@/lib/run-sheet';
 import type { AuctionSettlement, RaceHighlight, RaceHistoryEntry, RaceResult, ToteDividend } from '@/lib/types';
 
@@ -110,11 +112,16 @@ function WinnerMoment({
   const ownerOf = (lane: number) => (entry?.owners?.[lane] ?? owners[lane] ?? '').trim();
   const numberOf = (lane: number) =>
     entry ? snailOfLane(entry, lane) : (snailsForRace(raceNo, card)[lane] ?? lane + 1);
-  const snailNo = numberOf(winner.lane);
-  const owner = ownerOf(winner.lane);
   const colour = laneColour(winner.lane);
   const title = raceTitle(entry?.raceType, raceNo);
-  const art = runnerArtForLane(winner.lane);
+  /* The field's numbers in lane order give every runner its own art, the same art it wore on the racecard and the track. */
+  const lanes = Math.max(results.length, ...results.map((r) => r.lane + 1));
+  const looks = runnerLooks(Array.from({ length: lanes }, (_, lane) => numberOf(lane)));
+  const lookOf = (lane: number) => looks[lane] ?? looks[0];
+  const art = lookOf(winner.lane).art;
+  const lineUnder = (name: string, lane: number, prefix: string) => numberLine(name, numberOf(lane), ownerOf(lane), prefix);
+  /* A very long single word steps the headline down and, past that, breaks mid-word rather than running off the frame. */
+  const wordClass = (name: string, limit: number) => (longestWord(name) > limit ? 'wm-break' : '');
   const nextSnails = snailsForRace(nextRaceNo, card);
   const nextRunOff = Boolean(card.races[nextRaceNo - 1]?.field?.length);
 
@@ -152,15 +159,17 @@ function WinnerMoment({
       <section className={`wm-step wm-winner ${step === 'winner' ? 'on' : ''}`} aria-hidden={step !== 'winner'}>
         <div className="wm-winner-art">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={art.src} alt="" width={art.width} height={art.height} style={{ filter: `hue-rotate(${runnerHueRotation(winner.lane)}deg)` }} />
+          <img src={art.src} alt="" width={art.width} height={art.height} style={{ filter: lookOf(winner.lane).hue ? `hue-rotate(${lookOf(winner.lane).hue}deg)` : undefined }} />
         </div>
         <div className="wm-winner-text">
           <p className="wm-kicker">{title} winner</p>
-          <h2 id="winner-name" className={`wm-name ${winner.name.length > 28 ? 'wm-xlong' : winner.name.length > 18 ? 'wm-long' : ''}`}>{winner.name}</h2>
-          <p className="wm-owner num">
-            {winner.name === `Snail ${snailNo}` ? `No. ${snailNo}` : `Snail ${snailNo}`}
-            {owner ? ` · owned by ${owner}` : ''}
-          </p>
+          <h2
+            id="winner-name"
+            className={`wm-name ${winner.name.length > 28 || longestWord(winner.name) > 12 ? 'wm-xlong' : winner.name.length > 18 || longestWord(winner.name) > 9 ? 'wm-long' : ''} ${wordClass(winner.name, 20)}`}
+          >
+            <NameText name={winner.name} />
+          </h2>
+          {lineUnder(winner.name, winner.lane, 'owned by ') ? <p className="wm-owner num">{lineUnder(winner.name, winner.lane, 'owned by ')}</p> : null}
           <ul className="wm-facts">
             <li>{margin}</li>
             {time ? <li className="num">Time {time}</li> : null}
@@ -196,17 +205,17 @@ function WinnerMoment({
         <h2 className="wm-result-title">{title} result</h2>
         <ol className="wm-podium">
           {ordered.slice(0, 3).map((r) => {
-            const a = runnerArtForLane(r.lane);
+            const look = lookOf(r.lane);
+            const a = look.art;
             return (
               <li key={r.lane} className={`wm-podium-${r.place}`} style={{ '--shell': laneColour(r.lane).shell } as React.CSSProperties}>
                 <span className="wm-place num">{ordinal(r.place)}</span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={a.src} alt="" width={a.width} height={a.height} style={{ filter: `hue-rotate(${runnerHueRotation(r.lane)}deg)` }} />
-                <span className={`wm-podium-name ${r.name.length > 22 ? 'wm-long' : ''}`}>{r.name}</span>
-                <span className="wm-podium-owner num">
-                  {r.name === `Snail ${numberOf(r.lane)}` ? `No. ${numberOf(r.lane)}` : `Snail ${numberOf(r.lane)}`}
-                  {ownerOf(r.lane) ? ` · ${ownerOf(r.lane)}` : ''}
+                <img src={a.src} alt="" width={a.width} height={a.height} style={{ filter: look.hue ? `hue-rotate(${look.hue}deg)` : undefined }} />
+                <span className={`wm-podium-name ${r.name.length > 22 || longestWord(r.name) > 13 ? 'wm-long' : ''} ${wordClass(r.name, 16)}`}>
+                  <NameText name={r.name} />
                 </span>
+                <span className="wm-podium-owner num">{lineUnder(r.name, r.lane, '') || '\u00a0'}</span>
               </li>
             );
           })}
@@ -217,7 +226,7 @@ function WinnerMoment({
               <li key={r.lane}>
                 <span className="num wm-order-place">{r.status === 'retired' ? 'Ret' : ordinal(r.place)}</span>
                 <span className="wm-order-dot" style={{ background: laneColour(r.lane).shell }} aria-hidden="true" />
-                <span className="wm-order-name">{r.name}</span>
+                <span className={`wm-order-name ${wordClass(r.name, 18)}`}><NameText name={r.name} /></span>
               </li>
             ))}
           </ol>

@@ -10,7 +10,10 @@ import { cardRaceNames, cardRaceOwners, isSold, raceTitle, sizesPhrase, snailsFo
 import { quaddieStatus } from '@/lib/quaddie';
 import { laneColour } from '@/lib/palette';
 import { toteProceeds } from '@/lib/cash-tote';
-import { runnerArtForLane, runnerHueRotation } from '@/lib/presentation/runner-art';
+import { SURPRISE_ART_IDS, laneNumbers, runnerArtSources, runnerLooks, surpriseArtSrc, type RunnerLook } from '@/lib/presentation/runner-art';
+import { cardInnerWidthU, fitField, winnerOwnerLine } from '@/lib/presentation/names';
+import { NameText } from '@/lib/presentation/name-text';
+import { cardColumn, gridPlacement } from '@/lib/presentation/field-grid';
 import { SURPRISE_LEVEL_NAMES, lengthPhrase, raceSettings, snailOfLane } from '@/lib/run-sheet';
 import { designNameOf } from '@/lib/courses';
 import type { EventState, ShowPhase } from '@/lib/types';
@@ -76,7 +79,7 @@ export function ShowOverlay({
             {v === 'championship' ? <QuaddieBoard event={event} /> : null}
             {v === 'finale' ? <Finale event={event} nightCents={nightCents} /> : null}
             <footer className="ss-strap">
-              <span>{v === 'finale' ? `Thank you from ${event.clubName}. Safe travels home.` : 'Every snail has the same chance. The result is drawn and sealed before the gates open.'}</span>
+              <span>{v === 'finale' ? finaleStrap(event) : 'Every snail has the same chance. The result is drawn and sealed before the gates open.'}</span>
             </footer>
           </>
         )}
@@ -144,17 +147,42 @@ function ShowHeader({ event, phase }: { event: EventState; phase: ShowPhase }) {
   );
 }
 
-/** Long names step down a size so they wrap onto two lines at most instead of being cut. */
-const lengthClass = (name: string): string => (name.length > 26 ? 'ss-xlong' : name.length > 15 ? 'ss-long' : '');
-
-function Art({ lane, className = '' }: { lane: number; className?: string }) {
+function Art({ look, className = '' }: { look: RunnerLook; className?: string }) {
   return (
     <span
       className={`ss-art ${className}`}
       aria-hidden="true"
-      style={{ backgroundImage: `url(${runnerArtForLane(lane).src})`, filter: `hue-rotate(${runnerHueRotation(lane)}deg)` }}
+      style={{ backgroundImage: `url(${look.art.src})`, filter: look.hue ? `hue-rotate(${look.hue}deg)` : undefined }}
     />
   );
+}
+
+/**
+ * Warm the browser cache with the night's art while the welcome is up, one
+ * file at a time so the welcome itself is never starved: every snail on the
+ * card, then the surprise props, so the first racecard never shows a blank
+ * card on venue Wi-Fi.
+ */
+function useArtWarmUp(event: Pick<EventState, 'card'>) {
+  const numbers = event.card.races.flatMap((row, i) => (row.field?.length ? row.field : snailsForRace(i + 1, event.card)));
+  const key = runnerArtSources(numbers).join('|');
+  useEffect(() => {
+    const sources = [...key.split('|').filter(Boolean), ...SURPRISE_ART_IDS.map(surpriseArtSrc)];
+    let cancelled = false;
+    let image: HTMLImageElement | null = null;
+    const next = (i: number) => {
+      if (cancelled || i >= sources.length) return;
+      image = new Image();
+      image.decoding = 'async';
+      image.onload = image.onerror = () => next(i + 1);
+      image.src = sources[i];
+    };
+    next(0);
+    return () => {
+      cancelled = true;
+      if (image) image.onload = image.onerror = null;
+    };
+  }, [key]);
 }
 
 /* ── Welcome ───────────────────────────────────────────────────────────── */
@@ -171,6 +199,7 @@ export function runOrderSentence(event: Pick<EventState, 'card'>): string {
 }
 
 function Lobby({ event, snailLinkUrl }: { event: EventState; snailLinkUrl: string }) {
+  useArtWarmUp(event);
   const sponsors = [...new Set(event.sponsors.map((s) => s.trim()).filter(Boolean))].slice(0, 8);
   const when = eventWhen(event);
   const sold = soldCount(event.card);
@@ -237,6 +266,9 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
   const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
   const leg = quaddie.live ? event.quaddie.legs.indexOf(raceNo) : -1;
   const cols = numbers.length <= 8 ? 4 : numbers.length <= 10 ? 5 : 6;
+  const looks = runnerLooks(numbers);
+  const fit = fitField(names, owners, cols, cardInnerWidthU(cols));
+  const placement = gridPlacement(numbers.length, cols);
   return (
     <section className="ss-body ss-racecard">
       <div className="ss-rc-head">
@@ -265,19 +297,29 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
           </div>
         ) : null}
       </div>
-      <ol className={`ss-field ss-cols-${cols}`} aria-label={`Race ${raceNo} field, ${numbers.length} runners`}>
+      <ol
+        className={`ss-field ss-cols-${cols}`}
+        aria-label={`Race ${raceNo} field, ${numbers.length} runners`}
+        style={{ '--tracks': placement.tracks, '--name-h': fit.nameBoxU, '--owner-h': fit.ownerBoxU } as React.CSSProperties}
+      >
         {numbers.map((snailNo, lane) => {
           const colour = laneColour(lane);
           const onSale = !settings.runOff && forSale.includes(snailNo);
           return (
-            <li key={`${lane}-${snailNo}`} className="ss-runner" style={{ '--shell': colour.shell, '--shell-dk': colour.dark } as React.CSSProperties}>
+            <li
+              key={`${lane}-${snailNo}`}
+              className="ss-runner"
+              style={{ '--shell': colour.shell, '--shell-dk': colour.dark, gridColumn: cardColumn(lane, placement) } as React.CSSProperties}
+            >
               <span className="ss-runner-no num">{snailNo}</span>
-              <Art lane={lane} className="ss-runner-art" />
-              <span className={`ss-runner-name ${lengthClass(names[lane])}`}>{names[lane]}</span>
+              <Art look={looks[lane]} className="ss-runner-art" />
+              <span className={`ss-runner-name ${fit.nameClass[lane]}`}>
+                <span className="ss-name-text"><NameText name={names[lane]} /></span>
+              </span>
               {owners[lane] ? (
-                <span className="ss-runner-owner">{owners[lane]}</span>
+                <span className={`ss-runner-owner ${fit.ownerClass[lane]}`}>{owners[lane]}</span>
               ) : onSale ? (
-                <span className="ss-runner-sale">For sale</span>
+                <span className="ss-runner-owner"><span className="ss-runner-sale">For sale</span></span>
               ) : (
                 <span className="ss-runner-owner">&nbsp;</span>
               )}
@@ -291,9 +333,16 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
 
 /* ── Quaddie board (championship screens) ─────────────────────────────── */
 
+/** Whether the quaddie has anything to show the room: a live quaddie with at least one ticket. */
+export const quaddieHasTickets = (event: Pick<EventState, 'quaddie' | 'quaddieEntries' | 'history' | 'card'>): boolean => {
+  const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
+  return status.live && status.entries > 0;
+};
+
 export function QuaddieBoard({ event }: { event: EventState }) {
   const status = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
-  if (!status.live) {
+  if (!status.live || status.entries === 0) {
+    /* No tickets: nothing to settle, so the board is a plain bridge to the next race rather than a $0.00 pool. */
     return (
       <section className="ss-body ss-center">
         <h2 className="ss-headline">Next race shortly</h2>
@@ -354,6 +403,19 @@ export function nightTotal(event: EventState, nightCents: number): number {
   return nightCents + proceeds.toteCents + proceeds.auctionCents + (quaddie.entries ? quaddie.retainedCents + quaddie.breakageCents + (quaddie.unwon ? quaddie.returnedCents : 0) : 0);
 }
 
+/** The thank you strap: the sponsors ride here so the winner cards keep the height. */
+export function finaleStrap(event: Pick<EventState, 'clubName' | 'sponsors'>): string {
+  const sponsors = [...new Set(event.sponsors.map((s) => s.trim()).filter(Boolean))].slice(0, 10);
+  return `Thank you from ${event.clubName}. Safe travels home.${sponsors.length ? ` With thanks to tonight's sponsors: ${sponsors.join(' · ')}.` : ''}`;
+}
+
+/** The thank you quaddie line, or null when nobody entered or it has not been settled. */
+export function finaleQuaddieLine(event: Pick<EventState, 'quaddie' | 'quaddieEntries' | 'history' | 'card'>): string | null {
+  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
+  if (!quaddie.live || !quaddie.complete || quaddie.entries === 0) return null;
+  return `Quaddie: ${quaddie.unwon ? `no winner, ${money(quaddie.poolCents)} to the club` : `${quaddie.winners.map((w) => w.holder).join(', ')} collected ${money(quaddie.dividendCents)} each`}`;
+}
+
 function Finale({ event, nightCents }: { event: EventState; nightCents: number }) {
   const winners = event.history
     .filter((h) => !h.void && h.results.length)
@@ -363,56 +425,66 @@ function Finale({ event, nightCents }: { event: EventState; nightCents: number }
       const w = h.results.find((r) => r.place === 1);
       if (!w) return null;
       const snailNo = snailOfLane(h, w.lane);
+      const field = laneNumbers(h.results.length, h.snailOffset ?? (h.raceNo - 1) * 10, h.snails);
       return {
         raceNo: h.raceNo,
         title: raceTitle(h.raceType, h.raceNo),
         lane: w.lane,
         name: w.name,
         snailNo,
+        look: runnerLooks(field)[w.lane] ?? runnerLooks([snailNo])[0],
         owner: h.owners?.[w.lane] ?? event.card.owners[snailNo - 1] ?? '',
         track: h.trackShape ? designNameOf(h.trackShape, h.courseId) : '',
       };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
   const total = nightTotal(event, nightCents);
-  const quaddie = quaddieStatus(event.quaddie, event.quaddieEntries, event.history, event.card);
+  const quaddieLine = finaleQuaddieLine(event);
   const cols = winners.length <= 4 ? Math.max(1, winners.length) : winners.length <= 8 ? 4 : winners.length <= 10 ? 5 : 6;
-  const sponsors = [...new Set(event.sponsors.map((s) => s.trim()).filter(Boolean))].slice(0, 10);
+  /* Up to four winners sit in fixed-width cards; more share the body width. */
+  const fixedU = cols <= 3 ? 24 : cols === 4 ? 22 : 0;
+  const fit = fitField(
+    winners.map((w) => w.name),
+    winners.map((w) => winnerOwnerLine(w.name, w.snailNo, w.owner)),
+    cols,
+    cardInnerWidthU(cols, { cardPadU: 2, fixedU }),
+    winners.map((w) => w.title),
+  );
+  const placement = gridPlacement(winners.length, cols);
   return (
-    <section className="ss-body ss-finale">
+    <section className={`ss-body ss-finale ${cols >= 5 ? 'ss-finale-many' : ''}`}>
       <div className="ss-finale-head">
         <h2 className="ss-headline">Thank you for racing</h2>
         {total > 0 ? (
           <p className="ss-raised">
             <span className="ss-kicker">Raised tonight</span>
-
             <span className="ss-raised-amount num">{moneyShort(total)}</span>
           </p>
         ) : null}
       </div>
       {winners.length ? (
-        <ol className={`ss-winners ss-cols-${cols}`} aria-label="Tonight's winners">
-          {winners.map((w) => (
-            <li key={w.raceNo} className="ss-winner" style={{ '--shell': laneColour(w.lane).shell } as React.CSSProperties}>
+        <ol
+          className={`ss-winners ss-cols-${cols}`}
+          aria-label="Tonight's winners"
+          style={{ '--tracks': placement.tracks, '--name-h': fit.nameBoxU, '--owner-h': fit.ownerBoxU, '--label-h': fit.labelBoxU } as React.CSSProperties}
+        >
+          {winners.map((w, i) => (
+            <li key={w.raceNo} className="ss-winner" style={{ '--shell': laneColour(w.lane).shell, gridColumn: cardColumn(i, placement) } as React.CSSProperties}>
               <span className="ss-winner-race">{w.title}</span>
-              <Art lane={w.lane} className="ss-winner-art" />
-              <span className={`ss-winner-name ${lengthClass(w.name)}`}>{w.name}</span>
-
-              <span className="ss-winner-owner">
-                {w.name === `Snail ${w.snailNo}` ? w.owner : `No. ${w.snailNo}${w.owner ? ` · ${w.owner}` : ''}`}
+              <Art look={w.look} className="ss-winner-art" />
+              <span className={`ss-winner-name ${fit.nameClass[i]}`}>
+                <span className="ss-name-text"><NameText name={w.name} /></span>
               </span>
+              <span className={`ss-winner-owner ${fit.ownerClass[i]}`}>{winnerOwnerLine(w.name, w.snailNo, w.owner) || '\u00a0'}</span>
             </li>
           ))}
         </ol>
       ) : null}
-      <div className="ss-finale-foot">
-        {quaddie.live && quaddie.complete ? (
-          <p className="ss-line">
-            Quaddie: {quaddie.unwon ? `no winner, ${money(quaddie.poolCents)} to the club` : `${quaddie.winners.map((w) => w.holder).join(', ')} collected ${money(quaddie.dividendCents)} each`}
-          </p>
-        ) : null}
-        {sponsors.length ? <p className="ss-line ss-dim">With thanks to tonight&apos;s sponsors: {sponsors.join(' · ')}</p> : null}
-      </div>
+      {quaddieLine ? (
+        <div className="ss-finale-foot">
+          <p className="ss-line">{quaddieLine}</p>
+        </div>
+      ) : null}
     </section>
   );
 }
