@@ -846,7 +846,7 @@ export function Telecast({
                 <g ref={propScaleRef}>
                 <g className="course-prop-motion">
                   {presentation.art ? (
-                    <image className="course-prop-image" href={`${ART_BASE}/surprises/${presentation.art}.png`} x="-28" y="-28" width="56" height="56" />
+                    <image className="course-prop-image" href={`${ART_BASE}/surprises/${presentation.art}.webp`} x="-28" y="-28" width="56" height="56" />
                   ) : presentation.glyph ? (
                     <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph} transform="scale(0.92) translate(0 32)">
                       <PropGlyph id={presentation.glyph} />
