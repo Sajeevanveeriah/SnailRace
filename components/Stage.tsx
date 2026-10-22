@@ -63,8 +63,6 @@ import {
 
 export function Stage() {
   const event = useEvent();
-  const moderator = useModeratorWindow();
-  const display = useProjectorDisplay(Boolean(moderator.target));
   /*
    * One tab runs the show. A second tab of the site in the same browser is
    * a mirror: it follows the screens, shows a running race as in progress
@@ -73,6 +71,8 @@ export function Stage() {
    */
   const lease = useShowLease();
   const mirror = lease.settled && !lease.holder;
+  const moderator = useModeratorWindow(!mirror);
+  const display = useProjectorDisplay(Boolean(moderator.target));
   const mirrorRef = useRef(mirror);
   useEffect(() => {
     mirrorRef.current = mirror;
@@ -1341,9 +1341,10 @@ export function Stage() {
    */
   const restoredEntry = useMemo(() => {
     if (event.showPhase !== 'results' || race.phase !== 'idle' || event.heldRaceStart) return null;
-    const entry = event.history.find((h) => !h.void && h.raceNo === event.raceNumber);
+    /* The latest standing race, the same one the next race is counted from. */
+    const entry = event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1);
     return entry && entry.results.length ? entry : null;
-  }, [event.showPhase, event.history, event.raceNumber, event.heldRaceStart, race.phase]);
+  }, [event.showPhase, event.history, nextRaceNo, event.heldRaceStart, race.phase]);
   const shownRace = useMemo<RaceController>(() => {
     if (!restoredEntry) return race;
     const results = restoredEntry.results.slice().sort((a, b) => a.place - b.place);
@@ -1683,7 +1684,7 @@ export function Stage() {
              to the standing ledger entry for the race just recorded. */
           race.results.length
             ? race.results
-            : (event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.results ?? [])
+            : (event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1)?.results ?? [])
                 .slice()
                 .sort((a, b) => a.place - b.place)
         }
@@ -1691,12 +1692,12 @@ export function Stage() {
         highlights={highlights}
         nextRaceNo={nextRaceNo}
         card={event.card}
-        entry={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)}
+        entry={event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1)}
         sponsor={event.history[0]?.sponsor ?? ''}
         lastRace={racesRun >= event.plannedRaces}
         calm={event.calm}
-        tote={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote}
-        auction={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.auction}
+        tote={event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1)?.tote}
+        auction={event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1)?.auction}
         onClose={() => setOverlayOpen(false)}
       />
 

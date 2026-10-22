@@ -21,7 +21,8 @@ const rememberedName = (): string => {
 
 /** A second document, not a second app. React portals keep the race, audio,
  * Phone Play and settlement in their original, single owning window. */
-export function useModeratorWindow() {
+/** `holder`: this tab holds the show. A mirror tab never opens, reclaims or keeps the desk. */
+export function useModeratorWindow(holder = true) {
   const [target, setTarget] = useState<ModeratorTarget | null>(null);
   const [notice, setNotice] = useState('');
   const current = useRef<ModeratorTarget | null>(null);
@@ -53,6 +54,7 @@ export function useModeratorWindow() {
   }, []);
 
   const open = useCallback(() => {
+    if (!holder) return;
     if (current.current && !current.current.window.closed) {
       current.current.window.focus();
       return;
@@ -66,7 +68,7 @@ export function useModeratorWindow() {
     rememberName(windowName.current);
     mount(popup);
     popup.focus();
-  }, [mount]);
+  }, [mount, holder]);
 
   const close = useCallback(() => {
     current.current?.window.close();
@@ -83,7 +85,16 @@ export function useModeratorWindow() {
    * hunting for the desk after an accidental reload mid-race. The name lives
    * in sessionStorage, which a reload keeps and a closed tab does not.
    */
+  /* A tab that becomes a mirror lets go of the desk without closing it: the tab that holds the show takes it. */
   useEffect(() => {
+    if (holder || !current.current) return;
+    current.current = null;
+    const id = window.setTimeout(() => setTarget(null), 0);
+    return () => window.clearTimeout(id);
+  }, [holder]);
+
+  useEffect(() => {
+    if (!holder) return;
     const name = rememberedName();
     if (!name || current.current) return;
     const id = window.setTimeout(() => {
@@ -107,7 +118,7 @@ export function useModeratorWindow() {
       mount(popup);
     }, 0);
     return () => window.clearTimeout(id);
-  }, [mount]);
+  }, [mount, holder]);
 
   useEffect(() => {
     if (!target) return;
