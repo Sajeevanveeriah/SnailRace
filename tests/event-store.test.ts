@@ -60,6 +60,27 @@ test('a held start restores the exact locked plan and rejects a partial hash', a
   assert.equal(currentState().heldRaceStart, null);
   assert.equal(currentState().showPhase, 'lobby');
 
+  /* A dropped start is no tie either: a pre-run-sheet card with nothing
+     else on the record takes the even split, not the old uneven one. */
+  assert.equal(
+    restore(JSON.stringify({ ...state, showPhase: 'lobby', heldRaceStart: held, card: { snailCount: 88 } })),
+    true,
+  );
+  assert.deepEqual(currentState().card.races.map((r) => r.runners), new Array(11).fill(8));
+  assert.equal(currentState().card.split, 'even');
+
+  /* The same for a pending Phone Play recovery: kept on the race screen, dropped off it. */
+  const recovery = {
+    raceNo: 1,
+    planHash: held.planHash,
+    reason: 'Phone Play did not acknowledge the lock.',
+    openShow: { raceNo: 1, marketOpen: true, names },
+  };
+  assert.equal(restore(JSON.stringify({ ...state, showPhase: 'race', voidRecovery: recovery })), true);
+  assert.equal(currentState().voidRecovery?.raceNo, 1);
+  assert.equal(restore(JSON.stringify({ ...state, showPhase: 'lobby', voidRecovery: recovery })), true);
+  assert.equal(currentState().voidRecovery, null);
+
   assert.equal(
     restore(
       JSON.stringify({

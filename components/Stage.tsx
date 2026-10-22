@@ -669,6 +669,21 @@ export function Stage() {
     event.plannedRaces,
   ]);
 
+  /*
+   * The in-memory race lifecycle follows the store: when the night's armed
+   * race is cleared with the show off the race screen (a cleared rehearsal,
+   * a dropped stale start), the local lock and the armed plan go with it,
+   * or the show controls would stay held in this tab until a reload.
+   */
+  useEffect(() => {
+    if (event.showPhase === 'race' || event.heldRaceStart) return;
+    if (!heldRaceStart && !preparingRace && !armedRef.current) return;
+    armedRef.current = null;
+    setHeldRaceStart(false);
+    setPreparingRace(false);
+    setStartError('');
+  }, [event.showPhase, event.heldRaceStart, heldRaceStart, preparingRace]);
+
   const startRace = useCallback(async () => {
     if (startInFlight.current) return;
     startInFlight.current = true;
