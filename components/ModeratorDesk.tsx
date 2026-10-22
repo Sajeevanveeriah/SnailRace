@@ -122,7 +122,8 @@ export function ModeratorDesk(p: Props) {
   const cardDone = racesRun >= event.plannedRaces && p.nextRaceNo > event.plannedRaces;
   const offerAddRace = cardDone && !p.locked && (event.showPhase === 'results' || event.showPhase === 'finale' || event.showPhase === 'championship');
   const runOffField = offerAddRace ? championField(event.history) : [];
-  const nextFits = offerAddRace && nextSnailsRace(event.card) !== null;
+  const nextRace = offerAddRace ? nextSnailsRace(event.card) : null;
+  const nextFits = nextRace !== null;
   const fieldLabel = settings.runOff || ranEntry?.snails
     ? `${deskSnails.length} runners`
     : `snails ${deskSnails[0]} to ${deskSnails[deskSnails.length - 1]}`;
@@ -178,7 +179,7 @@ export function ModeratorDesk(p: Props) {
                     title={nextFits ? undefined : `The card already sells close to ${MAX_SNAILS_ON_CARD} snails, the most it can hold.`}
                     onClick={() => p.onAddRace('next')}
                   >
-                    Add a race: the next snails
+                    {nextRace ? `Add a race: snails ${nextRace.first} to ${nextRace.last} (${nextRace.last - nextRace.first + 1} runners)` : 'Add a race: the next snails'}
                   </button>
                   <button
                     className="btn btn-ghost"
@@ -190,6 +191,13 @@ export function ModeratorDesk(p: Props) {
                     Add a race: Champion of champions ({runOffField.length} runners)
                   </button>
                 </div>
+                {runOffField.length < MIN_LIVE_FIELD || !nextFits ? (
+                  <p className="desk-label">
+                    {runOffField.length < MIN_LIVE_FIELD
+                      ? 'Champion of champions needs eight runners: run at least three races first.'
+                      : `The card already sells close to ${MAX_SNAILS_ON_CARD} snails, the most it can hold.`}
+                  </p>
+                ) : null}
               </div>
             ) : null}
             <div className="desk-actions desk-secondary">
