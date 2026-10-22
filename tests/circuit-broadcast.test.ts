@@ -22,6 +22,7 @@ import {
   toScreen,
   type Rect,
 } from '../components/race-broadcast/circuit-camera';
+import { circuitLayoutFor } from '../components/race-broadcast/circuit-layout';
 
 const event = (id: string, warningAtMs: number, effectAtMs: number, extra: Partial<LockedRaceEvent> = {}): LockedRaceEvent => ({
   id,
@@ -350,4 +351,17 @@ test('lane 12 is a dark saturated colour, legible under white numerals and unlik
     const d = Math.hypot(...rgb(other.shell).map((c, i) => c - rgb(twelve.shell)[i]));
     assert.ok(d > 0.25, `lane 12 too close to ${other.shell}`);
   }
+});
+
+test('a projector or laptop frame keeps the commentary on top; an ultra-wide window puts it beside the course', () => {
+  /* The Boundary Oval with its start label is about 1.38 wide for each unit high. */
+  const oval = 1.38;
+  assert.equal(circuitLayoutFor(1920, 1080, oval), 'top');
+  assert.equal(circuitLayoutFor(1600, 816, oval), 'top');
+  assert.equal(circuitLayoutFor(390, 640, oval), 'top');
+  /* A 2000 x 780 browser window less its toolbars and the control bar: short and very wide. */
+  assert.equal(circuitLayoutFor(2000, 631, oval), 'side');
+  assert.equal(circuitLayoutFor(3440, 1350, oval), 'side');
+  /* Nothing to measure yet: the default layout. */
+  assert.equal(circuitLayoutFor(0, 0, oval), 'top');
 });

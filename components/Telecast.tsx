@@ -41,6 +41,7 @@ import {
   type StagedTwist,
   type StoryWindow,
 } from './race-broadcast/twist-staging';
+import { CIRCUIT_LAYOUT, circuitLayoutFor, type CircuitLayout } from './race-broadcast/circuit-layout';
 import { fieldSpread, gateStagger, lapsDown, lapsDownText, placeTag, snailNumber } from './race-broadcast/standings-format';
 
 interface Props {
@@ -75,29 +76,7 @@ interface Props {
 /** How many runners the telecast shot tries to hold: the leader and three more. */
 export const LEAD_PACK = 4;
 
-/**
- * The projector layout, in units of `--u` (1% of the width of the largest
- * 16:9 frame that fits). The stylesheet reads the same numbers from inline
- * custom properties, so the camera and the graphics never disagree about
- * where the course pane is.
- */
-export const CIRCUIT_LAYOUT = {
-  /** The band between the commentary strap and the course pane that the twist card owns. */
-  cardBand: 6.2,
-  /** Course pane top: under the title bar, the commentary strap and the card band. */
-  sceneTop: 17.6,
-  gap: 0.8,
-  /** The timing tower while racing, and the field board at the gate. */
-  tower: 30,
-  board: 46,
-  /** The whole-course mini-map, in the standings column under the tower. */
-  mapW: 30,
-  mapH: 9.6,
-  /** The result bar at the foot of the pane. */
-  resultH: 15,
-  /** A runner's number badge radius. */
-  badge: 1.3,
-} as const;
+export { CIRCUIT_LAYOUT, circuitLayoutFor, type CircuitLayout };
 
 /**
  * The lead pack widens to the whole course once the placegetters span this
@@ -572,10 +551,17 @@ export function Telecast({
          art; in the close shots it is drawn at its course size. */
       const wholeZ = fitBox(grow(furniture.box, 20), vp).z;
       const pulledOut = Math.min(1, Math.max(0, (wholeZ * 1.6 - z) / (wholeZ * 0.6)));
-      const artScale = Math.round(Math.max(1, ((3.4 + 0.9 * pulledOut) * met.u) / (SPRITE_W * z)) * 1000) / 1000;
+      /* Badges, tags and the smallest snail grow with the course: measured on the race frame, so they hold still through the race. */
+      const raceH = fitBox(grow(furniture.box, 20), vps.race).z * (furniture.box.y1 - furniture.box.y0 + 40);
+      const labelK = Math.round(Math.min(L.labelMax, Math.max(1, raceH / (L.labelBase * met.u))) * 50) / 50;
+      if (labelsRef.current && writtenRef.current.get('label-k') !== String(labelK)) {
+        writtenRef.current.set('label-k', String(labelK));
+        labelsRef.current.style.setProperty('--label-k', String(labelK));
+      }
+      const artScale = Math.round(Math.max(1, ((3.4 + 0.9 * pulledOut) * met.u * labelK) / (SPRITE_W * z)) * 1000) / 1000;
       artScaleRef.current = artScale;
       write(propScaleRef.current, 'prop-scale', 'transform', `scale(${artScale})`);
-      const badgeU = wholeShot ? CIRCUIT_LAYOUT.badge * 0.78 : CIRCUIT_LAYOUT.badge;
+      const badgeU = (wholeShot ? CIRCUIT_LAYOUT.badge * 0.78 : CIRCUIT_LAYOUT.badge) * labelK;
       /* A runner crossing the frame edge fades over about a length rather than being sliced. */
       const fadeW = Math.max(1, SPRITE_W * artScale * z);
       const paneW = kind === 'gate' ? met.sw : vp.x + vp.w;
@@ -614,7 +600,7 @@ export function Telecast({
         /* The label sits behind the shell, in screen pixels over the pane. */
         const at = toScreen({ x: pt.x + bx, y: pt.y + by }, shot, vp);
         /* A runner on the top edge keeps its tag inside the pane. */
-        at.y = Math.max(at.y, met.u * 3.6);
+        at.y = Math.max(at.y, met.u * 3.6 * labelK);
         const { label, tag: tagNode } = nodes;
         style(label, `l${lane}`, `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0)`);
         const place = placeByLane.get(lane) ?? 0;
@@ -708,6 +694,10 @@ export function Telecast({
       /* The projector unit, measured against the broadcast box itself. */
       met.u = Math.min(wrap.clientWidth / 100, (wrap.clientHeight * 1.7778) / 100);
       wrap.style.setProperty('--u', `${met.u.toFixed(3)}px`);
+      const b = furniture.box;
+      const layout = circuitLayoutFor(wrap.clientWidth, wrap.clientHeight, (b.x1 - b.x0 + 40) / (b.y1 - b.y0 + 40));
+      /* The pane's new size reaches the scene's observer, which measures again. */
+      if (wrap.dataset.layout !== layout) wrap.dataset.layout = layout;
       if (!scene?.clientHeight) return;
       met.sw = scene.clientWidth;
       met.sh = scene.clientHeight;
@@ -795,7 +785,8 @@ export function Telecast({
     '--gap': `calc(var(--u) * ${L.gap})`,
     '--tower-w': `calc(var(--u) * ${L.tower})`,
     '--board-w': `calc(var(--u) * ${L.board})`,
-    '--card-band': `calc(var(--u) * ${L.cardBand})`,
+    '--side-w': `calc(var(--u) * ${L.side})`,
+    '--side-top': `calc(var(--u) * ${L.sideTop})`,
     '--map-w': `calc(var(--u) * ${L.mapW})`,
     '--map-h': `calc(var(--u) * ${L.mapH})`,
     '--result-h': `calc(var(--u) * ${L.resultH})`,
