@@ -39,6 +39,24 @@ export const ART_FOOT = 8;
 /** Where the middle of the shell sits above the foot line. */
 export const ART_SHELL_Y = 82;
 
+/** A lane flag's text as a share of its lane, the most it may take, and the most of the lane its box may take. */
+export const FLAG_FONT = 0.48;
+export const FLAG_FONT_MAX = 0.7;
+export const FLAG_H_MAX = 0.9;
+/** The flag's text never reads smaller than this on the projector, in projector units. */
+export const FLAG_FLOOR_U = 1.6;
+
+/**
+ * A lane flag's font, in world units: its share of the lane, lifted to the
+ * projector's legibility floor at the widest following shot (`worldToPx`
+ * screen pixels per world unit, `unitPx` pixels per projector unit), and
+ * never more than the lane can hold.
+ */
+export function flagFont(pitch: number, worldToPx: number, unitPx: number): number {
+  const floor = (FLAG_FLOOR_U * unitPx) / Math.max(1e-6, worldToPx);
+  return Math.min(pitch * FLAG_FONT_MAX, Math.max(pitch * FLAG_FONT, floor));
+}
+
 /** How much of its lane a snail stands in: the rest is a gap to the next lane. */
 export const LANE_FILL = 0.92;
 
