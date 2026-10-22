@@ -517,6 +517,33 @@
 .calm .ss-enter, .calm .ss-leave, .calm .ss-winner, .wm-calm, .wm-calm .wm-body, .wm-calm .wm-winner.on .wm-winner-art, .wm-calm .wm-winner.on .wm-winner-text > * { animation: none; }
 .wm-calm .wm-step, .wm-calm .sponsor-slate-slide { transition: none; }
 
+/*
+ * A phone (the operator checking the projector page on the way in): the
+ * frame is no longer 16:9, so the unit comes from the width alone, the
+ * screen scrolls, the poster stacks its words over its art and the tiles
+ * stack, and the control bar (which wraps onto two rows there) has clear
+ * room beneath the content.
+ */
+@media (max-width: 600px) {
+  .ss-screen, .ss-screen.ss-has-controls { --u: 2.1vw; overflow-y: auto; }
+  .ss-screen.ss-has-controls { padding-bottom: 140px; }
+  .ss-body { flex: none; }
+  .ss-welcome { grid-template-rows: auto auto; }
+  .ss-poster { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+  .ss-poster-text { padding: calc(var(--u) * 2.4) calc(var(--u) * 3); }
+  /* The same 5:2 window onto the illustration as the projector, so the poster's baked title stays cropped away. */
+  .ss-poster-art { aspect-ratio: 5 / 2; }
+  .ss-welcome-info { grid-template-columns: minmax(0, 1fr); }
+  .ss-field, .ss-winners, .ss-winners.ss-cols-1, .ss-winners.ss-cols-2, .ss-winners.ss-cols-3, .ss-winners.ss-cols-4 { --tracks: 4; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: auto; }
+  .ss-field > li, .ss-winners > li { grid-column: span 2 !important; }
+  /* An odd last card sits centred under the pair above it. */
+  .ss-field > li:last-child:nth-child(odd), .ss-winners > li:last-child:nth-child(odd) { grid-column: 2 / span 2 !important; }
+  .ss-runner, .ss-winner { grid-template-rows: calc(var(--u) * 14) calc(var(--u) * var(--name-h, 4.65)) calc(var(--u) * var(--owner-h, 1.75)); }
+  .ss-winner { grid-template-rows: calc(var(--u) * var(--label-h, 1.84)) calc(var(--u) * 14) calc(var(--u) * var(--name-h, 4.65)) calc(var(--u) * var(--owner-h, 1.75)); }
+  .ss-quaddie { width: 100%; }
+  .ss-legs li { grid-template-columns: auto minmax(0, 1fr); }
+}
+
 @media print {
   .ss-screen, .wm { display: none !important; }
 }
