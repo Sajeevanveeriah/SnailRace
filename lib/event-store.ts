@@ -291,6 +291,15 @@ function merge(raw: string | null): EventState {
        quaddie ticket, a tote sale, a bid, cash taken or an armed race (the
        same records that lock the snail count). Its card carries no split
        marker, so those records decide. A card with none takes the even split. */
+    const showPhase: ShowPhase = phases.includes(parsed.showPhase as ShowPhase)
+      ? (parsed.showPhase as ShowPhase)
+      : parsed.showPhase === 'market'
+        ? 'racecard'
+        : 'lobby';
+    /* An armed race belongs to the race screen. One saved with the show on
+       any other screen was left behind by a reset or an old build, and
+       would hold every show control with nothing on screen: it is dropped. */
+    const heldRaceStart = showPhase === 'race' ? validHeldRaceStart(parsed.heldRaceStart) : null;
     const live = <T extends { void?: boolean }>(list: unknown): T[] =>
       Array.isArray(list) ? (list as T[]).filter((x) => x && typeof x === 'object') : [];
     const tied =
@@ -302,7 +311,7 @@ function merge(raw: string | null): EventState {
           auctionBids: live(parsed.auctionBids),
           cashLedger: live(parsed.cashLedger),
         },
-        validHeldRaceStart(parsed.heldRaceStart) !== null,
+        heldRaceStart !== null,
       ) !== '';
     const storedCard = parsed.card as Partial<CardState> | undefined;
     const card = normaliseCard(parsed.card, tied && storedCard?.split === undefined);
@@ -316,10 +325,12 @@ function merge(raw: string | null): EventState {
             ? 'both'
             : 'music';
     const intensities: SurpriseIntensity[] = ['calm', 'standard', 'big', 'chaos', 'mayhem'];
-    const heldRaceStart = validHeldRaceStart(parsed.heldRaceStart);
     const recoveryValue = parsed.voidRecovery as VoidRecoveryState | null | undefined;
     const recoveryShow = recoveryValue?.openShow;
+    /* A pending Phone Play recovery is the race screen's too; off it, it is
+       a leftover of the same resets and would hold the show the same way. */
     const voidRecovery =
+      showPhase === 'race' &&
       recoveryValue &&
       Number.isSafeInteger(recoveryValue.raceNo) &&
       recoveryValue.raceNo > 0 &&
@@ -361,11 +372,7 @@ function merge(raw: string | null): EventState {
           ? parsed.raceType.slice(0, 40)
           : DEFAULT_RACE_TYPE,
       rehearsal: parsed.rehearsal === true,
-      showPhase: phases.includes(parsed.showPhase as ShowPhase)
-        ? (parsed.showPhase as ShowPhase)
-        : parsed.showPhase === 'market'
-          ? 'racecard'
-          : 'lobby',
+      showPhase,
       intensity: intensities.includes(parsed.intensity as SurpriseIntensity)
         ? (parsed.intensity as SurpriseIntensity)
         : parsed.surprises === false

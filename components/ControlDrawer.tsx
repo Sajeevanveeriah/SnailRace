@@ -642,6 +642,10 @@ export function ControlDrawer({
       raceNumber: 0,
       bettingOpen: true,
       showPhase: 'lobby',
+      /* A race armed or recovering in the rehearsal goes with it: left
+         behind, it would hold every show control with nothing on screen. */
+      heldRaceStart: null,
+      voidRecovery: null,
       rehearsal: false,
       packPlayed: [],
       packCurrent: null,

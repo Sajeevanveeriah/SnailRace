@@ -669,6 +669,21 @@ export function Stage() {
     event.plannedRaces,
   ]);
 
+  /*
+   * The in-memory race lifecycle follows the store: when the night's armed
+   * race is cleared with the show off the race screen (a cleared rehearsal,
+   * a dropped stale start), the local lock and the armed plan go with it,
+   * or the show controls would stay held in this tab until a reload.
+   */
+  useEffect(() => {
+    if (event.showPhase === 'race' || event.heldRaceStart) return;
+    if (!heldRaceStart && !preparingRace && !armedRef.current) return;
+    armedRef.current = null;
+    setHeldRaceStart(false);
+    setPreparingRace(false);
+    setStartError('');
+  }, [event.showPhase, event.heldRaceStart, heldRaceStart, preparingRace]);
+
   const startRace = useCallback(async () => {
     if (startInFlight.current) return;
     startInFlight.current = true;
@@ -944,7 +959,10 @@ export function Stage() {
   );
 
   const advanceShow = useCallback(() => {
-    if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.showPhase === 'race') return;
+    if (holding || preparingRace || heldRaceStart || voidingRace || voidRecovery || event.showPhase === 'race') return;
+    /* An armed race only has meaning on the race screen; one left behind
+       anywhere else is cleared rather than left to hold the show. */
+    if (event.heldRaceStart) setState({ heldRaceStart: null });
     const next = nextShowPhase(event.showPhase, { racesRun, plannedRaces: event.plannedRaces, quaddieLive });
     if (next === event.showPhase) return;
     if (event.showPhase === 'results') {
@@ -957,7 +975,9 @@ export function Stage() {
   }, [event.showPhase, event.plannedRaces, event.heldRaceStart, racesRun, goToPhase, race, holding, preparingRace, heldRaceStart, voidingRace, voidRecovery, quaddieLive, overlayOpen]);
 
   const backShow = useCallback(() => {
-    if (holding || preparingRace || heldRaceStart || event.heldRaceStart || voidingRace || voidRecovery || event.eventMode === 'recorded' && event.packCurrent) return;
+    if (holding || preparingRace || heldRaceStart || voidingRace || voidRecovery || (event.eventMode === 'recorded' && event.packCurrent)) return;
+    if (event.heldRaceStart && event.showPhase === 'race') return;
+    if (event.heldRaceStart) setState({ heldRaceStart: null });
     const back: Partial<Record<ShowPhase, ShowPhase>> = {
       racecard: 'lobby',
       race: 'racecard',
