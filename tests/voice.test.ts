@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, statSync } from 'node:fs';
 import { RECORDED_CUES, recordedCueFor } from '../lib/audio/voice-cues';
-import { CLIP_FADE_MS, SAME_CUE_GAP_MS, SAME_TAKE_WINDOW_MS, selectVoice, setVoiceEnabled, say, silence } from '../lib/audio/voice';
+import { CLIP_FADE_MS, QUEUE_GAP_MS, QUEUE_MAX_WAIT_MS, SAME_CUE_GAP_MS, SAME_TAKE_WINDOW_MS, selectVoice, setVoiceEnabled, say, silence } from '../lib/audio/voice';
 
 class MockAudio {
   static clips: MockAudio[] = [];
@@ -163,5 +163,60 @@ test('a cue may be heard again in a different take after 8 s, the identical take
     assert.equal(play('delay', { twist: true }), true, 'a second twist, a different take, four seconds later');
     assert.notEqual(playedTakes.at(-1), playedTakes.at(-2));
     assert.ok(SAME_TAKE_WINDOW_MS === 25_000);
+  });
+});
+
+/* Defect class: the voice lagging the caption (audit 3.2). The retirement
+   line was on the strap at 6.8 s and spoken at 9.5 s, behind a queued call.
+   The queue is one line deep, a lesser call never displaces a bigger one, a
+   bigger one drops the lesser, and a queued line is never said more than
+   about a second after its caption went up. */
+test('the queue holds one line, the more important call wins it, and a stale line is dropped', async () => {
+  await withVoice(async (clock) => {
+    const last = () => MockAudio.clips.at(-1)!.src.split('/').at(-1)!;
+    /* A sector call on air; a filler is queued behind it. */
+    assert.equal(say('Halfway!', 'big', 'half', { rank: 4 }), true);
+    assert.equal(say('Still a long way to go.', 'big', 'mid', { rank: 6 }), false);
+    /* A lap call lands: more important, so the filler is dropped for it. */
+    assert.equal(say('Another lap!', 'big', 'lap', { rank: 3 }), false);
+    /* A lesser call cannot take the queue back. */
+    assert.equal(say('Plenty of race left.', 'big', 'early', { rank: 6 }), false);
+    MockAudio.clips.at(-1)!.onended?.();
+    await wait(QUEUE_GAP_MS + 60);
+    assert.equal(MockAudio.clips.length, 2, 'one queued line, never a backlog');
+    assert.match(last(), /^lap/);
+    MockAudio.clips.at(-1)!.onended?.();
+    await wait(QUEUE_GAP_MS + 60);
+    assert.equal(MockAudio.clips.length, 2, 'the dropped filler never plays');
+
+    /* A queued line whose caption has been up too long is not said. */
+    clock.now += 30_000;
+    assert.equal(say('Quarter gone!', 'big', 'quarter', { rank: 4 }), true);
+    assert.equal(say('Three quarters!', 'big', 'threeQuarter', { rank: 4 }), false);
+    clock.now += QUEUE_MAX_WAIT_MS + 1;
+    MockAudio.clips.at(-1)!.onended?.();
+    await wait(QUEUE_GAP_MS + 60);
+    assert.equal(MockAudio.clips.length, 3, 'the stale line is dropped, not said late');
+  });
+});
+
+test('a lead change cuts a minor line, a twist cuts any ordinary line, and nothing cuts a twist but the finish', async () => {
+  await withVoice(async (clock) => {
+    clock.now += 60_000;
+    assert.equal(say('Halfway!', 'big', 'half', { rank: 4 }), true);
+    const sector = MockAudio.clips.at(-1)!;
+    assert.equal(say('New leader!', 'big', 'lead', { rank: 0, preempt: true }), true);
+    await wait(CLIP_FADE_MS + 60);
+    assert.equal(sector.paused, true, 'the minor line faded');
+    assert.match(MockAudio.clips.at(-1)!.src, /lead/);
+    const lead = MockAudio.clips.at(-1)!;
+    /* A twist's own line goes out on time, over a lead call. */
+    assert.equal(say('Snail 6 retires!', 'big', 'retire', { rank: 2, preempt: true, twist: true }), true);
+    await wait(CLIP_FADE_MS + 60);
+    assert.equal(lead.paused, true);
+    assert.match(MockAudio.clips.at(-1)!.src, /retire/);
+    /* A lead change lands on the twist: it waits, it does not cut. */
+    assert.equal(say('Another leader!', 'big', 'overtake', { rank: 0, preempt: true }), false);
+    assert.equal(MockAudio.clips.at(-1)!.paused, false);
   });
 });

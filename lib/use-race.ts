@@ -707,7 +707,7 @@ export function useRace(
         const toLine = race.stopAt - race.raceT;
         const lateFinishCall = (item.key === 'runhome' || item.key === 'together' || item.key === 'toline') && voiceBusyMs() + FINISH_CLIP_MS > toLine;
         if (lateFinishCall) setCommentary(item.text);
-        else call(item.text, item.priority, item.cue, item.opts, item.altCue);
+        else call(item.text, item.priority, item.cue, { ...item.opts, rank: item.rank }, item.altCue);
         item.sound?.();
         item.onSaid?.();
         race.air = { key: item.key, rank: item.rank, until: race.raceT + item.hold };
