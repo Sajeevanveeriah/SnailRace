@@ -161,8 +161,9 @@ export function smoothDamp(current: number, target: number, state: { v: number }
 
 /** How long the camera takes to move between kinds of shot, in ms. */
 export function blendMs(from: ShotKind, to: ShotKind): number {
-  if (from === 'gate' && to === 'pack') return 1300;
-  if (from === 'gate' && to === 'full') return 1100;
+  /* The push-in at the off is the slowest move: a broadcast eases in, it never lunges. */
+  if (from === 'gate' && to === 'pack') return 2000;
+  if (from === 'gate' && to === 'full') return 1600;
   if (to === 'finish') return 1200;
   if (to === 'hold') return 800;
   return 700;
@@ -190,7 +191,7 @@ const KEEP_MARGIN = 0.14;
 /** The last-resort edge: only a point already past it is pulled back at once. */
 const HARD_MARGIN = 0.03;
 /** How quickly the camera's estimate of the leader's speed follows the leader, in seconds. */
-const LEAD_SPEED_S = 0.25;
+const LEAD_SPEED_S = 0.6;
 /** The share of each settle time spent smoothing the goal before the camera follows it. */
 const PRE_SHARE = 0.4;
 /** A twist joining or leaving the shot is a camera move of its own, this long in ms. */
