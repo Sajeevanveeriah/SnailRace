@@ -222,7 +222,7 @@ test('the side-on race follows the lead pack and the full field view keeps every
   await expect(page.locator('.side-order li[data-rank="1"]')).toBeVisible({ timeout: 8_000 });
   /* The progress bar fills as the leader goes. */
   await expect
-    .poll(() => page.locator('.side-progress').evaluate((el) => Number(getComputedStyle(el).getPropertyValue('--lead'))))
+    .poll(() => page.locator('.side-progress-fill').evaluate((el) => Number(/scaleX\(([\d.]+)\)/.exec((el as HTMLElement).style.transform)?.[1] ?? 0)))
     .toBeGreaterThan(0.1);
 
   await page.getByRole('button', { name: 'Full field', exact: true }).click();
