@@ -33,7 +33,8 @@ test('the night card is the 88 snails sold on the website, eleven races of eight
 });
 
 test('the sponsored races carry their sponsors, with the women reading NDCC Womens team and Elyod on race 11', () => {
-  assert.deepEqual(NDCC_RACE_SPONSORS.map((s) => s.race), [1, 5, 6, 7, 11]);
+  assert.deepEqual(NDCC_RACE_SPONSORS.map((s) => s.race), [1, 5, 6, 7, 9, 11]);
+  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 9).name, 'Laura Hudson');
   assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 1).name, 'Grey Dinos');
   assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 5).name, 'NDCC Womens team');
   assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 5).title, 'The Dino-Mite Drag Race Stakes');
@@ -81,6 +82,9 @@ test('a night saved with the old eight races of eleven takes the eleven races of
     { race: 7, name: 'Troy Whitworth', title: 'The Phoenix Gold Cup Stakes' },
   ]));
   assert.ok(!isPreviousNdccSponsors(NDCC_RACE_SPONSORS));
+  /* The list 5.6 shipped (before race 9 was sold) is replaced too. */
+  assert.ok(isPreviousNdccSponsors(NDCC_RACE_SPONSORS.filter((s) => s.race !== 9)));
+  assert.deepEqual(withNdccSponsors(NDCC_RACE_SPONSORS.filter((s) => s.race !== 9)).map((s) => s.race), [1, 5, 6, 7, 9, 11]);
 });
 
 test('loading the orders onto a card with names typed keeps those names', () => {
@@ -127,7 +131,7 @@ test('loading the orders leaves the snails of a held race alone', () => {
 
 test('a saved sponsor list gains the sold races it leaves out, and an old untouched list is replaced', () => {
   const edited = withNdccSponsors([{ race: 5, name: 'NDCC Women', title: 'Typed' }]);
-  assert.deepEqual(edited.map((s) => s.race), [1, 5, 6, 7, 11]);
+  assert.deepEqual(edited.map((s) => s.race), [1, 5, 6, 7, 9, 11]);
   assert.equal(edited.find((s) => s.race === 5)?.name, 'NDCC Women', 'a race typed by hand keeps what was typed');
   assert.equal(edited.find((s) => s.race === 11)?.name, 'Elyod Roof Tiling');
   /* A race entry with no sponsor name yet is not a sponsor: the cycled list still applies. */

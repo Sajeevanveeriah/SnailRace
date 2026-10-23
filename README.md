@@ -11,7 +11,7 @@ crest, runner art, copy, commentary and cricket-ground surprises.
 ## Current release - the final card, race sponsors before every race (5.6)
 
 For the night of 24 October 2026, checked against the club website's order
-records at 22:00 AEDT on 23 October:
+records at 07:20 AEDT on 24 October:
 
 1. **Eleven races of eight.** The card is the one ndcc.com.au sold: snails 1
    to 8 in race 1, 9 to 16 in race 2, through 81 to 88 in race 11. All 88
@@ -19,10 +19,12 @@ records at 22:00 AEDT on 23 October:
    Seniors" (`lib/ndcc-night.ts`). A laptop that saved the earlier eight
    races of eleven, with nothing run or sold against a lane, moves to the
    new card on its next load and keeps any names typed since.
-2. **Five race sponsors.** Race 1 Grey Dinos (The Grey Dinos Hcap Stakes),
+2. **Six race sponsors.** Race 1 Grey Dinos (The Grey Dinos Hcap Stakes),
    race 5 NDCC Womens team (The Dino-Mite Drag Race Stakes), race 6 John
    Elliott (The 2-Cent-Jack Stakes), race 7 Troy Whitworth (The Phoenix Gold
-   Cup Stakes) and race 11 Elyod Roof Tiling (The Shiv's Bouffant Stakes).
+   Cup Stakes), race 9 Laura Hudson (The Drunken Stagger Stakes) and race 11
+   Elyod Roof Tiling (The Shiv's Bouffant Stakes). A laptop that loaded an
+   earlier list picks up any sold race it is missing on its next load.
 3. **The sponsor comes up before each race.** As a race goes from the
    racecard to the gate, a full-screen slate names the race and its sponsor
    for seven seconds, or until Start is pressed (`components/RaceSponsorSlate.tsx`).

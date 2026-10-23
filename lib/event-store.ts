@@ -459,9 +459,12 @@ function merge(raw: string | null): EventState {
       sponsors: Array.isArray(parsed.sponsors)
         ? parsed.sponsors.filter((x): x is string => typeof x === 'string')
         : [],
-      /* A night saved before per-race sponsors takes the sold ones only when it is this night's card. */
+      /* The club's card always carries every race sponsor the website sold:
+         a list loaded by an earlier build is replaced, and a list edited by
+         hand gains the sold races it leaves out. A night saved before
+         per-race sponsors takes the sold ones only when it is this card. */
       raceSponsors: Array.isArray(parsed.raceSponsors)
-        ? upgraded || loadOrders
+        ? nightPreset() && card.snailCount === NDCC_NIGHT_SNAILS
           ? withNdccSponsors(normaliseRaceSponsors(parsed.raceSponsors))
           : normaliseRaceSponsors(parsed.raceSponsors)
         : loadOrders || card.snailCount === NDCC_NIGHT_SNAILS
