@@ -153,12 +153,13 @@ const PREVIOUS_NDCC_SPONSORS = [
     'NDCC Womens team|The Dino-Mite Drag Race Stakes|5',
     'John Elliott|The 2-Cent-Jack Stakes|6',
     'Troy Whitworth|The Phoenix Gold Cup Stakes|7',
-    "Elyod Roof Tiling|The Shiv's Bouffant Stakes|11",
+    "Elyod Roof Tiling|The Shiv's Bouffant Stakes|11|Elyod Roof Tiling",
   ].join(';'),
 ];
 
+/* The logo choice is part of the key, so a list whose logo was changed in Admin counts as edited. */
 const sponsorKey = (list: readonly RaceSponsor[]): string =>
-  list.map((s) => `${s.name}|${s.title ?? ''}|${s.race}`).join(';');
+  list.map((s) => `${s.name}|${s.title ?? ''}|${s.race}${s.logo ? `|${s.logo}` : ''}`).join(';');
 
 /** True when a saved sponsor list is one an earlier build loaded, untouched. */
 export const isPreviousNdccSponsors = (list: readonly RaceSponsor[]): boolean =>

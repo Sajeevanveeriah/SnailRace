@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { cardLayout, snailsForRace } from '../lib/card';
 import { NDCC_RACE_SPONSORS, isPreviousNdccSponsors, withNdccSponsors, ndccCard, ndccRoster, normaliseRaceSponsors, resolveRaceSponsor, upgradeNdccCard, withNdccRoster } from '../lib/ndcc-night';
 import { CLUB_SPONSORS, raceSponsorArt } from '../lib/club-sponsors';
-import { isClubTeam, sponsorArt } from '../components/SponsorLogo';
+import { isClubTeam, sponsorArt, sponsorBadgeWidth } from '../components/SponsorLogo';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { freshCard } from '../lib/card';
@@ -85,6 +85,12 @@ test('a night saved with the old eight races of eleven takes the eleven races of
   /* The list 5.6 shipped (before race 9 was sold) is replaced too. */
   assert.ok(isPreviousNdccSponsors(NDCC_RACE_SPONSORS.filter((s) => s.race !== 9)));
   assert.deepEqual(withNdccSponsors(NDCC_RACE_SPONSORS.filter((s) => s.race !== 9)).map((s) => s.race), [1, 5, 6, 7, 9, 11]);
+  /* A logo changed in Admin is an edit: it is kept while race 9 is added. */
+  const crestOnly = NDCC_RACE_SPONSORS.filter((s) => s.race !== 9).map((s) => (s.race === 11 ? { ...s, logo: 'none' } : s));
+  assert.ok(!isPreviousNdccSponsors(crestOnly));
+  const kept = withNdccSponsors(crestOnly);
+  assert.equal(kept.find((s) => s.race === 11)?.logo, 'none');
+  assert.ok(kept.some((s) => s.race === 9));
 });
 
 test('loading the orders onto a card with names typed keeps those names', () => {
@@ -143,4 +149,7 @@ test('a logo chosen in Admin always shows, even for a club team; otherwise a clu
   assert.equal(sponsorArt('Grey Dinos', 'Moolap Tyres')?.name, 'Moolap Tyres');
   assert.equal(sponsorArt('Elyod Roof Tiling')?.name, 'Elyod Roof Tiling');
   assert.equal(sponsorArt('Elyod Roof Tiling', 'none'), null);
+  /* The track's badge keeps the crest and puts a sponsor's logo beside it. */
+  assert.equal(sponsorBadgeWidth('Grey Dinos'), 100);
+  assert.equal(sponsorBadgeWidth('Elyod Roof Tiling'), 216);
 });

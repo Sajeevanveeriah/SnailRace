@@ -1711,10 +1711,15 @@ export function ControlDrawer({
                       void auditChainSettled()
                         .then(() => archiveNight(currentState()))
                         .catch(() => false)
-                        .then(() => {
+                        .then((saved) => {
+                          /* No archive copy (storage full or blocked): clear only on a second, explicit yes. */
+                          if (!saved && !ownerWindow().confirm('The night could not be saved to the archive on this device, so nothing has been cleared. Download a backup from Admin, Night first. Clear the night anyway, with no archive copy?')) {
+                            say('Nothing was cleared. The night could not be archived.');
+                            return;
+                          }
                           resetEvent();
                           setNights(listNights());
-                          say('New event started. The previous night is in the archive on this device.');
+                          say(saved ? 'New event started. The previous night is in the archive on this device.' : 'New event started without an archive copy.');
                         });
                     }
                   }}

@@ -41,7 +41,7 @@ import {
 } from './sidescroller-geometry';
 
 export { TRACK_LEN, RACE_METRES, laneGeometry, type LaneGeometry } from './sidescroller-geometry';
-import { SponsorBadge } from './SponsorLogo';
+import { SponsorBadge, sponsorBadgeWidth } from './SponsorLogo';
 
 /**
  * The side-on cartoon race.
@@ -332,14 +332,18 @@ type FenceBoardContent = string | { src: string } | { sponsor: string; logo?: st
 /** The race sponsor's banner, over the winning post. */
 function FinishBanner({ sponsor, title, logo }: { sponsor: string; title?: string; logo?: string }) {
   const text = (title || sponsor).toUpperCase();
-  const w = Math.max(620, Math.min(1200, 140 + text.length * 23));
+  /* The crest, with the sponsor's logo beside it when it has one, at the banner's 72-unit height. */
+  const bw = sponsorBadgeWidth(sponsor, logo);
+  const badgeW = Math.round((72 * bw) / 116);
+  const w = Math.max(620, Math.min(1260, 96 + badgeW + text.length * 23));
   const sub = title ? `SPONSORED BY ${sponsor.toUpperCase()}` : 'RACE SPONSOR';
+  const textX = -w / 2 + 22 + badgeW;
   return (
     <g className="side-finish-banner">
       <rect x={-w / 2} y={318} width={w} height={80} rx={12} fill="#0f1e33" stroke="#f5b700" strokeWidth={6} />
-      <svg x={-w / 2 + 10} y={322} width={62} height={72} viewBox="0 0 100 116"><SponsorBadge name={sponsor} logo={logo} /></svg>
-      <text x={-w / 2 + 84} y={356} fontSize={32} fontWeight={900} fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 100, text.length * 22)} lengthAdjust="spacingAndGlyphs">{text}</text>
-      <text x={-w / 2 + 84} y={386} fontSize={22} fontWeight={800} fontFamily="Arial, sans-serif" fill="#f5b700" letterSpacing={2}>{sub}</text>
+      <svg x={-w / 2 + 10} y={322} width={badgeW} height={72} viewBox={`0 0 ${bw} 116`}><SponsorBadge name={sponsor} logo={logo} /></svg>
+      <text x={textX} y={356} fontSize={32} fontWeight={900} fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 38 - badgeW, text.length * 22)} lengthAdjust="spacingAndGlyphs">{text}</text>
+      <text x={textX} y={386} fontSize={22} fontWeight={800} fontFamily="Arial, sans-serif" fill="#f5b700" letterSpacing={2}>{sub}</text>
     </g>
   );
 }
@@ -348,11 +352,13 @@ function FenceBoard({ x, w, board }: { x: number; w: number; board: FenceBoardCo
   if (!board) return null;
   if (typeof board !== 'string' && 'sponsor' in board) {
     const name = board.sponsor.toUpperCase();
+    const bw = sponsorBadgeWidth(board.sponsor, board.logo);
+    const badgeW = Math.round((84 * bw) / 116);
     return (
       <g className="side-fence-sponsor">
         <rect x={x} y="436" width={w} height="92" rx="6" fill="#0f1e33" stroke="#f5b700" strokeWidth="4" />
-        <svg x={x + 8} y={440} width={72} height={84} viewBox="0 0 100 116"><SponsorBadge name={board.sponsor} logo={board.logo} /></svg>
-        <text x={x + 90} y="496" fontSize="36" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 104, name.length * 26)} lengthAdjust="spacingAndGlyphs">{name}</text>
+        <svg x={x + 8} y={440} width={badgeW} height={84} viewBox={`0 0 ${bw} 116`}><SponsorBadge name={board.sponsor} logo={board.logo} /></svg>
+        <text x={x + 22 + badgeW} y="496" fontSize="36" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 36 - badgeW, name.length * 26)} lengthAdjust="spacingAndGlyphs">{name}</text>
       </g>
     );
   }
