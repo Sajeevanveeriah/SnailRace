@@ -637,3 +637,20 @@
   .race-broadcast.circuit-broadcast .circuit-lap-wipe.run,
   .race-broadcast.circuit-broadcast .countdown span { animation: none; }
 }
+
+/* ── The commentary caption: small, in the corner of the course, never a banner over the race. ── */
+.race-broadcast.circuit-broadcast .tv-strap { inset: calc(var(--scene-top) + var(--u) * 0.7) auto auto calc(var(--gap) + var(--u) * 0.7); width: max-content; max-width: calc((100% - var(--tower-w)) * 0.42); height: calc(var(--u) * 3); z-index: 8; opacity: .94; border-width: calc(var(--u) * 0.1); border-radius: calc(var(--u) * 0.5); }
+.race-broadcast.circuit-broadcast .tv-strap-badge { min-width: 0; padding: 0 calc(var(--u) * 1.2) 0 calc(var(--u) * 0.7); font-size: calc(var(--u) * 0.95); }
+.race-broadcast.circuit-broadcast .tv-strap-line { padding: calc(var(--u) * 0.2) calc(var(--u) * 0.9); font-size: calc(var(--u) * 1.55 * var(--fit, 1)); font-weight: 750; }
+/* The timing tower while racing: places and names only, narrow. */
+.race-broadcast.circuit-broadcast .circuit-tower.is-racing .tv-order-gap { display: none; }
+.race-broadcast.circuit-broadcast .circuit-tower.is-racing .tv-order-row { grid-template-columns: calc(var(--u) * 2) calc(var(--u) * 2.8) minmax(0, 1fr); gap: calc(var(--u) * 0.5); }
+.race-broadcast.circuit-broadcast .circuit-tower.is-racing .tv-order-dot { width: calc(var(--u) * 2.6 * var(--fit, 1)); height: calc(var(--u) * 2.6 * var(--fit, 1)); font-size: calc(var(--u) * 1.3); }
+.race-broadcast.circuit-broadcast .circuit-tower.is-racing .tv-order-name { font-size: calc(var(--u) * 1.6 * var(--fit, 1)); }
+.race-broadcast.circuit-broadcast .circuit-tower h3 { font-size: calc(var(--u) * 1.5); padding: calc(var(--u) * 0.5) calc(var(--u) * 0.8); }
+.race-broadcast.circuit-broadcast .circuit-tower h3 span { font-size: calc(var(--u) * 1.1); }
+/* The twist card sits centred over the top of the course, sized to its words, now that the strap row is gone. */
+.race-broadcast.circuit-broadcast:not([data-layout="side"]) .side-splash { left: var(--gap); right: calc(var(--tower-w) + var(--gap) * 2); top: calc(var(--scene-top) + var(--u) * 0.6); width: fit-content; max-width: calc(100% - var(--tower-w) - var(--gap) * 4); margin-inline: auto; min-height: calc(var(--u) * 4.2); }
+.race-broadcast.circuit-broadcast:not([data-layout="side"]) .tv-strap { inset: auto auto calc(var(--gap) + var(--u) * 0.7) calc(var(--gap) + var(--u) * 0.7); }
+/* Props animate now: a filter on their layer would be redrawn every frame. Their own ink outline and ground shadow carry them. */
+.race-broadcast.circuit-broadcast .course-prop-chip { filter: none; }

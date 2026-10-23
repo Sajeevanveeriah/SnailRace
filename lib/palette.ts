@@ -74,6 +74,9 @@ export const QUICK_AMOUNTS_CENTS = [500, 1000, 2000, 5000, 10000];
  * rather than the two a sprint has room for.
  */
 export const RACE_LENGTHS = [
+  { ms: 180_000, label: 'Grand Final, 3 min' },
+  { ms: 120_000, label: 'Cup, 2 min' },
+  { ms: 90_000, label: 'Derby, 90s' },
   { ms: 60_000, label: 'Epic, 60s' },
   { ms: 45_000, label: 'Marathon, 45s' },
   { ms: 30_000, label: 'Long, 30s' },
@@ -107,3 +110,13 @@ export function drawNames(count: number = MAX_FIELD): string[] {
   }
   return picked;
 }
+
+/** Snail speeds, as a multiple of the standard third of a metre a second. */
+export const SNAIL_SPEEDS = [
+  { value: 0.5, label: 'Dawdle (half pace)' },
+  { value: 0.75, label: 'Steady' },
+  { value: 1, label: 'Standard' },
+  { value: 1.5, label: 'Quick' },
+  { value: 2, label: 'Fast (double)' },
+  { value: 3, label: 'Rocket (triple)' },
+] as const;

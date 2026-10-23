@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ANIMATED_GLYPHS } from './prop-animated';
 
 /**
  * The prop set: one illustrated cartoon for every surprise on every course.
@@ -855,6 +856,16 @@ export const PROP_GLYPHS: Record<PropGlyphId, ReactNode> = {
   ),
 };
 
-export function PropGlyph({ id }: { id: PropGlyphId }) {
-  return <g className="course-prop-glyph">{PROP_GLYPHS[id]}</g>;
+/**
+ * A prop. `animated` swaps in the moving version where one exists (see
+ * `prop-animated.tsx`); every other prop gets a gentle idle motion from the
+ * stylesheet, so nothing on the course stands dead still.
+ */
+export function PropGlyph({ id, animated = false }: { id: PropGlyphId; animated?: boolean }) {
+  const moving = animated ? ANIMATED_GLYPHS[id] : undefined;
+  return (
+    <g className={`course-prop-glyph${animated ? (moving ? ' is-animated' : ' is-idle') : ''}`} data-glyph={id}>
+      {moving ?? PROP_GLYPHS[id]}
+    </g>
+  );
 }

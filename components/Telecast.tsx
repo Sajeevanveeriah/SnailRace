@@ -840,7 +840,7 @@ export function Telecast({
                     <image className="course-prop-image" href={`${ART_BASE}/surprises/${presentation.art}.webp`} x="-28" y="-28" width="56" height="56" />
                   ) : presentation.glyph ? (
                     <g className="course-prop-symbol course-prop-vector" data-glyph={presentation.glyph} transform="scale(0.92) translate(0 32)">
-                      <PropGlyph id={presentation.glyph} />
+                      <PropGlyph id={presentation.glyph} animated />
                     </g>
                   ) : (
                     <text className="course-prop-symbol" y="12" textAnchor="middle" fontSize="36">

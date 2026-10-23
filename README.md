@@ -8,7 +8,55 @@ one-volunteer run of show.
 This repository implements an original NDCC production. It uses its own club
 crest, runner art, copy, commentary and cricket-ground surprises.
 
-## Current release - one twist at a time, a quiet projector, a desk and an Admin (5.3)
+## Current release - the club's night card, smooth camera, chaos to the line (5.5)
+
+For the night of 24 October 2026:
+
+1. **The sold card is loaded.** A fresh night (or Admin, Setup, **Load the
+   NDCC orders (23 Oct)**) takes the 86 snails sold on ndcc.com.au, numbers 1
+   to 88 with their names and owners, in eight races of eleven
+   (`lib/ndcc-night.ts`; contact details are not copied). Numbers 76 and 80
+   were not sold and run as "Snail 76" and "Snail 80". A saved night with
+   nothing typed or run takes the card on its next load.
+2. **Race sponsors.** Race 1 Grey Dinos (The Grey Dinos Hcap Stakes), race 5
+   NDCC Womens (The Dino-Mite Drag Race Stakes), race 6 John Elliott (The
+   2-Cent-Jack Stakes) and race 7 Troy Whitworth (The Phoenix Gold Cup
+   Stakes). A sponsored race shows its sponsor on the racecard, on boards
+   along the fence, on a banner over the winning post and on the winner card.
+   No sponsor sent artwork, so each gets a mark made from its name
+   (`components/SponsorLogo.tsx`): the club crest for an NDCC team, a dino for
+   the Dinos, a monogram shield otherwise. Admin, Setup, **Sponsored races**
+   edits any race's sponsor and race name.
+3. **Smooth camera.** The side-on camera no longer reads layout every frame,
+   the runners and the props ride on their own compositor layers, a runner's
+   slither is a bob in the same transform that moves it (only the runners a
+   twist is acting on wiggle), and the progress line, clock and distance no
+   longer restyle or relay out the bar around them. The circuits' timing
+   tower refits when the field changes, not on every overtake.
+4. **Chaos to the line.** At Big night, Chaos and Mayhem an ordinary twist can
+   land in the last 12% of the race and the "at the post" card comes up in
+   most races (Chaos 80%, Mayhem 95%), so a snail on the line can still be
+   caught. A race longer than a minute keeps its level's twist rate.
+5. **Race length and snail speed.** Race length is a time (7 s to 3 min) and
+   **Snail speed** (half to triple pace) is separate. The straight is as long
+   as the snails cover: thirty seconds at standard pace is 10 m, two minutes
+   at double pace is 80 m, with a post every metre. On a circuit the speed
+   puts more or fewer laps in the same race time.
+6. **Out of the way.** The commentary is a small caption in the corner of the
+   course, not a banner across it. The circuits' standings column and course
+   map are narrower and the course gets the width.
+7. **Moving props.** The magpie is an Australian magpie that flaps, swoops and
+   snaps its beak; the roller's drum turns and throws clippings; the plague is
+   a pulsing cloud with a swarm circling it; the sprinkler swings and sprays;
+   the dog runs, the ball spins and bounces, rain and hail fall, the boot
+   stomps with a dust ring. Every other prop has an idle bounce.
+8. **Names.** With the card loaded every runner, flag, result and winner card
+   carries the snail's name; the saddlecloth number stays on the snail.
+9. **Commentary.** The caller's caption lines are rewritten to sound like a
+   club race caller, with more of them. The recorded voice clips are
+   unchanged.
+
+## Previous release - one twist at a time, a quiet projector, a desk and an Admin (5.3)
 
 From the owner's review of the telecast, the full field view, the controls
 and the sound:

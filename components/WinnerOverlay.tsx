@@ -1,5 +1,6 @@
 'use client';
 
+import { SponsorLogo } from './SponsorLogo';
 import { useEffect, useRef, useState } from 'react';
 import { raceTitle, snailsForRace, type CardState } from '@/lib/card';
 import { Confetti } from './Confetti';
@@ -174,7 +175,7 @@ function WinnerMoment({
             <li>{margin}</li>
             {time ? <li className="num">Time {time}</li> : null}
           </ul>
-          {sponsor ? <p className="wm-sponsor">Race sponsored by <b>{sponsor}</b></p> : null}
+          {sponsor ? <SponsorLogo className="wm-sponsor-logo" name={sponsor} label="Race sponsor" /> : null}
           {tote ? (
             <div className="wm-tote" role="note" aria-label="Cash tote dividend">
               <p className="wm-tote-label">CLUB CASH TOTE</p>

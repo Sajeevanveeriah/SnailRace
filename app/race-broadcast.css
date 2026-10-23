@@ -1708,8 +1708,9 @@
 .side-broadcast .tv-snail-sprite { animation: none; transform: none; }
 
 /* The snails. */
-.side-broadcast .side-runner-chip.racing .side-stalks { animation: side-stalks 1.6s ease-in-out infinite; transform-origin: 150px -44px; }
-.side-broadcast .side-runner-chip.racing .side-foot { animation: side-foot 0.9s ease-in-out infinite; transform-origin: 0 0; }
+/* A runner's own wiggle repaints its layer every frame, so only the runners a twist is acting on wiggle; the rest bob on the compositor (see place() in Sidescroller). */
+.side-broadcast .side-runner-chip.racing .tv-runner:is(.fx-up, .fx-down, .featured, .finished) .side-stalks { animation: side-stalks 1.6s ease-in-out infinite; transform-origin: 150px -44px; }
+.side-broadcast .side-runner-chip.racing .tv-runner:is(.fx-up, .featured) .side-foot { animation: side-foot 0.9s ease-in-out infinite; transform-origin: 0 0; }
 @keyframes side-stalks { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
 @keyframes side-foot { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(1.06) translateX(-8px); } }
 .side-broadcast .side-speed { opacity: 0; }
@@ -1888,3 +1889,92 @@
 @keyframes side-splash-out { from { opacity: 1; translate: var(--splash-shift, 0px) 0; } to { opacity: 0; translate: var(--splash-shift, 0px) -40%; } }
 .race-motion-reduced .side-splash { animation: none; }
 .race-motion-reduced .side-splash.side-splash-leaving { opacity: 0; }
+/* A twist's prop rides on its own small layer under the snails, so it can move and animate without repainting the track. */
+.side-broadcast .side-prop-chip { position: absolute; left: 0; top: 0; width: 120px; height: 120px; overflow: visible; will-change: transform; pointer-events: none; }
+
+/* ── Moving props (prop-animated.tsx). Each part turns about its own (0, 0). ── */
+.course-prop-glyph .pa-flap { animation: pa-flap .26s ease-in-out infinite alternate; }
+.course-prop-glyph .pa-flap-far { animation-delay: -.06s; opacity: .9; }
+@keyframes pa-flap { from { transform: rotate(-38deg); } to { transform: rotate(32deg) scaleY(.7); } }
+.course-prop-glyph .pa-dive { animation: pa-dive 1.3s ease-in-out infinite; }
+@keyframes pa-dive { 0%, 100% { transform: translate(-12px, -26px) rotate(-12deg); } 45% { transform: translate(8px, 4px) rotate(14deg); } 60% { transform: translate(10px, 2px) rotate(8deg); } }
+.course-prop-glyph .pa-beak-top { animation: pa-beak-top .32s ease-in-out infinite alternate; }
+.course-prop-glyph .pa-beak-low { animation: pa-beak-low .32s ease-in-out infinite alternate; }
+@keyframes pa-beak-top { from { transform: rotate(0); } to { transform: rotate(-16deg); } }
+@keyframes pa-beak-low { from { transform: rotate(0); } to { transform: rotate(14deg); } }
+.course-prop-glyph .pa-squawk { animation: pa-blink .64s steps(2, end) infinite; }
+.course-prop-glyph .pa-spin { animation: pa-spin .9s linear infinite; }
+.course-prop-glyph .pa-spin-fast { animation-duration: .42s; }
+@keyframes pa-spin { to { transform: rotate(360deg); } }
+.course-prop-glyph .pa-trundle { animation: pa-trundle 1.6s ease-in-out infinite alternate; }
+@keyframes pa-trundle { from { transform: translate(-8px, 0); } 50% { transform: translate(0, -1.5px); } to { transform: translate(8px, 0); } }
+.course-prop-glyph .pa-clip { animation: pa-clip .75s ease-out infinite; }
+@keyframes pa-clip { from { transform: translate(0, 0) rotate(0); opacity: 1; } to { transform: translate(-16px, -16px) rotate(-140deg); opacity: 0; } }
+.course-prop-glyph .pa-pulse { animation: pa-pulse .9s ease-in-out infinite alternate; }
+@keyframes pa-pulse { from { transform: scale(.96) rotate(-2deg); } to { transform: scale(1.08) rotate(2deg); } }
+.course-prop-glyph .pa-orbit { animation: pa-orbit 2.2s linear infinite; }
+.course-prop-glyph .pa-orbit-rev { animation-direction: reverse; animation-duration: 1.7s; }
+@keyframes pa-orbit { to { transform: rotate(360deg); } }
+.course-prop-glyph .pa-buzz { animation: pa-buzz .06s linear infinite alternate; }
+@keyframes pa-buzz { from { transform: scaleY(1); } to { transform: scaleY(.25); } }
+.course-prop-glyph .pa-blink { animation: pa-blink 1.2s steps(2, end) infinite; }
+@keyframes pa-blink { 50% { opacity: .15; } }
+.course-prop-glyph .pa-drip, .course-prop-glyph .pa-fall { animation: pa-fall .9s ease-in infinite; }
+@keyframes pa-fall { from { transform: translate(0, -6px); opacity: 0; } 15% { opacity: 1; } to { transform: translate(0, 24px); opacity: 0; } }
+.course-prop-glyph .pa-swing { animation: pa-swing 1.1s ease-in-out infinite alternate; }
+@keyframes pa-swing { from { transform: rotate(-24deg); } to { transform: rotate(24deg); } }
+.course-prop-glyph .pa-jet-l { animation: pa-jet-l .72s linear infinite; }
+.course-prop-glyph .pa-jet-r { animation: pa-jet-r .72s linear infinite; }
+@keyframes pa-jet-l { 0% { transform: translate(0, 0) scale(.6); opacity: 1; } 50% { transform: translate(-22px, -20px) scale(1); } 100% { transform: translate(-36px, 14px) scale(.8); opacity: 0; } }
+@keyframes pa-jet-r { 0% { transform: translate(0, 0) scale(.6); opacity: 1; } 50% { transform: translate(22px, -20px) scale(1); } 100% { transform: translate(36px, 14px) scale(.8); opacity: 0; } }
+.course-prop-glyph .pa-mist { animation: pa-blink .5s ease-in-out infinite; }
+.course-prop-glyph .pa-puddle { animation: pa-puddle 1.4s ease-in-out infinite alternate; }
+@keyframes pa-puddle { from { transform: scaleX(.8); } to { transform: scaleX(1.15); } }
+.course-prop-glyph .pa-wobble { animation: pa-wobble .22s ease-in-out infinite alternate; }
+@keyframes pa-wobble { from { transform: rotate(-7deg) scale(1.02); } to { transform: rotate(6deg) scale(.97); } }
+.course-prop-glyph .pa-crumb { animation: pa-crumb .9s ease-out infinite; }
+@keyframes pa-crumb { from { transform: translate(0, 0) rotate(0); opacity: 1; } to { transform: translate(10px, -22px) rotate(160deg); opacity: 0; } }
+.course-prop-glyph .pa-bounce { animation: pa-bounce .42s cubic-bezier(.3, 0, .7, 1) infinite alternate; }
+@keyframes pa-bounce { from { transform: translate(0, 0) scaleY(.9); } to { transform: translate(0, -18px) scaleY(1); } }
+.course-prop-glyph .pa-ball-shadow { animation: pa-ball-shadow .42s cubic-bezier(.3, 0, .7, 1) infinite alternate; }
+@keyframes pa-ball-shadow { from { transform: scaleX(1); } to { transform: scaleX(.6); } }
+.course-prop-glyph .pa-speed { animation: pa-blink .3s steps(2, end) infinite; }
+.course-prop-glyph .pa-trot { animation: pa-trot .18s ease-in-out infinite alternate; }
+@keyframes pa-trot { from { transform: translate(0, 0); } to { transform: translate(0, -3px); } }
+.course-prop-glyph .pa-wag { animation: pa-wag .18s ease-in-out infinite alternate; }
+@keyframes pa-wag { from { transform: rotate(-28deg); } to { transform: rotate(24deg); } }
+.course-prop-glyph .pa-leg { animation: pa-leg .22s ease-in-out infinite alternate; }
+.course-prop-glyph .pa-leg-b { animation-delay: -.22s; }
+@keyframes pa-leg { from { transform: rotate(-32deg); } to { transform: rotate(32deg); } }
+.course-prop-glyph .pa-tongue { animation: pa-tongue .18s ease-in-out infinite alternate; }
+@keyframes pa-tongue { to { transform: scaleY(1.3); } }
+.course-prop-glyph .pa-zigzag { animation: pa-zigzag 1s ease-in-out infinite; }
+@keyframes pa-zigzag { 0%, 100% { transform: translate(-12px, -4px) rotate(-6deg); } 25% { transform: translate(8px, -14px) rotate(8deg); } 50% { transform: translate(14px, 2px) rotate(-4deg); } 75% { transform: translate(-4px, 6px) rotate(6deg); } }
+.course-prop-glyph .pa-drift { animation: pa-drift 1.8s ease-in-out infinite alternate; }
+@keyframes pa-drift { from { transform: translate(-5px, 0); } to { transform: translate(5px, -2px); } }
+.course-prop-glyph .pa-stomp { animation: pa-stomp 1.1s cubic-bezier(.6, 0, .9, .5) infinite; }
+@keyframes pa-stomp { 0% { transform: translate(0, -34px) rotate(-6deg); } 38% { transform: translate(0, 0) scaleY(.9); } 55% { transform: translate(0, 0) scaleY(1); } 100% { transform: translate(0, -34px) rotate(-6deg); } }
+.course-prop-glyph .pa-dust { animation: pa-dust 1.1s ease-out infinite; }
+@keyframes pa-dust { 0%, 35% { transform: scale(.3); opacity: 0; } 40% { opacity: .9; } 100% { transform: scale(1.5); opacity: 0; } }
+/* Every other prop is never dead still: a gentle bounce about its foot. */
+.course-prop-glyph.is-idle { animation: pa-idle .7s ease-in-out infinite alternate; }
+@keyframes pa-idle { from { transform: translate(0, 0) scale(1); } to { transform: translate(0, -4px) scale(1.05, .96); } }
+.race-motion-reduced .course-prop-glyph, .race-motion-reduced .course-prop-glyph * { animation: none !important; }
+
+/* ── The commentary caption: a small corner caption over the sky, not a banner over the race (side-on). ── */
+.race-broadcast.course-broadcast.side-broadcast .course-scene { top: calc(var(--side-top) + var(--side-gap)); }
+.race-broadcast.course-broadcast.side-broadcast .course-director-bar { top: calc(var(--side-top) + var(--side-gap) * 2); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap { inset: auto auto calc(var(--side-strip) + var(--side-gap) * 2 + var(--u) * 0.5) calc(var(--side-edge) + var(--u) * 0.8); width: max-content; max-width: 48%; height: calc(var(--u) * 3); z-index: 12; opacity: .94; border-width: calc(var(--u) * 0.1); border-radius: calc(var(--u) * 0.5); box-shadow: 0 calc(var(--u) * 0.2) calc(var(--u) * 0.8) rgb(0 0 0 / 0.25); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap-badge { padding: 0 calc(var(--u) * 1.2) 0 calc(var(--u) * 0.7); font-size: calc(var(--u) * 0.95); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap-line { padding: 0 calc(var(--u) * 0.9); font-size: calc(var(--u) * 1.55 * var(--fit, 1)); font-weight: 750; }
+/* Per-frame text and the progress line never relay out the bar around them. */
+.race-broadcast.course-broadcast.side-broadcast .side-progress-fill { width: 100%; transform-origin: 0 50%; transform: scaleX(0); transition: none; will-change: transform; }
+.race-broadcast.course-broadcast.side-broadcast .tv-clock { width: calc(var(--u) * 9.4); justify-content: center; contain: strict; height: calc(var(--u) * 3.3); }
+.race-broadcast.course-broadcast.side-broadcast .side-togo { width: calc(var(--u) * 14); justify-content: center; contain: strict; height: calc(var(--u) * 3.3); }
+.side-broadcast .side-runner-chip, .side-broadcast .side-prop-chip { position: absolute; left: 0; top: 0; overflow: visible; will-change: transform; contain: layout style; pointer-events: none; }
+.side-broadcast .side-chip-art { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; max-height: none; overflow: visible; }
+/* Glows on moving runners were filters redrawn every frame; the speed lines, the hop and the flag colour say the same thing for free. */
+.course-broadcast .tv-runner.fx-up .tv-art,
+.side-broadcast .tv-runner.fx-up .side-art,
+.side-broadcast .tv-runner.featured .side-art,
+.side-broadcast .tv-runner.finished .side-art { filter: none; }

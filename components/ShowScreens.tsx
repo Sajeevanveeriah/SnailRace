@@ -1,5 +1,7 @@
 'use client';
 
+import { SponsorLogo } from './SponsorLogo';
+import { resolveRaceSponsor } from '@/lib/ndcc-night';
 import { useEffect, useState } from 'react';
 import { DonateQr } from './DonateQr';
 import { ClubBrand } from './brand/ClubBrand';
@@ -256,8 +258,9 @@ function Lobby({ event, snailLinkUrl }: { event: EventState; snailLinkUrl: strin
 
 /* ── Racecard ──────────────────────────────────────────────────────────── */
 
-function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: EventState; raceNo: number; sponsor?: string; snailLinkUrl: string }) {
+function RacecardScreen({ event, raceNo, snailLinkUrl }: { event: EventState; raceNo: number; sponsor?: string; snailLinkUrl: string }) {
   const settings = raceSettings(event, raceNo);
+  const sponsor = resolveRaceSponsor(event.raceSponsors, event.sponsors, raceNo);
   const names = cardRaceNames(event.card, raceNo);
   const owners = cardRaceOwners(event.card, raceNo);
   const numbers = settings.snails;
@@ -278,15 +281,16 @@ function RacecardScreen({ event, raceNo, sponsor, snailLinkUrl }: { event: Event
             {!settings.runOff ? <span className="ss-of num"> of {event.plannedRaces}</span> : null}
           </h2>
           <p className="ss-rc-snails num">
+            {sponsor.title ? <span className="ss-rc-stakes">{sponsor.title}</span> : null}
             {settings.runOff ? `${numbers.length} winners race again` : `Snails ${numbers[0]} to ${numbers[numbers.length - 1]}`}
           </p>
         </div>
+        {sponsor.name ? <SponsorLogo className="ss-rc-sponsor" name={sponsor.name} label="Race sponsor" /> : null}
         <ul className="ss-chips" aria-label="Race details">
           <li>{settings.designName}</li>
           <li className="num">{lengthPhrase(settings)}</li>
           <li>{SURPRISE_LEVEL_NAMES[settings.intensity]} surprises</li>
           {leg >= 0 ? <li className="ss-chip-gold num">Quaddie leg {leg + 1}</li> : null}
-          {sponsor ? <li className="ss-chip-gold">Sponsored by {sponsor}</li> : null}
         </ul>
         {forSale.length && snailLinkUrl && !settings.runOff ? (
           <div className="ss-rc-buy">

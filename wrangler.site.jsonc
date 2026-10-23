@@ -1,0 +1,17 @@
+// The game as a static site on Cloudflare Workers, built by
+// scripts/deploy-cloudflare.sh. No server code: the stage runs cash-only,
+// exactly as on GitHub Pages. Phone Play's live service is the separate
+// Worker in cloudflare/.
+{
+  "name": "snailrace",
+  "compatibility_date": "2026-08-30",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./out",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": false
+  }
+}

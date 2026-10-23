@@ -1,5 +1,6 @@
 import { courseForRace, designForRace, designNameOf, enabledTrackDesigns, type CourseId, type TrackDesignId } from './courses';
 import { DEFAULT_RACE_TYPE, MAX_SNAILS_PER_RACE, MIN_SNAILS_PER_RACE, raceTitle, raceTypeLabel, snailsForRace, type RunSheetRace } from './card';
+import { raceMetres } from '../components/sidescroller-geometry';
 import type { CameraMode, EventState, RaceHistoryEntry, SurpriseIntensity } from './types';
 
 /**
@@ -19,6 +20,10 @@ export interface RaceSettings {
   lapMs: number;
   laps: number;
   durationMs: number;
+  /** The snails' pace, as a multiple of the standard. */
+  snailSpeed: number;
+  /** How long the straight is at that pace, in metres (the straight only; a circuit's laps are its length). */
+  metres: number;
   intensity: SurpriseIntensity;
   /** The camera the race starts on, or null to keep whatever the desk has. */
   camera: CameraMode | null;
@@ -40,7 +45,7 @@ export const SURPRISE_LEVEL_NAMES: Record<SurpriseIntensity, string> = {
   mayhem: 'Mayhem',
 };
 
-type NightSettings = Pick<EventState, 'card' | 'trackDesigns' | 'trackShape' | 'raceDurationMs' | 'laps' | 'intensity' | 'raceType'>;
+type NightSettings = Pick<EventState, 'card' | 'trackDesigns' | 'trackShape' | 'raceDurationMs' | 'laps' | 'intensity' | 'raceType'> & Partial<Pick<EventState, 'snailSpeed'>>;
 
 /** True when the night has a circuit switched on, so the night length is a lap length. */
 export const nightHasCircuit = (event: Pick<EventState, 'trackDesigns' | 'trackShape'>): boolean =>
@@ -74,6 +79,15 @@ export function raceSettings(event: NightSettings, raceNo: number): RaceSettings
     lapMs = row?.lengthMs ?? night.lapMs;
     /* No override keeps the night's stored duration exactly, as every race did before the run sheet. */
     durationMs = row?.laps === undefined && row?.lengthMs === undefined && nightHasCircuit(event) ? event.raceDurationMs : lapMs * laps;
+    /* The snail speed keeps the race its length and puts more (or fewer) laps in it: faster snails go further, never for longer. */
+    const speed = event.snailSpeed ?? 1;
+    if (speed !== 1) {
+      const quicker = Math.max(1, Math.min(30, Math.round(laps * speed)));
+      if (quicker !== laps) {
+        laps = quicker;
+        lapMs = Math.round(durationMs / laps);
+      }
+    }
   } else {
     laps = 1;
     durationMs = row?.lengthMs ?? event.raceDurationMs;
@@ -89,6 +103,8 @@ export function raceSettings(event: NightSettings, raceNo: number): RaceSettings
     lapMs,
     laps,
     durationMs,
+    snailSpeed: event.snailSpeed ?? 1,
+    metres: raceMetres(durationMs, event.snailSpeed ?? 1),
     intensity: row?.intensity ?? event.intensity,
     camera: row?.camera ?? null,
     raceType,

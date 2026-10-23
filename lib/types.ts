@@ -423,6 +423,8 @@ export interface RaceHistoryEntry {
   /** Snail number per lane, when the field was not a run of numbers (a winners' run-off). */
   snails?: number[];
   laps?: number;
+  /** How long the straight was, in metres, when it was not the standard ten. */
+  metres?: number;
   surprises?: boolean;
   trackShape?: 'lanes' | 'circuit';
   courseId?: CourseId;
@@ -524,6 +526,16 @@ export interface HeldRaceStartState {
   plan: LockedRacePlan;
 }
 
+/** A sponsor bought for one race on the card. */
+export interface RaceSponsor {
+  /** The race number on the card. */
+  race: number;
+  /** Who sponsors it, as it goes on the boards and the racecard. */
+  name: string;
+  /** The race's own name, when the sponsor gave it one. */
+  title?: string;
+}
+
 export interface EventState {
   version: 4;
   eventId: string;
@@ -593,6 +605,17 @@ export interface EventState {
   raceNumber: number;
   /** Sponsors, used in order and cycled. One line per race on the stage. */
   sponsors: string[];
+  /**
+   * Sponsors bought for a particular race. A race listed here carries that
+   * sponsor (and its race name) whatever the cycled list says.
+   */
+  raceSponsors: RaceSponsor[];
+  /**
+   * How fast the snails move, as a multiple of the standard pace. The race
+   * length is a time; the track is as long as the snails cover in that time,
+   * so a longer race is a longer track, never slower snails.
+   */
+  snailSpeed: number;
   /** Optional sponsor per runner lane, shown on the racecard and lower thirds. */
   runnerSponsors: string[];
   /**

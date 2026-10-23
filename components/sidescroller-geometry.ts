@@ -85,20 +85,63 @@ export function laneGeometry(lane: number, fieldSize: number, extra = 0): LaneGe
   return { top, pitch, y: top + pitch - slack - ART_FOOT * scale, scale };
 }
 
-/** World x of a nose at race progress p (0 at the stalls, 1 on the line). */
+/** World x of a nose at race progress p (0 at the stalls, 1 on the line), on the standard 10 m straight. */
 export const worldX = (p: number): number => START_X + p * (TRACK_LEN - START_X);
 
-/** The gap between two distance posts: the fence is laid out on the same grid. */
+/** The gap between two distance posts: one metre. The fence is laid out on the same grid. */
 export const POST_SPACING = (TRACK_LEN - START_X) / RACE_METRES;
 
-/** Distance posts, metres to go: one on every grid line between the stalls and the post. */
-export const DISTANCE_POSTS: { metres: number; x: number }[] = Array.from({ length: RACE_METRES - 1 }, (_, i) => {
-  const metres = RACE_METRES - 1 - i;
-  return { metres, x: worldX(1 - metres / RACE_METRES) };
-});
+/**
+ * The standard pace: a third of a metre a second, so the standard thirty
+ * second race is the standard ten metre straight. The snail speed setting
+ * multiplies it.
+ */
+export const METRES_PER_SECOND = 1 / 3;
+/** The shortest and longest straights drawn. */
+export const MIN_RACE_METRES = 4;
+export const MAX_RACE_METRES = 240;
+
+/** How long the straight is for a race of this length at this snail speed, in whole metres. */
+export function raceMetres(durationMs: number, speed = 1): number {
+  const metres = Math.round((Math.max(0, durationMs) / 1000) * METRES_PER_SECOND * (speed > 0 ? speed : 1));
+  return Math.min(MAX_RACE_METRES, Math.max(MIN_RACE_METRES, metres));
+}
 
 /** How wide a fence board is, leaving clear fence either side of every post. */
 export const FENCE_SIGN_W = Math.round(POST_SPACING * 0.74);
+
+/** One straight: where the line is, how progress maps to x, and its posts. */
+export interface StraightTrack {
+  metres: number;
+  /** World x of the winning post. */
+  trackLen: number;
+  worldX: (p: number) => number;
+  /** Distance posts, metres to go, one a metre between the stalls and the post. */
+  distancePosts: { metres: number; x: number }[];
+  /** Every grid line that carries a post: the stalls, the distance posts, the winning post. */
+  postLines: number[];
+}
+
+const tracks = new Map<number, StraightTrack>();
+
+/** The straight for a race of `metres`. A metre is always the same width, so a longer race is a longer track, never a slower one. */
+export function straightTrack(metres: number = RACE_METRES): StraightTrack {
+  const m = Math.min(MAX_RACE_METRES, Math.max(1, Math.round(metres)));
+  const cached = tracks.get(m);
+  if (cached) return cached;
+  const trackLen = START_X + m * POST_SPACING;
+  const x = (p: number): number => START_X + p * (trackLen - START_X);
+  const distancePosts = Array.from({ length: m - 1 }, (_, i) => {
+    const togo = m - 1 - i;
+    return { metres: togo, x: x(1 - togo / m) };
+  });
+  const track: StraightTrack = { metres: m, trackLen, worldX: x, distancePosts, postLines: [START_X, ...distancePosts.map((post) => post.x), trackLen] };
+  tracks.set(m, track);
+  return track;
+}
+
+/** Distance posts on the standard straight. */
+export const DISTANCE_POSTS: { metres: number; x: number }[] = straightTrack(RACE_METRES).distancePosts;
 
 /**
  * The fence boards, one in the middle of each gap between grid lines (the
@@ -116,8 +159,8 @@ export function fenceSlots(fromX: number, toX: number): { x: number; w: number }
   return slots;
 }
 
-/** Every grid line that carries a post: the stalls, the distance posts, the winning post. */
-export const POST_LINES = [START_X, ...DISTANCE_POSTS.map((post) => post.x), TRACK_LEN];
+/** Every grid line that carries a post on the standard straight. */
+export const POST_LINES = straightTrack(RACE_METRES).postLines;
 
 /* The crowd on the front rail. Heads stand this far below the track at rest,
    and the bob lifts them by at most CROWD_BOB, so they never reach a lane. */

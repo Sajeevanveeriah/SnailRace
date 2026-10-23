@@ -1361,16 +1361,32 @@ export function intensityLabel(intensity: IntensityId): string {
   return `${names[intensity]} (${min} to ${max}${gentle} twists a race)`;
 }
 
+/**
+ * The levels whose twists run deep into the run home: nobody is safe until
+ * the line. At these levels an ordinary twist may land with the leader about
+ * nine tenths home, and the "at the post" card lands later still.
+ */
+export const LATE_LEVELS: readonly IntensityId[] = ['big', 'chaos', 'mayhem'];
+
+/** Where the hit before an "at the post" card must be done by, as a share of the race. */
+const postFloor = (late: boolean): number => (late ? 0.9 : 0.86);
+
 /** The window of the race an ordinary twist may hit in. */
-function hitWindow(durationMs: number, withPost: boolean): { from: number; to: number } {
+function hitWindow(durationMs: number, withPost: boolean, late = false): { from: number; to: number } {
   const from = Math.max(TWIST_WARNING_MS + 400, Math.round(durationMs * 0.12));
-  /* Ordinary twists are over before the last 15%, which belongs to the
-     leaders and the run home. A short race keeps the middle of the race. */
-  let to = Math.min(
-    Math.round(durationMs * 0.8),
-    Math.max(Math.round(durationMs * 0.85) - TWIST_HOLD_MS - TWIST_GAP_MS, Math.round(durationMs * 0.6)),
-  );
-  if (withPost) to = Math.min(to, Math.round(durationMs * 0.86) - TWIST_SPACING_MS);
+  /* Ordinary twists are over before the last 15% at the gentler levels,
+     which leaves the run home to the leaders; at the wild levels they run
+     to the last 8%. A short race keeps the middle of the race. */
+  let to = late
+    ? Math.min(
+        Math.round(durationMs * 0.88),
+        Math.max(Math.round(durationMs * 0.92) - TWIST_HOLD_MS - TWIST_GAP_MS, Math.round(durationMs * 0.6)),
+      )
+    : Math.min(
+        Math.round(durationMs * 0.8),
+        Math.max(Math.round(durationMs * 0.85) - TWIST_HOLD_MS - TWIST_GAP_MS, Math.round(durationMs * 0.6)),
+      );
+  if (withPost) to = Math.min(to, Math.round(durationMs * postFloor(late)) - TWIST_SPACING_MS);
   return { from, to };
 }
 
@@ -1388,12 +1404,14 @@ export const twistCapacity = (durationMs: number): number => slotsIn(hitWindow(d
 export function twistRange(intensity: IntensityId, durationMs: number): { min: number; max: number } {
   const range = INTENSITY_RANGES[intensity] ?? INTENSITY_RANGES.standard;
   const cap = twistCapacity(durationMs);
-  return { min: Math.min(range.min, cap), max: Math.min(range.max, cap) };
+  /* A race longer than a minute keeps the level's rate: twice as long, twice the twists. */
+  const k = Math.max(1, durationMs / 60_000);
+  return { min: Math.min(Math.round(range.min * k), cap), max: Math.min(Math.round(range.max * k), cap) };
 }
 
 /** Chance that a race at this level ends with an "at the post" card. */
 const POST_CHANCE: Record<IntensityId, number> = {
-  calm: 0, standard: 0.2, big: 0.3, chaos: 0.4, mayhem: 0.5,
+  calm: 0, standard: 0.3, big: 0.55, chaos: 0.8, mayhem: 0.95,
 };
 
 /**
@@ -2272,6 +2290,7 @@ function planTwists(ctx: TwistContext): TwistBuild {
   const pickRnd = mulberry32((ctx.seed ^ 0x4445434b ^ salt) >>> 0);
   const retirementRnd = mulberry32(ctx.seed ^ 0x52455431);
 
+  const late = LATE_LEVELS.includes(intensity);
   const range = twistRange(intensity, durationMs);
   const count = range.min + Math.floor(countRnd() * (range.max - range.min + 1));
   if (count <= 0) return { events, captions, complete: true };
@@ -2289,11 +2308,11 @@ function planTwists(ctx: TwistContext): TwistBuild {
     durationMs >= DECK_MIN_DURATION_MS &&
     postCards.length > 0 &&
     !(retiring && count === 1) &&
-    slotsIn(hitWindow(durationMs, true)) + 1 >= count &&
+    slotsIn(hitWindow(durationMs, true, late)) + 1 >= count &&
     countRnd() < POST_CHANCE[intensity];
   const ordinary = count - (postWanted ? 1 : 0);
 
-  const window = hitWindow(durationMs, postWanted);
+  const window = hitWindow(durationMs, postWanted, late);
   const slack = Math.max(0, window.to - window.from - (ordinary - 1) * TWIST_SPACING_MS);
   const offsets = Array.from({ length: ordinary }, () => Math.round(timeRnd() * slack)).sort((a, b) => a - b);
   const times = offsets.map((offset, index) => window.from + offset + index * TWIST_SPACING_MS);
@@ -2377,7 +2396,7 @@ function planTwists(ctx: TwistContext): TwistBuild {
 
   for (let slot = 0; slot < times.length; slot++) {
     const at = times[slot];
-    const nextHit = slot + 1 < times.length ? times[slot + 1] : postWanted ? Math.round(durationMs * 0.86) : at;
+    const nextHit = slot + 1 < times.length ? times[slot + 1] : postWanted ? Math.round(durationMs * postFloor(late)) : at;
     const mustFinishAfter = nextHit + TWIST_REVEAL_MS + ctx.commentaryDelayMs + 400;
 
     if (slot === retireSlot) {
@@ -3031,22 +3050,23 @@ export function freshSeed(): number {
 
 export const COMMENTARY = {
   early: [
-    '{a} has made the tidy start. {b} is keeping it honest.',
-    '{a} leads them out, antennae down and businesslike.',
-    '{a} has the rail. {b} is close enough to read the shell.',
-    'A clean getaway for {a}. There is a long way to crawl.',
-    '{a} sets the pace. {b} has declined to be impressed.',
+    '{a} with the tidy start, and {b} is right there with it.',
+    '{a} leads them out. {b} tucked in nicely behind.',
+    '{a} has the rail early. {b} is sniffing around.',
+    'Clean getaway for {a}. Long way to go, mind.',
+    '{a} sets the pace. {b} is not impressed one bit.',
   ],
   mid: [
-    '{a} looks settled. That is usually when this stops being sensible.',
-    '{a} and {b} are making a proper race of it now.',
-    '{a} holds the front. {b} is waiting for one bad patch.',
+    '{a} looks settled up front. That never lasts out here.',
+    '{a} and {b} are making a proper race of it now!',
+    '{a} holds the front, {b} just waiting for a slip.',
     'Halfway home, and {a} has {b} for company.',
+    '{a} holds the front. Can {b} find another gear?',
   ],
   late: [
-    '{a} can see the line, which is more than the rest can say.',
-    '{a} needs every millimetre of that lead.',
-    'The room is up. {a} and {b} are still arguing over it.',
+    '{a} can see the line! {b} is throwing everything at it!',
+    '{a} needs every millimetre of that lead now!',
+    '{a} can see the line, and the room is on its feet!',
   ],
 } as const;
 
@@ -3058,25 +3078,28 @@ export const COMMENTARY = {
  * picture does not show.
  */
 export const MARGIN_LINES = [
-  '{a} leads by {g} from {b}.',
-  '{a} has {g} on {b}, with {c} holding third.',
-  '{a} in front. {b} is {g} away and paying attention.',
-  '{a} from {b} by {g}.',
+  '{a} leads by {g}, and {b} is hanging in there.',
+  '{a} by {g} from {b}, with {c} in third.',
+  '{a} still in front, {g} up on {b}.',
+  '{a} from {b} by {g}. Lovely stuff.',
+  '{b} is chasing hard, {g} back from {a}.',
 ] as const;
 
 /** Only when the top two are inside 0.3 seconds of each other. */
 export const TIGHT_LINES = [
   'You could throw a blanket over {a} and {b}!',
-  'Nothing in it! {a} and {b} are locked together!',
-  '{a} and {b}, side by side, neither giving an inch!',
-  '{g} in it between {a} and {b}!',
+  'Nothing in it! {a} and {b}, shell for shell!',
+  '{a} and {b}, side by side! Neither giving an inch!',
+  '{g} in it between {a} and {b}! Cannot split them!',
+  'Side by side, {a} and {b}! This is a cracker!',
 ] as const;
 
 export const CLEAR_LINES = [
   '{a} has broken the elastic! {g} clear!',
-  '{a} is gone. {b} is running for second now.',
-  'That is {g} {a} has put on the field.',
-  '{b} will need a miracle to reel in {a} from {g} back.',
+  '{a} is gone. {b} is racing for second now.',
+  'Look at that, {a} has put {g} on the field!',
+  '{b} will need a miracle to reel in {a} from here.',
+  '{a} is {g} clear! Somebody wake {b} up!',
 ] as const;
 
 /** Kept for the archive; the caller no longer talks about the back of the field. */
@@ -3089,15 +3112,18 @@ export const BACK_MARKER_LINES = [
 /** A runner moving into the top three. Said by name, with the place. */
 export const OVERTAKE_LINES = [
   '{a} goes past {b} and into {n}!',
+  'Lovely move! {a} goes past {b} for {n}!',
+  '{a} takes {n} off {b} and does not look back!',
+  'Cheeky! {a} goes past {b}, up into {n}!',
   '{a} is up to {n}, past {b}!',
-  '{a} takes {n} off {b}!',
 ] as const;
 
 /** The last stretch, quoted in distance rather than in adjectives. */
 export const RUN_HOME_LINES = [
-  '{m} to run and it is {a} by {g}!',
-  'Inside the last {m}! {a} from {b}!',
-  '{m} left, {b} is {g} behind {a}!',
+  '{m} to run and it is {a} by {g}! Come on!',
+  'Inside the last {m}! {a}, with {b} breathing down its shell!',
+  '{m} left, {b} is {g} behind {a} and closing!',
+  'Turns for home! {a} by {g}, {m} to go!',
 ] as const;
 
 /**
@@ -3107,22 +3133,25 @@ export const RUN_HOME_LINES = [
  */
 export const REACTION_LINES = {
   good: [
-    'What a turn of speed!',
-    'That has changed everything!',
-    'The room has come alive!',
-    'You do not see that every day!',
+    'Oh, look at that!',
+    'Where on earth did that come from?',
+    'The crowd loved that one!',
+    'Well, that changes things!',
+    'Go on, little one!',
   ],
   bad: [
-    'That is dreadful timing.',
-    'A small disaster, beautifully executed.',
-    'You have to feel for that snail.',
-    'That has turned a good crawl into paperwork.',
+    'Oh no! Poor thing!',
+    'That has got to hurt.',
+    'Not the timing you want, is it?',
+    'Ouch. Right in the slime.',
+    'You have to feel for that one.',
   ],
   wild: [
-    'What on earth was that?',
-    'Nobody has any idea what just happened!',
-    'The stewards are going to have a look at that one.',
-    'I have never seen that, and I have called a few.',
+    'Well, I did not see that coming!',
+    'What is going on out there?',
+    'Absolute chaos, and I love it!',
+    'Only at Newcomb!',
+    'The stewards will want a look at that!',
   ],
 } as const;
 
@@ -3142,10 +3171,12 @@ export const BELL_LAP_LINES = [
 
 /** Called when the leader changes hands. The loudest line in the book. */
 export const LEAD_CHANGE_LINES = [
+  'And {a} hits the front! {b} had no answer!',
+  '{a} takes the lead! Sorry {b}, not tonight!',
   'New leader! {a} snatches it from {b}!',
-  '{a} goes past {b} and hits the front!',
-  'A new leader, {a} takes it up!',
   '{a} sweeps around {b} and hits the front!',
+  'Here comes {a}! Takes the lead off {b}!',
+  'Look at {a} go! New leader, and {b} is rattled!',
 ] as const;
 
 /**
@@ -3180,7 +3211,7 @@ export const STARTER_LINES = [
 ] as const;
 
 export const WEATHER_LINES: Record<Weather, readonly string[]> = {
-  clear: ['Perfect conditions tonight.', 'A clear night and a fast track.', 'Not a breath of wind out there.'],
+  clear: ['Perfect conditions tonight.', 'A clear night and a fast track.', 'Not a breath of wind out there.', 'Track is lovely and slimy tonight.', 'Deep breaths, everyone.'],
   drizzle: ['Drizzle about, and a greasy track.', 'Light rain, so mind the slime.', 'It is damp out there tonight.'],
   downpour: ['They are racing in a downpour!', 'Rain is bucketing down out there!', 'Wet tonight, slime everywhere!'],
 };
@@ -3250,7 +3281,7 @@ export function trackWording(trackShape: 'lanes' | 'circuit' | undefined, course
 export const hasHomeStraight = (wording: TrackWording): boolean => wording === 'straight' || wording === 'oval';
 
 export const RUN_HOME_BY_TRACK: Record<TrackWording, readonly string[]> = {
-  straight: ['Here they come down the straight! {a} from {b}!', 'Into the straight, and it is {a} from {b}!'],
+  straight: ['Here they come down the straight! {a} from {b}!', 'Into the straight, and it is {a} from {b}!', 'Down the straight they come! {a} hanging on, {b} coming!'],
   oval: ['Into the home straight! {a} from {b}!', 'Here they come down the home straight! {a} leads {b}!'],
   chicane: ['Into the last bend! {a} from {b}!', 'Through the last bend and home! {a} leads {b}!'],
   eight: ['Home stretch! {a} from {b}!', 'Off the crossover and into the home stretch! {a} leads {b}!'],
@@ -3291,6 +3322,7 @@ export function togetherLine(a: string, b: string, rnd: CommentaryRandom = Math.
 /** The winner, and how close it was. */
 export function winnerLine(name: string, onTheLine: boolean): string {
   return fitCaption([
+    `${name} ${onTheLine ? 'wins it on the line! What a finish!' : 'wins! Take a bow!'}`,
     `${name} ${onTheLine ? 'wins it on the line!' : 'wins!'}`,
     `${shortName(name)} ${onTheLine ? 'wins it on the line!' : 'wins!'}`,
   ]);

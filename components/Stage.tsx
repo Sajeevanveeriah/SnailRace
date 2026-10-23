@@ -1,5 +1,6 @@
 'use client';
 
+import { RACE_METRES, raceMetres } from './sidescroller-geometry';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModeratorDesk } from './ModeratorDesk';
@@ -33,7 +34,7 @@ import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace, type RaceController } from '@/lib/use-race';
 import { funChipPoolsFor } from '@/lib/tote';
-import { sponsorFor } from '@/lib/standings';
+import { resolveRaceSponsor } from '@/lib/ndcc-night';
 import { money } from '@/lib/money';
 import { MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
 import { courseById } from '@/lib/courses';
@@ -172,10 +173,24 @@ export function Stage() {
   const shownOffset = isRunOff(event.card, shownRaceNo) ? 0 : snailOffsetForRace(shownRaceNo, event.card);
   /* The snail number in each lane: a run-off's runners are not consecutive. */
   const shownNumbers = useMemo(() => snailsForRace(shownRaceNo, event.card), [shownRaceNo, event.card]);
-  const sponsor = useMemo(
-    () => sponsorFor(event.sponsors, nextRaceNo),
-    [event.sponsors, nextRaceNo],
+  const sponsorInfo = useMemo(
+    () => resolveRaceSponsor(event.raceSponsors, event.sponsors, nextRaceNo),
+    [event.raceSponsors, event.sponsors, nextRaceNo],
   );
+  const sponsor = sponsorInfo.name;
+  /* The shown race's sponsor: the race on the track may be the one just run. */
+  const shownSponsor = useMemo(() => {
+    const now = resolveRaceSponsor(event.raceSponsors, event.sponsors, shownRaceNo);
+    /* A race that has run keeps the sponsor it ran under, whatever the setup says now. */
+    if (!finishedEntry) return now;
+    const name = finishedEntry.sponsor ?? '';
+    return { name, title: name && name === now.name ? now.title : '' };
+  }, [event.raceSponsors, event.sponsors, shownRaceNo, finishedEntry]);
+  /* How long the straight on screen is: the held race's, the finished race's, or the next one's. */
+  /* A result from before 5.5 carries no length: those races always ran on the standard straight. */
+  const shownMetres = finishedEntry
+    ? (finishedEntry.metres ?? RACE_METRES)
+    : raceMetres(event.heldRaceStart?.plan.durationMs ?? nextSettings.durationMs, event.snailSpeed);
 
   /** Stripe is authoritative for cards; the cash tin lives on this device. */
   const allDonations: Donation[] = useMemo(
@@ -332,6 +347,7 @@ export function Stage() {
         seedHex: drawn.seedHex,
         fieldSize: armed?.config.fieldSize ?? names.length,
         durationMs: armed?.config.durationMs ?? nextSettings.durationMs,
+        metres: raceMetres(armed?.config.durationMs ?? nextSettings.durationMs, event.snailSpeed),
         at: finishedAt,
         results,
         potCents: raceDonationCents,
@@ -383,7 +399,7 @@ export function Stage() {
       setHighlights(reel);
       setOverlayOpen(true);
     },
-    [nextSettings, event.card, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
+    [nextSettings, event.card, event.snailSpeed, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
   );
 
   const race = useRace(onFinish);
@@ -1483,7 +1499,7 @@ export function Stage() {
                   courseId={activeCourse.id}
                   fullCourse={fullCourse || event.cameraMode === 'full'}
                   onCourseViewChange={setCameraFull}
-                  sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
+                  sponsor={shownSponsor.name}
                   toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                   numberOffset={shownOffset}
                   numbers={shownNumbers}
@@ -1502,8 +1518,10 @@ export function Stage() {
                 cameraMode={event.cameraMode}
                 fullCourse={fullCourse || event.cameraMode === 'full'}
                 onCourseViewChange={setCameraFull}
-                sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
+                sponsor={shownSponsor.name}
+                sponsorTitle={shownSponsor.title}
                 sponsors={event.sponsors}
+                metres={shownMetres}
                 toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                 numberOffset={shownOffset}
                 numbers={shownNumbers}
