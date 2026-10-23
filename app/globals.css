@@ -2464,7 +2464,9 @@ kbd {
 
 /* ── Race sponsor lock-up (racecard, result) ───────────────────────────── */
 .sponsor-logo { display: inline-flex; align-items: center; gap: calc(var(--u, 12px) * 0.9); margin: 0; padding: calc(var(--u, 12px) * 0.5) calc(var(--u, 12px) * 1.2) calc(var(--u, 12px) * 0.5) calc(var(--u, 12px) * 0.6); border-radius: calc(var(--u, 12px) * 1); background: rgb(255 246 216 / 0.96); color: #1a1208; box-shadow: 0 calc(var(--u, 12px) * 0.3) calc(var(--u, 12px) * 1.2) rgb(0 0 0 / 0.35); }
-.sponsor-logo-badge { width: calc(var(--u, 12px) * 4.2); height: calc(var(--u, 12px) * 4.9); flex: none; }
+.sponsor-logo-crest { width: calc(var(--u, 12px) * 5.2); height: calc(var(--u, 12px) * 4); object-fit: contain; flex: none; }
+.sponsor-logo-art { display: grid; place-items: center; width: calc(var(--u, 12px) * 9); height: calc(var(--u, 12px) * 4.4); padding: calc(var(--u, 12px) * 0.3); border-radius: calc(var(--u, 12px) * 0.5); background: #fff; flex: none; }
+.sponsor-logo-art img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .sponsor-logo figcaption { display: grid; gap: calc(var(--u, 12px) * 0.1); line-height: 1.1; min-width: 0; }
 .sponsor-logo-kicker { font-size: calc(var(--u, 12px) * 0.95); font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #7a1424; }
 .sponsor-logo-name { font-size: calc(var(--u, 12px) * 2.2); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

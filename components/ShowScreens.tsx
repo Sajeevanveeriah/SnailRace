@@ -285,7 +285,7 @@ function RacecardScreen({ event, raceNo, snailLinkUrl }: { event: EventState; ra
             {settings.runOff ? `${numbers.length} winners race again` : `Snails ${numbers[0]} to ${numbers[numbers.length - 1]}`}
           </p>
         </div>
-        {sponsor.name ? <SponsorLogo className="ss-rc-sponsor" name={sponsor.name} label="Race sponsor" /> : null}
+        {sponsor.name ? <SponsorLogo className="ss-rc-sponsor" name={sponsor.name} logo={sponsor.logo} label="Race sponsor" /> : null}
         <ul className="ss-chips" aria-label="Race details">
           <li>{settings.designName}</li>
           <li className="num">{lengthPhrase(settings)}</li>

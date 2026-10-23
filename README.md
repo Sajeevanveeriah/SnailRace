@@ -8,7 +8,36 @@ one-volunteer run of show.
 This repository implements an original NDCC production. It uses its own club
 crest, runner art, copy, commentary and cricket-ground surprises.
 
-## Current release - the club's night card, smooth camera, chaos to the line (5.5)
+## Current release - the final card, race sponsors before every race (5.6)
+
+For the night of 24 October 2026, checked against the club website's order
+records at 22:00 AEDT on 23 October:
+
+1. **Eleven races of eight.** The card is the one ndcc.com.au sold: snails 1
+   to 8 in race 1, 9 to 16 in race 2, through 81 to 88 in race 11. All 88
+   numbers are sold; the two late sales are 76 "NDCC Juniors" and 80 "NDCC
+   Seniors" (`lib/ndcc-night.ts`). A laptop that saved the earlier eight
+   races of eleven, with nothing run or sold against a lane, moves to the
+   new card on its next load and keeps any names typed since.
+2. **Five race sponsors.** Race 1 Grey Dinos (The Grey Dinos Hcap Stakes),
+   race 5 NDCC Womens team (The Dino-Mite Drag Race Stakes), race 6 John
+   Elliott (The 2-Cent-Jack Stakes), race 7 Troy Whitworth (The Phoenix Gold
+   Cup Stakes) and race 11 Elyod Roof Tiling (The Shiv's Bouffant Stakes).
+3. **The sponsor comes up before each race.** As a race goes from the
+   racecard to the gate, a full-screen slate names the race and its sponsor
+   for seven seconds, or until Start is pressed (`components/RaceSponsorSlate.tsx`).
+   A race nobody sponsored thanks one of the club's sponsors instead, a
+   different one each race.
+4. **The club crest beside every sponsor.** The club teams (Grey Dinos, NDCC
+   Womens team) show the crest and the team's name. Elyod Roof Tiling shows
+   its own logo next to the crest. A sponsor without a logo shows its name
+   next to the crest; no artwork is made up for a name. The same mark is on
+   the racecard, the fence boards, the banner over the line and the winner
+   card. Admin, Setup, Sponsored races has a logo picker per race.
+5. **Safer reset.** "Start a brand new event" saves the night to the
+   on-device archive before clearing it.
+
+## Previous release - the club's night card, smooth camera, chaos to the line (5.5)
 
 For the night of 24 October 2026:
 

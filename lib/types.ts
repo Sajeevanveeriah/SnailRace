@@ -534,6 +534,8 @@ export interface RaceSponsor {
   name: string;
   /** The race's own name, when the sponsor gave it one. */
   title?: string;
+  /** The club sponsor whose logo goes with it (a name from `CLUB_SPONSORS`). None: the name beside the club crest. */
+  logo?: string;
 }
 
 export interface EventState {

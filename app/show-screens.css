@@ -549,3 +549,32 @@
   .ss-screen, .wm { display: none !important; }
 }
 .wm-sponsor-logo { margin-top: calc(var(--u) * 1.6); }
+
+/* ── Race sponsor slate: up as each race comes to the gate ────────────── */
+.rs-slate {
+  --u: min(1vw, 1.7778vh);
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--u) * 3);
+  background: radial-gradient(ellipse at 50% 35%, #1b3253 0%, #0f1e33 55%, #07111e 100%);
+  color: #fff9ed;
+  pointer-events: none;
+  text-align: center;
+}
+.rs-enter { animation: ss-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.rs-leave { animation: ss-out 520ms ease both; }
+.rs-card { display: grid; justify-items: center; gap: calc(var(--u) * 1.4); max-width: calc(var(--u) * 90); }
+.rs-race { margin: 0; font-size: calc(var(--u) * 2.4); font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #f5b700; }
+.rs-of, .rs-snails { color: #fff9ed; opacity: 0.75; font-weight: 700; }
+.rs-title { margin: 0; font-size: calc(var(--u) * 5); line-height: 1.05; font-weight: 900; font-style: italic; }
+.rs-kicker { margin: calc(var(--u) * 0.8) 0 0; font-size: calc(var(--u) * 1.8); font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85; }
+.rs-lockup { display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 3); }
+.rs-crest { width: calc(var(--u) * 20); height: calc(var(--u) * 15); object-fit: contain; filter: drop-shadow(0 calc(var(--u) * 0.4) calc(var(--u) * 1) rgb(0 0 0 / 0.45)); }
+.rs-logo { display: grid; place-items: center; width: calc(var(--u) * 30); height: calc(var(--u) * 15); padding: calc(var(--u) * 1.2); border-radius: calc(var(--u) * 1.2); background: #fff; box-shadow: 0 calc(var(--u) * 0.5) calc(var(--u) * 2) rgb(0 0 0 / 0.45); }
+.rs-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.rs-name { margin: 0; font-size: calc(var(--u) * 6); line-height: 1.05; font-weight: 900; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { .rs-enter, .rs-leave { animation: none; } }
+.calm .rs-enter, .calm .rs-leave { animation: none; }
