@@ -20,13 +20,21 @@ export const sponsorArt = (name: string, logo?: string) => {
   return isClubTeam(name) ? null : raceSponsorArt(name, pick);
 };
 
-/** The badge alone, as SVG content in a 100 x 116 box. Used inline on the track's boards and banner. */
+/** The badge's width in its 116-tall box: the crest alone, or the crest with the sponsor's logo beside it. */
+export const sponsorBadgeWidth = (name: string, logo?: string): number => (sponsorArt(name, logo) ? 216 : 100);
+
+/** The badge alone, as SVG content in a sponsorBadgeWidth x 116 box. Used inline on the track's boards and banner. */
 export function SponsorBadge({ name, logo }: { name: string; logo?: string }) {
   const art = sponsorArt(name, logo);
   return (
     <g>
-      <rect x="0" y="0" width="100" height="116" rx="12" fill="#fffaf0" />
-      <image href={art?.src ?? CLUB_LOGO.src} x="6" y="8" width="88" height="100" preserveAspectRatio="xMidYMid meet" />
+      <image href={CLUB_LOGO.src} x="0" y="8" width="100" height="100" preserveAspectRatio="xMidYMid meet" />
+      {art ? (
+        <g>
+          <rect x="108" y="4" width="108" height="108" rx="10" fill="#fff" />
+          <image href={art.src} x="114" y="10" width="96" height="96" preserveAspectRatio="xMidYMid meet" />
+        </g>
+      ) : null}
     </g>
   );
 }
