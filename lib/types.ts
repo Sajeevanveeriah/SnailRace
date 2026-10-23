@@ -423,6 +423,8 @@ export interface RaceHistoryEntry {
   /** Snail number per lane, when the field was not a run of numbers (a winners' run-off). */
   snails?: number[];
   laps?: number;
+  /** How long the straight was, in metres, when it was not the standard ten. */
+  metres?: number;
   surprises?: boolean;
   trackShape?: 'lanes' | 'circuit';
   courseId?: CourseId;

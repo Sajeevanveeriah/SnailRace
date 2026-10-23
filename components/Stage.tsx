@@ -1,5 +1,6 @@
 'use client';
 
+import { raceMetres } from './sidescroller-geometry';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModeratorDesk } from './ModeratorDesk';
@@ -177,6 +178,13 @@ export function Stage() {
     [event.raceSponsors, event.sponsors, nextRaceNo],
   );
   const sponsor = sponsorInfo.name;
+  /* The shown race's sponsor: the race on the track may be the one just run. */
+  const shownSponsor = useMemo(
+    () => resolveRaceSponsor(event.raceSponsors, event.sponsors, shownRaceNo),
+    [event.raceSponsors, event.sponsors, shownRaceNo],
+  );
+  /* How long the straight on screen is: the held race's, the finished race's, or the next one's. */
+  const shownMetres = finishedEntry?.metres ?? raceMetres(event.heldRaceStart?.plan.durationMs ?? finishedEntry?.durationMs ?? nextSettings.durationMs, event.snailSpeed);
 
   /** Stripe is authoritative for cards; the cash tin lives on this device. */
   const allDonations: Donation[] = useMemo(
@@ -333,6 +341,7 @@ export function Stage() {
         seedHex: drawn.seedHex,
         fieldSize: armed?.config.fieldSize ?? names.length,
         durationMs: armed?.config.durationMs ?? nextSettings.durationMs,
+        metres: raceMetres(armed?.config.durationMs ?? nextSettings.durationMs, event.snailSpeed),
         at: finishedAt,
         results,
         potCents: raceDonationCents,
@@ -1484,7 +1493,7 @@ export function Stage() {
                   courseId={activeCourse.id}
                   fullCourse={fullCourse || event.cameraMode === 'full'}
                   onCourseViewChange={setCameraFull}
-                  sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
+                  sponsor={shownSponsor.name}
                   toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                   numberOffset={shownOffset}
                   numbers={shownNumbers}
@@ -1503,8 +1512,10 @@ export function Stage() {
                 cameraMode={event.cameraMode}
                 fullCourse={fullCourse || event.cameraMode === 'full'}
                 onCourseViewChange={setCameraFull}
-                sponsor={event.showPhase === 'results' ? (event.history[0]?.sponsor ?? sponsor) : sponsor}
+                sponsor={shownSponsor.name}
+                sponsorTitle={shownSponsor.title}
                 sponsors={event.sponsors}
+                metres={shownMetres}
                 toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
                 numberOffset={shownOffset}
                 numbers={shownNumbers}

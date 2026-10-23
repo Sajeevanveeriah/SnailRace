@@ -20,7 +20,8 @@ import { nightRaceType } from '@/lib/run-sheet';
 import type { usePhonePlay } from '@/lib/use-phone-play';
 import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
-import { QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, laneColour } from '@/lib/palette';
+import { QUICK_AMOUNTS_CENTS, RACE_LENGTHS, SNAIL_SPEEDS, STAGE_THEMES, laneColour } from '@/lib/palette';
+import { raceMetres } from './sidescroller-geometry';
 import { LAP_LEN } from '@/lib/broadcast';
 import { standingsFrom } from '@/lib/standings';
 import { resolveRaceSponsor } from '@/lib/ndcc-night';
@@ -875,6 +876,22 @@ export function ControlDrawer({
                   </select>
                 </label>
 
+                <label className="fld">
+                  <span>Snail speed</span>
+                  <select
+                    value={event.snailSpeed}
+                    disabled={locked}
+                    onChange={(e) => setState({ snailSpeed: Number(e.target.value) })}
+                  >
+                    {SNAIL_SPEEDS.some((o) => o.value === event.snailSpeed) ? null : <option value={event.snailSpeed}>{event.snailSpeed}x</option>}
+                    {SNAIL_SPEEDS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <span className="text-[12px] font-normal leading-snug text-(--tx)/60">
+                    The race length is a time. The track is as long as the snails cover in it: a {raceLength} race at this speed is a {raceMetres(event.raceDurationMs, event.snailSpeed)} m straight{anyCircuit ? `, or ${Math.max(1, Math.round(laps * event.snailSpeed))} ${Math.max(1, Math.round(laps * event.snailSpeed)) === 1 ? 'lap' : 'laps'} of a circuit` : ''}.
+                  </span>
+                </label>
                 {anyCircuit ? (
                   <label className="fld">
                     <span>Laps</span>

@@ -214,6 +214,7 @@ export function ReplayPlayer({
             courseId={entry.courseId ?? entry.racePlan?.courseId ?? courseForRace(entry.raceNo).id}
             numberOffset={entry.snailOffset ?? 0}
             numbers={entry.snails}
+            sponsor={entry.sponsor}
             replay
           />
         ) : (
@@ -226,6 +227,8 @@ export function ReplayPlayer({
             raceNo={entry.raceNo}
             numberOffset={entry.snailOffset ?? 0}
             numbers={entry.snails}
+            metres={entry.metres}
+            sponsor={entry.sponsor}
             replay
           />
         )}

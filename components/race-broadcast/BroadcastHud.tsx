@@ -251,13 +251,21 @@ function RunnerTower({
         if (cell.textContent !== text) cell.textContent = text;
       });
     }
+  }, [signature, gate, final, live]);
+  /* The rows' heights depend on how many there are and which board this is,
+     never on their order: refit when those change, not on every overtake,
+     which read layout several times a frame in a busy race. */
+  const rowCount = shown.length;
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
     let fit = 1;
     el.style.setProperty('--fit', '1');
     while (el.scrollHeight > el.clientHeight + 1 && fit > 0.7) {
       fit -= 0.05;
       el.style.setProperty('--fit', fit.toFixed(2));
     }
-  }, [signature, gate, final, live]);
+  }, [rowCount, gate, final]);
 
   return (
     <aside
