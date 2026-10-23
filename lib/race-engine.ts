@@ -1361,16 +1361,32 @@ export function intensityLabel(intensity: IntensityId): string {
   return `${names[intensity]} (${min} to ${max}${gentle} twists a race)`;
 }
 
+/**
+ * The levels whose twists run deep into the run home: nobody is safe until
+ * the line. At these levels an ordinary twist may land with the leader about
+ * nine tenths home, and the "at the post" card lands later still.
+ */
+export const LATE_LEVELS: readonly IntensityId[] = ['big', 'chaos', 'mayhem'];
+
+/** Where the hit before an "at the post" card must be done by, as a share of the race. */
+const postFloor = (late: boolean): number => (late ? 0.9 : 0.86);
+
 /** The window of the race an ordinary twist may hit in. */
-function hitWindow(durationMs: number, withPost: boolean): { from: number; to: number } {
+function hitWindow(durationMs: number, withPost: boolean, late = false): { from: number; to: number } {
   const from = Math.max(TWIST_WARNING_MS + 400, Math.round(durationMs * 0.12));
-  /* Ordinary twists are over before the last 15%, which belongs to the
-     leaders and the run home. A short race keeps the middle of the race. */
-  let to = Math.min(
-    Math.round(durationMs * 0.8),
-    Math.max(Math.round(durationMs * 0.85) - TWIST_HOLD_MS - TWIST_GAP_MS, Math.round(durationMs * 0.6)),
-  );
-  if (withPost) to = Math.min(to, Math.round(durationMs * 0.86) - TWIST_SPACING_MS);
+  /* Ordinary twists are over before the last 15% at the gentler levels,
+     which leaves the run home to the leaders; at the wild levels they run
+     to the last 8%. A short race keeps the middle of the race. */
+  let to = late
+    ? Math.min(
+        Math.round(durationMs * 0.88),
+        Math.max(Math.round(durationMs * 0.92) - TWIST_HOLD_MS - TWIST_GAP_MS, Math.round(durationMs * 0.6)),
+      )
+    : Math.min(
+        Math.round(durationMs * 0.8),
+        Math.max(Math.round(durationMs * 0.85) - TWIST_HOLD_MS - TWIST_GAP_MS, Math.round(durationMs * 0.6)),
+      );
+  if (withPost) to = Math.min(to, Math.round(durationMs * postFloor(late)) - TWIST_SPACING_MS);
   return { from, to };
 }
 
@@ -1388,12 +1404,14 @@ export const twistCapacity = (durationMs: number): number => slotsIn(hitWindow(d
 export function twistRange(intensity: IntensityId, durationMs: number): { min: number; max: number } {
   const range = INTENSITY_RANGES[intensity] ?? INTENSITY_RANGES.standard;
   const cap = twistCapacity(durationMs);
-  return { min: Math.min(range.min, cap), max: Math.min(range.max, cap) };
+  /* A race longer than a minute keeps the level's rate: twice as long, twice the twists. */
+  const k = Math.max(1, durationMs / 60_000);
+  return { min: Math.min(Math.round(range.min * k), cap), max: Math.min(Math.round(range.max * k), cap) };
 }
 
 /** Chance that a race at this level ends with an "at the post" card. */
 const POST_CHANCE: Record<IntensityId, number> = {
-  calm: 0, standard: 0.2, big: 0.3, chaos: 0.4, mayhem: 0.5,
+  calm: 0, standard: 0.3, big: 0.55, chaos: 0.8, mayhem: 0.95,
 };
 
 /**
@@ -2272,6 +2290,7 @@ function planTwists(ctx: TwistContext): TwistBuild {
   const pickRnd = mulberry32((ctx.seed ^ 0x4445434b ^ salt) >>> 0);
   const retirementRnd = mulberry32(ctx.seed ^ 0x52455431);
 
+  const late = LATE_LEVELS.includes(intensity);
   const range = twistRange(intensity, durationMs);
   const count = range.min + Math.floor(countRnd() * (range.max - range.min + 1));
   if (count <= 0) return { events, captions, complete: true };
@@ -2289,11 +2308,11 @@ function planTwists(ctx: TwistContext): TwistBuild {
     durationMs >= DECK_MIN_DURATION_MS &&
     postCards.length > 0 &&
     !(retiring && count === 1) &&
-    slotsIn(hitWindow(durationMs, true)) + 1 >= count &&
+    slotsIn(hitWindow(durationMs, true, late)) + 1 >= count &&
     countRnd() < POST_CHANCE[intensity];
   const ordinary = count - (postWanted ? 1 : 0);
 
-  const window = hitWindow(durationMs, postWanted);
+  const window = hitWindow(durationMs, postWanted, late);
   const slack = Math.max(0, window.to - window.from - (ordinary - 1) * TWIST_SPACING_MS);
   const offsets = Array.from({ length: ordinary }, () => Math.round(timeRnd() * slack)).sort((a, b) => a - b);
   const times = offsets.map((offset, index) => window.from + offset + index * TWIST_SPACING_MS);
@@ -2377,7 +2396,7 @@ function planTwists(ctx: TwistContext): TwistBuild {
 
   for (let slot = 0; slot < times.length; slot++) {
     const at = times[slot];
-    const nextHit = slot + 1 < times.length ? times[slot + 1] : postWanted ? Math.round(durationMs * 0.86) : at;
+    const nextHit = slot + 1 < times.length ? times[slot + 1] : postWanted ? Math.round(durationMs * postFloor(late)) : at;
     const mustFinishAfter = nextHit + TWIST_REVEAL_MS + ctx.commentaryDelayMs + 400;
 
     if (slot === retireSlot) {

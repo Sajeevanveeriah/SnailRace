@@ -66,7 +66,10 @@ test('the twist ranges are the ones Admin states, and short races get fewer', ()
   assert.equal(twistCapacity(60_000), 7);
   assert.ok(twistCapacity(90_000) >= 8);
   for (const level of LEVELS) {
-    assert.deepEqual(twistRange(level, 120_000), INTENSITY_RANGES[level]);
+    /* A minute shows the level's range, as far as a minute fits it; two minutes keep the rate. */
+    const base = INTENSITY_RANGES[level];
+    assert.deepEqual(twistRange(level, 60_000), { min: Math.min(base.min, twistCapacity(60_000)), max: Math.min(base.max, twistCapacity(60_000)) });
+    assert.deepEqual(twistRange(level, 120_000), { min: Math.min(base.min * 2, twistCapacity(120_000)), max: Math.min(base.max * 2, twistCapacity(120_000)) });
     for (const durationMs of LENGTHS) {
       const range = twistRange(level, durationMs);
       assert.ok(range.min <= range.max && range.max <= twistCapacity(durationMs));
@@ -278,4 +281,17 @@ test('the Admin labels and paragraph say exactly what the planner does', async (
   assert.equal(twistCapacity(30_000), 4);
   assert.equal(twistCapacity(40_000), 5);
   assert.equal(twistCapacity(60_000), 7);
+});
+
+test('at the wild levels a twist can still land in the run home, and a long race carries more of them', () => {
+  let late = 0;
+  let total = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const plan = drawLockedRacePlan(seed, Array.from({ length: 11 }, (_, i) => `Snail ${i + 1}`), 30_000, true, 'mayhem', 1, 'lanes');
+    total += 1;
+    if (plan.events.some((event) => event.effectAtMs >= plan.stopAtMs * 0.85)) late += 1;
+  }
+  assert.ok(late / total >= 0.6, `only ${late} of ${total} mayhem races had a twist in the last 15%`);
+  const long = drawLockedRacePlan(7, Array.from({ length: 11 }, (_, i) => `Snail ${i + 1}`), 180_000, true, 'chaos', 1, 'lanes');
+  assert.ok(long.events.length >= 10, `a three minute chaos race dealt ${long.events.length}`);
 });
