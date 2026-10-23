@@ -1708,8 +1708,9 @@
 .side-broadcast .tv-snail-sprite { animation: none; transform: none; }
 
 /* The snails. */
-.side-broadcast .side-runner-chip.racing .side-stalks { animation: side-stalks 1.6s ease-in-out infinite; transform-origin: 150px -44px; }
-.side-broadcast .side-runner-chip.racing .side-foot { animation: side-foot 0.9s ease-in-out infinite; transform-origin: 0 0; }
+/* A runner's own wiggle repaints its layer every frame, so only the runners a twist is acting on wiggle; the rest bob on the compositor (see place() in Sidescroller). */
+.side-broadcast .side-runner-chip.racing .tv-runner:is(.fx-up, .fx-down, .featured, .finished) .side-stalks { animation: side-stalks 1.6s ease-in-out infinite; transform-origin: 150px -44px; }
+.side-broadcast .side-runner-chip.racing .tv-runner:is(.fx-up, .featured) .side-foot { animation: side-foot 0.9s ease-in-out infinite; transform-origin: 0 0; }
 @keyframes side-stalks { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
 @keyframes side-foot { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(1.06) translateX(-8px); } }
 .side-broadcast .side-speed { opacity: 0; }
@@ -1959,3 +1960,16 @@
 .course-prop-glyph.is-idle { animation: pa-idle .7s ease-in-out infinite alternate; }
 @keyframes pa-idle { from { transform: translate(0, 0) scale(1); } to { transform: translate(0, -4px) scale(1.05, .96); } }
 .race-motion-reduced .course-prop-glyph, .race-motion-reduced .course-prop-glyph * { animation: none !important; }
+
+/* ── The commentary caption: a small corner caption over the sky, not a banner over the race (side-on). ── */
+.race-broadcast.course-broadcast.side-broadcast .course-scene { top: calc(var(--side-top) + var(--side-gap)); }
+.race-broadcast.course-broadcast.side-broadcast .course-director-bar { top: calc(var(--side-top) + var(--side-gap) * 2); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap { inset: auto auto calc(var(--side-strip) + var(--side-gap) * 2 + var(--u) * 0.5) calc(var(--side-edge) + var(--u) * 0.8); width: max-content; max-width: 48%; height: calc(var(--u) * 3); z-index: 12; opacity: .94; border-width: calc(var(--u) * 0.1); border-radius: calc(var(--u) * 0.5); box-shadow: 0 calc(var(--u) * 0.2) calc(var(--u) * 0.8) rgb(0 0 0 / 0.25); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap-badge { padding: 0 calc(var(--u) * 1.2) 0 calc(var(--u) * 0.7); font-size: calc(var(--u) * 0.95); }
+.race-broadcast.course-broadcast.side-broadcast .tv-strap-line { padding: 0 calc(var(--u) * 0.9); font-size: calc(var(--u) * 1.55 * var(--fit, 1)); font-weight: 750; }
+/* Per-frame text and the progress line never relay out the bar around them. */
+.race-broadcast.course-broadcast.side-broadcast .side-progress-fill { width: 100%; transform-origin: 0 50%; transform: scaleX(0); transition: none; will-change: transform; }
+.race-broadcast.course-broadcast.side-broadcast .tv-clock { width: calc(var(--u) * 9.4); justify-content: center; contain: strict; height: calc(var(--u) * 3.3); }
+.race-broadcast.course-broadcast.side-broadcast .side-togo { width: calc(var(--u) * 14); justify-content: center; contain: strict; height: calc(var(--u) * 3.3); }
+.side-broadcast .side-runner-chip, .side-broadcast .side-prop-chip { position: absolute; left: 0; top: 0; overflow: visible; will-change: transform; contain: layout style; pointer-events: none; }
+.side-broadcast .side-chip-art { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; max-height: none; overflow: visible; }

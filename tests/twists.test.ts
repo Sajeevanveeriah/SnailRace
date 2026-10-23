@@ -67,9 +67,9 @@ test('the twist ranges are the ones Admin states, and short races get fewer', ()
   assert.ok(twistCapacity(90_000) >= 8);
   for (const level of LEVELS) {
     /* A minute shows the level's range, as far as a minute fits it; two minutes keep the rate. */
-    const base = INTENSITY_RANGES[level];
-    assert.deepEqual(twistRange(level, 60_000), { min: Math.min(base.min, twistCapacity(60_000)), max: Math.min(base.max, twistCapacity(60_000)) });
-    assert.deepEqual(twistRange(level, 120_000), { min: Math.min(base.min * 2, twistCapacity(120_000)), max: Math.min(base.max * 2, twistCapacity(120_000)) });
+    const levelRange: { min: number; max: number } = INTENSITY_RANGES[level];
+    assert.deepEqual(twistRange(level, 60_000), { min: Math.min(levelRange.min, twistCapacity(60_000)), max: Math.min(levelRange.max, twistCapacity(60_000)) });
+    assert.deepEqual(twistRange(level, 120_000), { min: Math.min(levelRange.min * 2, twistCapacity(120_000)), max: Math.min(levelRange.max * 2, twistCapacity(120_000)) });
     for (const durationMs of LENGTHS) {
       const range = twistRange(level, durationMs);
       assert.ok(range.min <= range.max && range.max <= twistCapacity(durationMs));

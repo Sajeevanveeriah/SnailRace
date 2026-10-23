@@ -117,7 +117,7 @@ const ORDER_FROZEN_MS = 1000;
 /** A glyph is 64 units square, drawn at 6x inside the prop. */
 const GLYPH_UNITS = 64 * 6;
 /** How tall a prop stands, in lanes. */
-const PROP_LANES = 1.35;
+const PROP_LANES = 1.9;
 /** A prop's own layer, in its unscaled units: room for the glyph and for it to swoop, loom and bounce. */
 const PROP_BOX = { x: -720, y: -1000, w: 1440, h: 1240 };
 
@@ -617,7 +617,7 @@ export function Sidescroller({
   const svgRef = useRef<SVGSVGElement>(null);
   const nodesRef = useRef(new Map<number, SVGGElement>());
   const flagNodesRef = useRef(new Map<number, SVGGElement>());
-  const chipsRef = useRef(new Map<number, SVGSVGElement>());
+  const chipsRef = useRef(new Map<number, HTMLDivElement>());
   const chipLayerRef = useRef<HTMLDivElement>(null);
   const layerWrapRefs = useRef<Partial<Record<LayerName, HTMLDivElement | null>>>({});
   /** World units to layer pixels, fixed per screen size so layers paint once. */
@@ -628,8 +628,11 @@ export function Sidescroller({
   const progressRef = useRef(new Map<number, number>());
   /** The twist card's width, measured when it changes rather than read every frame. */
   const cardWidthRef = useRef(0);
+  /** True from the off until the reset: the runners bob while racing. */
+  const racingRef = useRef(false);
   const clockRef = useRef<HTMLSpanElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const fillRef = useRef<HTMLDivElement>(null);
   const toGoRef = useRef<HTMLSpanElement>(null);
   const orderRefs = useRef(new Map<number, HTMLLIElement>());
   const splashRef = useRef<HTMLDivElement>(null);
@@ -685,7 +688,9 @@ export function Sidescroller({
       if (!geo) return x;
       const k = rasterRef.current;
       const chip = chipsRef.current.get(lane);
-      if (chip) chip.style.transform = `translate3d(${((x + CHIP.x - WORLD_X) * k).toFixed(2)}px, ${((geo.y + CHIP.y - LAYER_TOP) * k).toFixed(2)}px, 0)`;
+      /* The slither: a small bob, out of step lane to lane, carried by the same transform that moves the runner. */
+      const bob = racingRef.current && !reduceMotionRef.current ? Math.sin(frameClockMs() / 145 + lane * 1.7) * 7 * geo.scale : 0;
+      if (chip) chip.style.transform = `translate3d(${((x + CHIP.x - WORLD_X) * k).toFixed(2)}px, ${((geo.y + CHIP.y - LAYER_TOP + bob) * k).toFixed(2)}px, 0)`;
       return x;
     };
     /** Put a prop's layer at world (x, y), drawn at `scale`: a transform on the compositor, never a repaint of the track. */
@@ -1041,8 +1046,11 @@ export function Sidescroller({
       if (clockRef.current && clockRef.current.textContent !== clock) clockRef.current.textContent = clock;
       const lead = Math.min(1, Math.max(0, info.leadP));
       if (barRef.current) {
-        barRef.current.style.setProperty('--lead', String(lead));
-        barRef.current.setAttribute('aria-valuenow', String(Math.round(lead * trackRef.current.metres * 10) / 10));
+        /* A transform on the fill alone: a custom property on the bar restyled the whole running-order strip every frame. */
+        const fill = `scaleX(${lead.toFixed(4)})`;
+        if (fillRef.current && fillRef.current.style.transform !== fill) fillRef.current.style.transform = fill;
+        const now = String(Math.round(lead * trackRef.current.metres * 10) / 10);
+        if (barRef.current.getAttribute('aria-valuenow') !== now) barRef.current.setAttribute('aria-valuenow', now);
       }
       if (toGoRef.current) {
         const text = lead >= 1 ? 'FINISH' : `${((1 - lead) * trackRef.current.metres).toFixed(1)} m to go`;
@@ -1143,13 +1151,15 @@ export function Sidescroller({
         orderRefs.current.forEach((el) => { if (Number(el.dataset.rank) <= 3) fitOrderName(el); });
       },
       start: () => {
-        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, svg.side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.add('racing'));
+        racingRef.current = true;
+        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, .side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.add('racing'));
       },
       reset: () => {
+        racingRef.current = false;
         snapshotRef.current = null;
         endFinish();
         paceRef.clear();
-        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, svg.side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.remove('racing'));
+        sceneRef.current?.querySelectorAll('svg.tv, svg.side-layer-art, .side-runner-chip, .side-crowd-phase').forEach((svg) => svg.classList.remove('racing'));
         svgRef.current?.classList.remove('racing', 'gates-open', 'run-home');
         layerWrapRefs.current.crowd?.classList.remove('run-home');
         const w = minW();
@@ -1172,7 +1182,7 @@ export function Sidescroller({
         orderRefs.current.forEach((el) => { if (Number(el.dataset.rank) <= 3) fitOrderName(el); });
         if (clockRef.current) clockRef.current.textContent = '0:00.0';
         if (barRef.current) {
-          barRef.current.style.setProperty('--lead', '0');
+          if (fillRef.current) fillRef.current.style.transform = 'scaleX(0)';
           barRef.current.setAttribute('aria-valuenow', '0');
         }
         if (toGoRef.current) toGoRef.current.textContent = `${trackRef.current.metres.toFixed(1)} m to go`;
@@ -1378,16 +1388,16 @@ export function Sidescroller({
             {/* The props, each on its own small layer under the snails: they move and animate without repainting the track. */}
             {twist
               ? (twist.presentation.cue === 'gate' ? [-1] : twist.propLanes).map((lane) => (
-                  <svg
+                  <div
                     key={`${twist.key}:${lane}`}
                     className="side-prop-chip"
-                    viewBox={`${PROP_BOX.x} ${PROP_BOX.y} ${PROP_BOX.w} ${PROP_BOX.h}`}
                     ref={(node) => {
-                      if (node) propNodesRef.current.set(lane, node as unknown as HTMLElement);
+                      if (node) propNodesRef.current.set(lane, node);
                       else propNodesRef.current.delete(lane);
                     }}
                     aria-hidden="true"
                   >
+                  <svg className="side-chip-art" viewBox={`${PROP_BOX.x} ${PROP_BOX.y} ${PROP_BOX.w} ${PROP_BOX.h}`}>
                     <g
                       className={`course-prop side-prop side-prop-${twist.presentation.cue}`}
                       data-lane={lane}
@@ -1406,18 +1416,20 @@ export function Sidescroller({
                       </g>
                     </g>
                   </svg>
+                  </div>
                 ))
               : null}
             {names.map((name, lane) => (
-              <svg
+              /* An HTML layer carries the runner: moving an <svg> root by transform made the browser lay its insides out again every frame. */
+              <div
                 key={lane}
                 className="side-runner-chip"
-                viewBox={`${CHIP.x} ${CHIP.y} ${CHIP.w} ${CHIP.h}`}
                 ref={(node) => {
                   if (node) chipsRef.current.set(lane, node);
                   else chipsRef.current.delete(lane);
                 }}
               >
+              <svg className="side-chip-art" viewBox={`${CHIP.x} ${CHIP.y} ${CHIP.w} ${CHIP.h}`}>
                 <SnailSprite
                   lane={lane}
                   number={numbers?.[lane] ?? numberOffset + lane + 1}
@@ -1440,6 +1452,7 @@ export function Sidescroller({
                   }}
                 />
               </svg>
+              </div>
             ))}
           </div>
         </div>
@@ -1512,7 +1525,7 @@ export function Sidescroller({
           })}
         </ol>
         <span className="side-flag" aria-hidden="true" />
-        <div className="side-progress-fill" aria-hidden="true" />
+        <div className="side-progress-fill" ref={fillRef} aria-hidden="true" />
       </div>
 
       {showResult ? (

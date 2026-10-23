@@ -548,3 +548,4 @@
 @media print {
   .ss-screen, .wm { display: none !important; }
 }
+.wm-sponsor-logo { margin-top: calc(var(--u) * 1.6); }
