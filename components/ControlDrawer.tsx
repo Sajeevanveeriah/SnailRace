@@ -25,6 +25,7 @@ import { raceMetres } from './sidescroller-geometry';
 import { LAP_LEN } from '@/lib/broadcast';
 import { standingsFrom } from '@/lib/standings';
 import { ndccCard, ndccRaceSponsors, resolveRaceSponsor, withNdccRoster } from '@/lib/ndcc-night';
+import { CLUB_SPONSORS } from '@/lib/club-sponsors';
 import { verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import {
@@ -807,22 +808,30 @@ export function ControlDrawer({
                 <fieldset className="fld">
                   <legend className="text-sm font-medium">Sponsored races</legend>
                   <p className="mt-1 text-[11px] leading-snug text-(--tx)/50">
-                    A sponsor bought for a race goes on its racecard, on the boards along the track, on the banner over the line and on the winner card. Leave a race blank to use the cycled list below.
+                    A sponsor bought for a race comes up full screen as its race goes to the gate, and goes on its racecard, the boards along the track, the banner over the line and the winner card, always beside the club crest. Pick a club sponsor&rsquo;s logo to show it too. Leave a race blank to use the cycled list below.
                   </p>
                   <div className="mt-2 grid gap-1.5">
                     {Array.from({ length: event.plannedRaces }, (_, i) => i + 1).map((raceNo) => {
                       const own = event.raceSponsors.find((r) => r.race === raceNo);
-                      const update = (patch: { name?: string; title?: string }) => {
+                      const update = (patch: { name?: string; title?: string; logo?: string }) => {
                         const name = (patch.name ?? own?.name ?? '').slice(0, 40);
                         const title = (patch.title ?? own?.title ?? '').slice(0, 60);
+                        const logo = patch.logo ?? own?.logo ?? '';
                         const rest = event.raceSponsors.filter((r) => r.race !== raceNo);
-                        setState({ raceSponsors: name.trim() || title.trim() ? [...rest, { race: raceNo, name, ...(title ? { title } : {}) }].sort((x, y) => x.race - y.race) : rest });
+                        setState({ raceSponsors: name.trim() || title.trim() ? [...rest, { race: raceNo, name, ...(title ? { title } : {}), ...(logo ? { logo } : {}) }].sort((x, y) => x.race - y.race) : rest });
                       };
                       return (
-                        <div key={raceNo} className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-2">
+                        <div key={raceNo} className="grid grid-cols-[4.5rem_1fr_1fr_9rem] items-center gap-2">
                           <span className="text-sm font-semibold">Race {raceNo}</span>
                           <input aria-label={`Race ${raceNo} sponsor`} value={own?.name ?? ''} placeholder="Sponsor" maxLength={40} onChange={(e) => update({ name: e.target.value })} />
                           <input aria-label={`Race ${raceNo} race name`} value={own?.title ?? ''} placeholder="Race name (optional)" maxLength={60} onChange={(e) => update({ title: e.target.value })} />
+                          <select aria-label={`Race ${raceNo} sponsor logo`} value={own?.logo ?? ''} disabled={!own} onChange={(e) => update({ logo: e.target.value })}>
+                            <option value="">Logo: automatic</option>
+                            <option value="none">Crest and name only</option>
+                            {CLUB_SPONSORS.map((c) => (
+                              <option key={c.name} value={c.name}>{c.name} logo</option>
+                            ))}
+                          </select>
                         </div>
                       );
                     })}
@@ -834,8 +843,8 @@ export function ControlDrawer({
                       const locked = snailCountLock(event, Boolean(event.heldRaceStart)) !== '';
                       const ok = window.confirm(
                         locked
-                          ? 'Load the NDCC orders of 23 October: snail names and owners for numbers that have no name yet, and the four sponsored races. Races already run or at the gate keep their snails and sponsors.'
-                          : 'Load the NDCC orders of 23 October: the card of 88 snails in eight races of eleven, every name and owner, and the four sponsored races. This replaces the names on the card.',
+                          ? 'Load the NDCC orders of 23 October: snail names and owners for numbers that have no name yet, and the five sponsored races. Races already run or at the gate keep their snails and sponsors.'
+                          : 'Load the NDCC orders of 23 October: the card of 88 snails in eleven races of eight, every name and owner, and the five sponsored races. This replaces the names on the card.',
                       );
                       if (!ok) return;
                       if (locked) {
@@ -1695,11 +1704,18 @@ export function ControlDrawer({
                   onClick={() => {
                     if (
                       ownerWindow().confirm(
-                        'Start a brand new event? This clears the line-up, cash ledger, results and chips on this device. Card donations stay in Stripe.',
+                        'Start a brand new event? The night on this device is saved to the archive first, then the line-up, cash ledger, results and chips are cleared. Card donations stay in Stripe.',
                       )
                     ) {
-                      resetEvent();
-                      say('New event started.');
+                      /* The night going off is kept in the on-device archive first, so a mis-click loses nothing. */
+                      void auditChainSettled()
+                        .then(() => archiveNight(currentState()))
+                        .catch(() => false)
+                        .then(() => {
+                          resetEvent();
+                          setNights(listNights());
+                          say('New event started. The previous night is in the archive on this device.');
+                        });
                     }
                   }}
                 >

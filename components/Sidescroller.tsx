@@ -84,6 +84,8 @@ interface Props {
   sponsor?: string;
   /** The sponsored race's own name, shown on the banner over the line. */
   sponsorTitle?: string;
+  /** The club sponsor whose logo goes with the race sponsor, when one was chosen. */
+  sponsorLogo?: string;
   sponsors?: string[];
   /** How long the straight is, in metres: the snails cover it at the night's pace in the race's time. */
   metres?: number;
@@ -325,17 +327,17 @@ function Crowd({ phase }: { phase: number }) {
 }
 
 /** A fence board: a sponsor's words, squeezed to the board rather than cut off. */
-type FenceBoardContent = string | { src: string } | { sponsor: string };
+type FenceBoardContent = string | { src: string } | { sponsor: string; logo?: string };
 
 /** The race sponsor's banner, over the winning post. */
-function FinishBanner({ sponsor, title }: { sponsor: string; title?: string }) {
+function FinishBanner({ sponsor, title, logo }: { sponsor: string; title?: string; logo?: string }) {
   const text = (title || sponsor).toUpperCase();
   const w = Math.max(620, Math.min(1200, 140 + text.length * 23));
   const sub = title ? `SPONSORED BY ${sponsor.toUpperCase()}` : 'RACE SPONSOR';
   return (
     <g className="side-finish-banner">
       <rect x={-w / 2} y={318} width={w} height={80} rx={12} fill="#0f1e33" stroke="#f5b700" strokeWidth={6} />
-      <svg x={-w / 2 + 10} y={322} width={62} height={72} viewBox="0 0 100 116"><SponsorBadge name={sponsor} /></svg>
+      <svg x={-w / 2 + 10} y={322} width={62} height={72} viewBox="0 0 100 116"><SponsorBadge name={sponsor} logo={logo} /></svg>
       <text x={-w / 2 + 84} y={356} fontSize={32} fontWeight={900} fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 100, text.length * 22)} lengthAdjust="spacingAndGlyphs">{text}</text>
       <text x={-w / 2 + 84} y={386} fontSize={22} fontWeight={800} fontFamily="Arial, sans-serif" fill="#f5b700" letterSpacing={2}>{sub}</text>
     </g>
@@ -349,7 +351,7 @@ function FenceBoard({ x, w, board }: { x: number; w: number; board: FenceBoardCo
     return (
       <g className="side-fence-sponsor">
         <rect x={x} y="436" width={w} height="92" rx="6" fill="#0f1e33" stroke="#f5b700" strokeWidth="4" />
-        <svg x={x + 8} y={440} width={72} height={84} viewBox="0 0 100 116"><SponsorBadge name={board.sponsor} /></svg>
+        <svg x={x + 8} y={440} width={72} height={84} viewBox="0 0 100 116"><SponsorBadge name={board.sponsor} logo={board.logo} /></svg>
         <text x={x + 90} y="496" fontSize="36" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 104, name.length * 26)} lengthAdjust="spacingAndGlyphs">{name}</text>
       </g>
     );
@@ -594,6 +596,7 @@ export function Sidescroller({
   onCourseViewChange,
   sponsor,
   sponsorTitle,
+  sponsorLogo,
   sponsors = [],
   metres = RACE_METRES,
   toteResult,
@@ -672,12 +675,12 @@ export function Sidescroller({
   const fenceLogos = useMemo(() => sponsorsFromRace(raceNo).slice(0, 2), [raceNo]);
   /* The fence boards, on the post grid from behind the stalls to past the post. */
   const fenceBoards = useMemo(() => {
-    const own: FenceBoardContent | undefined = sponsor ? { sponsor } : undefined;
+    const own: FenceBoardContent | undefined = sponsor ? { sponsor, logo: sponsorLogo } : undefined;
     const boards: (FenceBoardContent | undefined)[] = own
       ? [own, signs[1], fenceLogos[0], own, signs[0], fenceLogos[1]]
       : [signs[0], fenceLogos[0], signs[1], fenceLogos[1]];
     return fenceSlots(WORLD_X, WORLD_X + worldBoxOf(track).w).map((slot, i) => ({ ...slot, board: boards[((i % boards.length) + boards.length) % boards.length] }));
-  }, [signs, fenceLogos, sponsor, track]);
+  }, [signs, fenceLogos, sponsor, sponsorLogo, track]);
 
   const painter = useMemo(() => {
     const place = (lane: number, progress: number) => {
@@ -1377,7 +1380,7 @@ export function Sidescroller({
               <rect x="-10" y={TRACK_TOP} width="20" height={trackBottom - TRACK_TOP} fill="#e8262b" />
               <line x1="0" x2="0" y1={TRACK_TOP} y2={trackBottom} stroke="#fff" strokeWidth="6" strokeDasharray="28 28" opacity=".7" />
               <rect x="-8" y="460" width="16" height={TRACK_TOP - 460} fill="#fff" stroke="#2a1a1a" strokeWidth="3" />
-              {sponsor ? <FinishBanner sponsor={sponsor} title={sponsorTitle} /> : null}
+              {sponsor ? <FinishBanner sponsor={sponsor} title={sponsorTitle} logo={sponsorLogo} /> : null}
             </g>
             {twist && twist.field ? (
               <rect key={`band-${twist.key}`} className={`side-band tone-${twist.tone}`} data-phase={twist.phase} x={worldBox.x} width={worldBox.w} y={TRACK_TOP} height={trackBottom - TRACK_TOP} aria-hidden="true" />

@@ -39,6 +39,10 @@ export function WinnerOverlay(props: {
   highlights: RaceHighlight[];
   nextRaceNo: number;
   sponsor: string;
+  /** The sponsored race's own name. */
+  sponsorTitle?: string;
+  /** The club sponsor whose logo goes with the race sponsor. */
+  sponsorLogo?: string;
   /** The card is complete; there is no next race to point the room at. */
   lastRace?: boolean;
   /** Permit-gated cash tote settlement for this race, when the tote was live. */
@@ -76,6 +80,8 @@ function WinnerMoment({
   owners = [],
   nextRaceNo,
   sponsor,
+  sponsorTitle,
+  sponsorLogo,
   lastRace = false,
   tote,
   auction,
@@ -175,7 +181,7 @@ function WinnerMoment({
             <li>{margin}</li>
             {time ? <li className="num">Time {time}</li> : null}
           </ul>
-          {sponsor ? <SponsorLogo className="wm-sponsor-logo" name={sponsor} label="Race sponsor" /> : null}
+          {sponsor ? <SponsorLogo className="wm-sponsor-logo" name={sponsor} title={sponsorTitle} logo={sponsorLogo} label="Race sponsor" /> : null}
           {tote ? (
             <div className="wm-tote" role="note" aria-label="Cash tote dividend">
               <p className="wm-tote-label">CLUB CASH TOTE</p>

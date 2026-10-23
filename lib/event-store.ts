@@ -7,7 +7,7 @@ import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
 import { DEFAULT_CARD, DEFAULT_RACE_TYPE, RACES_ON_CARD, SNAILS_PER_RACE, freshCard, normaliseCard, snailCountLock } from './card';
 import type { CardState } from './card';
-import { NDCC_NIGHT_RACES, NDCC_NIGHT_SNAILS, ndccCard, ndccRaceSponsors, normaliseRaceSponsors } from './ndcc-night';
+import { NDCC_NIGHT_RACES, NDCC_NIGHT_SNAILS, ndccCard, ndccRaceSponsors, normaliseRaceSponsors, upgradeNdccCard, withNdccSponsors } from './ndcc-night';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
@@ -343,6 +343,24 @@ function merge(raw: string | null): EventState {
     const untouched = !card.names.some((name) => name.trim()) && !card.owners.some((owner) => owner.trim());
     const loadOrders = nightPreset() && untouched && !tied && !Object.keys(card.claims).length;
     if (loadOrders) card = { ...ndccCard(), paymentLinkUrl: card.paymentLinkUrl, paymentLinkMinted: card.paymentLinkMinted };
+    /* A night saved with the club's card in eight races of eleven, with
+       nothing run or sold against it, takes the website's eleven races of
+       eight, keeping every name typed since. */
+    /* Cash given straight to the club names no lane, so it does not tie the
+       card to its races; an open fun-chip bet on a lane does. */
+    const tiedToLanes =
+      snailCountLock(
+        {
+          history: live(parsed.history),
+          quaddieEntries: live(parsed.quaddieEntries),
+          toteSales: live(parsed.toteSales),
+          auctionBids: live(parsed.auctionBids),
+          cashLedger: live<{ void?: boolean; lane?: number }>(parsed.cashLedger).filter((d) => Number(d.lane) >= 0),
+        },
+        heldRaceStart !== null,
+      ) !== '' || live<{ void?: boolean; settled?: boolean }>(parsed.bets).some((b) => !b.void && !b.settled);
+    const upgraded = nightPreset() && !tiedToLanes && !loadOrders ? upgradeNdccCard(card) : null;
+    if (upgraded) card = upgraded;
     const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
       ? (parsed.audioMode as AudioMode)
       : parsed.sound === false
@@ -443,7 +461,9 @@ function merge(raw: string | null): EventState {
         : [],
       /* A night saved before per-race sponsors takes the sold ones only when it is this night's card. */
       raceSponsors: Array.isArray(parsed.raceSponsors)
-        ? normaliseRaceSponsors(parsed.raceSponsors)
+        ? upgraded || loadOrders
+          ? withNdccSponsors(normaliseRaceSponsors(parsed.raceSponsors))
+          : normaliseRaceSponsors(parsed.raceSponsors)
         : loadOrders || card.snailCount === NDCC_NIGHT_SNAILS
           ? base.raceSponsors
           : [],

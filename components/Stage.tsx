@@ -19,6 +19,7 @@ import { championField, raceSettings } from '@/lib/run-sheet';
 import { quaddieIsLive } from '@/lib/quaddie';
 import { usePhonePlay } from '@/lib/use-phone-play';
 import { ShowOverlay } from './ShowScreens';
+import { RaceSponsorSlate } from './RaceSponsorSlate';
 import { PackRunner } from './PackRunner';
 import type { LiveShow } from '@/lib/live/store';
 import type {
@@ -61,6 +62,9 @@ import {
   instantiateLockedRace,
   type DrawnRace,
 } from '@/lib/race-engine';
+
+/** How long the race sponsor holds the screen as a race comes to the gate, in ms. */
+const SLATE_MS = 7000;
 
 export function Stage() {
   const event = useEvent();
@@ -184,8 +188,17 @@ export function Stage() {
     /* A race that has run keeps the sponsor it ran under, whatever the setup says now. */
     if (!finishedEntry) return now;
     const name = finishedEntry.sponsor ?? '';
-    return { name, title: name && name === now.name ? now.title : '' };
+    const same = Boolean(name) && name === now.name;
+    return { name, title: same ? now.title : '', logo: same ? now.logo : '' };
   }, [event.raceSponsors, event.sponsors, shownRaceNo, finishedEntry]);
+  /* The winner card's sponsor: the one the race just settled ran under. */
+  const winnerSponsor = useMemo(() => {
+    const entry = event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1);
+    const name = entry?.sponsor ?? '';
+    const now = resolveRaceSponsor(event.raceSponsors, event.sponsors, nextRaceNo - 1);
+    const same = Boolean(name) && name === now.name;
+    return { name, title: same ? now.title : '', logo: same ? now.logo : '' };
+  }, [event.history, event.raceSponsors, event.sponsors, nextRaceNo]);
   /* How long the straight on screen is: the held race's, the finished race's, or the next one's. */
   /* A result from before 5.5 carries no length: those races always ran on the standard straight. */
   const shownMetres = finishedEntry
@@ -1088,6 +1101,51 @@ export function Stage() {
     return () => window.clearTimeout(id);
   }, [race.phase, event.showPhase]);
 
+  /*
+   * The race sponsor comes up full screen as each race reaches the gate:
+   * when the show moves onto the race screen from the racecard (or any
+   * other screen). It holds for SLATE_MS, or until the start is pressed if
+   * that is sooner, then fades. A reload that lands on the race screen does
+   * not replay it.
+   */
+  const [slate, setSlate] = useState<{ raceNo: number; leaving: boolean } | null>(null);
+  const lastPhaseRef = useRef<ShowPhase | null>(null);
+  useEffect(() => {
+    const prev = lastPhaseRef.current;
+    lastPhaseRef.current = event.showPhase;
+    /* Until the saved night is restored the phase is the server's lobby: a
+       reload onto the race screen is recorded silently, never a new arrival. */
+    if (!clientReady || prev === null || prev === event.showPhase || event.showPhase !== 'race') return;
+    if (race.phase !== 'idle' || preparingRace || event.heldRaceStart || nextRaceNo > event.plannedRaces) return;
+    /* Not cancelled by a re-render: the arrival has been recorded above and would not be seen again. */
+    const raceNo = nextRaceNo;
+    window.setTimeout(() => setSlate({ raceNo, leaving: false }), 0);
+  }, [clientReady, event.showPhase, event.plannedRaces, event.heldRaceStart, preparingRace, race.phase, nextRaceNo]);
+  const slateRaceNo = slate?.raceNo ?? null;
+  const slateLeaving = slate?.leaving ?? false;
+  useEffect(() => {
+    if (slateRaceNo === null || slateLeaving) return;
+    const id = window.setTimeout(() => setSlate((s) => (s ? { ...s, leaving: true } : s)), SLATE_MS);
+    return () => window.clearTimeout(id);
+  }, [slateRaceNo, slateLeaving]);
+  useEffect(() => {
+    if (slateRaceNo === null) return;
+    /* Off the race screen, or the start pressed: the slate goes, so the room sees the line-up and the countdown. */
+    const gone = event.showPhase !== 'race' || preparingRace || race.phase !== 'idle';
+    if (gone && !slateLeaving) {
+      const id = window.setTimeout(() => setSlate((s) => (s ? { ...s, leaving: true } : s)), 0);
+      return () => window.clearTimeout(id);
+    }
+    if (!slateLeaving) return;
+    const id = window.setTimeout(() => setSlate(null), 520);
+    return () => window.clearTimeout(id);
+  }, [slateRaceNo, slateLeaving, event.showPhase, preparingRace, race.phase]);
+  const slateSponsor = useMemo(
+    () => (slateRaceNo === null ? null : resolveRaceSponsor(event.raceSponsors, event.sponsors, slateRaceNo)),
+    [slateRaceNo, event.raceSponsors, event.sponsors],
+  );
+  const slateSettings = useMemo(() => (slateRaceNo === null ? null : raceSettings(event, slateRaceNo)), [slateRaceNo, event]);
+
   /* ── Phone Play: the room on its own devices ─────────────────────────── */
 
   const liveShow = useMemo<LiveShow>(() => {
@@ -1520,6 +1578,7 @@ export function Stage() {
                 onCourseViewChange={setCameraFull}
                 sponsor={shownSponsor.name}
                 sponsorTitle={shownSponsor.title}
+                sponsorLogo={shownSponsor.logo}
                 sponsors={event.sponsors}
                 metres={shownMetres}
                 toteResult={event.history.find((h) => !h.void && h.raceNo === event.raceNumber)?.tote ?? null}
@@ -1630,6 +1689,17 @@ export function Stage() {
         </main>
       </div>
 
+      {slate && slateSponsor && slateSettings ? (
+        <RaceSponsorSlate
+          raceNo={slate.raceNo}
+          plannedRaces={slateSettings.runOff ? 0 : event.plannedRaces}
+          raceLabel={slateSettings.title}
+          snails={slateSettings.runOff || !slateSettings.snails.length ? '' : `Snails ${slateSettings.snails[0]} to ${slateSettings.snails[slateSettings.snails.length - 1]}`}
+          sponsor={slateSponsor}
+          leaving={slate.leaving}
+        />
+      ) : null}
+
       <ShowOverlay
         event={event}
         nightCents={nightCents}
@@ -1715,7 +1785,9 @@ export function Stage() {
         nextRaceNo={nextRaceNo}
         card={event.card}
         entry={event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1)}
-        sponsor={event.history[0]?.sponsor ?? ''}
+        sponsor={winnerSponsor.name}
+        sponsorTitle={winnerSponsor.title}
+        sponsorLogo={winnerSponsor.logo}
         lastRace={racesRun >= event.plannedRaces}
         calm={event.calm}
         tote={event.history.find((h) => !h.void && h.raceNo === nextRaceNo - 1)?.tote}

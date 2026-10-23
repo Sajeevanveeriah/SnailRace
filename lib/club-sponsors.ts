@@ -40,3 +40,22 @@ export function sponsorsFromRace(raceNo: number): ClubSponsor[] {
   const start = (((Math.floor(raceNo) - 1) * 3) % n + n) % n;
   return [...CLUB_SPONSORS.slice(start), ...CLUB_SPONSORS.slice(0, start)];
 }
+
+const key = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+/** A club sponsor by name, ignoring case and punctuation. */
+export const clubSponsorNamed = (name: string | undefined): ClubSponsor | null => {
+  const k = key(name ?? '');
+  return k ? (CLUB_SPONSORS.find((s) => key(s.name) === k) ?? null) : null;
+};
+
+/**
+ * The logo that goes with a race sponsor: the club sponsor chosen for it,
+ * else the club sponsor of the same name, else none (the name is shown).
+ * "none" asks for the crest and the name only.
+ */
+export const raceSponsorArt = (name: string, logo?: string): ClubSponsor | null => {
+  const pick = logo?.trim() ?? '';
+  if (pick.toLowerCase() === 'none') return null;
+  return pick ? clubSponsorNamed(pick) : clubSponsorNamed(name);
+};

@@ -6,26 +6,25 @@ export type { RaceSponsor } from './types';
 /**
  * The NDCC snail racing night of 24 October 2026, as sold on ndcc.com.au.
  *
- * Taken from the club's orders export of 23 October 2026
- * (20261023-NDCC-All-Orders-event-Snail-Racing-Rev01.csv): every snail
- * number with the name its buyer gave it and the buyer's name as the owner,
- * and the four races that were sponsored. Contact details are not copied.
- * Numbers 76 and 80 were not sold and run as "Snail 76" and "Snail 80".
+ * Taken from the club website's order records as they stood at 22:00 on
+ * 23 October 2026 (AEDT): every snail number with the name its buyer gave it
+ * and the buyer's name as the owner, and the five races that were sponsored.
+ * All 88 numbers are sold. Contact details are not copied.
  *
- * The card is eight races of eleven (snails 1 to 11 in race 1, 12 to 22 in
- * race 2, and so on), so the sponsored race numbers the website sold (1, 5,
- * 6 and 7 of eight) are the races that carry those sponsors on the night.
- * Everything here can be changed on the desk or in Admin; this is only the
- * starting point a fresh night (or Admin, Setup, "Load the NDCC orders")
- * takes.
+ * The card is eleven races of eight (snails 1 to 8 in race 1, 9 to 16 in
+ * race 2, and so on), the card the website sold, so the sponsored race
+ * numbers the website sold (1, 5, 6, 7 and 11) are the races that carry
+ * those sponsors on the night. Everything here can be changed on the desk
+ * or in Admin; this is only the starting point a fresh night (or Admin,
+ * Setup, "Load the NDCC orders") takes.
  */
 
 export const NDCC_NIGHT_SNAILS = 88;
-export const NDCC_NIGHT_RACES = 8;
-export const NDCC_NIGHT_RUNNERS = 11;
+export const NDCC_NIGHT_RACES = 11;
+export const NDCC_NIGHT_RUNNERS = 8;
 /** Snails sold for $10 each on the website. */
 export const NDCC_NIGHT_SNAIL_CENTS = 1000;
-/** The date of the orders export the roster was taken from. */
+/** The date the roster was taken from the website's order records. */
 export const NDCC_ROSTER_DATE = '2026-10-23';
 
 /** [number, snail name, owner]. */
@@ -105,9 +104,11 @@ const ROSTER: ReadonlyArray<readonly [number, string, string]> = [
   [73, 'pommy', 'Huey Nield'],
   [74, 'english takeover', 'Huey Nield'],
   [75, 'Crows', 'Freddie Norridge'],
+  [76, 'NDCC Juniors', 'Sajeevan Veeriah'],
   [77, 'SnailerSwift', 'Matthew Grills'],
   [78, 'Cal Brownlie', 'Nathan Keevil'],
   [79, 'Harv', 'Nathan Keevil'],
+  [80, 'NDCC Seniors', 'Sajeevan Veeriah'],
   [81, 'ZacSnailey', 'Matthew Grills'],
   [82, 'Ricky Bobby', 'Aaron Cox'],
   [83, 'Frank', "Tyler O'Neill"],
@@ -120,14 +121,37 @@ const ROSTER: ReadonlyArray<readonly [number, string, string]> = [
 
 /**
  * The sponsored races. Race 5 was bought by Ruby Moreland for the NDCC
- * women; the club asked for it to read "NDCC Womens".
+ * women and reads "NDCC Womens team"; race 1 is the Grey Dinos. Both are
+ * club teams, so they wear the club crest. Race 11 was bought by Elyod Roof
+ * Tiling, one of the club's sponsors, and shows its logo beside the crest.
+ * A sponsor with no logo of its own (John Elliott, Troy Whitworth) shows its
+ * name beside the crest.
  */
 export const NDCC_RACE_SPONSORS: readonly RaceSponsor[] = [
   { race: 1, name: 'Grey Dinos', title: 'The Grey Dinos Hcap Stakes' },
-  { race: 5, name: 'NDCC Womens', title: 'The Dino-Mite Drag Race Stakes' },
+  { race: 5, name: 'NDCC Womens team', title: 'The Dino-Mite Drag Race Stakes' },
   { race: 6, name: 'John Elliott', title: 'The 2-Cent-Jack Stakes' },
   { race: 7, name: 'Troy Whitworth', title: 'The Phoenix Gold Cup Stakes' },
+  { race: 11, name: 'Elyod Roof Tiling', title: "The Shiv's Bouffant Stakes", logo: 'Elyod Roof Tiling' },
 ];
+
+/**
+ * The sponsor list an earlier build loaded (8 races of 11, four sponsors).
+ * A saved night still carrying exactly this list takes the current one.
+ */
+const NDCC_RACE_SPONSORS_V1 = [
+  'Grey Dinos|The Grey Dinos Hcap Stakes|1',
+  'NDCC Womens|The Dino-Mite Drag Race Stakes|5',
+  'John Elliott|The 2-Cent-Jack Stakes|6',
+  'Troy Whitworth|The Phoenix Gold Cup Stakes|7',
+].join(';');
+
+const sponsorKey = (list: readonly RaceSponsor[]): string =>
+  list.map((s) => `${s.name}|${s.title ?? ''}|${s.race}`).join(';');
+
+/** True when a saved sponsor list is the one an earlier build loaded, untouched. */
+export const isPreviousNdccSponsors = (list: readonly RaceSponsor[]): boolean =>
+  sponsorKey(list) === NDCC_RACE_SPONSORS_V1;
 
 /** Names and owners per snail number, index 0 is snail 1, blank where unsold. */
 export function ndccRoster(count = NDCC_NIGHT_SNAILS): { names: string[]; owners: string[] } {
@@ -141,7 +165,7 @@ export function ndccRoster(count = NDCC_NIGHT_SNAILS): { names: string[]; owners
   return { names, owners };
 }
 
-/** The night's card: eight races of eleven with the roster filled in. */
+/** The night's card: eleven races of eight with the roster filled in. */
 export function ndccCard(): CardState {
   const card = freshCard();
   const { names, owners } = ndccRoster();
@@ -177,6 +201,36 @@ export function withNdccRoster(card: CardState, overwrite = false, keep: Readonl
   return next;
 }
 
+/**
+ * A card saved by the earlier build, still in its eight races of eleven,
+ * as the website's eleven races of eight: the same 88 numbers, every name
+ * and owner typed since kept, the two late sales (76 and 80) filled in
+ * where blank, and each race's own settings kept by race number. Null when
+ * the card is not that shape. Only for a card nothing has run or sold
+ * against; the caller checks that.
+ */
+export function upgradeNdccCard(card: CardState): CardState | null {
+  if (card.snailCount !== NDCC_NIGHT_SNAILS || card.races.length !== 8) return null;
+  if (card.races.some((r) => r.runners !== 11 || r.field?.length)) return null;
+  const races = Array.from({ length: NDCC_NIGHT_RACES }, (_, i) => {
+    const { runners: _runners, custom: _custom, field: _field, ...settings } = card.races[i] ?? { runners: NDCC_NIGHT_RUNNERS };
+    return { ...settings, runners: NDCC_NIGHT_RUNNERS };
+  });
+  return withNdccRoster({ ...card, snailsPerRace: NDCC_NIGHT_RUNNERS, races });
+}
+
+/**
+ * A saved night's race sponsors brought up to the website's: the list an
+ * earlier build loaded is replaced outright; a list edited by hand keeps
+ * every race it names and gains the sold sponsors of races it leaves out
+ * (race 11's Elyod Roof Tiling, for one).
+ */
+export function withNdccSponsors(saved: readonly RaceSponsor[]): RaceSponsor[] {
+  if (isPreviousNdccSponsors(saved)) return ndccRaceSponsors();
+  const named = new Set(saved.map((s) => s.race));
+  return [...saved.map((s) => ({ ...s })), ...ndccRaceSponsors().filter((s) => !named.has(s.race))].sort((a, b) => a.race - b.race);
+}
+
 /** Clean a race sponsor list from storage: one per race, trimmed, bounded. */
 export function normaliseRaceSponsors(value: unknown): RaceSponsor[] {
   if (!Array.isArray(value)) return [];
@@ -190,7 +244,8 @@ export function normaliseRaceSponsors(value: unknown): RaceSponsor[] {
     if (!Number.isSafeInteger(race) || race < 1 || race > 40 || !name || seen.has(race)) continue;
     seen.add(race);
     const title = typeof v.title === 'string' ? v.title.replace(/\s+/g, ' ').trim().slice(0, 60) : '';
-    out.push(title ? { race, name, title } : { race, name });
+    const logo = typeof v.logo === 'string' ? v.logo.trim().slice(0, 60) : '';
+    out.push({ race, name, ...(title ? { title } : {}), ...(logo ? { logo } : {}) });
   }
   return out.sort((a, b) => a.race - b.race);
 }
@@ -201,16 +256,18 @@ export const raceSponsorFor = (list: readonly RaceSponsor[] | undefined, raceNo:
 
 /**
  * Who sponsors a race: its own sponsor when one was sold for it, otherwise
- * the next name from the night's cycled list (with no race name).
+ * the next name from the night's cycled list (with no race name). `logo`
+ * names the club sponsor whose artwork goes with it, when one was chosen.
  */
 export function resolveRaceSponsor(
   raceSponsors: readonly RaceSponsor[] | undefined,
   cycled: readonly string[],
   raceNo: number,
-): { name: string; title: string } {
+): { name: string; title: string; logo: string } {
   const own = raceSponsorFor(raceSponsors, raceNo);
-  if (own) return { name: own.name, title: own.title ?? '' };
+  /* An entry being typed with no sponsor name yet is not a sponsor. */
+  if (own?.name.trim()) return { name: own.name, title: own.title ?? '', logo: own.logo ?? '' };
   const live = cycled.map((s) => s.trim()).filter(Boolean);
-  if (!live.length || raceNo < 1) return { name: '', title: '' };
-  return { name: live[(raceNo - 1) % live.length], title: '' };
+  if (!live.length || raceNo < 1) return { name: '', title: '', logo: '' };
+  return { name: live[(raceNo - 1) % live.length], title: '', logo: '' };
 }
