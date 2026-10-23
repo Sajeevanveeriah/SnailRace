@@ -9,10 +9,14 @@ import type { NextConfig } from 'next';
  *     Pages cannot run server code, so the deploy workflow removes `app/api`
  *     before building and the stage falls back to cash-only mode, saying so
  *     on screen. Card donations need the server shape.
+ *   - Cloudflare Workers static assets (`STATIC_EXPORT=true`): the same
+ *     static export served from the root of its own domain. See
+ *     scripts/deploy-cloudflare.sh.
  *
- * A project site is served under /SnailRace, hence the basePath.
+ * A Pages project site is served under /SnailRace, hence the basePath.
  */
 const isPages = process.env.GITHUB_PAGES === 'true';
+const isStatic = isPages || process.env.STATIC_EXPORT === 'true';
 
 /*
  * The audio engine fetches its optional drop-in files at runtime rather than
@@ -32,10 +36,10 @@ const nextConfig: NextConfig = {
    */
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
-    NEXT_PUBLIC_STATIC_EXPORT: isPages ? '1' : '',
+    NEXT_PUBLIC_STATIC_EXPORT: isStatic ? '1' : '',
     NEXT_PUBLIC_LIVE_API_ORIGIN: process.env.NEXT_PUBLIC_LIVE_API_ORIGIN ?? '',
   },
-  ...(isPages
+  ...(isStatic
     ? {
         output: 'export' as const,
         basePath,
