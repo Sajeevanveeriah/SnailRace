@@ -55,6 +55,9 @@ test('every race sponsor shows the club crest, with a club sponsor’s logo besi
   assert.equal(raceSponsorArt('ELYOD ROOF TILING')?.name, 'Elyod Roof Tiling');
   assert.equal(raceSponsorArt('John Elliott'), null, 'no artwork is made up for a name');
   assert.equal(raceSponsorArt('Troy Whitworth', 'Phoenix Truck Bodies')?.name, 'Phoenix Truck Bodies');
+  /* Troy Whitworth's Phoenix Gold Cup carries the Phoenix Truck Bodies logo on the night card. */
+  const r7 = NDCC_RACE_SPONSORS.find((s) => s.race === 7);
+  assert.equal(raceSponsorArt(r7?.name ?? '', r7?.logo)?.name, 'Phoenix Truck Bodies');
   assert.equal(raceSponsorArt('Elyod Roof Tiling', 'none'), null);
   for (const s of CLUB_SPONSORS) assert.ok(existsSync(join('public', s.src.replace(/^.*?\/sponsors\//, 'sponsors/'))), s.src);
 });
@@ -82,11 +85,16 @@ test('a night saved with the old eight races of eleven takes the eleven races of
     { race: 7, name: 'Troy Whitworth', title: 'The Phoenix Gold Cup Stakes' },
   ]));
   assert.ok(!isPreviousNdccSponsors(NDCC_RACE_SPONSORS));
+  /* The six-sponsor list before race 7 took the Phoenix logo is replaced, so the logo arrives. */
+  const beforePhoenix = NDCC_RACE_SPONSORS.map(({ logo, ...s }) => (s.race === 7 ? s : { ...s, ...(logo ? { logo } : {}) }));
+  assert.ok(isPreviousNdccSponsors(beforePhoenix));
+  assert.equal(withNdccSponsors(beforePhoenix).find((s) => s.race === 7)?.logo, 'Phoenix Truck Bodies');
   /* The list 5.6 shipped (before race 9 was sold) is replaced too. */
-  assert.ok(isPreviousNdccSponsors(NDCC_RACE_SPONSORS.filter((s) => s.race !== 9)));
-  assert.deepEqual(withNdccSponsors(NDCC_RACE_SPONSORS.filter((s) => s.race !== 9)).map((s) => s.race), [1, 5, 6, 7, 9, 11]);
+  const v56 = beforePhoenix.filter((s) => s.race !== 9);
+  assert.ok(isPreviousNdccSponsors(v56));
+  assert.deepEqual(withNdccSponsors(v56).map((s) => s.race), [1, 5, 6, 7, 9, 11]);
   /* A logo changed in Admin is an edit: it is kept while race 9 is added. */
-  const crestOnly = NDCC_RACE_SPONSORS.filter((s) => s.race !== 9).map((s) => (s.race === 11 ? { ...s, logo: 'none' } : s));
+  const crestOnly = v56.map((s) => (s.race === 11 ? { ...s, logo: 'none' } : s));
   assert.ok(!isPreviousNdccSponsors(crestOnly));
   const kept = withNdccSponsors(crestOnly);
   assert.equal(kept.find((s) => s.race === 11)?.logo, 'none');

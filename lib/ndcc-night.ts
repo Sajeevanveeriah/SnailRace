@@ -124,22 +124,24 @@ const ROSTER: ReadonlyArray<readonly [number, string, string]> = [
  * women and reads "NDCC Womens team"; race 1 is the Grey Dinos. Both are
  * club teams, so they wear the club crest. Race 11 was bought by Elyod Roof
  * Tiling, one of the club's sponsors, and shows its logo beside the crest.
- * A sponsor with no logo of its own (John Elliott, Troy Whitworth) shows its
- * name beside the crest.
+ * Race 7, Troy Whitworth's Phoenix Gold Cup, shows the Phoenix Truck Bodies
+ * logo (the club asked for it). A sponsor with no logo of its own (John
+ * Elliott, Laura Hudson) shows its name beside the crest.
  */
 export const NDCC_RACE_SPONSORS: readonly RaceSponsor[] = [
   { race: 1, name: 'Grey Dinos', title: 'The Grey Dinos Hcap Stakes' },
   { race: 5, name: 'NDCC Womens team', title: 'The Dino-Mite Drag Race Stakes' },
   { race: 6, name: 'John Elliott', title: 'The 2-Cent-Jack Stakes' },
-  { race: 7, name: 'Troy Whitworth', title: 'The Phoenix Gold Cup Stakes' },
+  { race: 7, name: 'Troy Whitworth', title: 'The Phoenix Gold Cup Stakes', logo: 'Phoenix Truck Bodies' },
   { race: 9, name: 'Laura Hudson', title: 'The Drunken Stagger Stakes' },
   { race: 11, name: 'Elyod Roof Tiling', title: "The Shiv's Bouffant Stakes", logo: 'Elyod Roof Tiling' },
 ];
 
 /**
  * The sponsor lists earlier builds loaded: 5.5 (8 races of 11, four
- * sponsors) and 5.6 (five sponsors, before race 9 was sold). A saved night
- * still carrying exactly one of these takes the current list.
+ * sponsors), 5.6 (five sponsors, before race 9 was sold) and the six
+ * sponsors before race 7 took the Phoenix logo. A saved night still
+ * carrying exactly one of these takes the current list.
  */
 const PREVIOUS_NDCC_SPONSORS = [
   [
@@ -153,6 +155,14 @@ const PREVIOUS_NDCC_SPONSORS = [
     'NDCC Womens team|The Dino-Mite Drag Race Stakes|5',
     'John Elliott|The 2-Cent-Jack Stakes|6',
     'Troy Whitworth|The Phoenix Gold Cup Stakes|7',
+    "Elyod Roof Tiling|The Shiv's Bouffant Stakes|11|Elyod Roof Tiling",
+  ].join(';'),
+  [
+    'Grey Dinos|The Grey Dinos Hcap Stakes|1',
+    'NDCC Womens team|The Dino-Mite Drag Race Stakes|5',
+    'John Elliott|The 2-Cent-Jack Stakes|6',
+    'Troy Whitworth|The Phoenix Gold Cup Stakes|7',
+    'Laura Hudson|The Drunken Stagger Stakes|9',
     "Elyod Roof Tiling|The Shiv's Bouffant Stakes|11|Elyod Roof Tiling",
   ].join(';'),
 ];
