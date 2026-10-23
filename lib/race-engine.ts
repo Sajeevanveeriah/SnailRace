@@ -3050,22 +3050,23 @@ export function freshSeed(): number {
 
 export const COMMENTARY = {
   early: [
-    '{a} has made the tidy start. {b} is keeping it honest.',
-    '{a} leads them out, antennae down and businesslike.',
-    '{a} has the rail. {b} is close enough to read the shell.',
-    'A clean getaway for {a}. There is a long way to crawl.',
-    '{a} sets the pace. {b} has declined to be impressed.',
+    '{a} with the tidy start, and {b} is right there with it.',
+    '{a} leads them out. {b} tucked in nicely behind.',
+    '{a} has the rail early. {b} is sniffing around.',
+    'Clean getaway for {a}. Long way to go, mind.',
+    '{a} sets the pace. {b} is not impressed one bit.',
   ],
   mid: [
-    '{a} looks settled. That is usually when this stops being sensible.',
-    '{a} and {b} are making a proper race of it now.',
-    '{a} holds the front. {b} is waiting for one bad patch.',
+    '{a} looks settled up front. That never lasts out here.',
+    '{a} and {b} are making a proper race of it now!',
+    '{a} holds the front, {b} just waiting for a slip.',
     'Halfway home, and {a} has {b} for company.',
+    '{a} holds the front. Can {b} find another gear?',
   ],
   late: [
-    '{a} can see the line, which is more than the rest can say.',
-    '{a} needs every millimetre of that lead.',
-    'The room is up. {a} and {b} are still arguing over it.',
+    '{a} can see the line! {b} is throwing everything at it!',
+    '{a} needs every millimetre of that lead now!',
+    '{a} can see the line, and the room is on its feet!',
   ],
 } as const;
 
@@ -3077,25 +3078,28 @@ export const COMMENTARY = {
  * picture does not show.
  */
 export const MARGIN_LINES = [
-  '{a} leads by {g} from {b}.',
-  '{a} has {g} on {b}, with {c} holding third.',
-  '{a} in front. {b} is {g} away and paying attention.',
-  '{a} from {b} by {g}.',
+  '{a} leads by {g}, and {b} is hanging in there.',
+  '{a} by {g} from {b}, with {c} in third.',
+  '{a} still in front, {g} up on {b}.',
+  '{a} from {b} by {g}. Lovely stuff.',
+  '{b} is chasing hard, {g} back from {a}.',
 ] as const;
 
 /** Only when the top two are inside 0.3 seconds of each other. */
 export const TIGHT_LINES = [
   'You could throw a blanket over {a} and {b}!',
-  'Nothing in it! {a} and {b} are locked together!',
-  '{a} and {b}, side by side, neither giving an inch!',
-  '{g} in it between {a} and {b}!',
+  'Nothing in it! {a} and {b}, shell for shell!',
+  '{a} and {b}, side by side! Neither giving an inch!',
+  '{g} in it between {a} and {b}! Cannot split them!',
+  'Side by side, {a} and {b}! This is a cracker!',
 ] as const;
 
 export const CLEAR_LINES = [
   '{a} has broken the elastic! {g} clear!',
-  '{a} is gone. {b} is running for second now.',
-  'That is {g} {a} has put on the field.',
-  '{b} will need a miracle to reel in {a} from {g} back.',
+  '{a} is gone. {b} is racing for second now.',
+  'Look at that, {a} has put {g} on the field!',
+  '{b} will need a miracle to reel in {a} from here.',
+  '{a} is {g} clear! Somebody wake {b} up!',
 ] as const;
 
 /** Kept for the archive; the caller no longer talks about the back of the field. */
@@ -3108,15 +3112,18 @@ export const BACK_MARKER_LINES = [
 /** A runner moving into the top three. Said by name, with the place. */
 export const OVERTAKE_LINES = [
   '{a} goes past {b} and into {n}!',
+  'Lovely move! {a} goes past {b} for {n}!',
+  '{a} takes {n} off {b} and does not look back!',
+  'Cheeky! {a} goes past {b}, up into {n}!',
   '{a} is up to {n}, past {b}!',
-  '{a} takes {n} off {b}!',
 ] as const;
 
 /** The last stretch, quoted in distance rather than in adjectives. */
 export const RUN_HOME_LINES = [
-  '{m} to run and it is {a} by {g}!',
-  'Inside the last {m}! {a} from {b}!',
-  '{m} left, {b} is {g} behind {a}!',
+  '{m} to run and it is {a} by {g}! Come on!',
+  'Inside the last {m}! {a}, with {b} breathing down its shell!',
+  '{m} left, {b} is {g} behind {a} and closing!',
+  'Turns for home! {a} by {g}, {m} to go!',
 ] as const;
 
 /**
@@ -3126,22 +3133,25 @@ export const RUN_HOME_LINES = [
  */
 export const REACTION_LINES = {
   good: [
-    'What a turn of speed!',
-    'That has changed everything!',
-    'The room has come alive!',
-    'You do not see that every day!',
+    'Oh, look at that!',
+    'Where on earth did that come from?',
+    'The crowd loved that one!',
+    'Well, that changes things!',
+    'Go on, little one!',
   ],
   bad: [
-    'That is dreadful timing.',
-    'A small disaster, beautifully executed.',
-    'You have to feel for that snail.',
-    'That has turned a good crawl into paperwork.',
+    'Oh no! Poor thing!',
+    'That has got to hurt.',
+    'Not the timing you want, is it?',
+    'Ouch. Right in the slime.',
+    'You have to feel for that one.',
   ],
   wild: [
-    'What on earth was that?',
-    'Nobody has any idea what just happened!',
-    'The stewards are going to have a look at that one.',
-    'I have never seen that, and I have called a few.',
+    'Well, I did not see that coming!',
+    'What is going on out there?',
+    'Absolute chaos, and I love it!',
+    'Only at Newcomb!',
+    'The stewards will want a look at that!',
   ],
 } as const;
 
@@ -3161,10 +3171,12 @@ export const BELL_LAP_LINES = [
 
 /** Called when the leader changes hands. The loudest line in the book. */
 export const LEAD_CHANGE_LINES = [
+  'And {a} hits the front! {b} had no answer!',
+  '{a} takes the lead! Sorry {b}, not tonight!',
   'New leader! {a} snatches it from {b}!',
-  '{a} goes past {b} and hits the front!',
-  'A new leader, {a} takes it up!',
   '{a} sweeps around {b} and hits the front!',
+  'Here comes {a}! Takes the lead off {b}!',
+  'Look at {a} go! New leader, and {b} is rattled!',
 ] as const;
 
 /**
@@ -3199,7 +3211,7 @@ export const STARTER_LINES = [
 ] as const;
 
 export const WEATHER_LINES: Record<Weather, readonly string[]> = {
-  clear: ['Perfect conditions tonight.', 'A clear night and a fast track.', 'Not a breath of wind out there.'],
+  clear: ['Perfect conditions tonight.', 'A clear night and a fast track.', 'Not a breath of wind out there.', 'Track is lovely and slimy tonight.', 'Deep breaths, everyone.'],
   drizzle: ['Drizzle about, and a greasy track.', 'Light rain, so mind the slime.', 'It is damp out there tonight.'],
   downpour: ['They are racing in a downpour!', 'Rain is bucketing down out there!', 'Wet tonight, slime everywhere!'],
 };
@@ -3269,7 +3281,7 @@ export function trackWording(trackShape: 'lanes' | 'circuit' | undefined, course
 export const hasHomeStraight = (wording: TrackWording): boolean => wording === 'straight' || wording === 'oval';
 
 export const RUN_HOME_BY_TRACK: Record<TrackWording, readonly string[]> = {
-  straight: ['Here they come down the straight! {a} from {b}!', 'Into the straight, and it is {a} from {b}!'],
+  straight: ['Here they come down the straight! {a} from {b}!', 'Into the straight, and it is {a} from {b}!', 'Down the straight they come! {a} hanging on, {b} coming!'],
   oval: ['Into the home straight! {a} from {b}!', 'Here they come down the home straight! {a} leads {b}!'],
   chicane: ['Into the last bend! {a} from {b}!', 'Through the last bend and home! {a} leads {b}!'],
   eight: ['Home stretch! {a} from {b}!', 'Off the crossover and into the home stretch! {a} leads {b}!'],
@@ -3310,6 +3322,7 @@ export function togetherLine(a: string, b: string, rnd: CommentaryRandom = Math.
 /** The winner, and how close it was. */
 export function winnerLine(name: string, onTheLine: boolean): string {
   return fitCaption([
+    `${name} ${onTheLine ? 'wins it on the line! What a finish!' : 'wins! Take a bow!'}`,
     `${name} ${onTheLine ? 'wins it on the line!' : 'wins!'}`,
     `${shortName(name)} ${onTheLine ? 'wins it on the line!' : 'wins!'}`,
   ]);

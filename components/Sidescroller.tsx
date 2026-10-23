@@ -330,15 +330,14 @@ type FenceBoardContent = string | { src: string } | { sponsor: string };
 /** The race sponsor's banner, over the winning post. */
 function FinishBanner({ sponsor, title }: { sponsor: string; title?: string }) {
   const text = (title || sponsor).toUpperCase();
-  const w = Math.max(760, Math.min(1500, 260 + text.length * 30));
+  const w = Math.max(620, Math.min(1200, 140 + text.length * 23));
   const sub = title ? `SPONSORED BY ${sponsor.toUpperCase()}` : 'RACE SPONSOR';
   return (
     <g className="side-finish-banner">
-      <rect x={-12} y={260} width={24} height={150} fill="#2a1a1a" />
-      <rect x={-w / 2} y={236} width={w} height={136} rx={18} fill="#0f1e33" stroke="#f5b700" strokeWidth={8} />
-      <svg x={-w / 2 + 18} y={244} width={104} height={120} viewBox="0 0 100 116"><SponsorBadge name={sponsor} /></svg>
-      <text x={-w / 2 + 140} y={300} fontSize={46} fontWeight={900} fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 170, text.length * 31)} lengthAdjust="spacingAndGlyphs">{text}</text>
-      <text x={-w / 2 + 140} y={346} fontSize={30} fontWeight={800} fontFamily="Arial, sans-serif" fill="#f5b700" letterSpacing={3}>{sub}</text>
+      <rect x={-w / 2} y={318} width={w} height={80} rx={12} fill="#0f1e33" stroke="#f5b700" strokeWidth={6} />
+      <svg x={-w / 2 + 10} y={322} width={62} height={72} viewBox="0 0 100 116"><SponsorBadge name={sponsor} /></svg>
+      <text x={-w / 2 + 84} y={356} fontSize={32} fontWeight={900} fontFamily="Arial Black, Arial, sans-serif" fill="#fff" textLength={Math.min(w - 100, text.length * 22)} lengthAdjust="spacingAndGlyphs">{text}</text>
+      <text x={-w / 2 + 84} y={386} fontSize={22} fontWeight={800} fontFamily="Arial, sans-serif" fill="#f5b700" letterSpacing={2}>{sub}</text>
     </g>
   );
 }

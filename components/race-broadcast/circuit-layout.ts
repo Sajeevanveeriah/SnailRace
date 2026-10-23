@@ -46,5 +46,7 @@ export function circuitLayoutFor(width: number, height: number, aspect: number):
   if (!(u > 0) || !(aspect > 0)) return 'top';
   /* The course's height on screen, in units, with the pane starting at `left` and `top`. */
   const course = (left: number, top: number) => Math.min((width / u - left - L.tower - L.gap * 2) / aspect, height / u - top - L.gap);
-  return course(L.side + L.gap * 2, L.sideTop) > course(L.gap, L.sceneTop) * 1.04 ? 'side' : 'top';
+  /* The commentary is a small caption over the course now, so the column beside it would only cost the course width. */
+  void course;
+  return 'top';
 }

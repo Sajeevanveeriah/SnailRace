@@ -353,15 +353,15 @@ test('lane 12 is a dark saturated colour, legible under white numerals and unlik
   }
 });
 
-test('a projector or laptop frame keeps the commentary on top; an ultra-wide window puts it beside the course', () => {
+test('every frame keeps the course full width, with the commentary as a small caption over it', () => {
   /* The Boundary Oval with its start label is about 1.38 wide for each unit high. */
   const oval = 1.38;
   assert.equal(circuitLayoutFor(1920, 1080, oval), 'top');
   assert.equal(circuitLayoutFor(1600, 816, oval), 'top');
   assert.equal(circuitLayoutFor(390, 640, oval), 'top');
   /* A 2000 x 780 browser window less its toolbars and the control bar: short and very wide. */
-  assert.equal(circuitLayoutFor(2000, 631, oval), 'side');
-  assert.equal(circuitLayoutFor(3440, 1350, oval), 'side');
+  assert.equal(circuitLayoutFor(2000, 631, oval), 'top');
+  assert.equal(circuitLayoutFor(3440, 1350, oval), 'top');
   /* Nothing to measure yet: the default layout. */
   assert.equal(circuitLayoutFor(0, 0, oval), 'top');
 });
