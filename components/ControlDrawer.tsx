@@ -14,7 +14,7 @@ import { Preflight } from './Preflight';
 import { RosterPanel } from './RosterPanel';
 import { QuaddieSettingsPanel } from './QuaddiePanel';
 import { AudioModePicker } from './AudioModePicker';
-import { RACE_TYPES, cardLayout, cardRaceNames, describeLayout, raceTitle, snailCountLock } from '@/lib/card';
+import { RACE_TYPES, cardLayout, cardRaceNames, describeLayout, raceTitle, runSheetLocks, snailCountLock, snailsForRace, tiesOf } from '@/lib/card';
 import { RunSheetPanel } from './RunSheetPanel';
 import { nightRaceType } from '@/lib/run-sheet';
 import type { usePhonePlay } from '@/lib/use-phone-play';
@@ -834,11 +834,20 @@ export function ControlDrawer({
                       const locked = snailCountLock(event, Boolean(event.heldRaceStart)) !== '';
                       const ok = window.confirm(
                         locked
-                          ? 'Load the NDCC orders of 23 October: snail names and owners for numbers that have no name yet, and the four sponsored races. Races already run keep their snails.'
+                          ? 'Load the NDCC orders of 23 October: snail names and owners for numbers that have no name yet, and the four sponsored races. Races already run or at the gate keep their snails and sponsors.'
                           : 'Load the NDCC orders of 23 October: the card of 88 snails in eight races of eleven, every name and owner, and the four sponsored races. This replaces the names on the card.',
                       );
                       if (!ok) return;
-                      if (locked) setState({ card: withNdccRoster(event.card), raceSponsors: ndccRaceSponsors() });
+                      if (locked) {
+                        /* A race run or at the gate keeps its snails and its sponsor: its plan and result are sealed. */
+                        const held = runSheetLocks(event.card, tiesOf(event)).filter((l) => l.run || l.armed).map((l) => l.raceNo);
+                        const keep = new Set(held.flatMap((raceNo) => snailsForRace(raceNo, event.card)));
+                        const raceSponsors = [
+                          ...event.raceSponsors.filter((r) => held.includes(r.race)),
+                          ...ndccRaceSponsors().filter((r) => !held.includes(r.race)),
+                        ].sort((x, y) => x.race - y.race);
+                        setState({ card: withNdccRoster(event.card, false, keep), raceSponsors });
+                      }
                       else {
                         const card = { ...ndccCard(), paymentLinkUrl: event.card.paymentLinkUrl, paymentLinkMinted: event.card.paymentLinkMinted };
                         setState({ card, plannedRaces: card.races.length, backingCents: card.snailCents, raceSponsors: ndccRaceSponsors() });

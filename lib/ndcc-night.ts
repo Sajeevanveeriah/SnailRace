@@ -164,11 +164,11 @@ export const ndccRaceSponsors = (): RaceSponsor[] => NDCC_RACE_SPONSORS.map((s) 
  * typed on the desk keep it unless `overwrite`; numbers past the card's
  * count are left for the run sheet to grow into.
  */
-export function withNdccRoster(card: CardState, overwrite = false): CardState {
+export function withNdccRoster(card: CardState, overwrite = false, keep: ReadonlySet<number> = new Set()): CardState {
   const { names, owners } = ndccRoster(card.snailCount);
   const next = { ...card, names: card.names.slice(), owners: card.owners.slice() };
   for (let i = 0; i < card.snailCount; i++) {
-    if (!names[i]) continue;
+    if (!names[i] || keep.has(i + 1)) continue;
     if (overwrite || !next.names[i]?.trim()) {
       next.names[i] = names[i];
       next.owners[i] = owners[i];

@@ -68,3 +68,11 @@ test('on a circuit the snail speed puts more laps in the same race time', () => 
   assert.equal(fast.durationMs, standard.durationMs);
   assert.equal(fast.lapMs * 2, standard.lapMs);
 });
+
+test('loading the orders leaves the snails of a held race alone', () => {
+  const card = { ...ndccCard(), names: [] as string[], owners: [] as string[] };
+  const filled = withNdccRoster(card, false, new Set([1, 2, 3]));
+  assert.equal(filled.names[0] ?? '', '');
+  assert.equal(filled.names[2] ?? '', '');
+  assert.ok(filled.names[3]);
+});
