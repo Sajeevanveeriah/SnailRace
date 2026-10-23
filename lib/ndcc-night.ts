@@ -6,14 +6,14 @@ export type { RaceSponsor } from './types';
 /**
  * The NDCC snail racing night of 24 October 2026, as sold on ndcc.com.au.
  *
- * Taken from the club website's order records as they stood at 22:00 on
- * 23 October 2026 (AEDT): every snail number with the name its buyer gave it
- * and the buyer's name as the owner, and the five races that were sponsored.
+ * Taken from the club website's order records as they stood at 07:20 on
+ * 24 October 2026 (AEDT): every snail number with the name its buyer gave it
+ * and the buyer's name as the owner, and the six races that were sponsored.
  * All 88 numbers are sold. Contact details are not copied.
  *
  * The card is eleven races of eight (snails 1 to 8 in race 1, 9 to 16 in
  * race 2, and so on), the card the website sold, so the sponsored race
- * numbers the website sold (1, 5, 6, 7 and 11) are the races that carry
+ * numbers the website sold (1, 5, 6, 7, 9 and 11) are the races that carry
  * those sponsors on the night. Everything here can be changed on the desk
  * or in Admin; this is only the starting point a fresh night (or Admin,
  * Setup, "Load the NDCC orders") takes.
@@ -25,7 +25,7 @@ export const NDCC_NIGHT_RUNNERS = 8;
 /** Snails sold for $10 each on the website. */
 export const NDCC_NIGHT_SNAIL_CENTS = 1000;
 /** The date the roster was taken from the website's order records. */
-export const NDCC_ROSTER_DATE = '2026-10-23';
+export const NDCC_ROSTER_DATE = '2026-10-24';
 
 /** [number, snail name, owner]. */
 const ROSTER: ReadonlyArray<readonly [number, string, string]> = [
@@ -132,26 +132,37 @@ export const NDCC_RACE_SPONSORS: readonly RaceSponsor[] = [
   { race: 5, name: 'NDCC Womens team', title: 'The Dino-Mite Drag Race Stakes' },
   { race: 6, name: 'John Elliott', title: 'The 2-Cent-Jack Stakes' },
   { race: 7, name: 'Troy Whitworth', title: 'The Phoenix Gold Cup Stakes' },
+  { race: 9, name: 'Laura Hudson', title: 'The Drunken Stagger Stakes' },
   { race: 11, name: 'Elyod Roof Tiling', title: "The Shiv's Bouffant Stakes", logo: 'Elyod Roof Tiling' },
 ];
 
 /**
- * The sponsor list an earlier build loaded (8 races of 11, four sponsors).
- * A saved night still carrying exactly this list takes the current one.
+ * The sponsor lists earlier builds loaded: 5.5 (8 races of 11, four
+ * sponsors) and 5.6 (five sponsors, before race 9 was sold). A saved night
+ * still carrying exactly one of these takes the current list.
  */
-const NDCC_RACE_SPONSORS_V1 = [
-  'Grey Dinos|The Grey Dinos Hcap Stakes|1',
-  'NDCC Womens|The Dino-Mite Drag Race Stakes|5',
-  'John Elliott|The 2-Cent-Jack Stakes|6',
-  'Troy Whitworth|The Phoenix Gold Cup Stakes|7',
-].join(';');
+const PREVIOUS_NDCC_SPONSORS = [
+  [
+    'Grey Dinos|The Grey Dinos Hcap Stakes|1',
+    'NDCC Womens|The Dino-Mite Drag Race Stakes|5',
+    'John Elliott|The 2-Cent-Jack Stakes|6',
+    'Troy Whitworth|The Phoenix Gold Cup Stakes|7',
+  ].join(';'),
+  [
+    'Grey Dinos|The Grey Dinos Hcap Stakes|1',
+    'NDCC Womens team|The Dino-Mite Drag Race Stakes|5',
+    'John Elliott|The 2-Cent-Jack Stakes|6',
+    'Troy Whitworth|The Phoenix Gold Cup Stakes|7',
+    "Elyod Roof Tiling|The Shiv's Bouffant Stakes|11",
+  ].join(';'),
+];
 
 const sponsorKey = (list: readonly RaceSponsor[]): string =>
   list.map((s) => `${s.name}|${s.title ?? ''}|${s.race}`).join(';');
 
-/** True when a saved sponsor list is the one an earlier build loaded, untouched. */
+/** True when a saved sponsor list is one an earlier build loaded, untouched. */
 export const isPreviousNdccSponsors = (list: readonly RaceSponsor[]): boolean =>
-  sponsorKey(list) === NDCC_RACE_SPONSORS_V1;
+  PREVIOUS_NDCC_SPONSORS.includes(sponsorKey(list));
 
 /** Names and owners per snail number, index 0 is snail 1, blank where unsold. */
 export function ndccRoster(count = NDCC_NIGHT_SNAILS): { names: string[]; owners: string[] } {

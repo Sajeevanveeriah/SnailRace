@@ -843,8 +843,8 @@ export function ControlDrawer({
                       const locked = snailCountLock(event, Boolean(event.heldRaceStart)) !== '';
                       const ok = window.confirm(
                         locked
-                          ? 'Load the NDCC orders of 23 October: snail names and owners for numbers that have no name yet, and the five sponsored races. Races already run or at the gate keep their snails and sponsors.'
-                          : 'Load the NDCC orders of 23 October: the card of 88 snails in eleven races of eight, every name and owner, and the five sponsored races. This replaces the names on the card.',
+                          ? 'Load the NDCC orders of 24 October: snail names and owners for numbers that have no name yet, and the six sponsored races. Races already run or at the gate keep their snails and sponsors.'
+                          : 'Load the NDCC orders of 24 October: the card of 88 snails in eleven races of eight, every name and owner, and the six sponsored races. This replaces the names on the card.',
                       );
                       if (!ok) return;
                       if (locked) {
@@ -864,7 +864,7 @@ export function ControlDrawer({
                       say('Loaded the NDCC orders.');
                     }}
                   >
-                    Load the NDCC orders (23 Oct)
+                    Load the NDCC orders (24 Oct)
                   </button>
                 </fieldset>
                 <label className="fld">
