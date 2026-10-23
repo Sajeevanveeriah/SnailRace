@@ -14,7 +14,7 @@ import { Preflight } from './Preflight';
 import { RosterPanel } from './RosterPanel';
 import { QuaddieSettingsPanel } from './QuaddiePanel';
 import { AudioModePicker } from './AudioModePicker';
-import { RACE_TYPES, cardLayout, cardRaceNames, describeLayout, raceTitle } from '@/lib/card';
+import { RACE_TYPES, cardLayout, cardRaceNames, describeLayout, raceTitle, snailCountLock } from '@/lib/card';
 import { RunSheetPanel } from './RunSheetPanel';
 import { nightRaceType } from '@/lib/run-sheet';
 import type { usePhonePlay } from '@/lib/use-phone-play';
@@ -24,7 +24,7 @@ import { QUICK_AMOUNTS_CENTS, RACE_LENGTHS, SNAIL_SPEEDS, STAGE_THEMES, laneColo
 import { raceMetres } from './sidescroller-geometry';
 import { LAP_LEN } from '@/lib/broadcast';
 import { standingsFrom } from '@/lib/standings';
-import { resolveRaceSponsor } from '@/lib/ndcc-night';
+import { ndccCard, ndccRaceSponsors, resolveRaceSponsor, withNdccRoster } from '@/lib/ndcc-night';
 import { verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import {
@@ -804,8 +804,53 @@ export function ControlDrawer({
                     />
                   </label>
                 </div>
+                <fieldset className="fld">
+                  <legend className="text-sm font-medium">Sponsored races</legend>
+                  <p className="mt-1 text-[11px] leading-snug text-(--tx)/50">
+                    A sponsor bought for a race goes on its racecard, on the boards along the track, on the banner over the line and on the winner card. Leave a race blank to use the cycled list below.
+                  </p>
+                  <div className="mt-2 grid gap-1.5">
+                    {Array.from({ length: event.plannedRaces }, (_, i) => i + 1).map((raceNo) => {
+                      const own = event.raceSponsors.find((r) => r.race === raceNo);
+                      const update = (patch: { name?: string; title?: string }) => {
+                        const name = (patch.name ?? own?.name ?? '').slice(0, 40);
+                        const title = (patch.title ?? own?.title ?? '').slice(0, 60);
+                        const rest = event.raceSponsors.filter((r) => r.race !== raceNo);
+                        setState({ raceSponsors: name.trim() || title.trim() ? [...rest, { race: raceNo, name, ...(title ? { title } : {}) }].sort((x, y) => x.race - y.race) : rest });
+                      };
+                      return (
+                        <div key={raceNo} className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-2">
+                          <span className="text-sm font-semibold">Race {raceNo}</span>
+                          <input aria-label={`Race ${raceNo} sponsor`} value={own?.name ?? ''} placeholder="Sponsor" maxLength={40} onChange={(e) => update({ name: e.target.value })} />
+                          <input aria-label={`Race ${raceNo} race name`} value={own?.title ?? ''} placeholder="Race name (optional)" maxLength={60} onChange={(e) => update({ title: e.target.value })} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost mt-2"
+                    onClick={() => {
+                      const locked = snailCountLock(event, Boolean(event.heldRaceStart)) !== '';
+                      const ok = window.confirm(
+                        locked
+                          ? 'Load the NDCC orders of 23 October: snail names and owners for numbers that have no name yet, and the four sponsored races. Races already run keep their snails.'
+                          : 'Load the NDCC orders of 23 October: the card of 88 snails in eight races of eleven, every name and owner, and the four sponsored races. This replaces the names on the card.',
+                      );
+                      if (!ok) return;
+                      if (locked) setState({ card: withNdccRoster(event.card), raceSponsors: ndccRaceSponsors() });
+                      else {
+                        const card = { ...ndccCard(), paymentLinkUrl: event.card.paymentLinkUrl, paymentLinkMinted: event.card.paymentLinkMinted };
+                        setState({ card, plannedRaces: card.races.length, backingCents: card.snailCents, raceSponsors: ndccRaceSponsors() });
+                      }
+                      say('Loaded the NDCC orders.');
+                    }}
+                  >
+                    Load the NDCC orders (23 Oct)
+                  </button>
+                </fieldset>
                 <label className="fld">
-                  <span>Race sponsors</span>
+                  <span>Race sponsors, cycled</span>
                   <textarea
                     rows={3}
                     value={event.sponsors.join('\n')}

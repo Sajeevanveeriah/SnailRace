@@ -55,6 +55,10 @@ jobs:
 
       - name: Build production server bundle
         run: npm run build
+        env:
+          # The browser tests are written against the generic card; the
+          # club's sold card is the default only on the deployed night.
+          NEXT_PUBLIC_NIGHT_PRESET: 'off'
 
       - name: Install browser for experience tests
         run: npx playwright install --with-deps chromium
