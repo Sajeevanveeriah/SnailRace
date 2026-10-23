@@ -33,7 +33,8 @@ records at 07:20 AEDT on 24 October:
 4. **The club crest beside every sponsor.** The club teams (Grey Dinos, NDCC
    Womens team) show the crest and the team's name. Elyod Roof Tiling shows
    its own logo next to the crest. A sponsor without a logo shows its name
-   next to the crest; no artwork is made up for a name. The same mark is on
+   next to the crest; no artwork is made up for a name. Race 7 (Troy
+   Whitworth's Phoenix Gold Cup) shows the Phoenix Truck Bodies logo. The same mark is on
    the racecard, the fence boards, the banner over the line and the winner
    card. Admin, Setup, Sponsored races has a logo picker per race.
 5. **Safer reset.** "Start a brand new event" saves the night to the
