@@ -399,7 +399,7 @@ export function Stage() {
       setHighlights(reel);
       setOverlayOpen(true);
     },
-    [nextSettings, event.card, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
+    [nextSettings, event.card, event.snailSpeed, names, nextRaceNo, raceDonationCents, sponsor, activeCourse.id],
   );
 
   const race = useRace(onFinish);
