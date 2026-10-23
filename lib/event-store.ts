@@ -7,7 +7,7 @@ import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
 import { DEFAULT_CARD, DEFAULT_RACE_TYPE, RACES_ON_CARD, SNAILS_PER_RACE, freshCard, normaliseCard, snailCountLock } from './card';
 import type { CardState } from './card';
-import { NDCC_NIGHT_RACES, ndccCard, ndccRaceSponsors, normaliseRaceSponsors } from './ndcc-night';
+import { NDCC_NIGHT_RACES, NDCC_NIGHT_SNAILS, ndccCard, ndccRaceSponsors, normaliseRaceSponsors } from './ndcc-night';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
@@ -441,8 +441,12 @@ function merge(raw: string | null): EventState {
       sponsors: Array.isArray(parsed.sponsors)
         ? parsed.sponsors.filter((x): x is string => typeof x === 'string')
         : [],
-      /* A night saved before per-race sponsors takes the night's sold ones. */
-      raceSponsors: Array.isArray(parsed.raceSponsors) ? normaliseRaceSponsors(parsed.raceSponsors) : base.raceSponsors,
+      /* A night saved before per-race sponsors takes the sold ones only when it is this night's card. */
+      raceSponsors: Array.isArray(parsed.raceSponsors)
+        ? normaliseRaceSponsors(parsed.raceSponsors)
+        : loadOrders || card.snailCount === NDCC_NIGHT_SNAILS
+          ? base.raceSponsors
+          : [],
       snailSpeed: clampSnailSpeed(parsed.snailSpeed ?? base.snailSpeed),
       runnerSponsors: Array.isArray(parsed.runnerSponsors)
         ? parsed.runnerSponsors.filter((x): x is string => typeof x === 'string').slice(0, MAX_FIELD)

@@ -667,7 +667,7 @@ export function Sidescroller({
   const signs = useMemo(() => {
     const list = [clubName.toUpperCase(), sponsor ? `${(sponsorTitle || `PRESENTED BY ${sponsor}`).toUpperCase()}` : 'SNAIL RACING', ...sponsors.map((s) => s.toUpperCase())];
     return list.filter(Boolean);
-  }, [clubName, sponsor, sponsors]);
+  }, [clubName, sponsor, sponsorTitle, sponsors]);
   /* Two club sponsors' logos on the fence each race, a different pair every race. */
   const fenceLogos = useMemo(() => sponsorsFromRace(raceNo).slice(0, 2), [raceNo]);
   /* The fence boards, on the post grid from behind the stalls to past the post. */
@@ -1502,7 +1502,7 @@ export function Sidescroller({
       </div>
 
       {/* The running order, leader first, as a racing telecast shows it: the top three by name. */}
-      <div className="side-progress" ref={barRef} role="progressbar" aria-label="Leader's progress to the finish, in metres" aria-valuemin={0} aria-valuemax={RACE_METRES} aria-valuenow={0}>
+      <div className="side-progress" ref={barRef} role="progressbar" aria-label="Leader's progress to the finish, in metres" aria-valuemin={0} aria-valuemax={track.metres} aria-valuenow={0}>
         <ol className="side-order" aria-hidden="true">
           {names.map((name, lane) => {
             const c = laneColour(lane);

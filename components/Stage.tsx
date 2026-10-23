@@ -1,6 +1,6 @@
 'use client';
 
-import { raceMetres } from './sidescroller-geometry';
+import { RACE_METRES, raceMetres } from './sidescroller-geometry';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModeratorDesk } from './ModeratorDesk';
@@ -179,12 +179,18 @@ export function Stage() {
   );
   const sponsor = sponsorInfo.name;
   /* The shown race's sponsor: the race on the track may be the one just run. */
-  const shownSponsor = useMemo(
-    () => resolveRaceSponsor(event.raceSponsors, event.sponsors, shownRaceNo),
-    [event.raceSponsors, event.sponsors, shownRaceNo],
-  );
+  const shownSponsor = useMemo(() => {
+    const now = resolveRaceSponsor(event.raceSponsors, event.sponsors, shownRaceNo);
+    /* A race that has run keeps the sponsor it ran under, whatever the setup says now. */
+    if (!finishedEntry) return now;
+    const name = finishedEntry.sponsor ?? '';
+    return { name, title: name && name === now.name ? now.title : '' };
+  }, [event.raceSponsors, event.sponsors, shownRaceNo, finishedEntry]);
   /* How long the straight on screen is: the held race's, the finished race's, or the next one's. */
-  const shownMetres = finishedEntry?.metres ?? raceMetres(event.heldRaceStart?.plan.durationMs ?? finishedEntry?.durationMs ?? nextSettings.durationMs, event.snailSpeed);
+  /* A result from before 5.5 carries no length: those races always ran on the standard straight. */
+  const shownMetres = finishedEntry
+    ? (finishedEntry.metres ?? RACE_METRES)
+    : raceMetres(event.heldRaceStart?.plan.durationMs ?? nextSettings.durationMs, event.snailSpeed);
 
   /** Stripe is authoritative for cards; the cash tin lives on this device. */
   const allDonations: Donation[] = useMemo(
