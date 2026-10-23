@@ -54,6 +54,34 @@ export function Preflight() {
       w >= 1280 && h >= 720 ? 'pass' : 'attention',
       `${w} x ${h}${w >= 1280 && h >= 720 ? '.' : ' - below 1280 x 720 the running order gets tight.'}`,
     );
+    /* Graphics: the race is smooth on a graphics card; drawn in software it stutters whatever the code does. */
+    let gpu = '';
+    try {
+      const gl = document.createElement('canvas').getContext('webgl');
+      const info = gl?.getExtension('WEBGL_debug_renderer_info');
+      gpu = gl ? String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) : '';
+    } catch {
+      gpu = '';
+    }
+    const software = !gpu || /swiftshader|llvmpipe|software|basic render|microsoft basic/i.test(gpu);
+    add(
+      'Graphics',
+      software ? 'attention' : 'pass',
+      software
+        ? `The browser is drawing without a graphics card${gpu ? ` (${gpu})` : ''}, so the race will stutter. In Chrome: Settings, System, turn on "Use graphics acceleration when available", then relaunch.`
+        : `Hardware graphics: ${gpu}.`,
+    );
+    const fps = await new Promise<number>((resolve) => {
+      let frames = 0;
+      const start = performance.now();
+      const tick = (t: number) => {
+        frames += 1;
+        if (t - start >= 1000) resolve((frames * 1000) / (t - start));
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    add('Frame rate', fps >= 50 ? 'pass' : 'attention', `${Math.round(fps)} frames a second on this screen${fps >= 50 ? '.' : ' - close other programs and check the Graphics row; the race wants 60.'}`);
     const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     add('Reduced motion', 'pass', rm ? 'System requests reduced motion; decorative motion is stilled.' : 'Full motion available; calm mode (C) stills it on demand.');
 

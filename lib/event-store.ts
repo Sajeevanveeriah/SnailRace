@@ -73,8 +73,7 @@ export const clampSnailSpeed = (value: unknown): number => {
   return Math.min(SNAIL_SPEED_MAX, Math.max(SNAIL_SPEED_MIN, Math.round(n * 100) / 100));
 };
 
-export function freshState(): EventState {
-  const preset = nightPreset();
+export function freshState(preset: boolean = nightPreset()): EventState {
   const card = preset ? ndccCard() : freshCard();
   return {
     version: 4,
@@ -147,7 +146,8 @@ export function freshState(): EventState {
   };
 }
 
-let state: EventState = freshState();
+/* Until hydrate() reads the browser, the store holds what the server rendered. */
+let state: EventState = freshState(false);
 let hydrated = false;
 const listeners = new Set<() => void>();
 
@@ -603,7 +603,7 @@ export const currentState = (): EventState => state;
  * not readable there, and returning a different object on the server than on
  * the first client render is exactly what produces a hydration mismatch.
  */
-const serverState = freshState();
+const serverState = freshState(false);
 const getServerSnapshot = () => serverState;
 
 export function useEvent(): EventState {

@@ -652,3 +652,5 @@
 /* The twist card sits centred over the top of the course, sized to its words, now that the strap row is gone. */
 .race-broadcast.circuit-broadcast:not([data-layout="side"]) .side-splash { left: var(--gap); right: calc(var(--tower-w) + var(--gap) * 2); top: calc(var(--scene-top) + var(--u) * 0.6); width: fit-content; max-width: calc(100% - var(--tower-w) - var(--gap) * 4); margin-inline: auto; min-height: calc(var(--u) * 4.2); }
 .race-broadcast.circuit-broadcast:not([data-layout="side"]) .tv-strap { inset: auto auto calc(var(--gap) + var(--u) * 0.7) calc(var(--gap) + var(--u) * 0.7); }
+/* Props animate now: a filter on their layer would be redrawn every frame. Their own ink outline and ground shadow carry them. */
+.race-broadcast.circuit-broadcast .course-prop-chip { filter: none; }
