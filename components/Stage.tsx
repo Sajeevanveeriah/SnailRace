@@ -33,7 +33,7 @@ import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace, type RaceController } from '@/lib/use-race';
 import { funChipPoolsFor } from '@/lib/tote';
-import { sponsorFor } from '@/lib/standings';
+import { resolveRaceSponsor } from '@/lib/ndcc-night';
 import { money } from '@/lib/money';
 import { MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
 import { courseById } from '@/lib/courses';
@@ -172,10 +172,11 @@ export function Stage() {
   const shownOffset = isRunOff(event.card, shownRaceNo) ? 0 : snailOffsetForRace(shownRaceNo, event.card);
   /* The snail number in each lane: a run-off's runners are not consecutive. */
   const shownNumbers = useMemo(() => snailsForRace(shownRaceNo, event.card), [shownRaceNo, event.card]);
-  const sponsor = useMemo(
-    () => sponsorFor(event.sponsors, nextRaceNo),
-    [event.sponsors, nextRaceNo],
+  const sponsorInfo = useMemo(
+    () => resolveRaceSponsor(event.raceSponsors, event.sponsors, nextRaceNo),
+    [event.raceSponsors, event.sponsors, nextRaceNo],
   );
+  const sponsor = sponsorInfo.name;
 
   /** Stripe is authoritative for cards; the cash tin lives on this device. */
   const allDonations: Donation[] = useMemo(

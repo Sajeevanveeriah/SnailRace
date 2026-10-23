@@ -22,7 +22,8 @@ import type { SurpriseIntensity } from '@/lib/types';
 import { money, moneyShort, parseAmountToCents, MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { QUICK_AMOUNTS_CENTS, RACE_LENGTHS, STAGE_THEMES, laneColour } from '@/lib/palette';
 import { LAP_LEN } from '@/lib/broadcast';
-import { sponsorFor, standingsFrom } from '@/lib/standings';
+import { standingsFrom } from '@/lib/standings';
+import { resolveRaceSponsor } from '@/lib/ndcc-night';
 import { verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
 import {
@@ -813,7 +814,7 @@ export function ControlDrawer({
                 </label>
                 {event.sponsors.some((x) => x.trim()) ? (
                   <p className="text-[11px] text-(--tx)/50">
-                    Race {nextRaceNo}: {sponsorFor(event.sponsors, nextRaceNo) || 'none'}
+                    Race {nextRaceNo}: {resolveRaceSponsor(event.raceSponsors, event.sponsors, nextRaceNo).name || 'none'}
                   </p>
                 ) : null}
                 <label className="fld">

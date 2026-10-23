@@ -7,6 +7,7 @@ import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
 import { DEFAULT_CARD, DEFAULT_RACE_TYPE, RACES_ON_CARD, SNAILS_PER_RACE, freshCard, normaliseCard, snailCountLock } from './card';
 import type { CardState } from './card';
+import { NDCC_NIGHT_RACES, ndccCard, ndccRaceSponsors, normaliseRaceSponsors } from './ndcc-night';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
@@ -54,7 +55,27 @@ function newEventId(): string {
   return `ev${Date.now().toString(36)}${buf[0].toString(36)}`.slice(0, 24);
 }
 
+/**
+ * A fresh night in the browser starts from the club's sold card (see
+ * `ndcc-night.ts`). Unit tests run without a window, and the browser tests
+ * build with NEXT_PUBLIC_NIGHT_PRESET=off, so both keep the generic card of
+ * one hundred numbered snails they were written against.
+ */
+const nightPreset = (): boolean =>
+  typeof window !== 'undefined' && process.env.NEXT_PUBLIC_NIGHT_PRESET !== 'off';
+
+/** Bounds on the snail speed setting, as a multiple of the standard pace. */
+export const SNAIL_SPEED_MIN = 0.5;
+export const SNAIL_SPEED_MAX = 3;
+export const clampSnailSpeed = (value: unknown): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.min(SNAIL_SPEED_MAX, Math.max(SNAIL_SPEED_MIN, Math.round(n * 100) / 100));
+};
+
 export function freshState(): EventState {
+  const preset = nightPreset();
+  const card = preset ? ndccCard() : freshCard();
   return {
     version: 4,
     eventId: newEventId(),
@@ -64,14 +85,14 @@ export function freshState(): EventState {
     eventDate: '2026-10-24',
     startTime: '19:00',
     venue: 'Club rooms',
-    backingCents: DEFAULT_CARD.snailCents,
+    backingCents: card.snailCents,
     timezone: 'Australia/Melbourne',
     eventMode: 'live',
-    plannedRaces: RACES_ON_CARD,
+    plannedRaces: preset ? NDCC_NIGHT_RACES : RACES_ON_CARD,
     championshipScreens: false,
     rehearsal: false,
     showPhase: 'lobby',
-    intensity: 'standard',
+    intensity: preset ? 'chaos' : 'standard',
     racePack: null,
     packPlayed: [],
     packCurrent: null,
@@ -95,8 +116,10 @@ export function freshState(): EventState {
     raceType: DEFAULT_RACE_TYPE,
     raceNumber: 0,
     sponsors: [],
+    raceSponsors: preset ? ndccRaceSponsors() : [],
+    snailSpeed: 1,
     runnerSponsors: [],
-    card: freshCard(),
+    card,
     quaddie: { ...DEFAULT_QUADDIE, legs: DEFAULT_QUADDIE.legs.slice() },
     quaddieEntries: [],
     audioMode: 'music',
@@ -314,7 +337,12 @@ function merge(raw: string | null): EventState {
         heldRaceStart !== null,
       ) !== '';
     const storedCard = parsed.card as Partial<CardState> | undefined;
-    const card = normaliseCard(parsed.card, tied && storedCard?.split === undefined);
+    let card = normaliseCard(parsed.card, tied && storedCard?.split === undefined);
+    /* A night saved before the club's orders were loaded, with nothing typed
+       on the card and nothing run or sold against it, takes the sold card. */
+    const untouched = !card.names.some((name) => name.trim()) && !card.owners.some((owner) => owner.trim());
+    const loadOrders = nightPreset() && untouched && !tied && !Object.keys(card.claims).length;
+    if (loadOrders) card = { ...ndccCard(), paymentLinkUrl: card.paymentLinkUrl, paymentLinkMinted: card.paymentLinkMinted };
     const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
       ? (parsed.audioMode as AudioMode)
       : parsed.sound === false
@@ -355,7 +383,7 @@ function merge(raw: string | null): EventState {
       timezone: typeof parsed.timezone === 'string' && parsed.timezone ? parsed.timezone : base.timezone,
       eventTagline: typeof parsed.eventTagline === 'string' ? parsed.eventTagline.slice(0, 60) : base.eventTagline,
       startTime: typeof parsed.startTime === 'string' && /^\d{2}:\d{2}$/.test(parsed.startTime) ? parsed.startTime : base.startTime,
-      backingCents:
+      backingCents: loadOrders ? card.snailCents :
         typeof parsed.backingCents === 'number' && Number.isSafeInteger(parsed.backingCents) && parsed.backingCents >= 100
           ? parsed.backingCents
           : base.backingCents,
@@ -413,6 +441,9 @@ function merge(raw: string | null): EventState {
       sponsors: Array.isArray(parsed.sponsors)
         ? parsed.sponsors.filter((x): x is string => typeof x === 'string')
         : [],
+      /* A night saved before per-race sponsors takes the night's sold ones. */
+      raceSponsors: Array.isArray(parsed.raceSponsors) ? normaliseRaceSponsors(parsed.raceSponsors) : base.raceSponsors,
+      snailSpeed: clampSnailSpeed(parsed.snailSpeed ?? base.snailSpeed),
       runnerSponsors: Array.isArray(parsed.runnerSponsors)
         ? parsed.runnerSponsors.filter((x): x is string => typeof x === 'string').slice(0, MAX_FIELD)
         : [],
