@@ -1,4 +1,4 @@
-import { freshCard, type CardState } from './card';
+import { freshCard, type CardState, type RunSheetRace } from './card';
 import type { RaceSponsor } from './types';
 
 export type { RaceSponsor } from './types';
@@ -187,6 +187,42 @@ export function ndccRoster(count = NDCC_NIGHT_SNAILS): { names: string[]; owners
   return { names, owners };
 }
 
+/**
+ * The night's run sheet: every race its own track, length, laps and
+ * surprise level, shuffled so no two races in a row feel the same, and the
+ * last race the Final. Fixed rather than drawn on each load, so a reload
+ * mid-night never reshuffles the races still to come. On a circuit
+ * `lengthMs` is one lap.
+ */
+export const NDCC_RACE_PLAN: readonly Omit<RunSheetRace, 'runners'>[] = [
+  { design: 'straight', lengthMs: 30_000, intensity: 'chaos' },
+  { design: 'pavilion-chicane', lengthMs: 20_000, laps: 2, intensity: 'big' },
+  { design: 'straight', lengthMs: 45_000, intensity: 'mayhem' },
+  { design: 'floodlight-eight', lengthMs: 30_000, laps: 1, intensity: 'chaos' },
+  { design: 'practice-nets', lengthMs: 20_000, laps: 3, intensity: 'big' },
+  { design: 'straight', lengthMs: 20_000, intensity: 'standard' },
+  { design: 'boundary-oval', lengthMs: 30_000, laps: 2, intensity: 'mayhem' },
+  { design: 'pavilion-chicane', lengthMs: 45_000, laps: 1, intensity: 'chaos' },
+  { design: 'straight', lengthMs: 60_000, intensity: 'big' },
+  { design: 'floodlight-eight', lengthMs: 20_000, laps: 2, intensity: 'chaos' },
+  { design: 'boundary-oval', lengthMs: 45_000, laps: 2, intensity: 'mayhem', raceType: 'Final' },
+];
+
+const planRaces = (): RunSheetRace[] => NDCC_RACE_PLAN.map((row) => ({ ...row, runners: NDCC_NIGHT_RUNNERS }));
+
+const SETTING_KEYS = ['design', 'lengthMs', 'laps', 'intensity', 'camera', 'raceType'] as const;
+
+/**
+ * The club's card with no race settings of its own (as 5.6 loaded it) gets
+ * the night's run sheet. Null when the card is not that card, or any race
+ * already has a setting chosen in Admin. The caller checks no race has run.
+ */
+export function withNdccRacePlan(card: CardState): CardState | null {
+  if (card.snailCount !== NDCC_NIGHT_SNAILS || card.races.length !== NDCC_NIGHT_RACES) return null;
+  if (card.races.some((r) => r.runners !== NDCC_NIGHT_RUNNERS || r.field?.length || SETTING_KEYS.some((k) => r[k] !== undefined))) return null;
+  return { ...card, races: planRaces() };
+}
+
 /** The night's card: eleven races of eight with the roster filled in. */
 export function ndccCard(): CardState {
   const card = freshCard();
@@ -195,7 +231,7 @@ export function ndccCard(): CardState {
     ...card,
     snailCount: NDCC_NIGHT_SNAILS,
     snailsPerRace: NDCC_NIGHT_RUNNERS,
-    races: Array.from({ length: NDCC_NIGHT_RACES }, () => ({ runners: NDCC_NIGHT_RUNNERS })),
+    races: planRaces(),
     names,
     owners,
     snailCents: NDCC_NIGHT_SNAIL_CENTS,
@@ -234,9 +270,11 @@ export function withNdccRoster(card: CardState, overwrite = false, keep: Readonl
 export function upgradeNdccCard(card: CardState): CardState | null {
   if (card.snailCount !== NDCC_NIGHT_SNAILS || card.races.length !== 8) return null;
   if (card.races.some((r) => r.runners !== 11 || r.field?.length)) return null;
+  const plan = planRaces();
   const races = Array.from({ length: NDCC_NIGHT_RACES }, (_, i) => {
     const { runners: _runners, custom: _custom, field: _field, ...settings } = card.races[i] ?? { runners: NDCC_NIGHT_RUNNERS };
-    return { ...settings, runners: NDCC_NIGHT_RUNNERS };
+    /* A race with settings chosen in Admin keeps them; the rest take the night's run sheet. */
+    return Object.keys(settings).length ? { ...settings, runners: NDCC_NIGHT_RUNNERS } : plan[i];
   });
   return withNdccRoster({ ...card, snailsPerRace: NDCC_NIGHT_RUNNERS, races });
 }
