@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cardLayout, snailsForRace } from '../lib/card';
-import { NDCC_RACE_SPONSORS, isPreviousNdccSponsors, withNdccSponsors, ndccCard, ndccRoster, normaliseRaceSponsors, resolveRaceSponsor, upgradeNdccCard, withNdccRoster } from '../lib/ndcc-night';
+import { NDCC_RACE_PLAN, NDCC_RACE_SPONSORS, isPreviousNdccSponsors, withNdccRacePlan, withNdccSponsors, ndccCard, ndccRoster, normaliseRaceSponsors, resolveRaceSponsor, upgradeNdccCard, withNdccRoster } from '../lib/ndcc-night';
 import { CLUB_SPONSORS, raceSponsorArt } from '../lib/club-sponsors';
 import { isClubTeam, sponsorArt, sponsorBadgeWidth } from '../components/SponsorLogo';
 import { existsSync } from 'node:fs';
@@ -160,4 +160,23 @@ test('a logo chosen in Admin always shows, even for a club team; otherwise a clu
   /* The track's badge keeps the crest and puts a sponsor's logo beside it. */
   assert.equal(sponsorBadgeWidth('Grey Dinos'), 100);
   assert.equal(sponsorBadgeWidth('Elyod Roof Tiling'), 216);
+});
+
+test('every race has its own track, length, laps and surprises, and race 11 is the Final', () => {
+  const event = { ...freshState(), card: ndccCard() };
+  const races = Array.from({ length: 11 }, (_, i) => raceSettings(event, i + 1));
+  assert.equal(NDCC_RACE_PLAN.length, 11);
+  /* All five track designs are used, and no two races in a row share a design. */
+  assert.equal(new Set(races.map((r) => r.design)).size, 5);
+  for (let i = 1; i < races.length; i++) assert.notEqual(races[i].design, races[i - 1].design);
+  assert.ok(new Set(races.map((r) => r.durationMs)).size >= 5, 'lengths vary');
+  assert.ok(new Set(races.map((r) => r.intensity)).size >= 3, 'surprise levels vary');
+  assert.ok(races.some((r) => r.laps > 1), 'some circuits run more than one lap');
+  assert.equal(races[10].raceType, 'Final');
+  assert.equal(races[10].title, 'Final 11');
+  assert.ok(races.slice(0, 10).every((r) => r.raceType !== 'Final'));
+  /* A saved card with no race settings takes the plan; one with a setting chosen in Admin keeps it. */
+  const bare = { ...ndccCard(), races: ndccCard().races.map(() => ({ runners: 8 })) };
+  assert.equal(withNdccRacePlan(bare)?.races[10].raceType, 'Final');
+  assert.equal(withNdccRacePlan({ ...bare, races: bare.races.map((r, i) => (i === 3 ? { ...r, laps: 4 } : r)) }), null);
 });

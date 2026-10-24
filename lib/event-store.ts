@@ -7,7 +7,7 @@ import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
 import { DEFAULT_CARD, DEFAULT_RACE_TYPE, RACES_ON_CARD, SNAILS_PER_RACE, freshCard, normaliseCard, snailCountLock } from './card';
 import type { CardState } from './card';
-import { NDCC_NIGHT_RACES, NDCC_NIGHT_SNAILS, ndccCard, ndccRaceSponsors, normaliseRaceSponsors, upgradeNdccCard, withNdccSponsors } from './ndcc-night';
+import { NDCC_NIGHT_RACES, NDCC_NIGHT_SNAILS, ndccCard, ndccRaceSponsors, normaliseRaceSponsors, upgradeNdccCard, withNdccRacePlan, withNdccSponsors } from './ndcc-night';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
@@ -361,6 +361,10 @@ function merge(raw: string | null): EventState {
       ) !== '' || live<{ void?: boolean; settled?: boolean }>(parsed.bets).some((b) => !b.void && !b.settled);
     const upgraded = nightPreset() && !tiedToLanes && !loadOrders ? upgradeNdccCard(card) : null;
     if (upgraded) card = upgraded;
+    /* The club's card saved before the run sheet was set takes it, while no race has run or is armed. */
+    const raced = live<{ void?: boolean }>(parsed.history).some((h) => !h.void) || heldRaceStart !== null;
+    const planned = nightPreset() && !raced ? withNdccRacePlan(card) : null;
+    if (planned) card = planned;
     const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
       ? (parsed.audioMode as AudioMode)
       : parsed.sound === false
