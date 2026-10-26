@@ -1,12 +1,29 @@
-# NDCC Snail Race
+# Snail Race
 
-An 8-to-20-runner, club-branded snail-race fundraiser for Newcomb & District
-Cricket Club. It combines a projector telecast, free fun-chip picks, optional
-Phone Play, separate Stripe or cash donations, audit and replay tools, and a
-one-volunteer run of show.
+A club-branded, 8-to-20-runner snail-race fundraiser night. It combines a
+projector telecast, free fun-chip picks, optional Phone Play, separate Stripe
+or cash donations, audit and replay tools, and a one-volunteer run of show.
 
-This repository implements an original NDCC production. It uses its own club
-crest, runner art, copy, commentary and cricket-ground surprises.
+It was built for, and first run by, Newcomb & District Cricket Club on 24
+October 2026. Its runner art, copy, commentary and surprises are original.
+
+## One codebase, one profile per club (5.7)
+
+Everything that belongs to one club lives in `clubs/<id>/`: its name, crest,
+colours, sponsors and their logos, poster, event defaults, the place the
+commentator names, and optionally the card it has already sold. A build is
+for one club and carries only that club's files.
+
+```
+npm run club -- list                       the clubs
+npm run club -- new <id> "Club name" "SC"  start a new club from the template
+CLUB=<id> npm run dev                      run it
+CLUB=<id> WORKER_NAME=<id>-snailrace bash scripts/deploy-cloudflare.sh
+```
+
+`CLUB` defaults to `ndcc`. The full walkthrough is
+`docs/20261026-Club-Setup-Guide-Rev00.md`; every profile field is described
+in `clubs/types.ts`.
 
 ## Current release - the final card, race sponsors before every race (5.6)
 

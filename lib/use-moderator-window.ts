@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CLUB_TITLE } from './club';
 
 export interface ModeratorTarget { window: Window; root: HTMLElement }
 
@@ -40,7 +41,7 @@ export function useModeratorWindow(holder = true) {
     // Copy styles only. Copying app scripts would create another race engine.
     const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'), (node) => node.cloneNode(true));
     doc.head.replaceChildren(base, viewport, ...styles);
-    doc.title = 'Moderator desk | NDCC Snail Race';
+    doc.title = `Moderator desk | ${CLUB_TITLE}`;
     const root = doc.createElement('div');
     root.id = 'moderator-root';
     doc.body.className = 'moderator-body';

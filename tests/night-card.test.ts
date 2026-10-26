@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cardLayout, snailsForRace } from '../lib/card';
-import { NDCC_RACE_PLAN, NDCC_RACE_SPONSORS, isPreviousNdccSponsors, withNdccRacePlan, withNdccSponsors, ndccCard, ndccRoster, normaliseRaceSponsors, resolveRaceSponsor, upgradeNdccCard, withNdccRoster } from '../lib/ndcc-night';
+import { NIGHT_RACE_PLAN, NIGHT_RACE_SPONSORS, isPreviousNightSponsors, withNightRacePlan, withNightSponsors, nightCard, nightRoster, normaliseRaceSponsors, resolveRaceSponsor, upgradePreviousNightCard, withNightRoster } from '../lib/night-card';
 import { CLUB_SPONSORS, raceSponsorArt } from '../lib/club-sponsors';
 import { isClubTeam, sponsorArt, sponsorBadgeWidth } from '../components/SponsorLogo';
 import { existsSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { raceSettings } from '../lib/run-sheet';
 import { freshState } from '../lib/event-store';
 
 test('the night card is the 88 snails sold on the website, eleven races of eight', () => {
-  const card = ndccCard();
+  const card = nightCard();
   assert.equal(card.snailCount, 88);
   assert.equal(card.names.filter(Boolean).length, 88, 'every number is sold');
   assert.equal(card.names[0], 'Flat Stanley');
@@ -29,20 +29,20 @@ test('the night card is the 88 snails sold on the website, eleven races of eight
   assert.deepEqual(snailsForRace(11, card), [81, 82, 83, 84, 85, 86, 87, 88]);
   assert.equal(card.snailCents, 1000);
   /* No contact details came across. */
-  assert.ok(!JSON.stringify(ndccRoster()).match(/@|\d{8,}/));
+  assert.ok(!JSON.stringify(nightRoster()).match(/@|\d{8,}/));
 });
 
 test('the sponsored races carry their sponsors, with the women reading NDCC Womens team and Elyod on race 11', () => {
-  assert.deepEqual(NDCC_RACE_SPONSORS.map((s) => s.race), [1, 5, 6, 7, 9, 11]);
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 9).name, 'Laura Hudson');
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 1).name, 'Grey Dinos');
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 5).name, 'NDCC Womens team');
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 5).title, 'The Dino-Mite Drag Race Stakes');
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 11).name, 'Elyod Roof Tiling');
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 11).title, "The Shiv's Bouffant Stakes");
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, [], 2).name, '');
+  assert.deepEqual(NIGHT_RACE_SPONSORS.map((s) => s.race), [1, 5, 6, 7, 9, 11]);
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, [], 9).name, 'Laura Hudson');
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, [], 1).name, 'Grey Dinos');
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, [], 5).name, 'NDCC Womens team');
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, [], 5).title, 'The Dino-Mite Drag Race Stakes');
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, [], 11).name, 'Elyod Roof Tiling');
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, [], 11).title, "The Shiv's Bouffant Stakes");
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, [], 2).name, '');
   /* A race without its own sponsor still takes the cycled list. */
-  assert.equal(resolveRaceSponsor(NDCC_RACE_SPONSORS, ['A', 'B'], 2).name, 'B');
+  assert.equal(resolveRaceSponsor(NIGHT_RACE_SPONSORS, ['A', 'B'], 2).name, 'B');
   assert.deepEqual(normaliseRaceSponsors([{ race: 3, name: '  X  ' }, { race: 3, name: 'Y' }, { race: 0, name: 'Z' }, 'junk']), [{ race: 3, name: 'X' }]);
   assert.deepEqual(normaliseRaceSponsors([{ race: 4, name: 'Y', logo: ' Moolap Tyres ' }]), [{ race: 4, name: 'Y', logo: 'Moolap Tyres' }]);
 });
@@ -56,19 +56,19 @@ test('every race sponsor shows the club crest, with a club sponsor’s logo besi
   assert.equal(raceSponsorArt('John Elliott'), null, 'no artwork is made up for a name');
   assert.equal(raceSponsorArt('Troy Whitworth', 'Phoenix Truck Bodies')?.name, 'Phoenix Truck Bodies');
   /* Troy Whitworth's Phoenix Gold Cup carries the Phoenix Truck Bodies logo on the night card. */
-  const r7 = NDCC_RACE_SPONSORS.find((s) => s.race === 7);
+  const r7 = NIGHT_RACE_SPONSORS.find((s) => s.race === 7);
   assert.equal(raceSponsorArt(r7?.name ?? '', r7?.logo)?.name, 'Phoenix Truck Bodies');
   assert.equal(raceSponsorArt('Elyod Roof Tiling', 'none'), null);
-  for (const s of CLUB_SPONSORS) assert.ok(existsSync(join('public', s.src.replace(/^.*?\/sponsors\//, 'sponsors/'))), s.src);
+  for (const s of CLUB_SPONSORS) assert.ok(existsSync(join('public', s.src.replace(/^.*?\/club\//, 'club/'))), s.src);
 });
 
 test('a night saved with the old eight races of eleven takes the eleven races of eight and keeps typed names', () => {
-  const old = { ...ndccCard(), snailsPerRace: 11, races: Array.from({ length: 8 }, (_, i) => ({ runners: 11, ...(i === 2 ? { laps: 3 } : {}) })) };
+  const old = { ...nightCard(), snailsPerRace: 11, races: Array.from({ length: 8 }, (_, i) => ({ runners: 11, ...(i === 2 ? { laps: 3 } : {}) })) };
   old.names = old.names.slice();
   old.names[75] = '';
   old.names[79] = '';
   old.names[3] = 'Typed On The Desk';
-  const up = upgradeNdccCard(old);
+  const up = upgradePreviousNightCard(old);
   assert.ok(up);
   assert.equal(up.races.length, 11);
   assert.ok(up.races.every((r) => r.runners === 8));
@@ -76,27 +76,27 @@ test('a night saved with the old eight races of eleven takes the eleven races of
   assert.equal(up.names[3], 'Typed On The Desk');
   assert.equal(up.names[75], 'NDCC Juniors');
   assert.equal(up.names[79], 'NDCC Seniors');
-  assert.equal(upgradeNdccCard(ndccCard()), null, 'the current card is left alone');
-  assert.equal(upgradeNdccCard(freshCard()), null);
-  assert.ok(isPreviousNdccSponsors([
+  assert.equal(upgradePreviousNightCard(nightCard()), null, 'the current card is left alone');
+  assert.equal(upgradePreviousNightCard(freshCard()), null);
+  assert.ok(isPreviousNightSponsors([
     { race: 1, name: 'Grey Dinos', title: 'The Grey Dinos Hcap Stakes' },
     { race: 5, name: 'NDCC Womens', title: 'The Dino-Mite Drag Race Stakes' },
     { race: 6, name: 'John Elliott', title: 'The 2-Cent-Jack Stakes' },
     { race: 7, name: 'Troy Whitworth', title: 'The Phoenix Gold Cup Stakes' },
   ]));
-  assert.ok(!isPreviousNdccSponsors(NDCC_RACE_SPONSORS));
+  assert.ok(!isPreviousNightSponsors(NIGHT_RACE_SPONSORS));
   /* The six-sponsor list before race 7 took the Phoenix logo is replaced, so the logo arrives. */
-  const beforePhoenix = NDCC_RACE_SPONSORS.map(({ logo, ...s }) => (s.race === 7 ? s : { ...s, ...(logo ? { logo } : {}) }));
-  assert.ok(isPreviousNdccSponsors(beforePhoenix));
-  assert.equal(withNdccSponsors(beforePhoenix).find((s) => s.race === 7)?.logo, 'Phoenix Truck Bodies');
+  const beforePhoenix = NIGHT_RACE_SPONSORS.map(({ logo, ...s }) => (s.race === 7 ? s : { ...s, ...(logo ? { logo } : {}) }));
+  assert.ok(isPreviousNightSponsors(beforePhoenix));
+  assert.equal(withNightSponsors(beforePhoenix).find((s) => s.race === 7)?.logo, 'Phoenix Truck Bodies');
   /* The list 5.6 shipped (before race 9 was sold) is replaced too. */
   const v56 = beforePhoenix.filter((s) => s.race !== 9);
-  assert.ok(isPreviousNdccSponsors(v56));
-  assert.deepEqual(withNdccSponsors(v56).map((s) => s.race), [1, 5, 6, 7, 9, 11]);
+  assert.ok(isPreviousNightSponsors(v56));
+  assert.deepEqual(withNightSponsors(v56).map((s) => s.race), [1, 5, 6, 7, 9, 11]);
   /* A logo changed in Admin is an edit: it is kept while race 9 is added. */
   const crestOnly = v56.map((s) => (s.race === 11 ? { ...s, logo: 'none' } : s));
-  assert.ok(!isPreviousNdccSponsors(crestOnly));
-  const kept = withNdccSponsors(crestOnly);
+  assert.ok(!isPreviousNightSponsors(crestOnly));
+  const kept = withNightSponsors(crestOnly);
   assert.equal(kept.find((s) => s.race === 11)?.logo, 'none');
   assert.ok(kept.some((s) => s.race === 9));
 });
@@ -104,7 +104,7 @@ test('a night saved with the old eight races of eleven takes the eleven races of
 test('loading the orders onto a card with names typed keeps those names', () => {
   const card = freshCard();
   card.names[0] = 'Mucus Bolt';
-  const filled = withNdccRoster(card);
+  const filled = withNightRoster(card);
   assert.equal(filled.names[0], 'Mucus Bolt');
   assert.equal(filled.names[1], 'Snailey Cyrus');
 });
@@ -136,15 +136,15 @@ test('on a circuit the snail speed puts more laps in the same race time', () => 
 });
 
 test('loading the orders leaves the snails of a held race alone', () => {
-  const card = { ...ndccCard(), names: [] as string[], owners: [] as string[] };
-  const filled = withNdccRoster(card, false, new Set([1, 2, 3]));
+  const card = { ...nightCard(), names: [] as string[], owners: [] as string[] };
+  const filled = withNightRoster(card, false, new Set([1, 2, 3]));
   assert.equal(filled.names[0] ?? '', '');
   assert.equal(filled.names[2] ?? '', '');
   assert.ok(filled.names[3]);
 });
 
 test('a saved sponsor list gains the sold races it leaves out, and an old untouched list is replaced', () => {
-  const edited = withNdccSponsors([{ race: 5, name: 'NDCC Women', title: 'Typed' }]);
+  const edited = withNightSponsors([{ race: 5, name: 'NDCC Women', title: 'Typed' }]);
   assert.deepEqual(edited.map((s) => s.race), [1, 5, 6, 7, 9, 11]);
   assert.equal(edited.find((s) => s.race === 5)?.name, 'NDCC Women', 'a race typed by hand keeps what was typed');
   assert.equal(edited.find((s) => s.race === 11)?.name, 'Elyod Roof Tiling');
@@ -163,9 +163,9 @@ test('a logo chosen in Admin always shows, even for a club team; otherwise a clu
 });
 
 test('every race has its own track, length, laps and surprises, and race 11 is the Final', () => {
-  const event = { ...freshState(), card: ndccCard() };
+  const event = { ...freshState(), card: nightCard() };
   const races = Array.from({ length: 11 }, (_, i) => raceSettings(event, i + 1));
-  assert.equal(NDCC_RACE_PLAN.length, 11);
+  assert.equal(NIGHT_RACE_PLAN.length, 11);
   /* All five track designs are used, and no two races in a row share a design. */
   assert.equal(new Set(races.map((r) => r.design)).size, 5);
   for (let i = 1; i < races.length; i++) assert.notEqual(races[i].design, races[i - 1].design);
@@ -176,7 +176,7 @@ test('every race has its own track, length, laps and surprises, and race 11 is t
   assert.equal(races[10].title, 'Final 11');
   assert.ok(races.slice(0, 10).every((r) => r.raceType !== 'Final'));
   /* A saved card with no race settings takes the plan; one with a setting chosen in Admin keeps it. */
-  const bare = { ...ndccCard(), races: ndccCard().races.map(() => ({ runners: 8 })) };
-  assert.equal(withNdccRacePlan(bare)?.races[10].raceType, 'Final');
-  assert.equal(withNdccRacePlan({ ...bare, races: bare.races.map((r, i) => (i === 3 ? { ...r, laps: 4 } : r)) }), null);
+  const bare = { ...nightCard(), races: nightCard().races.map(() => ({ runners: 8 })) };
+  assert.equal(withNightRacePlan(bare)?.races[10].raceType, 'Final');
+  assert.equal(withNightRacePlan({ ...bare, races: bare.races.map((r, i) => (i === 3 ? { ...r, laps: 4 } : r)) }), null);
 });

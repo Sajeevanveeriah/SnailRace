@@ -35,7 +35,7 @@ import { newId, nowMs } from '@/lib/ids';
 import { useDonations } from '@/lib/use-donations';
 import { useRace, type RaceController } from '@/lib/use-race';
 import { funChipPoolsFor } from '@/lib/tote';
-import { resolveRaceSponsor } from '@/lib/ndcc-night';
+import { resolveRaceSponsor } from '@/lib/night-card';
 import { money } from '@/lib/money';
 import { MAX_FIELD, MIN_LIVE_FIELD } from '@/lib/palette';
 import { courseById } from '@/lib/courses';

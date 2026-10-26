@@ -14,10 +14,12 @@ export function SponsorReel({ raceNo, seconds = 3.5, running = true }: { raceNo:
   const sponsors = sponsorsFromRace(raceNo);
   const [index, setIndex] = useState(0);
   useEffect(() => {
-    if (!running) return;
+    if (!running || !sponsors.length) return;
     const t = window.setInterval(() => setIndex((i) => (i + 1) % sponsors.length), seconds * 1000);
     return () => window.clearInterval(t);
   }, [raceNo, seconds, sponsors.length, running]);
+  /* A club with no sponsor logos has no reel. */
+  if (!sponsors.length) return null;
   return (
     <aside className="sponsor-slate" aria-label="Our club sponsors">
       <p className="sponsor-slate-kicker">Proudly supported by</p>

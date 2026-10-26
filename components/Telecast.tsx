@@ -43,6 +43,7 @@ import {
 } from './race-broadcast/twist-staging';
 import { CIRCUIT_LAYOUT, circuitLayoutFor, type CircuitLayout } from './race-broadcast/circuit-layout';
 import { fieldSpread, gateStagger, lapsDown, lapsDownText, placeTag, snailNumber } from './race-broadcast/standings-format';
+import { CLUB } from '@/lib/club';
 
 interface Props {
   names: string[];
@@ -1083,7 +1084,7 @@ function CourseArt({
           <g className="course-plate" aria-hidden="true">
             <rect x="520" y="310" width="160" height="100" rx="12" fill="#bfae78" opacity=".32" />
             <text className="course-club-mark" x="600" y="374" textAnchor="middle">
-              NDCC
+              {CLUB.shortName}
             </text>
           </g>
         ) : null}

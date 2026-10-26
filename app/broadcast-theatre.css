@@ -2,9 +2,10 @@
 @import './circuit-broadcast.css';
 
 :root {
-  --ndcc-maroon: #b3141c;
-  --ndcc-blue: #1c4fa0;
-  --ndcc-gold: #e8b55e;
+  /* The club's colours come from its profile (app/layout.tsx); NDCC's are the fallback. */
+  --ndcc-maroon: var(--club-primary, #b3141c);
+  --ndcc-blue: var(--club-secondary, #1c4fa0);
+  --ndcc-gold: var(--club-accent, #e8b55e);
   --broadcast-ink: #07111e;
   --broadcast-panel: #0b1b2e;
   --broadcast-type: #f7f3e8;

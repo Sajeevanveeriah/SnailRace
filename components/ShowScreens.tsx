@@ -1,7 +1,8 @@
 'use client';
 
 import { SponsorLogo } from './SponsorLogo';
-import { resolveRaceSponsor } from '@/lib/ndcc-night';
+import { resolveRaceSponsor } from '@/lib/night-card';
+import { CLUB, clubImage } from '@/lib/club';
 import { useEffect, useState } from 'react';
 import { DonateQr } from './DonateQr';
 import { ClubBrand } from './brand/ClubBrand';
@@ -20,7 +21,11 @@ import { SURPRISE_LEVEL_NAMES, lengthPhrase, raceSettings, snailOfLane } from '@
 import { designNameOf } from '@/lib/courses';
 import type { EventState, ShowPhase } from '@/lib/types';
 
-const POSTER = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/brand/20261003-NDCC-Snail-Racing-Poster-Rev00.webp`;
+/* The club's poster art; a club without one shows its crest in the same place. */
+const POSTER = clubImage(CLUB.poster ?? CLUB.crest);
+const POSTER_FOCUS = (CLUB.poster && CLUB.posterFocus
+  ? { '--poster-zoom': CLUB.posterFocus.zoom, '--poster-shift': `${CLUB.posterFocus.shiftY}%` }
+  : {}) as React.CSSProperties;
 const ART_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/art`;
 
 /** What the projector shows outside a race: a phase screen, the holding card, or nothing. */
@@ -222,9 +227,9 @@ function Lobby({ event, snailLinkUrl }: { event: EventState; snailLinkUrl: strin
             <span className="ss-poster-call">Back your snail.<br />Cheer it home.</span>
           </div>
         </div>
-        <div className="ss-poster-art" aria-hidden="true">
+        <div className="ss-poster-art" aria-hidden="true" style={POSTER_FOCUS}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={POSTER} alt="" width={900} height={1125} />
+          <img src={POSTER.src} alt="" width={POSTER.width} height={POSTER.height} />
         </div>
         {when ? <p className="ss-poster-when num">{when}</p> : null}
       </div>

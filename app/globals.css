@@ -29,7 +29,7 @@
   --color-accent-bright: #2997ff;
   --color-mint: #6ee7b7;
   --color-lime: #b7e43b;
-  --color-gold: #e8b55e;
+  --color-gold: var(--club-accent, #e8b55e);
 
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -90,7 +90,7 @@
 
   --ok: #6ee7a0;
   --bad: #ff9d94;
-  --gold: #e8b55e;
+  --gold: var(--club-accent, #e8b55e);
 
   color-scheme: dark;
 }
@@ -1354,7 +1354,7 @@ kbd {
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #a81d2f;
+  color: color-mix(in srgb, var(--club-primary, #b3141c) 94%, #000);
 }
 .sponsor-reel-stage { position: relative; flex: 1; min-height: 14rem; display: grid; overflow: hidden; }
 .sponsor-reel-slide {
@@ -1375,7 +1375,7 @@ kbd {
 }
 .sponsor-reel-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .sponsor-reel-dots li { width: 8px; height: 8px; border-radius: 50%; background: #1b1a1930; }
-.sponsor-reel-dots li.on { background: #a81d2f; }
+.sponsor-reel-dots li.on { background: color-mix(in srgb, var(--club-primary, #b3141c) 94%, #000); }
 @media (prefers-reduced-motion: reduce) {
   .sponsor-reel, .sponsor-reel-slide { animation: none; }
 }
@@ -1760,7 +1760,7 @@ kbd {
   font-weight: 800;
   letter-spacing: 0.14em;
 }
-.tv-finish .tv-gantry-plate { fill: #b3141c; stroke: rgba(255, 255, 255, 0.3); }
+.tv-finish .tv-gantry-plate { fill: var(--club-primary, #b3141c); stroke: rgba(255, 255, 255, 0.3); }
 
 /* ── The snails ───────────────────────────────────────────────────────── */
 
@@ -1872,7 +1872,7 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 0.5em;
-  background: #b3141c;
+  background: var(--club-primary, #b3141c);
   border-color: rgba(255, 255, 255, 0.28);
   color: #fff;
 }
@@ -1971,7 +1971,7 @@ kbd {
   display: flex;
   align-items: center;
   padding: 0 1em;
-  background: #b3141c;
+  background: var(--club-primary, #b3141c);
   color: #fff;
   font-size: clamp(10px, 0.95vw, 16px);
   font-weight: 800;
@@ -2138,7 +2138,7 @@ kbd {
 .state-running,
 .state-confirming {
   color: #fff;
-  background: #b3141c;
+  background: var(--club-primary, #b3141c);
   border-color: rgba(255, 255, 255, 0.28);
 }
 .state-done { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
@@ -2271,7 +2271,7 @@ kbd {
   font-weight: 800;
   letter-spacing: 0.16em;
   color: #fff;
-  background: #b3141c;
+  background: var(--club-primary, #b3141c);
 }
 .show-rehearsal {
   border-radius: 8px;
@@ -2468,7 +2468,7 @@ kbd {
 .sponsor-logo-art { display: block; box-sizing: border-box; width: calc(var(--u, 12px) * 9); height: calc(var(--u, 12px) * 4.4); padding: calc(var(--u, 12px) * 0.3); border-radius: calc(var(--u, 12px) * 0.5); background: #fff; overflow: hidden; flex: none; }
 .sponsor-logo-art img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .sponsor-logo figcaption { display: grid; gap: calc(var(--u, 12px) * 0.1); line-height: 1.1; min-width: 0; }
-.sponsor-logo-kicker { font-size: calc(var(--u, 12px) * 0.95); font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #7a1424; }
+.sponsor-logo-kicker { font-size: calc(var(--u, 12px) * 0.95); font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--club-primary, #b3141c) 68%, #000); }
 .sponsor-logo-name { font-size: calc(var(--u, 12px) * 2.2); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sponsor-logo-title { font-size: calc(var(--u, 12px) * 1.1); font-weight: 700; color: #5a4a30; }
 .ss-rc-sponsor { margin-left: auto; }

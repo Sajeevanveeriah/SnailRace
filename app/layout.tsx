@@ -3,6 +3,7 @@ import './globals.css';
 import './broadcast-theatre.css';
 import './moderator-desk.css';
 import './show-screens.css';
+import { CLUB, clubImage } from '@/lib/club';
 
 const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
 const fallbackSiteUrl = 'https://sajeevanveeriah.github.io/SnailRace';
@@ -15,28 +16,25 @@ const metadataBase = (() => {
     return new URL(fallbackSiteUrl);
   }
 })();
-const clubLogo = new URL(
-  `${basePath || '/SnailRace'}/brand/20260403-NDCC-Logo-Bg-Removed-Rev00.png`,
-  metadataBase.origin,
-).toString();
-
-const poster = new URL(
-  `${basePath || '/SnailRace'}/brand/20261021-NDCC-Snail-Racing-Poster-Share-Rev00.webp`,
-  metadataBase.origin,
-).toString();
+/* Absolute URLs for link previews. The pages export resolves under /SnailRace. */
+const absolute = (src: string): string =>
+  new URL(basePath ? src : `/SnailRace${src}`, metadataBase.origin).toString();
+const crest = clubImage(CLUB.crest);
+const clubLogo = absolute(crest.src);
+const share = clubImage(CLUB.shareImage ?? CLUB.poster ?? CLUB.crest);
+const poster = absolute(share.src);
+const title = [CLUB.event.name, CLUB.event.tagline].filter(Boolean).join(' - ');
 
 export const metadata: Metadata = {
   metadataBase,
-  title: 'Snail Racing - A Night at the Races | Newcomb & District Cricket Club',
-  description:
-    'Newcomb & District Cricket Club presents Snail Racing: a night at the races, Saturday 24 October 2026 from 7 pm at the club rooms. Buy a snail, name it, cheer it home. Slow race, big cheers.',
-  applicationName: 'NDCC Snail Race',
+  title: `${title} | ${CLUB.name}`,
+  description: CLUB.event.description,
+  applicationName: `${CLUB.shortName} Snail Race`,
   openGraph: {
-    title: 'Snail Racing - A Night at the Races',
-    description:
-      'Saturday 24 October 2026 from 7 pm at the NDCC club rooms. Buy a snail, name it, cheer it home.',
+    title,
+    description: CLUB.event.description,
     type: 'website',
-    images: [{ url: poster, width: 900, height: 1125, alt: 'NDCC Snail Racing poster: Saturday 24 October, from 7 pm, club rooms. Buy a snail, back it, cheer it home.' }],
+    images: [{ url: poster, width: share.width, height: share.height, alt: `${CLUB.name} ${CLUB.event.name}` }],
   },
   icons: {
     icon: clubLogo,
@@ -47,7 +45,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f6f4f4' },
-    { media: '(prefers-color-scheme: dark)', color: '#5d1b27' },
+    { media: '(prefers-color-scheme: dark)', color: CLUB.colours.primary },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -61,9 +59,17 @@ export const viewport: Viewport = {
  */
 const themeInit = `(function(){try{var t=localStorage.getItem('ndcc-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}})()`;
 
+/* The club's colours, read by every stylesheet through --club-primary and --club-accent. */
+const clubColours = {
+  '--club-primary': CLUB.colours.primary,
+  '--club-accent': CLUB.colours.accent,
+  ...(CLUB.colours.secondary ? { '--club-secondary': CLUB.colours.secondary } : {}),
+  ...(CLUB.colours.highlight ? { '--club-highlight': CLUB.colours.highlight } : {}),
+} as React.CSSProperties;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-AU" suppressHydrationWarning>
+    <html lang="en-AU" suppressHydrationWarning style={clubColours}>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
         {children}

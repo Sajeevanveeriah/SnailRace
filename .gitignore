@@ -17,3 +17,7 @@ playwright-report/
 AGENTS.md
 CLAUDE.md
 .wrangler/
+
+# Written by scripts/club.mjs for the club being built.
+clubs/active.ts
+public/club/

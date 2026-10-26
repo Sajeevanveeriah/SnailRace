@@ -3,6 +3,7 @@ import { getStripe, META, APP_TAG } from '@/lib/stripe';
 import { MIN_DONATION_CENTS, MAX_DONATION_CENTS } from '@/lib/money';
 import { MAX_FIELD } from '@/lib/palette';
 import { checkOrigin } from '@/lib/server-origin';
+import { CLUB } from '@/lib/club';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -148,7 +149,7 @@ export async function POST(request: Request) {
             product_data: {
               name: `Backing ${snailName} - Race ${raceNo}`,
               description:
-                'Donation to the Newcomb & District Cricket Club. Every snail has an equal chance; donations never influence the result and are not a wager.',
+                `Donation to the ${CLUB.name}. Every snail has an equal chance; donations never influence the result and are not a wager.`,
             },
           },
         },

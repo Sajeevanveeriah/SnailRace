@@ -1,21 +1,26 @@
 {
   "name": "ndcc-snail-race",
-  "version": "5.6.0",
+  "version": "5.7.0",
   "private": true,
-  "description": "Snail Racing Fundraiser for the Newcomb & District Cricket Club - live race stage, Stripe donations and moderator console.",
+  "description": "Snail Racing fundraiser for sports clubs - live race stage, Stripe donations and moderator console. One codebase, one profile per club (clubs/<id>).",
   "scripts": {
-    "predev": "node scripts/audio-manifest.mjs",
+    "predev": "node scripts/club.mjs use && node scripts/audio-manifest.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/audio-manifest.mjs",
+    "prebuild": "node scripts/club.mjs use && node scripts/audio-manifest.mjs",
     "build": "next build",
     "start": "next start",
+    "prelint": "node scripts/club.mjs use",
     "lint": "eslint .",
+    "pretypecheck": "node scripts/club.mjs use",
     "typecheck": "tsc --noEmit",
+    "pretest": "node scripts/club.mjs use",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:cloudflare": "node --experimental-strip-types cloudflare/test/contract-probe.ts",
+    "pretest:e2e": "node scripts/club.mjs use",
     "test:e2e": "playwright test",
     "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh",
-    "test:release": "npm run typecheck && npm run lint && npm test && npm run test:cloudflare && npm run test:e2e"
+    "test:release": "npm run typecheck && npm run lint && npm test && npm run test:cloudflare && npm run test:e2e",
+    "club": "node scripts/club.mjs"
   },
   "dependencies": {
     "next": "^16.4.3",

@@ -1,15 +1,11 @@
 import Image from 'next/image';
 
-const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
+import { CLUB, clubImage } from '@/lib/club';
 
-export const CLUB_NAME = 'Newcomb & District Cricket Club';
+export const CLUB_NAME = CLUB.name;
 
-export const CLUB_LOGO = {
-  src: `${BASE_PATH}/brand/20260403-NDCC-Logo-Bg-Removed-Rev00.png`,
-  width: 1184,
-  height: 896,
-  alt: `${CLUB_NAME} crest`,
-} as const;
+/** The club's crest, from its profile (`clubs/<id>/club.ts`). */
+export const CLUB_LOGO = { ...clubImage(CLUB.crest), alt: `${CLUB_NAME} crest` } as const;
 
 export interface ClubBrandProps {
   className?: string;
@@ -25,7 +21,7 @@ const classNames = (...values: Array<string | undefined | false>): string =>
   values.filter(Boolean).join(' ');
 
 /**
- * The approved club crest and optional text lock-up.
+ * The club crest and optional text lock-up.
  *
  * The public URL includes Next's configured base path, so the same component
  * works on a server deployment and the `/SnailRace` GitHub Pages export.

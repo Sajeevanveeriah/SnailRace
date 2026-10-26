@@ -49,6 +49,7 @@ import type {
 } from './types';
 import type { CourseId } from './courses';
 import { MAX_FIELD, MIN_LIVE_FIELD } from './palette';
+import { CLUB } from './club';
 
 /** mulberry32: small, fast, fully deterministic from a 32-bit seed. */
 export function mulberry32(a: number): () => number {
@@ -3150,7 +3151,7 @@ export const REACTION_LINES = {
     'Well, I did not see that coming!',
     'What is going on out there?',
     'Absolute chaos, and I love it!',
-    'Only at Newcomb!',
+    `Only at ${CLUB.place}!`,
     'The stewards will want a look at that!',
   ],
 } as const;

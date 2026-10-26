@@ -20,7 +20,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent / 'public'
 ART_DIRS = [ROOT / 'art' / 'snails', ROOT / 'art' / 'surprises']
-CREST = ROOT / 'brand' / '20260403-NDCC-Logo-Bg-Removed-Rev00.png'
+CREST = ROOT.parent / 'clubs' / 'ndcc' / 'assets' / 'brand' / '20260403-NDCC-Logo-Bg-Removed-Rev00.png'
 LONG_SIDE = 768
 WEBP_QUALITY = 85
 CREST_WIDTH = 592
@@ -67,7 +67,7 @@ def main() -> int:
         before, after = crest()
         total_before += before
         total_after += after
-        print(f'{CREST.relative_to(ROOT)}  {before:>9,} -> {after:>8,} bytes')
+        print(f'{CREST.relative_to(ROOT.parent)}  {before:>9,} -> {after:>8,} bytes')
     print(f'total {total_before:,} -> {total_after:,} bytes')
     return 0
 
