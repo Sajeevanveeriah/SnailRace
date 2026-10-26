@@ -59,17 +59,28 @@ export const viewport: Viewport = {
  */
 const themeInit = `(function(){try{var t=localStorage.getItem('ndcc-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}})()`;
 
-/* The club's colours, read by every stylesheet through --club-primary and --club-accent. */
-const clubColours = {
+/*
+ * The club's colours, read by every stylesheet through --club-primary and
+ * --club-accent. A <style> element rather than an inline style, so the
+ * moderator desk window, which copies the page's stylesheets, carries them
+ * too. Only #rrggbb values get through.
+ */
+const clubColours = `:root{${Object.entries({
   '--club-primary': CLUB.colours.primary,
   '--club-accent': CLUB.colours.accent,
-  ...(CLUB.colours.secondary ? { '--club-secondary': CLUB.colours.secondary } : {}),
-  ...(CLUB.colours.highlight ? { '--club-highlight': CLUB.colours.highlight } : {}),
-} as React.CSSProperties;
+  '--club-secondary': CLUB.colours.secondary,
+  '--club-highlight': CLUB.colours.highlight,
+})
+  .filter(([, value]) => value && /^#[0-9a-f]{6}$/i.test(value))
+  .map(([name, value]) => `${name}:${value}`)
+  .join(';')}}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-AU" suppressHydrationWarning style={clubColours}>
+    <html lang="en-AU" suppressHydrationWarning>
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: clubColours }} />
+      </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
         {children}
