@@ -7,7 +7,8 @@ import { canonicalAuditEntry, sha256Hex } from './audit';
 import { DEFAULT_CASH_TOTE, normaliseCashTote } from './cash-tote';
 import { DEFAULT_CARD, DEFAULT_RACE_TYPE, RACES_ON_CARD, SNAILS_PER_RACE, freshCard, normaliseCard, snailCountLock } from './card';
 import type { CardState } from './card';
-import { NDCC_NIGHT_RACES, NDCC_NIGHT_SNAILS, ndccCard, ndccRaceSponsors, normaliseRaceSponsors, upgradeNdccCard, withNdccRacePlan, withNdccSponsors } from './ndcc-night';
+import { HAS_NIGHT_CARD, NIGHT_RACES, NIGHT_SNAILS, nightCard, nightRaceSponsors, normaliseRaceSponsors, upgradePreviousNightCard, withNightRacePlan, withNightSponsors } from './night-card';
+import { CLUB } from './club';
 import { DEFAULT_QUADDIE, normaliseQuaddie, validQuaddieEntry } from './quaddie';
 import type {
   AuctionBid,
@@ -56,13 +57,13 @@ function newEventId(): string {
 }
 
 /**
- * A fresh night in the browser starts from the club's sold card (see
- * `ndcc-night.ts`). Unit tests run without a window, and the browser tests
+ * A fresh night in the browser starts from the club's sold card, when its
+ * profile has one (see `night-card.ts`). Unit tests run without a window, and the browser tests
  * build with NEXT_PUBLIC_NIGHT_PRESET=off, so both keep the generic card of
  * one hundred numbered snails they were written against.
  */
 const nightPreset = (): boolean =>
-  typeof window !== 'undefined' && process.env.NEXT_PUBLIC_NIGHT_PRESET !== 'off';
+  HAS_NIGHT_CARD && typeof window !== 'undefined' && process.env.NEXT_PUBLIC_NIGHT_PRESET !== 'off';
 
 /** Bounds on the snail speed setting, as a multiple of the standard pace. */
 export const SNAIL_SPEED_MIN = 0.5;
@@ -74,20 +75,20 @@ export const clampSnailSpeed = (value: unknown): number => {
 };
 
 export function freshState(preset: boolean = nightPreset()): EventState {
-  const card = preset ? ndccCard() : freshCard();
+  const card = preset ? nightCard() : freshCard();
   return {
     version: 4,
     eventId: newEventId(),
-    clubName: 'Newcomb & District Cricket Club',
-    eventName: 'Snail Racing',
-    eventTagline: 'A night at the races',
-    eventDate: '2026-10-24',
-    startTime: '19:00',
-    venue: 'Club rooms',
+    clubName: CLUB.name,
+    eventName: CLUB.event.name,
+    eventTagline: CLUB.event.tagline,
+    eventDate: CLUB.event.date,
+    startTime: CLUB.event.startTime,
+    venue: CLUB.event.venue,
     backingCents: card.snailCents,
-    timezone: 'Australia/Melbourne',
+    timezone: CLUB.event.timezone,
     eventMode: 'live',
-    plannedRaces: preset ? NDCC_NIGHT_RACES : RACES_ON_CARD,
+    plannedRaces: preset ? NIGHT_RACES : RACES_ON_CARD,
     championshipScreens: false,
     rehearsal: false,
     showPhase: 'lobby',
@@ -100,7 +101,7 @@ export function freshState(preset: boolean = nightPreset()): EventState {
     voidRecovery: null,
     fieldSize: SNAILS_PER_RACE,
     names: DEFAULT_NAMES.slice(),
-    goalCents: 100_000,
+    goalCents: CLUB.event.goalCents,
     goalShow: false,
     /* Thirty seconds, one of the listed lengths: on the straight that is the
        whole race; switch a circuit on and it becomes the lap length. */
@@ -115,7 +116,7 @@ export function freshState(preset: boolean = nightPreset()): EventState {
     raceType: DEFAULT_RACE_TYPE,
     raceNumber: 0,
     sponsors: [],
-    raceSponsors: preset ? ndccRaceSponsors() : [],
+    raceSponsors: preset ? nightRaceSponsors() : [],
     snailSpeed: 1,
     runnerSponsors: [],
     card,
@@ -342,7 +343,7 @@ function merge(raw: string | null): EventState {
        on the card and nothing run or sold against it, takes the sold card. */
     const untouched = !card.names.some((name) => name.trim()) && !card.owners.some((owner) => owner.trim());
     const loadOrders = nightPreset() && untouched && !tied && !Object.keys(card.claims).length;
-    if (loadOrders) card = { ...ndccCard(), paymentLinkUrl: card.paymentLinkUrl, paymentLinkMinted: card.paymentLinkMinted };
+    if (loadOrders) card = { ...nightCard(), paymentLinkUrl: card.paymentLinkUrl, paymentLinkMinted: card.paymentLinkMinted };
     /* A night saved with the club's card in eight races of eleven, with
        nothing run or sold against it, takes the website's eleven races of
        eight, keeping every name typed since. */
@@ -359,11 +360,11 @@ function merge(raw: string | null): EventState {
         },
         heldRaceStart !== null,
       ) !== '' || live<{ void?: boolean; settled?: boolean }>(parsed.bets).some((b) => !b.void && !b.settled);
-    const upgraded = nightPreset() && !tiedToLanes && !loadOrders ? upgradeNdccCard(card) : null;
+    const upgraded = nightPreset() && !tiedToLanes && !loadOrders ? upgradePreviousNightCard(card) : null;
     if (upgraded) card = upgraded;
     /* The club's card saved before the run sheet was set takes it, while no race has run or is armed. */
     const raced = live<{ void?: boolean }>(parsed.history).some((h) => !h.void) || heldRaceStart !== null;
-    const planned = nightPreset() && !raced ? withNdccRacePlan(card) : null;
+    const planned = nightPreset() && !raced ? withNightRacePlan(card) : null;
     if (planned) card = planned;
     const audioMode: AudioMode = audioModes.includes(parsed.audioMode as AudioMode)
       ? (parsed.audioMode as AudioMode)
@@ -468,10 +469,10 @@ function merge(raw: string | null): EventState {
          hand gains the sold races it leaves out. A night saved before
          per-race sponsors takes the sold ones only when it is this card. */
       raceSponsors: Array.isArray(parsed.raceSponsors)
-        ? nightPreset() && card.snailCount === NDCC_NIGHT_SNAILS
-          ? withNdccSponsors(normaliseRaceSponsors(parsed.raceSponsors))
+        ? nightPreset() && card.snailCount === NIGHT_SNAILS
+          ? withNightSponsors(normaliseRaceSponsors(parsed.raceSponsors))
           : normaliseRaceSponsors(parsed.raceSponsors)
-        : loadOrders || card.snailCount === NDCC_NIGHT_SNAILS
+        : loadOrders || (HAS_NIGHT_CARD && card.snailCount === NIGHT_SNAILS)
           ? base.raceSponsors
           : [],
       snailSpeed: clampSnailSpeed(parsed.snailSpeed ?? base.snailSpeed),

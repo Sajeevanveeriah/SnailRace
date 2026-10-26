@@ -1,6 +1,6 @@
 'use client';
 
-import { CLUB_LOGO } from './brand/ClubBrand';
+import { CLUB_LOGO, CLUB_NAME } from './brand/ClubBrand';
 import { sponsorArt } from './SponsorLogo';
 import { sponsorsFromRace } from '@/lib/club-sponsors';
 
@@ -53,7 +53,7 @@ export function RaceSponsorSlate({
             </span>
           ) : null}
         </div>
-        <p className="rs-name">{sponsored ? sponsor.name : art?.name ?? 'Newcomb & District Cricket Club'}</p>
+        <p className="rs-name">{sponsored ? sponsor.name : art?.name ?? CLUB_NAME}</p>
       </div>
     </div>
   );

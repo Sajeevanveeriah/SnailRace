@@ -1,17 +1,19 @@
 import { CLUB_LOGO } from './brand/ClubBrand';
 import { raceSponsorArt } from '@/lib/club-sponsors';
+import { isClubTeam } from '@/lib/club';
+
+export { isClubTeam } from '@/lib/club';
 
 /**
  * A race sponsor's mark, always beside the club crest.
  *
- * A sponsor that is one of the club's own teams (an NDCC team, a Dinos team)
+ * A sponsor that is one of the club's own teams (its profile's
+ * `clubTeamPatterns`; for NDCC an NDCC team or a Dinos team)
  * is the crest and its name. A sponsor that is one of the club's sponsors
  * (or has one chosen for it in Admin) shows that sponsor's logo next to the
  * crest. Any other sponsor shows its name next to the crest: no artwork is
  * made up for a name.
  */
-
-export const isClubTeam = (name: string): boolean => /^\s*ndcc\b/i.test(name) || /\bdinos?\b/i.test(name);
 
 /** The sponsor logo shown beside the crest: one chosen in Admin always wins; a club team has none of its own. */
 export const sponsorArt = (name: string, logo?: string) => {

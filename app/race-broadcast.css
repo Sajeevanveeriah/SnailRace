@@ -12,7 +12,7 @@
 .phone-race-shell {
   --race-maroon: var(--ndcc-maroon, #b3141c);
   /* Dark maroon and teal are sampled from the supplied approved crest. */
-  --race-maroon-deep: #601d29;
+  --race-maroon-deep: color-mix(in srgb, var(--club-primary, #b3141c) 52%, #0b0b10);
   --race-gold: var(--ndcc-gold, #e8b55e);
   --race-teal: #81c3c1;
   --race-cream: #fff9ed;
@@ -1344,7 +1344,7 @@
 .race-broadcast .tv-runner.retired .tv-art { opacity: 0.45; filter: grayscale(1); }
 .race-camera-toggle {
   position: absolute; z-index: 21; left: 22px; top: 266px;
-  padding: 0.55rem 0.85rem; border: 1px solid #e8b55e; border-radius: 6px;
+  padding: 0.55rem 0.85rem; border: 1px solid var(--club-accent, #e8b55e); border-radius: 6px;
   color: #fff; background: #30131b; font: 700 14px/1.2 Arial, sans-serif;
   cursor: pointer;
 }
@@ -1875,7 +1875,7 @@
 .side-splash-warning { background: #ffb81c; color: #2a1a1a; }
 .side-splash-warning .side-splash-kicker { background: #2a1a1a; color: #ffb81c; }
 .side-splash-effect { background: #d7263d; color: #fff; animation: side-splash-slam 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
-.side-splash-effect .side-splash-kicker { background: #fff; color: #b3141c; }
+.side-splash-effect .side-splash-kicker { background: #fff; color: var(--club-primary, #b3141c); }
 .side-splash-effect .side-splash-title { text-shadow: 0 calc(var(--u) * 0.15) 0 rgb(0 0 0 / 0.35); }
 .side-splash-effect.tone-good { background: #1f9d55; }
 .side-splash-effect.tone-good .side-splash-kicker { color: #157a40; }

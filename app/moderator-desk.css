@@ -11,7 +11,7 @@
 .desk-connection span + span { border-left: 1px solid #ffffff30; padding-left: 20px; }
 .desk-sequence { display: flex; list-style: none; gap: 8px; padding: 12px 24px; margin: 0; border-bottom: 1px solid #ffffff24; background: #09131f; overflow-x: auto; }
 .desk-sequence li { flex: 1; min-width: 100px; text-align: center; padding: 10px; border-radius: 4px; color: #c5d0df; }
-.desk-sequence li[aria-current] { background: #691d2b; color: #fff; font-weight: 700; }
+.desk-sequence li[aria-current] { background: color-mix(in srgb, var(--club-primary, #b3141c) 58%, #000); color: #fff; font-weight: 700; }
 .desk-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(270px, 1fr); align-items: start; gap: 20px; max-width: 1500px; margin: 0 auto; padding: 24px; }
 .desk-main { min-width: 0; }
 .desk-pack-tools:not(:empty) { margin-top: 16px; }
@@ -165,7 +165,7 @@ body.projector-audience-on { overflow: hidden; }
 .desk-order li { padding: 9px 0; }
 @media (max-width: 900px) { .desk-order { position: static; max-height: none; } }
 
-.desk-add-race { margin-top: 18px; padding: 14px 16px; border: 1px dashed #e8b55e88; border-radius: 6px; }
+.desk-add-race { margin-top: 18px; padding: 14px 16px; border: 1px dashed color-mix(in srgb, var(--club-accent, #e8b55e) 53%, transparent); border-radius: 6px; }
 .desk-add-race .desk-actions { margin-top: 10px; }
 .desk-add-race .btn { white-space: normal; text-align: left; }
 

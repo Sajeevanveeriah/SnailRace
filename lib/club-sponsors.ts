@@ -1,4 +1,4 @@
-const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
+import { CLUB, clubAsset } from './club';
 
 export interface ClubSponsor {
   name: string;
@@ -6,37 +6,16 @@ export interface ClubSponsor {
 }
 
 /**
- * The club's sponsors, with the logos the club publishes on ndcc.com.au
- * (fetched 19 October 2026). Shown as a rolling advert beside each race's
+ * The club's sponsors and their logos, from the club's profile
+ * (`clubs/<id>/club.ts`). Shown as a rolling advert beside each race's
  * winner and on the fence boards along the straight.
  */
-const SPONSOR_FILES: ReadonlyArray<[name: string, file: string]> = [
-  ['APCO Newcomb', 'Apco-Newcomb'],
-  ['Bennett Racing', 'Bennett-Racing'],
-  ['Blackmans Brewery', 'Blackmans-Brewery'],
-  ['Care Plus Professionals', 'Care-Plus-Professionals'],
-  ['Champion Trophies', 'Champion-Trophies'],
-  ['Conveyancing Professionals', 'Conveyancing-Professionals'],
-  ['Elyod Roof Tiling', 'Elyod-Roof-Tiling'],
-  ['General Public Corio', 'General-Public-Corio'],
-  ['Leopold Sporties', 'Leopold-Sporties'],
-  ['Mahoney Real Estate', 'Mahoney-Real-Estate'],
-  ['MBR Cricket', 'MBR-Cricket'],
-  ['Moolap Tyres', 'Moolap-Tyres'],
-  ['Phoenix Truck Bodies', 'Phoenix-Truck-Bodies'],
-  ['Priceline Pharmacy', 'Priceline-Pharmacy'],
-  ['The Breakwater Hotel', 'The-Breakwater-Hotel'],
-  ['Vagabond Travel', 'Vagabond-Travel'],
-];
-
-export const CLUB_SPONSORS: readonly ClubSponsor[] = SPONSOR_FILES.map(([name, file]) => ({
-  name,
-  src: `${BASE_PATH}/sponsors/20261019-Sponsor-${file}-Rev00.webp`,
-}));
+export const CLUB_SPONSORS: readonly ClubSponsor[] = CLUB.sponsors.map(({ name, file }) => ({ name, src: clubAsset(file) }));
 
 /** A different starting sponsor each race, so every logo gets its turn at the top of the reel. */
 export function sponsorsFromRace(raceNo: number): ClubSponsor[] {
   const n = CLUB_SPONSORS.length;
+  if (!n) return [];
   const start = (((Math.floor(raceNo) - 1) * 3) % n + n) % n;
   return [...CLUB_SPONSORS.slice(start), ...CLUB_SPONSORS.slice(0, start)];
 }

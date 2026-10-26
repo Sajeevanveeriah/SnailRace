@@ -5,6 +5,10 @@
 #
 #   bash scripts/deploy-cloudflare.sh            build and deploy
 #   bash scripts/deploy-cloudflare.sh --dry-run  build and check, no upload
+#
+# For another club, name the club and give its Worker its own name:
+#
+#   CLUB=<id> WORKER_NAME=<id>-snailrace bash scripts/deploy-cloudflare.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -28,4 +32,4 @@ cat > out/_headers <<'HEADERS'
   X-Frame-Options: SAMEORIGIN
 HEADERS
 
-npx --yes wrangler@4.152.0 deploy --config wrangler.site.jsonc "$@"
+npx --yes wrangler@4.152.0 deploy --config wrangler.site.jsonc --name "${WORKER_NAME:-snailrace}" "$@"

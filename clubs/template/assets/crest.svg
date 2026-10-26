@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 480" width="400" height="480">
+  <!-- Placeholder crest for the template club. Replace with the club's own crest (PNG or SVG, transparent background). -->
+  <path d="M200 16 L372 72 V236 C372 352 296 424 200 464 C104 424 28 352 28 236 V72 Z" fill="#1f2a37" stroke="#d9dee5" stroke-width="16"/>
+  <text x="200" y="290" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="128" font-weight="700" fill="#d9dee5">YSC</text>
+</svg>

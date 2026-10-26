@@ -140,7 +140,7 @@ test('show flow isolates the hidden stage and remains accessible', async ({
   await expect(crest).toHaveAttribute('alt', '');
   await expect(crest).toHaveAttribute(
     'src',
-    /\/brand\/20260403-NDCC-Logo-Bg-Removed-Rev00\.png$/,
+    /\/club\/brand\/20260403-NDCC-Logo-Bg-Removed-Rev00\.png$/,
   );
   await expect
     .poll(() => crest.evaluate((image: HTMLImageElement) => image.naturalWidth))

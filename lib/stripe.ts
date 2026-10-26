@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { CLUB } from './club';
 
 /**
  * Stripe is the ledger.
@@ -21,7 +22,7 @@ export function getStripe(): Stripe | null {
   if (!cached) {
     cached = new Stripe(key, {
       apiVersion: '2025-08-27.basil',
-      appInfo: { name: 'NDCC Snail Race Fundraiser', version: '4.1.0' },
+      appInfo: { name: `${CLUB.shortName} Snail Race Fundraiser`, version: '4.1.0' },
       maxNetworkRetries: 2,
     });
   }

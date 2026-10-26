@@ -24,7 +24,7 @@ import { QUICK_AMOUNTS_CENTS, RACE_LENGTHS, SNAIL_SPEEDS, STAGE_THEMES, laneColo
 import { raceMetres } from './sidescroller-geometry';
 import { LAP_LEN } from '@/lib/broadcast';
 import { standingsFrom } from '@/lib/standings';
-import { ndccCard, ndccRaceSponsors, resolveRaceSponsor, withNdccRoster } from '@/lib/ndcc-night';
+import { HAS_NIGHT_CARD, NIGHT_LOAD_LABEL, NIGHT_RACES, NIGHT_RACE_SPONSORS, NIGHT_RUNNERS, NIGHT_SNAILS, nightCard, nightRaceSponsors, resolveRaceSponsor, withNightRoster } from '@/lib/night-card';
 import { CLUB_SPONSORS } from '@/lib/club-sponsors';
 import { verifyDraw } from '@/lib/race-engine';
 import { dateStamp, formattedNow, newId, nowMs } from '@/lib/ids';
@@ -836,36 +836,39 @@ export function ControlDrawer({
                       );
                     })}
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-ghost mt-2"
-                    onClick={() => {
-                      const locked = snailCountLock(event, Boolean(event.heldRaceStart)) !== '';
-                      const ok = window.confirm(
-                        locked
-                          ? 'Load the NDCC orders of 24 October: snail names and owners for numbers that have no name yet, and the six sponsored races. Races already run or at the gate keep their snails and sponsors.'
-                          : 'Load the NDCC orders of 24 October: the card of 88 snails in eleven races of eight, every name and owner, and the six sponsored races. This replaces the names on the card.',
-                      );
-                      if (!ok) return;
-                      if (locked) {
-                        /* A race run or at the gate keeps its snails and its sponsor: its plan and result are sealed. */
-                        const held = runSheetLocks(event.card, tiesOf(event)).filter((l) => l.run || l.armed).map((l) => l.raceNo);
-                        const keep = new Set(held.flatMap((raceNo) => snailsForRace(raceNo, event.card)));
-                        const raceSponsors = [
-                          ...event.raceSponsors.filter((r) => held.includes(r.race)),
-                          ...ndccRaceSponsors().filter((r) => !held.includes(r.race)),
-                        ].sort((x, y) => x.race - y.race);
-                        setState({ card: withNdccRoster(event.card, false, keep), raceSponsors });
-                      }
-                      else {
-                        const card = { ...ndccCard(), paymentLinkUrl: event.card.paymentLinkUrl, paymentLinkMinted: event.card.paymentLinkMinted };
-                        setState({ card, plannedRaces: card.races.length, backingCents: card.snailCents, raceSponsors: ndccRaceSponsors() });
-                      }
-                      say('Loaded the NDCC orders.');
-                    }}
-                  >
-                    Load the NDCC orders (24 Oct)
-                  </button>
+                  {HAS_NIGHT_CARD ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost mt-2"
+                      onClick={() => {
+                        const locked = snailCountLock(event, Boolean(event.heldRaceStart)) !== '';
+                        const sponsored = `${NIGHT_RACE_SPONSORS.length} sponsored ${NIGHT_RACE_SPONSORS.length === 1 ? 'race' : 'races'}`;
+                        const ok = window.confirm(
+                          locked
+                            ? `${NIGHT_LOAD_LABEL}: snail names and owners for numbers that have no name yet, and the ${sponsored}. Races already run or at the gate keep their snails and sponsors.`
+                            : `${NIGHT_LOAD_LABEL}: the card of ${NIGHT_SNAILS} snails in ${NIGHT_RACES} races of ${NIGHT_RUNNERS}, every name and owner, and the ${sponsored}. This replaces the names on the card.`,
+                        );
+                        if (!ok) return;
+                        if (locked) {
+                          /* A race run or at the gate keeps its snails and its sponsor: its plan and result are sealed. */
+                          const held = runSheetLocks(event.card, tiesOf(event)).filter((l) => l.run || l.armed).map((l) => l.raceNo);
+                          const keep = new Set(held.flatMap((raceNo) => snailsForRace(raceNo, event.card)));
+                          const raceSponsors = [
+                            ...event.raceSponsors.filter((r) => held.includes(r.race)),
+                            ...nightRaceSponsors().filter((r) => !held.includes(r.race)),
+                          ].sort((x, y) => x.race - y.race);
+                          setState({ card: withNightRoster(event.card, false, keep), raceSponsors });
+                        }
+                        else {
+                          const card = { ...nightCard(), paymentLinkUrl: event.card.paymentLinkUrl, paymentLinkMinted: event.card.paymentLinkMinted };
+                          setState({ card, plannedRaces: card.races.length, backingCents: card.snailCents, raceSponsors: nightRaceSponsors() });
+                        }
+                        say('Loaded the club\'s card.');
+                      }}
+                    >
+                      {NIGHT_LOAD_LABEL}
+                    </button>
+                  ) : null}
                 </fieldset>
                 <label className="fld">
                   <span>Race sponsors, cycled</span>
