@@ -150,3 +150,7 @@ browser storage. If the same `owner.github.io` origin serves any other site, a
 compromise in that sibling site can cross the project-path boundary. Use a
 dedicated custom production origin for the event site, or treat every sibling
 project on the shared origin as part of the same security boundary.
+
+## Project handoff
+
+Read the [project handoff](../HANDOFF.md) for current work, checks and the next step.

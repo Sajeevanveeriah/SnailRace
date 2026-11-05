@@ -472,3 +472,7 @@ Historical acceptance, readiness, threat-model and broadcast-release files in
 `docs/` are retained as snapshots of earlier builds. Their superseded banners
 identify them; their old test counts and behaviour claims are not evidence for
 this release.
+
+## Project handoff
+
+Read the [project handoff](HANDOFF.md) for current work, checks and the next step.
