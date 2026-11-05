@@ -105,3 +105,7 @@ covered there too - check with whoever books the venue.
 
 Files in this folder are served as-is, so do not put anything here you are not licensed to
 play in public.
+
+## Project handoff
+
+Read the [project handoff](../../HANDOFF.md) for current work, checks and the next step.
